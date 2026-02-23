@@ -39,7 +39,8 @@ import { syncFromRemna, syncToRemna, createRemnaUsersForClientsWithoutUuid } fro
 import { distributeReferralRewards } from "../referral/referral.service.js";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
-import { notifyProxySlotsCreated } from "../notification/telegram-notify.service.js";
+import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
+import { notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
 import { runBroadcast, getBroadcastRecipientsCount } from "../broadcast/broadcast.service.js";
 import { runRule, runAllRules, getEligibleClientIds } from "../auto-broadcast/auto-broadcast.service.js";
@@ -255,7 +256,7 @@ adminRouter.patch("/payments/:id", asyncRoute(async (req, res) => {
     return res.json({ payment: { ...payment, status: "PAID" }, referral: result });
   }
   const now = new Date();
-  const isTopUp = (payment.provider === "yoomoney_form" || payment.provider === "platega" || payment.provider === "yookassa") && !payment.tariffId && !payment.proxyTariffId;
+  const isTopUp = (payment.provider === "yoomoney_form" || payment.provider === "platega" || payment.provider === "yookassa") && !payment.tariffId && !payment.proxyTariffId && !payment.singboxTariffId;
   if (isTopUp) {
     await prisma.$transaction([
       prisma.payment.update({
@@ -287,6 +288,15 @@ adminRouter.patch("/payments/:id", asyncRoute(async (req, res) => {
       await notifyProxySlotsCreated(payment.clientId, proxyResult.slotIds, tariff?.name ?? undefined).catch(() => {});
     } else {
       proxySlots = { ok: false, error: proxyResult.error };
+    }
+  } else if (payment.singboxTariffId) {
+    const singboxResult = await createSingboxSlotsByPaymentId(paymentId);
+    if (singboxResult.ok) {
+      proxySlots = { ok: true, slotsCreated: singboxResult.slotsCreated };
+      const tariff = await prisma.singboxTariff.findUnique({ where: { id: payment.singboxTariffId }, select: { name: true } });
+      await notifySingboxSlotsCreated(payment.clientId, singboxResult.slotIds, tariff?.name ?? undefined).catch(() => {});
+    } else {
+      proxySlots = { ok: false, error: singboxResult.error };
     }
   }
 
@@ -860,6 +870,7 @@ const updateSettingsSchema = z.object({
   trialTrafficLimitBytes: z.number().int().min(0).nullable().optional(),
   serviceName: z.string().max(200).optional(),
   logo: z.string().max(2_000_000).nullable().optional(),
+  logoBot: z.string().max(2_000_000).nullable().optional(),
   favicon: z.string().max(2_000_000).nullable().optional(),
   remnaClientUrl: z.string().max(2000).nullable().optional(),
   smtpHost: z.string().max(255).nullable().optional(),
@@ -1021,6 +1032,14 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "logo" },
       create: { key: "logo", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.logoBot !== undefined) {
+    const val = updates.logoBot ?? "";
+    await prisma.systemSetting.upsert({
+      where: { key: "logo_bot" },
+      create: { key: "logo_bot", value: val },
       update: { value: val },
     });
   }

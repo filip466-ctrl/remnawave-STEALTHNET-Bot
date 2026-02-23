@@ -108,3 +108,37 @@ export async function notifyProxySlotsCreated(clientId: string, slotIds: string[
 
   await sendTelegramToUser(client.telegramId, text);
 }
+
+/**
+ * Отправить уведомление о создании Sing-box слотов (после оплаты).
+ */
+export async function notifySingboxSlotsCreated(clientId: string, slotIds: string[], tariffName?: string): Promise<void> {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  if (!client?.telegramId || slotIds.length === 0) return;
+
+  const slots = await prisma.singboxSlot.findMany({
+    where: { id: { in: slotIds } },
+    select: {
+      userIdentifier: true,
+      secret: true,
+      node: { select: { publicHost: true, port: true, protocol: true, tlsEnabled: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const { buildSingboxSlotSubscriptionLink } = await import("../singbox/singbox-link.js");
+  const name = tariffName?.trim() || "Sing-box";
+  let text = `✅ <b>Доступы «${escapeHtml(name)}»</b> оплачены.\n\n`;
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i]!;
+    const link = buildSingboxSlotSubscriptionLink(
+      { publicHost: s.node.publicHost ?? "", port: s.node.port ?? 443, protocol: s.node.protocol ?? "VLESS", tlsEnabled: s.node.tlsEnabled },
+      { userIdentifier: s.userIdentifier, secret: s.secret },
+      `${name}-${i + 1}`
+    );
+    text += `• <code>${escapeHtml(link)}</code>\n\n`;
+  }
+  text += "Скопируйте ссылку в приложение (v2rayN, Nekoray, Shadowrocket и др.).";
+
+  await sendTelegramToUser(client.telegramId, text);
+}

@@ -10,9 +10,10 @@ import { Router } from "express";
 import { prisma } from "../../db.js";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
+import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 import { distributeReferralRewards } from "../referral/referral.service.js";
-import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated } from "../notification/telegram-notify.service.js";
+import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -36,6 +37,7 @@ type PaymentRow = {
   currency: string;
   tariffId: string | null;
   proxyTariffId: string | null;
+  singboxTariffId: string | null;
   metadata: string | null;
 };
 
@@ -49,6 +51,7 @@ const PAYMENT_SELECT = {
   currency: true,
   tariffId: true,
   proxyTariffId: true,
+  singboxTariffId: true,
   metadata: true,
 } as const;
 
@@ -103,6 +106,7 @@ async function findPlategaPaymentByAnyId(candidateIds: string[]): Promise<Paymen
         currency: byOrder.currency,
         tariffId: byOrder.tariffId,
         proxyTariffId: byOrder.proxyTariffId,
+        singboxTariffId: byOrder.singboxTariffId,
         metadata: byOrder.metadata,
       };
     }
@@ -114,10 +118,10 @@ async function ensureTariffActivation(paymentId: string): Promise<void> {
   const claim = await prisma.$transaction(async (tx) => {
     const row = await tx.payment.findUnique({
       where: { id: paymentId },
-      select: { status: true, tariffId: true, proxyTariffId: true, metadata: true, clientId: true },
+      select: { status: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, metadata: true, clientId: true },
     });
     const hasExtra = hasExtraOptionInMetadata(row?.metadata ?? null);
-    if (!row || row.status !== "PAID" || (!row.tariffId && !row.proxyTariffId && !hasExtra)) {
+    if (!row || row.status !== "PAID" || (!row.tariffId && !row.proxyTariffId && !row.singboxTariffId && !hasExtra)) {
       return { claimed: false as const, reason: "not_paid_or_no_tariff" };
     }
 
@@ -148,7 +152,7 @@ async function ensureTariffActivation(paymentId: string): Promise<void> {
 
   const row = await prisma.payment.findUnique({
     where: { id: paymentId },
-    select: { tariffId: true, proxyTariffId: true, clientId: true, metadata: true },
+    select: { tariffId: true, proxyTariffId: true, singboxTariffId: true, clientId: true, metadata: true },
   });
   const isExtraOption = row ? hasExtraOptionInMetadata(row.metadata) : false;
   let activation: { ok: boolean; error?: string; slotIds?: string[] } = { ok: false };
@@ -160,6 +164,13 @@ async function ensureTariffActivation(paymentId: string): Promise<void> {
     if (activation.ok && activation.slotIds?.length && row.clientId) {
       const tariff = await prisma.proxyTariff.findUnique({ where: { id: row.proxyTariffId! }, select: { name: true } });
       await notifyProxySlotsCreated(row.clientId, activation.slotIds, tariff?.name ?? undefined).catch(() => {});
+    }
+  } else if (row?.singboxTariffId) {
+    const singboxResult = await createSingboxSlotsByPaymentId(paymentId);
+    activation = singboxResult.ok ? { ok: true, slotIds: singboxResult.slotIds } : { ok: false, error: singboxResult.error };
+    if (activation.ok && activation.slotIds?.length && row.clientId) {
+      const tariff = await prisma.singboxTariff.findUnique({ where: { id: row.singboxTariffId }, select: { name: true } });
+      await notifySingboxSlotsCreated(row.clientId, activation.slotIds, tariff?.name ?? undefined).catch(() => {});
     }
   } else {
     activation = await activateTariffByPaymentId(paymentId);

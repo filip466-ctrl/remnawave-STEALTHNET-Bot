@@ -326,25 +326,35 @@ export function ClientSubscribePage() {
                         : btn.link;
                       const label = getText(btn.text, locale);
                       // Кнопка «Добавить подписку» — deeplink (happ://, v2rayng:// и т.д.)
-                      // Кастомные URL-схемы не работают в Telegram WebView и ломают SPA при прямом переходе.
-                      // Решение: промежуточная страница /api/public/deeplink (авто-редирект + fallback-кнопка).
-                      // Для мини-аппа: tg.openLink() открывает URL в системном браузере. Важно использовать
-                      // явный publicAppUrl из конфига, т.к. в Telegram WebView origin может вести на главную.
+                      // Кастомные URL-схемы не работают в Telegram WebView. Решение: страница /api/public/deeplink.
+                      // openLink() требует абсолютный URL; иначе на Android может открыться главная страница.
                       if (isSubscription) {
-                        const baseUrl = (publicAppUrl ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
-                        const deeplinkUrl = `${baseUrl}/api/public/deeplink?url=${encodeURIComponent(href)}`;
+                        const origin =
+                          (publicAppUrl ?? (typeof window !== "undefined" ? window.location.origin : ""))
+                            .replace(/\/$/, "")
+                            .trim();
+                        const baseUrl =
+                          origin && /^https?:\/\//i.test(origin)
+                            ? origin
+                            : typeof window !== "undefined"
+                              ? `${window.location.protocol}//${window.location.host}`
+                              : "";
+                        const skipAuto = isMiniapp ? "&skip_auto=1" : "";
+                        const deeplinkUrl = baseUrl
+                          ? `${baseUrl}/api/public/deeplink?url=${encodeURIComponent(href)}${skipAuto}`
+                          : "#";
                         const handleClick = (e: React.MouseEvent) => {
-                          // Копируем ссылку подписки в буфер
-                          try { navigator.clipboard?.writeText(subscriptionUrl); } catch { /* ignore */ }
-                          const tg = (window as { Telegram?: { WebApp?: { openLink?: (url: string, options?: { try_instant_view?: boolean }) => void; platform?: string } } }).Telegram?.WebApp;
-                          if (tg?.openLink) {
+                          try {
+                            navigator.clipboard?.writeText(subscriptionUrl);
+                          } catch {
+                            /* ignore */
+                          }
+                          const tg = (window as { Telegram?: { WebApp?: { openLink?: (url: string, options?: { try_instant_view?: boolean }) => void } } }).Telegram?.WebApp;
+                          if (tg?.openLink && deeplinkUrl.startsWith("http")) {
                             e.preventDefault();
-                            // try_instant_view: false — открывать во внешнем браузере, а не в Instant View.
-                            // На Android/Windows иначе ссылка может открыться во встроенном браузере Telegram,
-                            // и переход по кастомной схеме (v2rayng:// и т.д.) не сработает.
                             tg.openLink(deeplinkUrl, { try_instant_view: false });
                           }
-                          // Если не мини-апп — ссылка откроется сама (target=_blank)
+                          // Если не мини-апп или нет openLink — сработает target="_blank"
                         };
                         return (
                           <Button key={btnIndex} variant="default" size="sm" className="gap-2 min-h-[44px]" asChild>

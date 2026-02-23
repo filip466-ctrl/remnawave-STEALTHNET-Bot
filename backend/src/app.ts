@@ -7,6 +7,8 @@ import { authRouter } from "./modules/auth/index.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
 import { proxyAdminRouter } from "./modules/proxy/proxy.admin.routes.js";
 import { proxyAgentRouter } from "./modules/proxy/proxy.agent.routes.js";
+import { singboxAdminRouter } from "./modules/singbox/singbox.admin.routes.js";
+import { singboxAgentRouter } from "./modules/singbox/singbox.agent.routes.js";
 import { clientRouter, publicConfigRouter } from "./modules/client/client.routes.js";
 import { remnaWebhooksRouter } from "./modules/webhooks/remna.webhooks.routes.js";
 import { plategaWebhooksRouter } from "./modules/webhooks/platega.webhooks.routes.js";
@@ -43,13 +45,15 @@ const limiter = rateLimit({
 app.use("/api/", limiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.1.6" });
+  res.json({ status: "ok", version: "3.1.8" });
 });
 
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/proxy", proxyAdminRouter);
+app.use("/api/admin/singbox", singboxAdminRouter);
 app.use("/api/proxy-nodes", proxyAgentRouter);
+app.use("/api/singbox-nodes", singboxAgentRouter);
 app.use("/api/client", clientRouter);
 app.use("/api/public", publicConfigRouter);
 app.use("/api/webhooks", remnaWebhooksRouter);

@@ -79,11 +79,39 @@ model Client {
   promoCodeUsages  PromoCodeUsage[]
   autoBroadcastLogs AutoBroadcastLog[]
   proxySlots ProxySlot[]
+  singboxSlots SingboxSlot[]
 
   @@index([telegramId])
   @@index([email])
   @@index([utmSource])
   @@map("clients")
+}
+
+// Одноразовый код для привязки Telegram к аккаунту (сайт → бот)
+model PendingTelegramLink {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  code      String   @unique // 6 символов
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([code])
+  @@index([expiresAt])
+  @@map("pending_telegram_links")
+}
+
+// Ожидание подтверждения привязки email к аккаунту (письмо со ссылкой)
+model PendingEmailLink {
+  id                String   @id @default(cuid())
+  clientId          String   @map("client_id")
+  email             String
+  verificationToken String   @unique @map("verification_token")
+  expiresAt         DateTime @map("expires_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([verificationToken])
+  @@index([expiresAt])
+  @@map("pending_email_links")
 }
 
 // Ожидание подтверждения email при регистрации (ссылка из письма)
@@ -119,6 +147,7 @@ model Payment {
   externalId   String?  @map("external_id")
   tariffId     String?  @map("tariff_id")
   proxyTariffId String? @map("proxy_tariff_id")
+  singboxTariffId String? @map("singbox_tariff_id")
   remnawaveUserId String? @map("remnawave_user_id")
   metadata     String?  @db.Text // JSON
   createdAt    DateTime @default(now()) @map("created_at")
@@ -128,12 +157,14 @@ model Payment {
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tariff Tariff? @relation(fields: [tariffId], references: [id], onDelete: SetNull)
   proxyTariff ProxyTariff? @relation(fields: [proxyTariffId], references: [id], onDelete: SetNull)
+  singboxTariff SingboxTariff? @relation(fields: [singboxTariffId], references: [id], onDelete: SetNull)
   referralCredits ReferralCredit[]
 
   @@index([clientId])
   @@index([status])
   @@index([tariffId])
   @@index([proxyTariffId])
+  @@index([singboxTariffId])
   @@map("payments")
 }
 
@@ -399,4 +430,90 @@ model ProxySlot {
   @@index([proxyTariffId])
   @@index([status])
   @@map("proxy_slots")
+}
+
+// ——— Sing-box ноды и продажа доступов (VLESS / SS / Trojan / Hysteria2) ———
+model SingboxNode {
+  id                  String   @id @default(cuid())
+  name                String   @default("")
+  token               String   @unique
+  status              String   @default("OFFLINE") // ONLINE | OFFLINE | DISABLED
+  lastSeenAt          DateTime? @map("last_seen_at")
+  publicHost          String?  @map("public_host")
+  port                Int      @default(443) @map("port")
+  protocol            String   @default("VLESS")   // VLESS | SHADOWSOCKS | TROJAN | HYSTERIA2
+  tlsEnabled          Boolean  @default(true) @map("tls_enabled")
+  capacity            Int?
+  currentConnections  Int      @default(0) @map("current_connections")
+  trafficInBytes      BigInt   @default(0) @map("traffic_in_bytes")
+  trafficOutBytes     BigInt   @default(0) @map("traffic_out_bytes")
+  metadata            String?  @db.Text
+  customConfigJson    String?  @map("custom_config_json") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  slots SingboxSlot[]
+
+  @@map("singbox_nodes")
+}
+
+model SingboxCategory {
+  id        String   @id @default(cuid())
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tariffs SingboxTariff[]
+
+  @@map("singbox_categories")
+}
+
+model SingboxTariff {
+  id                 String   @id @default(cuid())
+  categoryId         String   @map("category_id")
+  name               String
+  slotCount          Int      @map("slot_count")
+  durationDays       Int      @map("duration_days")
+  trafficLimitBytes  BigInt?  @map("traffic_limit_bytes")
+  price              Float    @default(0)
+  currency           String   @default("usd")
+  sortOrder          Int      @default(0) @map("sort_order")
+  enabled            Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  category SingboxCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  slots    SingboxSlot[]
+
+  @@index([categoryId])
+  @@map("singbox_tariffs")
+}
+
+model SingboxSlot {
+  id                 String   @id @default(cuid())
+  nodeId             String   @map("node_id")
+  clientId           String   @map("client_id")
+  singboxTariffId    String?  @map("singbox_tariff_id")
+  userIdentifier     String   @map("user_identifier") // UUID (VLESS/Trojan) или логин (SS/Hy2)
+  secret             String?  @db.Text                // пароль для SS/Hy2
+  expiresAt          DateTime @map("expires_at")
+  trafficLimitBytes  BigInt?  @map("traffic_limit_bytes")
+  trafficUsedBytes   BigInt   @default(0) @map("traffic_used_bytes")
+  currentConnections Int      @default(0) @map("current_connections")
+  status             String   @default("ACTIVE")     // ACTIVE | EXPIRED | REVOKED
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  node        SingboxNode    @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  singboxTariff SingboxTariff? @relation(fields: [singboxTariffId], references: [id], onDelete: SetNull)
+
+  @@unique([nodeId, userIdentifier])
+  @@index([nodeId])
+  @@index([clientId])
+  @@index([singboxTariffId])
+  @@index([status])
+  @@map("singbox_slots")
 }

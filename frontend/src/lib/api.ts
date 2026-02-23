@@ -30,6 +30,7 @@ export const MANAGER_SECTIONS = [
   { key: "auto-broadcast", label: "Авто-рассылка" },
   { key: "backup", label: "Бэкапы" },
   { key: "proxy", label: "Прокси" },
+  { key: "singbox", label: "Sing-box" },
   { key: "settings", label: "Настройки" },
 ] as const;
 
@@ -230,6 +231,79 @@ export const api = {
 
   async deleteProxySlotAdmin(token: string, id: string): Promise<void> {
     return request(`/admin/proxy/slots/${id}`, { method: "DELETE", token });
+  },
+
+  // ——— Sing-box ноды ———
+  async getSingboxNodes(token: string): Promise<{ items: SingboxNodeListItem[] }> {
+    return request("/admin/singbox/nodes", { token });
+  },
+
+  async createSingboxNode(token: string, data?: { name?: string; protocol?: string; port?: number; tlsEnabled?: boolean }): Promise<CreateSingboxNodeResponse> {
+    return request("/admin/singbox/nodes", { method: "POST", body: JSON.stringify(data ?? {}), token });
+  },
+
+  async getSingboxNode(token: string, id: string): Promise<SingboxNodeDetail> {
+    return request(`/admin/singbox/nodes/${id}`, { token });
+  },
+
+  async updateSingboxNode(
+    token: string,
+    id: string,
+    data: {
+      name?: string;
+      status?: string;
+      capacity?: number | null;
+      port?: number;
+      protocol?: string;
+      tlsEnabled?: boolean;
+      customConfigJson?: string | null;
+    }
+  ): Promise<unknown> {
+    return request(`/admin/singbox/nodes/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
+  async deleteSingboxNode(token: string, id: string): Promise<void> {
+    return request(`/admin/singbox/nodes/${id}`, { method: "DELETE", token });
+  },
+
+  async getSingboxCategories(token: string): Promise<{ items: SingboxCategoryItem[] }> {
+    return request("/admin/singbox/categories", { token });
+  },
+
+  async createSingboxCategory(token: string, data: { name: string; sortOrder?: number }): Promise<{ id: string; name: string; sortOrder: number }> {
+    return request("/admin/singbox/categories", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  async updateSingboxCategory(token: string, id: string, data: { name?: string; sortOrder?: number }): Promise<unknown> {
+    return request(`/admin/singbox/categories/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
+  async deleteSingboxCategory(token: string, id: string): Promise<void> {
+    return request(`/admin/singbox/categories/${id}`, { method: "DELETE", token });
+  },
+
+  async getSingboxTariffs(token: string, categoryId?: string): Promise<{ items: SingboxTariffListItem[] }> {
+    const q = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
+    return request(`/admin/singbox/tariffs${q}`, { token });
+  },
+
+  async createSingboxTariff(
+    token: string,
+    data: { categoryId: string; name: string; slotCount: number; durationDays: number; trafficLimitBytes?: string | number | null; price: number; currency: string; sortOrder?: number; enabled?: boolean }
+  ): Promise<unknown> {
+    return request("/admin/singbox/tariffs", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  async updateSingboxTariff(
+    token: string,
+    id: string,
+    data: { categoryId?: string; name?: string; slotCount?: number; durationDays?: number; trafficLimitBytes?: string | number | null; price?: number; currency?: string; sortOrder?: number; enabled?: boolean }
+  ): Promise<unknown> {
+    return request(`/admin/singbox/tariffs/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
+  async deleteSingboxTariff(token: string, id: string): Promise<void> {
+    return request(`/admin/singbox/tariffs/${id}`, { method: "DELETE", token });
   },
 
   /** Скачивает CSV со списком прокси-слотов. */
@@ -601,7 +675,7 @@ export const api = {
 
   async clientCreatePlategaPayment(
     token: string,
-    data: { amount?: number; currency?: string; paymentMethod: number; description?: string; tariffId?: string; proxyTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+    data: { amount?: number; currency?: string; paymentMethod: number; description?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
   ): Promise<{ paymentUrl: string; orderId: string; paymentId: string; discountApplied?: boolean; finalAmount?: number }> {
     return request("/client/payments/platega", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -617,11 +691,25 @@ export const api = {
     return request("/public/proxy-tariffs");
   },
 
+  /** Публичный список тарифов Sing-box по категориям */
+  async getPublicSingboxTariffs(): Promise<{
+    items: { id: string; name: string; sortOrder: number; tariffs: { id: string; name: string; slotCount: number; durationDays: number; trafficLimitBytes: string | null; price: number; currency: string }[] }[];
+  }> {
+    return request("/public/singbox-tariffs");
+  },
+
   /** Активные прокси-слоты клиента */
   async getProxySlots(token: string): Promise<{
     slots: { id: string; login: string; password: string; host: string; socksPort: number; httpPort: number; expiresAt: string; trafficLimitBytes: string | null; trafficUsedBytes: string; connectionLimit: number | null }[];
   }> {
     return request("/client/proxy-slots", { token });
+  },
+
+  /** Активные Sing-box слоты клиента (с ссылкой подписки) */
+  async getSingboxSlots(token: string): Promise<{
+    slots: { id: string; subscriptionLink: string; expiresAt: string; trafficLimitBytes: string | null; trafficUsedBytes: string; protocol: string }[];
+  }> {
+    return request("/client/singbox-slots", { token });
   },
 
   async getPublicConfig(): Promise<PublicConfig> {
@@ -635,7 +723,7 @@ export const api = {
 
   async clientPayByBalance(
     token: string,
-    data: { tariffId?: string; proxyTariffId?: string; promoCode?: string }
+    data: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
   ): Promise<{ message: string; paymentId: string; newBalance: number }> {
     return request("/client/payments/balance", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -651,10 +739,10 @@ export const api = {
   async getYoomoneyAuthUrl(token: string): Promise<{ url: string }> {
     return request("/client/yoomoney/auth-url", { token });
   },
-  /** Форма перевода ЮMoney (оплата картой). Пополнение баланса, тариф, прокси или опция. */
+  /** Форма перевода ЮMoney (оплата картой). Пополнение баланса, тариф, прокси, доступы или опция. */
   async yoomoneyCreateFormPayment(
     token: string,
-    data: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+    data: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
   ): Promise<{ paymentId: string; paymentUrl: string; form: { receiver: string; sum: number; label: string; paymentType: string; successURL: string }; successURL: string }> {
     return request("/client/yoomoney/create-form-payment", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -674,7 +762,7 @@ export const api = {
   /** ЮKassa API: создание платежа (тариф, прокси или пополнение), возвращает confirmationUrl для редиректа. */
   async yookassaCreatePayment(
     token: string,
-    data: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+    data: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
   ): Promise<{ paymentId: string; confirmationUrl: string; yookassaPaymentId: string }> {
     return request("/client/yookassa/create-payment", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -685,6 +773,26 @@ export const api = {
 
   async clientUpdateProfile(token: string, data: { preferredLang?: string; preferredCurrency?: string }): Promise<ClientProfile> {
     return request("/client/profile", { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
+  /** Запросить код для привязки Telegram через бота (без авторизации по токену не нужен) */
+  async clientLinkTelegramRequest(token: string): Promise<{ code: string; expiresAt: string; botUsername: string | null }> {
+    return request("/client/link-telegram-request", { method: "POST", token });
+  },
+
+  /** Привязать Telegram из Mini App (initData от Telegram WebApp) */
+  async clientLinkTelegram(token: string, data: { initData: string }): Promise<{ client: ClientProfile }> {
+    return request("/client/link-telegram", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  /** Запросить привязку email (отправить письмо со ссылкой) */
+  async clientLinkEmailRequest(token: string, data: { email: string }): Promise<{ message: string }> {
+    return request("/client/link-email-request", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  /** Подтвердить привязку email по токену из письма (без Bearer; возвращает token и client) */
+  async clientVerifyLinkEmail(verificationToken: string): Promise<ClientAuthResponse> {
+    return request("/client/auth/verify-link-email", { method: "POST", body: JSON.stringify({ token: verificationToken }) });
   },
 
   async getClientReferralStats(token: string): Promise<ClientReferralStats> {
@@ -834,6 +942,7 @@ export type UpdateSettingsPayload = {
   trialTrafficLimitBytes?: number | null;
   serviceName?: string;
   logo?: string | null;
+  logoBot?: string | null;
   favicon?: string | null;
   remnaClientUrl?: string | null;
   smtpHost?: string | null;
@@ -933,6 +1042,7 @@ export interface AdminSettings {
   trialTrafficLimitBytes?: number | null;
   serviceName: string;
   logo?: string | null;
+  logoBot?: string | null;
   favicon?: string | null;
   remnaClientUrl?: string | null;
   smtpHost?: string | null;
@@ -1138,6 +1248,81 @@ export interface ProxyNodeDetail {
     client: { id: string; email: string | null; telegramUsername: string | null; telegramId: string | null };
     createdAt: string;
   }>;
+}
+
+export interface SingboxNodeListItem {
+  id: string;
+  name: string;
+  status: string;
+  lastSeenAt: string | null;
+  publicHost: string | null;
+  port: number;
+  protocol: string;
+  tlsEnabled: boolean;
+  capacity: number | null;
+  currentConnections: number;
+  trafficInBytes: string;
+  trafficOutBytes: string;
+  slotsCount: number;
+  hasCustomConfig: boolean;
+  createdAt: string;
+}
+
+export interface CreateSingboxNodeResponse {
+  node: { id: string; name: string; status: string; protocol: string; port: number; token: string; createdAt: string };
+  dockerCompose: string;
+  instructions: string;
+}
+
+export interface SingboxNodeDetail {
+  id: string;
+  name: string;
+  status: string;
+  lastSeenAt: string | null;
+  publicHost: string | null;
+  port: number;
+  protocol: string;
+  tlsEnabled: boolean;
+  capacity: number | null;
+  currentConnections: number;
+  trafficInBytes: string;
+  trafficOutBytes: string;
+  metadata: string | null;
+  customConfigJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+  slots: Array<{
+    id: string;
+    userIdentifier: string;
+    expiresAt: string;
+    trafficLimitBytes: string | null;
+    trafficUsedBytes: string;
+    currentConnections: number;
+    status: string;
+    client: { id: string; email: string | null; telegramUsername: string | null; telegramId: string | null };
+    createdAt: string;
+  }>;
+}
+
+export interface SingboxCategoryItem {
+  id: string;
+  name: string;
+  sortOrder: number;
+  tariffs: { id: string; name: string; slotCount: number; durationDays: number; trafficLimitBytes: string | null; price: number; currency: string; enabled: boolean }[];
+}
+
+export interface SingboxTariffListItem {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  slotCount: number;
+  durationDays: number;
+  trafficLimitBytes: string | null;
+  price: number;
+  currency: string;
+  sortOrder: number;
+  enabled: boolean;
 }
 
 export type RemnaSystemStats = {
@@ -1389,6 +1574,7 @@ export interface PublicConfig {
   sellOptionsEnabled?: boolean;
   sellOptions?: PublicSellOption[];
   showProxyEnabled?: boolean;
+  showSingboxEnabled?: boolean;
   googleAnalyticsId?: string | null;
   yandexMetrikaId?: string | null;
 }

@@ -263,6 +263,7 @@ export function SettingsPage() {
         trialTrafficLimitBytes: settings.trialTrafficLimitBytes ?? null,
         serviceName: settings.serviceName,
         logo: settings.logo ?? null,
+        logoBot: settings.logoBot ?? null,
         favicon: settings.favicon ?? null,
         remnaClientUrl: settings.remnaClientUrl ?? null,
         smtpHost: settings.smtpHost ?? null,
@@ -439,6 +440,54 @@ export function SettingsPage() {
                       </Label>
                     </div>
                   )}
+                  <p className="text-xs text-muted-foreground">Для сайта и кабинета (шапка, логин)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Логотип для бота</Label>
+                  {settings.logoBot ? (
+                    <div className="flex items-center gap-3">
+                      <img src={settings.logoBot} alt="Логотип бота" className="h-12 object-contain rounded border" />
+                      <div className="flex gap-2">
+                        <Label className="cursor-pointer">
+                          <span className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground h-9 px-4">Загрузить другой</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const r = new FileReader();
+                              r.onload = () => setSettings((s) => (s ? { ...s, logoBot: r.result as string } : s));
+                              r.readAsDataURL(f);
+                            }}
+                          />
+                        </Label>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setSettings((s) => (s ? { ...s, logoBot: null } : s))}>
+                          Удалить
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="cursor-pointer">
+                        <span className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background h-9 px-4 hover:bg-accent">Загрузить логотип для бота</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (!f) return;
+                            const r = new FileReader();
+                            r.onload = () => setSettings((s) => (s ? { ...s, logoBot: r.result as string } : s));
+                            r.readAsDataURL(f);
+                          }}
+                        />
+                      </Label>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Фото в приветственном сообщении Telegram-бота. Если не задан — используется логотип сайта</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Favicon</Label>

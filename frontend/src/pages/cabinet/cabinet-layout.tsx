@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound } from "lucide-react";
 import { useTheme } from "@/contexts/theme";
 
 /** Подключает Google Analytics 4 и Яндекс.Метрику на страницах кабинета по настройкам из админки (Маркетинг). */
@@ -51,6 +51,7 @@ const ALL_NAV_ITEMS = [
   { to: "/cabinet/tariffs", label: "Тарифы", icon: Package },
   { to: "/cabinet/extra-options", label: "Опции", icon: PlusCircle },
   { to: "/cabinet/proxy", label: "Прокси", icon: Globe },
+  { to: "/cabinet/singbox", label: "Доступы", icon: KeyRound },
   { to: "/cabinet/referral", label: "Рефералы", icon: Users },
   { to: "/cabinet/profile", label: "Профиль", icon: User },
 ];
@@ -71,10 +72,11 @@ function ThemeToggleButton({ className }: { className?: string }) {
   );
 }
 
-function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnabled?: boolean } | null) {
+function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnabled?: boolean; showSingboxEnabled?: boolean } | null) {
   let items = ALL_NAV_ITEMS;
   if (!config?.sellOptionsEnabled) items = items.filter((i) => i.to !== "/cabinet/extra-options");
   if (!config?.showProxyEnabled) items = items.filter((i) => i.to !== "/cabinet/proxy");
+  if (!config?.showSingboxEnabled) items = items.filter((i) => i.to !== "/cabinet/singbox");
   return items;
 }
 
@@ -83,7 +85,7 @@ function MobileCabinetShell() {
   const location = useLocation();
   const { state, logout, refreshProfile } = useClientAuth();
   const config = useCabinetConfig();
-  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled]);
+  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled]);
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
@@ -163,7 +165,7 @@ function CabinetShell() {
   const location = useLocation();
   const { state, logout, refreshProfile } = useClientAuth();
   const config = useCabinetConfig();
-  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled]);
+  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled]);
   const isMiniapp = useIsMiniapp();
   const isMobile = useIsMobile();
   const [logoError, setLogoError] = useState(false);

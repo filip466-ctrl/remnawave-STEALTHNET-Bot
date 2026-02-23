@@ -26,11 +26,13 @@ import { BackupPage } from "@/pages/backup";
 import { BroadcastPage } from "@/pages/broadcast";
 import { AutoBroadcastPage } from "@/pages/auto-broadcast";
 import { ProxyPage } from "@/pages/proxy";
+import { SingboxPage } from "@/pages/singbox";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { CabinetLayout } from "@/pages/cabinet/cabinet-layout";
 import { ClientLoginPage } from "@/pages/cabinet/client-login";
 import { ClientRegisterPage } from "@/pages/cabinet/client-register";
 import { ClientVerifyEmailPage } from "@/pages/cabinet/client-verify-email";
+import { ClientVerifyLinkEmailPage } from "@/pages/cabinet/client-verify-link-email";
 import { ClientDashboardPage } from "@/pages/cabinet/client-dashboard";
 import { ClientTariffsPage } from "@/pages/cabinet/client-tariffs";
 import { ClientProfilePage } from "@/pages/cabinet/client-profile";
@@ -39,6 +41,7 @@ import { ClientSubscribePage } from "@/pages/cabinet/client-subscribe";
 import { ClientYooMoneyPayPage } from "@/pages/cabinet/client-yoomoney-pay";
 import { ClientExtraOptionsPage } from "@/pages/cabinet/client-extra-options";
 import { ClientProxyPage } from "@/pages/cabinet/client-proxy";
+import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
@@ -144,6 +147,7 @@ function AppRoutes() {
         <Route path="broadcast" element={<ForceChangePassword><BroadcastPage /></ForceChangePassword>} />
         <Route path="auto-broadcast" element={<ForceChangePassword><AutoBroadcastPage /></ForceChangePassword>} />
         <Route path="proxy" element={<ForceChangePassword><ProxyPage /></ForceChangePassword>} />
+        <Route path="singbox" element={<ForceChangePassword><SingboxPage /></ForceChangePassword>} />
         <Route path="backup" element={<ForceChangePassword><BackupPage /></ForceChangePassword>} />
       </Route>
       <Route
@@ -158,6 +162,7 @@ function AppRoutes() {
         <Route path="login" element={<ClientLoginPage />} />
         <Route path="register" element={<ClientRegisterPage />} />
         <Route path="verify-email" element={<ClientVerifyEmailPage />} />
+        <Route path="verify-link-email" element={<ClientVerifyLinkEmailPage />} />
         <Route
           path="dashboard"
           element={
@@ -219,6 +224,14 @@ function AppRoutes() {
           element={
             <RequireClientAuth>
               <ClientProxyPage />
+            </RequireClientAuth>
+          }
+        />
+        <Route
+          path="singbox"
+          element={
+            <RequireClientAuth>
+              <ClientSingboxPage />
             </RequireClientAuth>
           }
         />

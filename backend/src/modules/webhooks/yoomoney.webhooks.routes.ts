@@ -11,6 +11,7 @@ import { prisma } from "../../db.js";
 import { getSystemConfig } from "../client/client.service.js";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
+import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
@@ -23,7 +24,7 @@ function hasExtraOptionInMetadata(metadata: string | null): boolean {
   }
 }
 import { distributeReferralRewards } from "../referral/referral.service.js";
-import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated } from "../notification/telegram-notify.service.js";
+import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 
 export const yoomoneyWebhooksRouter = Router();
 
@@ -139,10 +140,10 @@ yoomoneyWebhooksRouter.post("/yoomoney", async (req, res) => {
   const labelNorm = label.trim();
 
   // Как в Panel: ищем сначала по id (мы пишем payment.id в label), потом по orderId, потом по operation_id
-  type PaymentRow = { id: string; clientId: string; amount: number; tariffId: string | null; proxyTariffId: string | null; status: string; metadata: string | null };
+  type PaymentRow = { id: string; clientId: string; amount: number; tariffId: string | null; proxyTariffId: string | null; singboxTariffId: string | null; status: string; metadata: string | null };
   let payment: PaymentRow | null = null;
 
-  const paymentSelect = { id: true, clientId: true, amount: true, tariffId: true, proxyTariffId: true, status: true, metadata: true } as const;
+  const paymentSelect = { id: true, clientId: true, amount: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, status: true, metadata: true } as const;
   // 1) По payment.id (наш label при создании = payment.id)
   payment = await prisma.payment.findFirst({
     where: { id: labelNorm, provider: "yoomoney_form" },
@@ -181,7 +182,7 @@ yoomoneyWebhooksRouter.post("/yoomoney", async (req, res) => {
   }
 
   const isExtraOption = hasExtraOptionInMetadata(payment.metadata);
-  const isTopUp = !payment.tariffId && !payment.proxyTariffId && !isExtraOption;
+  const isTopUp = !payment.tariffId && !payment.proxyTariffId && !payment.singboxTariffId && !isExtraOption;
 
   if (isTopUp) {
     await prisma.$transaction([
@@ -224,6 +225,15 @@ yoomoneyWebhooksRouter.post("/yoomoney", async (req, res) => {
         await notifyProxySlotsCreated(payment.clientId, proxyResult.slotIds, tariff?.name ?? undefined).catch(() => {});
       } else {
         console.error("[YooMoney Webhook] Proxy slots creation failed", { paymentId: payment.id, error: proxyResult.error });
+      }
+    } else if (payment.singboxTariffId) {
+      const singboxResult = await createSingboxSlotsByPaymentId(payment.id);
+      if (singboxResult.ok) {
+        console.log("[YooMoney Webhook] Singbox slots created", { paymentId: payment.id, slots: singboxResult.slotsCreated });
+        const tariff = await prisma.singboxTariff.findUnique({ where: { id: payment.singboxTariffId }, select: { name: true } });
+        await notifySingboxSlotsCreated(payment.clientId, singboxResult.slotIds, tariff?.name ?? undefined).catch(() => {});
+      } else {
+        console.error("[YooMoney Webhook] Singbox slots creation failed", { paymentId: payment.id, error: singboxResult.error });
       }
     } else {
       const activation = await activateTariffByPaymentId(payment.id);

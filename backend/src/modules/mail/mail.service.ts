@@ -70,6 +70,54 @@ export async function sendVerificationEmail(
   }
 }
 
+/**
+ * Письмо для привязки email к существующему аккаунту (клиент уже залогинен по Telegram)
+ */
+export async function sendLinkEmailVerification(
+  config: SmtpConfig,
+  to: string,
+  verificationLink: string,
+  serviceName: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isSmtpConfigured(config)) {
+    return { ok: false, error: "SMTP not configured" };
+  }
+
+  const auth = config.user && config.password ? { user: config.user, pass: config.password } : undefined;
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth,
+  });
+
+  const from = config.fromName
+    ? `"${config.fromName}" <${config.fromEmail}>`
+    : config.fromEmail!;
+
+  const subject = `Привязка почты к аккаунту — ${serviceName}`;
+  const html = `
+    <p>Здравствуйте!</p>
+    <p>Для привязки этой почты к вашему аккаунту в ${serviceName} перейдите по ссылке:</p>
+    <p><a href="${verificationLink}">${verificationLink}</a></p>
+    <p>Ссылка действительна 24 часа.</p>
+    <p>Если вы не запрашивали привязку, проигнорируйте это письмо.</p>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+    });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
 export type EmailAttachment = { filename: string; content: Buffer };
 
 /**

@@ -41,7 +41,7 @@ const SYSTEM_CONFIG_KEYS = [
   "active_languages", "active_currencies", "default_language", "default_currency",
   "default_referral_percent", "referral_percent_level_2", "referral_percent_level_3",
   "trial_days", "trial_squad_uuid", "trial_device_limit", "trial_traffic_limit",
-  "service_name", "logo", "favicon", "remna_client_url",
+  "service_name", "logo", "logo_bot", "favicon", "remna_client_url",
   "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_password",
   "smtp_from_email", "smtp_from_name", "public_app_url",
   "telegram_bot_token", "telegram_bot_username",
@@ -254,6 +254,7 @@ export async function getSystemConfig() {
     trialTrafficLimitBytes: map.trial_traffic_limit != null && map.trial_traffic_limit !== "" ? parseInt(map.trial_traffic_limit, 10) : null,
     serviceName: map.service_name || "STEALTHNET",
     logo: map.logo || null,
+    logoBot: map.logo_bot || null,
     favicon: map.favicon || null,
     remnaClientUrl: map.remna_client_url || null,
     smtpHost: map.smtp_host || null,
@@ -458,6 +459,7 @@ export async function getPublicConfig() {
     defaultCurrency: full.defaultCurrency,
     serviceName: full.serviceName,
     logo: full.logo,
+    logoBot: full.logoBot ?? null,
     favicon: full.favicon,
     remnaClientUrl: full.remnaClientUrl,
     publicAppUrl: full.publicAppUrl,
@@ -489,6 +491,7 @@ export async function getPublicConfig() {
     forceSubscribeChannelId: full.forceSubscribeChannelId ?? null,
     forceSubscribeMessage: full.forceSubscribeMessage ?? null,
     showProxyEnabled: await prisma.proxyTariff.count({ where: { enabled: true } }).then((n) => n > 0),
+    showSingboxEnabled: await prisma.singboxTariff.count({ where: { enabled: true } }).then((n) => n > 0),
     sellOptionsEnabled: (() => {
       const so = full as { sellOptionsEnabled?: boolean; sellOptionsTrafficEnabled?: boolean; sellOptionsTrafficProducts?: unknown[]; sellOptionsDevicesEnabled?: boolean; sellOptionsDevicesProducts?: unknown[]; sellOptionsServersEnabled?: boolean; sellOptionsServersProducts?: unknown[] };
       if (so.sellOptionsEnabled !== true) return false;

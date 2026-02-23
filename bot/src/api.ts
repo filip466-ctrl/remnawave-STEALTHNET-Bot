@@ -27,10 +27,30 @@ async function fetchJson<T>(path: string, opts?: { method?: string; body?: unkno
   return data as T;
 }
 
+/** Привязка Telegram к аккаунту по коду (вызывается ботом при /link КОД) */
+export async function linkTelegramFromBot(code: string, telegramId: number, telegramUsername?: string): Promise<{ message: string }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}/api/public/link-telegram-from-bot`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Telegram-Bot-Token": botToken,
+    },
+    body: JSON.stringify({ code: code.trim(), telegramId, telegramUsername: telegramUsername ?? "" }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { message?: string };
+  if (!res.ok) {
+    const msg = typeof data.message === "string" ? data.message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { message: string };
+}
+
 /** Публичный конфиг (тарифы, кнопки, способы оплаты, trial и т.д.) */
 export async function getPublicConfig(): Promise<{
   serviceName?: string | null;
   logo?: string | null;
+  logoBot?: string | null;
   publicAppUrl?: string | null;
   defaultCurrency?: string;
   trialEnabled?: boolean;
@@ -119,6 +139,20 @@ export async function getProxySlots(token: string): Promise<{
   return fetchJson("/api/client/proxy-slots", { token });
 }
 
+/** Публичный список тарифов Sing-box по категориям */
+export async function getPublicSingboxTariffs(): Promise<{
+  items: { id: string; name: string; tariffs: { id: string; name: string; slotCount: number; durationDays: number; price: number; currency: string }[] }[];
+}> {
+  return fetchJson("/api/public/singbox-tariffs");
+}
+
+/** Активные Sing-box слоты клиента (с subscriptionLink) */
+export async function getSingboxSlots(token: string): Promise<{
+  slots: { id: string; subscriptionLink: string; expiresAt: string; protocol: string }[];
+}> {
+  return fetchJson("/api/client/singbox-slots", { token });
+}
+
 /** Публичный список тарифов по категориям (emoji из админки по коду ordinary/premium) */
 export async function getPublicTariffs(): Promise<{
   items: {
@@ -142,6 +176,7 @@ export async function createPlategaPayment(
     description?: string;
     tariffId?: string;
     proxyTariffId?: string;
+    singboxTariffId?: string;
     extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string };
   }
 ): Promise<{ paymentUrl: string; orderId: string; paymentId: string }> {
@@ -151,7 +186,7 @@ export async function createPlategaPayment(
 /** Создать платёж ЮMoney (оплата картой). Для тарифа — tariffId, для прокси — proxyTariffId, для опции — extraOption. */
 export async function createYoomoneyPayment(
   token: string,
-  body: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  body: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; paymentUrl: string }> {
   return fetchJson("/api/client/yoomoney/create-form-payment", { method: "POST", body, token });
 }
@@ -159,7 +194,7 @@ export async function createYoomoneyPayment(
 /** Создать платёж ЮKassa (карта, СБП). Только RUB. Для тарифа — tariffId, для прокси — proxyTariffId, для опции — extraOption. */
 export async function createYookassaPayment(
   token: string,
-  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; confirmationUrl: string }> {
   return fetchJson("/api/client/yookassa/create-payment", { method: "POST", body, token });
 }
@@ -180,7 +215,7 @@ export async function activateTrial(token: string): Promise<{ message: string }>
 /** Оплата тарифа или прокси-тарифа балансом */
 export async function payByBalance(
   token: string,
-  opts: { tariffId?: string; proxyTariffId?: string }
+  opts: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string }
 ): Promise<{ message: string; paymentId?: string; newBalance?: number }> {
   return fetchJson("/api/client/payments/balance", { method: "POST", body: opts, token });
 }

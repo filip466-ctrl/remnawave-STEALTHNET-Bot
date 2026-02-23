@@ -19,6 +19,9 @@ import {
   proxyTariffsOfCategoryButtons,
   proxyCategoryButtons,
   proxyPaymentMethodButtons,
+  singboxTariffPayButtons,
+  singboxTariffsOfCategoryButtons,
+  singboxPaymentMethodButtons,
   topupPaymentMethodButtons,
   payUrlMarkup,
   profileButtons,
@@ -502,13 +505,15 @@ bot.command("start", async (ctx) => {
     // Проверка подписки на канал
     if (await enforceSubscription(ctx, config)) return;
 
-    const [subRes, proxyRes] = await Promise.all([
+    const [subRes, proxyRes, singboxRes] = await Promise.all([
       api.getSubscription(auth.token).catch(() => ({ subscription: null })),
       api.getPublicProxyTariffs().catch(() => ({ items: [] })),
+      api.getPublicSingboxTariffs().catch(() => ({ items: [] })),
     ]);
     const vpnUrl = getSubscriptionUrl(subRes.subscription);
     const showTrial = Boolean(config?.trialEnabled && !client.trialUsed);
     const showProxy = proxyRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
+    const showSingbox = singboxRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
     const appUrl = config?.publicAppUrl?.replace(/\/$/, "") ?? null;
 
     const { text, entities } = buildMainMenuText({
@@ -527,6 +532,7 @@ bot.command("start", async (ctx) => {
       showTrial,
       showVpn: Boolean(vpnUrl),
       showProxy,
+      showSingbox,
       appUrl,
       botButtons: config?.botButtons ?? null,
       botBackLabel: config?.botBackLabel ?? null,
@@ -534,7 +540,7 @@ bot.command("start", async (ctx) => {
       showExtraOptions: config?.sellOptionsEnabled === true && (config?.sellOptions?.length ?? 0) > 0,
     });
 
-    const photoSource = logoToPhotoSource(config?.logo);
+    const photoSource = logoToPhotoSource(config?.logoBot ?? config?.logo);
     if (photoSource) {
       await ctx.replyWithPhoto(photoSource, { caption, caption_entities: captionEntities.length ? captionEntities : undefined, reply_markup: markup });
     } else {
@@ -542,6 +548,24 @@ bot.command("start", async (ctx) => {
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Ошибка входа";
+    await ctx.reply(`❌ ${msg}`);
+  }
+});
+
+// ——— /link КОД — привязка Telegram к аккаунту (код из кабинета на сайте)
+bot.command("link", async (ctx) => {
+  const from = ctx.from;
+  if (!from) return;
+  const code = (ctx.match?.trim() || "").replace(/\s+/g, " ");
+  if (!code) {
+    await ctx.reply("Отправьте код из кабинета на сайте.\nПример: /link 123456");
+    return;
+  }
+  try {
+    await api.linkTelegramFromBot(code, from.id, from.username ?? undefined);
+    await ctx.reply("✅ Telegram успешно привязан к вашему аккаунту. Теперь вы можете входить через бота.");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Ошибка привязки";
     await ctx.reply(`❌ ${msg}`);
   }
 });
@@ -628,14 +652,16 @@ bot.on("callback_query:data", async (ctx) => {
       : undefined;
 
     if (data === "menu:main") {
-      const [client, subRes, proxyRes] = await Promise.all([
+      const [client, subRes, proxyRes, singboxRes] = await Promise.all([
         api.getMe(token),
         api.getSubscription(token).catch(() => ({ subscription: null })),
         api.getPublicProxyTariffs().catch(() => ({ items: [] })),
+        api.getPublicSingboxTariffs().catch(() => ({ items: [] })),
       ]);
       const vpnUrl = getSubscriptionUrl(subRes.subscription);
       const showTrial = Boolean(config?.trialEnabled && !client.trialUsed);
       const showProxy = proxyRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
+      const showSingbox = singboxRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
       const name = config?.serviceName?.trim() || "Кабинет";
       const { text, entities } = buildMainMenuText({
         serviceName: name,
@@ -651,6 +677,7 @@ bot.on("callback_query:data", async (ctx) => {
         showTrial,
         showVpn: Boolean(vpnUrl),
         showProxy,
+        showSingbox,
         appUrl,
         botButtons: config?.botButtons ?? null,
         botBackLabel: config?.botBackLabel ?? null,
@@ -746,6 +773,53 @@ bot.on("callback_query:data", async (ctx) => {
       const head = category.name;
       const lines = category.tariffs.map((t: { name: string; price: number; currency: string }) => `• ${t.name} — ${t.price} ${t.currency}`).join("\n");
       await editMessageContent(ctx, `🌐 ${head}\n\n${lines}\n\nВыберите тариф:`, proxyTariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:proxy", innerEmojiIds));
+      return;
+    }
+
+    if (data === "menu:singbox") {
+      const { items } = await api.getPublicSingboxTariffs();
+      if (!items?.length || items.every((c: { tariffs: unknown[] }) => !c.tariffs?.length)) {
+        await editMessageContent(ctx, "Тарифы доступов пока не настроены.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const cats = items.filter((c: { tariffs: unknown[] }) => c.tariffs?.length > 0);
+      if (cats.length === 1 && cats[0]!.tariffs.length <= 5) {
+        const head = cats[0]!.name;
+        const lines = cats[0]!.tariffs.map((t: { name: string; price: number; currency: string }) => `• ${t.name} — ${t.price} ${t.currency}`).join("\n");
+        await editMessageContent(ctx, `🔑 Доступы\n\n${head}\n${lines}\n\nВыберите тариф:`, singboxTariffPayButtons(cats, config?.botBackLabel ?? null, innerStyles, innerEmojiIds));
+      } else {
+        await editMessageContent(ctx, "🔑 Доступы\n\nВыберите категорию:", singboxTariffPayButtons(cats, config?.botBackLabel ?? null, innerStyles, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("cat_singbox:")) {
+      const categoryId = data.slice("cat_singbox:".length);
+      const { items } = await api.getPublicSingboxTariffs();
+      const category = items?.find((c: { id: string }) => c.id === categoryId);
+      if (!category?.tariffs?.length) {
+        await editMessageContent(ctx, "Категория не найдена.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const head = category.name;
+      const lines = category.tariffs.map((t: { name: string; price: number; currency: string }) => `• ${t.name} — ${t.price} ${t.currency}`).join("\n");
+      await editMessageContent(ctx, `🔑 ${head}\n\n${lines}\n\nВыберите тариф:`, singboxTariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:singbox", innerEmojiIds));
+      return;
+    }
+
+    if (data === "menu:my_singbox") {
+      const slotsRes = await api.getSingboxSlots(token);
+      const slots = slotsRes.slots ?? [];
+      if (slots.length === 0) {
+        await editMessageContent(ctx, "У вас пока нет активных доступов. Купите тариф в разделе «Доступы».", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const lines = slots.map((s: { subscriptionLink: string; expiresAt: string; protocol: string }) => {
+        const exp = new Date(s.expiresAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+        return `${s.protocol} — до ${exp}\n${s.subscriptionLink}`;
+      }).join("\n\n");
+      const msg = `📋 Мои доступы (${slots.length})\n\nСкопируйте ссылку в приложение (v2rayN, Nekoray и др.):\n\n${lines}`;
+      await editMessageContent(ctx, msg.slice(0, 4096), backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       return;
     }
 
@@ -850,6 +924,103 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const markup = proxyPaymentMethodButtons(
         proxyTariffId,
+        methods,
+        config?.botBackLabel ?? null,
+        innerStyles?.back,
+        innerEmojiIds,
+        balanceLabel,
+        !!config?.yoomoneyEnabled,
+        !!config?.yookassaEnabled,
+        tariff.currency,
+      );
+      await editMessageContent(ctx, `Оплата: ${tariff.name} — ${formatMoney(tariff.price, tariff.currency)}\n\nВыберите способ оплаты:`, markup);
+      return;
+    }
+
+    if (data.startsWith("pay_singbox_balance:")) {
+      const singboxTariffId = data.slice("pay_singbox_balance:".length);
+      try {
+        const result = await api.payByBalance(token, { singboxTariffId });
+        await editMessageContent(ctx, `✅ ${result.message}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка оплаты";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("pay_singbox_yoomoney:")) {
+      const singboxTariffId = data.slice("pay_singbox_yoomoney:".length);
+      const { items } = await api.getPublicSingboxTariffs();
+      const tariff = items?.flatMap((c: { tariffs: { id: string; name: string; price: number; currency: string }[] }) => c.tariffs).find((t: { id: string }) => t.id === singboxTariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createYoomoneyPayment(token, { amount: tariff.price, paymentType: "AC", singboxTariffId });
+        await editMessageContent(ctx, `Оплата: ${tariff.name} — ${formatMoney(tariff.price, tariff.currency)}\n\nНажмите для оплаты через ЮMoney:`, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("pay_singbox_yookassa:")) {
+      const singboxTariffId = data.slice("pay_singbox_yookassa:".length);
+      const { items } = await api.getPublicSingboxTariffs();
+      const tariff = items?.flatMap((c: { tariffs: { id: string; name: string; price: number; currency: string }[] }) => c.tariffs).find((t: { id: string }) => t.id === singboxTariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      if (tariff.currency.toUpperCase() !== "RUB") {
+        await editMessageContent(ctx, "ЮKassa принимает только рубли (RUB).", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createYookassaPayment(token, { amount: tariff.price, currency: "RUB", singboxTariffId });
+        await editMessageContent(ctx, `Оплата: ${tariff.name} — ${formatMoney(tariff.price, tariff.currency)}\n\nНажмите для оплаты через ЮKassa:`, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("pay_singbox:")) {
+      const rest = data.slice("pay_singbox:".length);
+      const parts = rest.split(":");
+      const singboxTariffId = parts[0];
+      const methodIdFromBtn = parts.length >= 2 ? Number(parts[1]) : null;
+      const { items } = await api.getPublicSingboxTariffs();
+      const tariff = items?.flatMap((c: { tariffs: { id: string; name: string; price: number; currency: string }[] }) => c.tariffs).find((t: { id: string }) => t.id === singboxTariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const methods = config?.plategaMethods ?? [];
+      const client = await api.getMe(token);
+      const balanceLabel = client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency)})` : null;
+      if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
+        try {
+          const payment = await api.createPlategaPayment(token, {
+            amount: tariff.price,
+            currency: tariff.currency,
+            paymentMethod: methodIdFromBtn,
+            description: `Доступы: ${tariff.name}`,
+            singboxTariffId: tariff.id,
+          });
+          await editMessageContent(ctx, `Оплата: ${tariff.name} — ${formatMoney(tariff.price, tariff.currency)}\n\nНажмите для оплаты:`, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : "Ошибка";
+          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        }
+        return;
+      }
+      const markup = singboxPaymentMethodButtons(
+        singboxTariffId,
         methods,
         config?.botBackLabel ?? null,
         innerStyles?.back,

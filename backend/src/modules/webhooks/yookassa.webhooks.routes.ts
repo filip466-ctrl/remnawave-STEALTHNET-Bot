@@ -8,9 +8,10 @@ import { Router } from "express";
 import { prisma } from "../../db.js";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
+import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 import { distributeReferralRewards } from "../referral/referral.service.js";
-import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated } from "../notification/telegram-notify.service.js";
+import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -65,7 +66,7 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
 
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, provider: "yookassa" },
-    select: { id: true, clientId: true, amount: true, currency: true, tariffId: true, proxyTariffId: true, status: true, metadata: true },
+    select: { id: true, clientId: true, amount: true, currency: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, status: true, metadata: true },
   });
 
   if (!payment) {
@@ -85,7 +86,7 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
   });
 
   const isExtraOption = hasExtraOptionInMetadata(payment.metadata);
-  const isTopUp = !payment.tariffId && !payment.proxyTariffId && !isExtraOption;
+  const isTopUp = !payment.tariffId && !payment.proxyTariffId && !payment.singboxTariffId && !isExtraOption;
 
   if (isTopUp) {
     await prisma.client.update({
@@ -118,6 +119,18 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
       console.error("[YooKassa Webhook] Proxy slots creation failed", {
         paymentId: payment.id,
         error: proxyResult.error,
+      });
+    }
+  } else if (payment.singboxTariffId) {
+    const singboxResult = await createSingboxSlotsByPaymentId(payment.id);
+    if (singboxResult.ok) {
+      console.log("[YooKassa Webhook] Singbox slots created", { paymentId: payment.id, slots: singboxResult.slotsCreated });
+      const tariff = await prisma.singboxTariff.findUnique({ where: { id: payment.singboxTariffId }, select: { name: true } });
+      await notifySingboxSlotsCreated(payment.clientId, singboxResult.slotIds, tariff?.name ?? undefined).catch(() => {});
+    } else {
+      console.error("[YooKassa Webhook] Singbox slots creation failed", {
+        paymentId: payment.id,
+        error: singboxResult.error,
       });
     }
   } else {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Wallet, Copy, Check, CreditCard, Loader2 } from "lucide-react";
+import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
@@ -58,6 +58,12 @@ export function ClientProfilePage() {
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [linkTelegramCode, setLinkTelegramCode] = useState<string | null>(null);
+  const [linkTelegramLoading, setLinkTelegramLoading] = useState(false);
+  const [linkEmailValue, setLinkEmailValue] = useState("");
+  const [linkEmailLoading, setLinkEmailLoading] = useState(false);
+  const [linkEmailSent, setLinkEmailSent] = useState(false);
+  const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
 
   const client = state.client;
   const token = state.token;
@@ -191,6 +197,53 @@ export function ClientProfilePage() {
     }
   }
 
+  async function requestLinkTelegramCode() {
+    if (!token) return;
+    setLinkTelegramLoading(true);
+    setLinkTelegramCode(null);
+    try {
+      const res = await api.clientLinkTelegramRequest(token);
+      setLinkTelegramCode(res.code);
+    } catch {
+      setLinkTelegramCode(null);
+    } finally {
+      setLinkTelegramLoading(false);
+    }
+  }
+
+  async function linkTelegramFromMiniapp() {
+    if (!token) return;
+    const initData = (window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData;
+    if (!initData?.trim()) return;
+    setLinkTelegramLoading(true);
+    try {
+      const res = await api.clientLinkTelegram(token, { initData });
+      if (res.client) {
+        refreshProfile();
+        setLinkTelegramCode(null);
+      }
+    } finally {
+      setLinkTelegramLoading(false);
+    }
+  }
+
+  async function sendLinkEmailRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token || !linkEmailValue.trim()) return;
+    setLinkEmailError(null);
+    setLinkEmailSent(false);
+    setLinkEmailLoading(true);
+    try {
+      await api.clientLinkEmailRequest(token, { email: linkEmailValue.trim() });
+      setLinkEmailSent(true);
+      setLinkEmailValue("");
+    } catch (err) {
+      setLinkEmailError(err instanceof Error ? err.message : "Ошибка отправки");
+    } finally {
+      setLinkEmailLoading(false);
+    }
+  }
+
   const baseUrl = publicAppUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
   const referralLinkSite =
     client?.referralCode && baseUrl
@@ -251,7 +304,57 @@ export function ClientProfilePage() {
                 {client.telegramUsername ? `@${client.telegramUsername}` : "—"}
                 {client.telegramId ? ` · ID ${client.telegramId}` : ""}
               </p>
+              {!client.telegramId && (
+                <div className="mt-2 space-y-2">
+                  {isMiniapp ? (
+                    <Button variant="outline" size="sm" className="gap-2" disabled={linkTelegramLoading} onClick={linkTelegramFromMiniapp}>
+                      {linkTelegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      Привязать текущий Telegram
+                    </Button>
+                  ) : (
+                    <>
+                      {!linkTelegramCode ? (
+                        <Button variant="outline" size="sm" className="gap-2" disabled={linkTelegramLoading} onClick={requestLinkTelegramCode}>
+                          {linkTelegramLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                          Получить код для привязки
+                        </Button>
+                      ) : (
+                        <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm space-y-1">
+                          <p className="font-mono text-lg font-semibold">{linkTelegramCode}</p>
+                          <p className="text-muted-foreground text-xs">
+                            Откройте @{telegramBotUsername || "бота"} и отправьте команду <code className="bg-muted px-1 rounded">/link {linkTelegramCode}</code>. Код действует 10 минут.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
+            {(!client.email || client.email === "") && (
+              <div className="min-w-0 overflow-hidden space-y-2">
+                <Label className="text-muted-foreground">Привязать почту</Label>
+                {linkEmailSent ? (
+                  <p className="text-sm text-green-600">Письмо с ссылкой отправлено. Перейдите по ссылке из письма.</p>
+                ) : (
+                  <form onSubmit={sendLinkEmailRequest} className="flex flex-wrap items-end gap-2">
+                    <Input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={linkEmailValue}
+                      onChange={(e) => setLinkEmailValue(e.target.value)}
+                      className="flex-1 min-w-[180px]"
+                      disabled={linkEmailLoading}
+                    />
+                    <Button type="submit" size="sm" className="gap-2" disabled={linkEmailLoading || !linkEmailValue.trim()}>
+                      {linkEmailLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Mail className="h-4 w-4 shrink-0" />}
+                      Отправить ссылку
+                    </Button>
+                  </form>
+                )}
+                {linkEmailError && <p className="text-sm text-destructive">{linkEmailError}</p>}
+              </div>
+            )}
             <div className="min-w-0 overflow-hidden">
               <Label className="text-muted-foreground">Баланс</Label>
               <p className="font-medium truncate">{formatMoney(client.balance, client.preferredCurrency)}</p>

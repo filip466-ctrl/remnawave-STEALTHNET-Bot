@@ -17,10 +17,12 @@ import {
 } from "./client.service.js";
 import { requireClientAuth } from "./client.middleware.js";
 import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient } from "../remna/remna.client.js";
-import { sendVerificationEmail, isSmtpConfigured } from "../mail/mail.service.js";
+import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured } from "../mail/mail.service.js";
 import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
 import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
+import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
+import { buildSingboxSlotSubscriptionLink } from "../singbox/singbox-link.js";
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 import { getAuthUrl, exchangeCodeForToken, requestPayment, processPayment } from "../yoomoney/yoomoney.service.js";
 import { createYookassaPayment } from "../yookassa/yookassa.service.js";
@@ -188,6 +190,32 @@ clientAuthRouter.post("/register", async (req, res) => {
 
   const token = signClientToken(client.id);
   return res.status(201).json({ token, client: toClientShape(client) });
+});
+
+const verifyLinkEmailSchema = z.object({ token: z.string().min(1) });
+clientAuthRouter.post("/verify-link-email", async (req, res) => {
+  const parse = verifyLinkEmailSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ message: "Invalid input" });
+  const { token } = parse.data;
+  const pending = await prisma.pendingEmailLink.findUnique({ where: { verificationToken: token } });
+  if (!pending) return res.status(400).json({ message: "Недействительная или просроченная ссылка" });
+  if (new Date() > pending.expiresAt) {
+    await prisma.pendingEmailLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(400).json({ message: "Ссылка просрочена. Запросите привязку почты снова." });
+  }
+  const existingByEmail = await prisma.client.findUnique({ where: { email: pending.email } });
+  if (existingByEmail && existingByEmail.id !== pending.clientId) {
+    await prisma.pendingEmailLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(400).json({ message: "Эта почта уже привязана к другому аккаунту." });
+  }
+  const client = await prisma.client.update({
+    where: { id: pending.clientId },
+    data: { email: pending.email },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true },
+  });
+  await prisma.pendingEmailLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+  const jwt = signClientToken(client.id);
+  return res.json({ token: jwt, client: toClientShape(client) });
 });
 
 const verifyEmailSchema = z.object({ token: z.string().min(1) });
@@ -491,6 +519,85 @@ clientRouter.patch("/profile", async (req, res) => {
     select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true },
   });
   return res.json(toClientShape(updated));
+});
+
+/** Запросить код для привязки Telegram через бота (аккаунт без Telegram, залогинен по почте) */
+clientRouter.post("/link-telegram-request", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; telegramId: string | null } }).client;
+  if (client.telegramId) return res.status(400).json({ message: "Telegram уже привязан" });
+  await prisma.pendingTelegramLink.deleteMany({ where: { clientId: client.id } });
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await prisma.pendingTelegramLink.create({
+    data: { clientId: client.id, code, expiresAt },
+  });
+  const config = await getSystemConfig();
+  const botUsername = (config.telegramBotUsername ?? "").replace(/^@/, "") || null;
+  return res.json({ code, expiresAt: expiresAt.toISOString(), botUsername });
+});
+
+/** Привязать Telegram из Mini App (initData от Telegram WebApp) */
+const linkTelegramSchema = z.object({ initData: z.string().min(1) });
+clientRouter.post("/link-telegram", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; telegramId: string | null } }).client;
+  if (client.telegramId) return res.status(400).json({ message: "Telegram уже привязан" });
+  const body = linkTelegramSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const config = await getSystemConfig();
+  const botToken = config.telegramBotToken ?? "";
+  if (!validateTelegramInitData(body.data.initData, botToken)) {
+    return res.status(401).json({ message: "Недействительные или устаревшие данные Telegram" });
+  }
+  const tgUser = parseTelegramUser(body.data.initData);
+  if (!tgUser) return res.status(400).json({ message: "Нет данных пользователя" });
+  const telegramId = String(tgUser.id);
+  const telegramUsername = tgUser.username?.trim() ?? null;
+  const other = await prisma.client.findUnique({ where: { telegramId } });
+  if (other && other.id !== client.id) return res.status(400).json({ message: "Этот Telegram уже привязан к другому аккаунту" });
+  const updated = await prisma.client.update({
+    where: { id: client.id },
+    data: { telegramId, telegramUsername },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true },
+  });
+  return res.json({ client: toClientShape(updated) });
+});
+
+/** Запросить привязку email (отправить письмо со ссылкой) */
+const linkEmailRequestSchema = z.object({ email: z.string().email() });
+clientRouter.post("/link-email-request", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; email: string | null } }).client;
+  if (client.email?.trim()) return res.status(400).json({ message: "Почта уже привязана" });
+  const body = linkEmailRequestSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Некорректный email", errors: body.error.flatten() });
+  const email = body.data.email.trim().toLowerCase();
+  const config = await getSystemConfig();
+  const smtpConfig = {
+    host: config.smtpHost || "",
+    port: config.smtpPort ?? 587,
+    secure: config.smtpSecure ?? false,
+    user: config.smtpUser ?? null,
+    password: config.smtpPassword ?? null,
+    fromEmail: config.smtpFromEmail ?? null,
+    fromName: config.smtpFromName ?? null,
+  };
+  if (!isSmtpConfigured(smtpConfig)) return res.status(503).json({ message: "Отправка писем не настроена. Обратитесь в поддержку." });
+  const existing = await prisma.client.findUnique({ where: { email } });
+  if (existing && existing.id !== client.id) return res.status(400).json({ message: "Эта почта уже используется другим аккаунтом" });
+  await prisma.pendingEmailLink.deleteMany({ where: { clientId: client.id } });
+  const verificationToken = randomUUID();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await prisma.pendingEmailLink.create({
+    data: { clientId: client.id, email, verificationToken, expiresAt },
+  });
+  const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
+  const verificationLink = appUrl ? `${appUrl}/cabinet/verify-link-email?token=${verificationToken}` : "";
+  if (!verificationLink) return res.status(500).json({ message: "Не задан URL приложения в настройках" });
+  const sendResult = await sendLinkEmailVerification(smtpConfig, email, verificationLink, config.serviceName ?? "STEALTHNET");
+  if (!sendResult.ok) {
+    await prisma.pendingEmailLink.deleteMany({ where: { verificationToken } }).catch(() => {});
+    return res.status(500).json({ message: "Не удалось отправить письмо. Попробуйте позже." });
+  }
+  return res.json({ message: "Письмо с ссылкой отправлено на указанный email" });
 });
 
 clientRouter.get("/referral-stats", async (req, res) => {
@@ -917,6 +1024,46 @@ clientRouter.get("/proxy-slots", async (req, res) => {
   });
 });
 
+clientRouter.get("/singbox-slots", async (req, res) => {
+  const client = (req as unknown as { client: { id: string } }).client;
+  const now = new Date();
+  const slots = await prisma.singboxSlot.findMany({
+    where: { clientId: client.id, status: "ACTIVE", expiresAt: { gt: now } },
+    select: {
+      id: true,
+      userIdentifier: true,
+      secret: true,
+      expiresAt: true,
+      trafficLimitBytes: true,
+      trafficUsedBytes: true,
+      node: { select: { publicHost: true, port: true, protocol: true, tlsEnabled: true } },
+    },
+    orderBy: { expiresAt: "asc" },
+  });
+  return res.json({
+    slots: slots.map((s) => {
+      const link = buildSingboxSlotSubscriptionLink(
+        {
+          publicHost: s.node.publicHost ?? "",
+          port: s.node.port ?? 443,
+          protocol: s.node.protocol ?? "VLESS",
+          tlsEnabled: s.node.tlsEnabled,
+        },
+        { userIdentifier: s.userIdentifier, secret: s.secret },
+        `slot-${s.id.slice(-8)}`
+      );
+      return {
+        id: s.id,
+        subscriptionLink: link,
+        expiresAt: s.expiresAt.toISOString(),
+        trafficLimitBytes: s.trafficLimitBytes?.toString() ?? null,
+        trafficUsedBytes: s.trafficUsedBytes.toString(),
+        protocol: s.node.protocol ?? "VLESS",
+      };
+    }),
+  });
+});
+
 clientRouter.get("/subscription", async (req, res) => {
   const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
   if (!client.remnawaveUuid) {
@@ -947,6 +1094,7 @@ const createPlategaPaymentSchema = z.object({
   description: z.string().max(500).optional(),
   tariffId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
   extraOption: z.object({ kind: z.enum(["traffic", "devices", "servers"]), productId: z.string().min(1) }).optional(),
 });
@@ -956,10 +1104,11 @@ clientRouter.post("/payments/platega", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
   }
-  const { amount: originalAmount, currency, paymentMethod, description, tariffId, proxyTariffId, promoCode: promoCodeStr, extraOption } = parsed.data;
+  const { amount: originalAmount, currency, paymentMethod, description, tariffId, proxyTariffId, singboxTariffId, promoCode: promoCodeStr, extraOption } = parsed.data;
 
   let tariffIdToStore: string | null = null;
   let proxyTariffIdToStore: string | null = null;
+  let singboxTariffIdToStore: string | null = null;
   let finalAmount: number;
   let currencyToUse: string;
   let metadataExtra: Record<string, unknown> | null = null;
@@ -1014,6 +1163,12 @@ clientRouter.post("/payments/platega", async (req, res) => {
       proxyTariffIdToStore = proxyTariffId;
       if (originalAmount == null) { finalAmount = proxyTariff.price; currencyToUse = proxyTariff.currency.toUpperCase(); }
     }
+    if (singboxTariffId) {
+      const singboxTariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffId } });
+      if (!singboxTariff || !singboxTariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+      singboxTariffIdToStore = singboxTariffId;
+      if (originalAmount == null) { finalAmount = singboxTariff.price; currencyToUse = singboxTariff.currency.toUpperCase(); }
+    }
   }
 
   // Применяем промокод на скидку (не для опций по умолчанию, можно разрешить — тогда скидка с опции)
@@ -1052,7 +1207,7 @@ clientRouter.post("/payments/platega", async (req, res) => {
 
   const serviceName = config.serviceName?.trim() || "STEALTHNET";
   const orderId = randomUUID();
-  const paymentKind = tariffIdToStore ? "tariff" : proxyTariffIdToStore ? "proxy" : metadataExtra ? "option" : "topup";
+  const paymentKind = tariffIdToStore ? "tariff" : proxyTariffIdToStore ? "proxy" : singboxTariffIdToStore ? "singbox" : metadataExtra ? "option" : "topup";
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
   const returnUrl = appUrl
     ? `${appUrl}/cabinet/dashboard?payment=success&payment_kind=${paymentKind}&oid=${orderId}`
@@ -1064,7 +1219,9 @@ clientRouter.post("/payments/platega", async (req, res) => {
     ? `Тариф ${serviceName} #${orderId}`
     : proxyTariffIdToStore
       ? `Прокси ${serviceName} #${orderId}`
-      : metadataExtra
+      : singboxTariffIdToStore
+        ? `Доступы ${serviceName} #${orderId}`
+        : metadataExtra
       ? `Опция ${serviceName} #${orderId}`
       : `Пополнение баланса ${serviceName} #${orderId}`;
 
@@ -1081,6 +1238,7 @@ clientRouter.post("/payments/platega", async (req, res) => {
       provider: "platega",
       tariffId: tariffIdToStore,
       proxyTariffId: proxyTariffIdToStore,
+      singboxTariffId: singboxTariffIdToStore,
       metadata: paymentMeta ? JSON.stringify(paymentMeta) : null,
     },
   });
@@ -1124,15 +1282,16 @@ clientRouter.post("/payments/platega", async (req, res) => {
 const payByBalanceSchema = z.object({
   tariffId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
-}).refine((d) => (d.tariffId ? 1 : 0) + (d.proxyTariffId ? 1 : 0) === 1, { message: "Укажите tariffId или proxyTariffId" });
+}).refine((d) => (d.tariffId ? 1 : 0) + (d.proxyTariffId ? 1 : 0) + (d.singboxTariffId ? 1 : 0) === 1, { message: "Укажите tariffId, proxyTariffId или singboxTariffId" });
 
 clientRouter.post("/payments/balance", async (req, res) => {
   const clientRaw = (req as unknown as { client: { id: string; remnawaveUuid: string | null; email: string | null; telegramId: string | null } }).client;
   const parsed = payByBalanceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
 
-  const { tariffId, proxyTariffId, promoCode: promoCodeStr } = parsed.data;
+  const { tariffId, proxyTariffId, singboxTariffId, promoCode: promoCodeStr } = parsed.data;
 
   if (proxyTariffId) {
     const tariff = await prisma.proxyTariff.findUnique({ where: { id: proxyTariffId } });
@@ -1166,6 +1325,42 @@ clientRouter.post("/payments/balance", async (req, res) => {
     await notifyProxySlotsCreated(clientRaw.id, proxyResult.slotIds, tariff.name).catch(() => {});
     return res.json({
       message: `Прокси «${tariff.name}» оплачены! Списано ${tariff.price.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+      newBalance: clientDb.balance - tariff.price,
+    });
+  }
+
+  if (singboxTariffId) {
+    const tariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffId } });
+    if (!tariff || !tariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+    const clientDb = await prisma.client.findUnique({ where: { id: clientRaw.id } });
+    if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
+    if (clientDb.balance < tariff.price) {
+      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${tariff.price.toFixed(2)}` });
+    }
+    const payment = await prisma.payment.create({
+      data: {
+        clientId: clientRaw.id,
+        orderId: randomUUID(),
+        amount: tariff.price,
+        currency: tariff.currency.toUpperCase(),
+        status: "PAID",
+        provider: "balance",
+        singboxTariffId: tariff.id,
+        paidAt: new Date(),
+      },
+    });
+    const singboxResult = await createSingboxSlotsByPaymentId(payment.id);
+    if (!singboxResult.ok) return res.status(singboxResult.status).json({ message: singboxResult.error });
+    await prisma.client.update({
+      where: { id: clientRaw.id },
+      data: { balance: { decrement: tariff.price } },
+    });
+    const { distributeReferralRewards } = await import("../referral/referral.service.js");
+    await distributeReferralRewards(payment.id).catch(() => {});
+    const { notifySingboxSlotsCreated } = await import("../notification/telegram-notify.service.js");
+    await notifySingboxSlotsCreated(clientRaw.id, singboxResult.slotIds, tariff.name).catch(() => {});
+    return res.json({
+      message: `Доступы «${tariff.name}» оплачены! Списано ${tariff.price.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
       newBalance: clientDb.balance - tariff.price,
     });
   }
@@ -1455,19 +1650,21 @@ const yoomoneyFormPaymentSchema = z.object({
   paymentType: z.enum(["PC", "AC"]), // PC = с кошелька, AC = с карты
   tariffId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
   extraOption: z.object({ kind: z.enum(["traffic", "devices", "servers"]), productId: z.string().min(1) }).optional(),
 });
 clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
   const clientId = (req as unknown as { clientId: string }).clientId;
   const parsed = yoomoneyFormPaymentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Укажите сумму и способ оплаты", errors: parsed.error.flatten() });
-  const { amount: amountBody, paymentType, tariffId: tariffIdBody, proxyTariffId: proxyTariffIdBody, extraOption } = parsed.data;
+  const { amount: amountBody, paymentType, tariffId: tariffIdBody, proxyTariffId: proxyTariffIdBody, singboxTariffId: singboxTariffIdBody, extraOption } = parsed.data;
   const config = await getSystemConfig();
   const receiver = config.yoomoneyReceiverWallet?.trim();
   if (!receiver) return res.status(503).json({ message: "ЮMoney не настроен" });
 
   let tariffIdToStore: string | null = null;
   let proxyTariffIdToStore: string | null = null;
+  let singboxTariffIdToStore: string | null = null;
   let amountRounded: number;
   let metadataObj: Record<string, unknown> = { paymentType };
 
@@ -1504,7 +1701,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
       };
     }
   } else {
-    if (amountBody == null && !proxyTariffIdBody) return res.status(400).json({ message: "Укажите сумму" });
+    if (amountBody == null && !proxyTariffIdBody && !singboxTariffIdBody) return res.status(400).json({ message: "Укажите сумму" });
     if (tariffIdBody) {
       const tariff = await prisma.tariff.findUnique({ where: { id: tariffIdBody } });
       if (!tariff) return res.status(400).json({ message: "Тариф не найден" });
@@ -1515,6 +1712,11 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
       if (!proxyTariff || !proxyTariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
       proxyTariffIdToStore = proxyTariffIdBody;
       amountRounded = Math.round((amountBody ?? proxyTariff.price) * 100) / 100;
+    } else if (singboxTariffIdBody) {
+      const singboxTariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffIdBody } });
+      if (!singboxTariff || !singboxTariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+      singboxTariffIdToStore = singboxTariffIdBody;
+      amountRounded = Math.round((amountBody ?? singboxTariff.price) * 100) / 100;
     } else {
       amountRounded = Math.round((amountBody ?? 0) * 100) / 100;
     }
@@ -1531,6 +1733,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
       provider: "yoomoney_form",
       tariffId: tariffIdToStore,
       proxyTariffId: proxyTariffIdToStore,
+      singboxTariffId: singboxTariffIdToStore,
       metadata: JSON.stringify(metadataObj),
     },
   });
@@ -1542,9 +1745,11 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     ? `Тариф ${serviceName} #${orderId}`
     : proxyTariffIdToStore
       ? `Прокси ${serviceName} #${orderId}`
-      : extraOption
-        ? `Опция ${serviceName} #${orderId}`
-        : `Пополнение баланса ${serviceName} #${orderId}`;
+      : singboxTariffIdToStore
+        ? `Доступы ${serviceName} #${orderId}`
+        : extraOption
+          ? `Опция ${serviceName} #${orderId}`
+          : `Пополнение баланса ${serviceName} #${orderId}`;
   const params = new URLSearchParams({
     receiver,
     "quickpay-form": "shop",
@@ -1609,6 +1814,7 @@ const yookassaCreatePaymentSchema = z.object({
   currency: z.string().min(1).max(10).optional(),
   tariffId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().optional(),
   extraOption: z.object({
     kind: z.enum(["traffic", "devices", "servers"]),
@@ -1620,7 +1826,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     const clientId = (req as unknown as { clientId: string }).clientId;
     const parsed = yookassaCreatePaymentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Неверные параметры", errors: parsed.error.flatten() });
-    const { amount: amountBody, currency: currencyBody, tariffId: tariffIdBody, proxyTariffId: proxyTariffIdBody, promoCode, extraOption } = parsed.data;
+    const { amount: amountBody, currency: currencyBody, tariffId: tariffIdBody, proxyTariffId: proxyTariffIdBody, singboxTariffId: singboxTariffIdBody, promoCode, extraOption } = parsed.data;
     const config = await getSystemConfig();
     const shopId = config.yookassaShopId?.trim();
     const secretKey = config.yookassaSecretKey?.trim();
@@ -1630,6 +1836,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     let currencyUpper: string;
     let tariffIdToStore: string | null = null;
     let proxyTariffIdToStore: string | null = null;
+    let singboxTariffIdToStore: string | null = null;
     let metadataObj: Record<string, unknown> = promoCode ? { promoCode } : {};
 
     if (extraOption) {
@@ -1683,6 +1890,11 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
         if (!proxyTariff || !proxyTariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
         proxyTariffIdToStore = proxyTariffIdBody;
         amountRounded = Math.round((amountBody ?? proxyTariff.price) * 100) / 100;
+      } else if (singboxTariffIdBody) {
+        const singboxTariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffIdBody } });
+        if (!singboxTariff || !singboxTariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+        singboxTariffIdToStore = singboxTariffIdBody;
+        amountRounded = Math.round((amountBody ?? singboxTariff.price) * 100) / 100;
       } else {
         if (amountBody == null) return res.status(400).json({ message: "Укажите сумму" });
         amountRounded = Math.round(amountBody * 100) / 100;
@@ -1706,6 +1918,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
         provider: "yookassa",
         tariffId: tariffIdToStore,
         proxyTariffId: proxyTariffIdToStore,
+        singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
       },
     });
@@ -1717,6 +1930,8 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       ? `Тариф ${serviceName} #${orderId}`
       : proxyTariffIdToStore
         ? `Прокси ${serviceName} #${orderId}`
+        : singboxTariffIdToStore
+          ? `Доступы ${serviceName} #${orderId}`
         : extraOption
           ? `Опция ${serviceName} #${orderId}`
           : `Пополнение баланса ${serviceName} #${orderId}`;
@@ -1785,9 +2000,12 @@ publicConfigRouter.get("/config", async (_req, res) => {
 publicConfigRouter.get("/deeplink", (req, res) => {
   const url = typeof req.query.url === "string" ? req.query.url : "";
   if (!url) return res.status(400).send("Missing url parameter");
-  // HTML-страница с авто-редиректом + кнопка-fallback
+  const skipAuto = req.query.skip_auto === "1" || req.query.skip_auto === "true";
   const safeUrl = url.replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const safeUrlJs = url.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+  const autoRedirectScript = skipAuto
+    ? "/* skip_auto: только кнопка, без авто-редиректа (из мини-аппа) */"
+    : `setTimeout(function(){ try { window.location.href = "${safeUrlJs}"; } catch (e) {} }, 300);`;
   const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -1809,11 +2027,45 @@ publicConfigRouter.get("/deeplink", (req, res) => {
   (function(){
     var ua = navigator.userAgent || "";
     if (/Android|Windows|tdesktop/i.test(ua)) document.getElementById("androidHint").style.display = "block";
-    setTimeout(function(){ try { window.location.href = "${safeUrlJs}"; } catch (e) {} }, 300);
+    ${autoRedirectScript}
   })();
 </script>
 </body></html>`;
   res.type("html").send(html);
+});
+
+/** Привязка Telegram к аккаунту по коду (вызывается ботом после /link КОД) */
+const linkTelegramFromBotSchema = z.object({
+  code: z.string().min(1),
+  telegramId: z.number(),
+  telegramUsername: z.string().optional(),
+});
+publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
+  const config = await getSystemConfig();
+  const botToken = (config.telegramBotToken ?? "").trim();
+  const headerToken = typeof req.headers["x-telegram-bot-token"] === "string" ? req.headers["x-telegram-bot-token"].trim() : "";
+  if (!botToken || headerToken !== botToken) return res.status(401).json({ message: "Unauthorized" });
+  const body = linkTelegramFromBotSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const { code, telegramId, telegramUsername } = body.data;
+  const tid = String(telegramId);
+  const pending = await prisma.pendingTelegramLink.findUnique({ where: { code: code.trim() } });
+  if (!pending) return res.status(400).json({ message: "Неверный или просроченный код" });
+  if (new Date() > pending.expiresAt) {
+    await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(400).json({ message: "Код истёк. Запросите новый в кабинете." });
+  }
+  const other = await prisma.client.findUnique({ where: { telegramId: tid } });
+  if (other && other.id !== pending.clientId) {
+    await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(400).json({ message: "Этот Telegram уже привязан к другому аккаунту" });
+  }
+  await prisma.client.update({
+    where: { id: pending.clientId },
+    data: { telegramId: tid, telegramUsername: (telegramUsername ?? "").trim() || null },
+  });
+  await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+  return res.json({ message: "Telegram привязан" });
 });
 
 /** Конфиг страницы подписки (приложения по платформам, тексты) — для кабинета /cabinet/subscribe */
@@ -1896,5 +2148,34 @@ publicConfigRouter.get("/proxy-tariffs", async (_req, res) => {
   } catch (e) {
     console.error("GET /public/proxy-tariffs error:", e);
     return res.status(500).json({ message: "Ошибка загрузки тарифов прокси" });
+  }
+});
+
+// GET /api/public/singbox-tariffs — публичный список тарифов Sing-box (для бота и кабинета)
+publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
+  try {
+    const list = await prisma.singboxCategory.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      include: { tariffs: { where: { enabled: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+    });
+    return res.json({
+      items: list.map((c) => ({
+        id: c.id,
+        name: c.name,
+        sortOrder: c.sortOrder,
+        tariffs: c.tariffs.map((t) => ({
+          id: t.id,
+          name: t.name,
+          slotCount: t.slotCount,
+          durationDays: t.durationDays,
+          trafficLimitBytes: t.trafficLimitBytes?.toString() ?? null,
+          price: t.price,
+          currency: t.currency,
+        })),
+      })),
+    });
+  } catch (e) {
+    console.error("GET /public/singbox-tariffs error:", e);
+    return res.status(500).json({ message: "Ошибка загрузки тарифов Sing-box" });
   }
 });
