@@ -22,15 +22,21 @@ const DEFAULT_PLATEGA_METHODS: { id: number; enabled: boolean; label: string }[]
   { id: 13, enabled: false, label: "Криптовалюта" },
 ];
 
-type BotButtonItem = { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string };
+type BotButtonItem = { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string; onePerRow?: boolean };
 const DEFAULT_BOT_BUTTONS: BotButtonItem[] = [
   { id: "tariffs", visible: true, label: "📦 Тарифы", order: 0, style: "success", emojiKey: "PACKAGE" },
+  { id: "proxy", visible: true, label: "🌐 Прокси", order: 0.5, style: "primary", emojiKey: "SERVERS" },
+  { id: "my_proxy", visible: true, label: "📋 Мои прокси", order: 0.6, style: "primary", emojiKey: "SERVERS" },
+  { id: "singbox", visible: true, label: "🔑 Доступы", order: 0.55, style: "primary", emojiKey: "SERVERS" },
+  { id: "my_singbox", visible: true, label: "📋 Мои доступы", order: 0.65, style: "primary", emojiKey: "SERVERS" },
   { id: "profile", visible: true, label: "👤 Профиль", order: 1, style: "", emojiKey: "PUZZLE" },
+  { id: "devices", visible: true, label: "📱 Устройства", order: 1.5, style: "primary", emojiKey: "DEVICES" },
   { id: "topup", visible: true, label: "💳 Пополнить баланс", order: 2, style: "success", emojiKey: "CARD" },
-  { id: "referral", visible: true, label: "👥 Реферальная программа", order: 3, style: "primary", emojiKey: "LINK" },
+  { id: "referral", visible: true, label: "🔗 Реферальная программа", order: 3, style: "primary", emojiKey: "LINK" },
   { id: "trial", visible: true, label: "🎁 Попробовать бесплатно", order: 4, style: "success", emojiKey: "TRIAL" },
-  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", emojiKey: "SERVERS" },
+  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", emojiKey: "SERVERS", onePerRow: true },
   { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary", emojiKey: "SERVERS" },
+  { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary", emojiKey: "NOTE" },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary", emojiKey: "NOTE" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary", emojiKey: "STAR" },
   { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary", emojiKey: "PACKAGE" },
@@ -123,6 +129,7 @@ export function SettingsPage() {
             return fromApi ? { ...def, ...fromApi } : def;
           }) as BotButtonItem[];
         })(),
+        botButtonsPerRow: (data as AdminSettings).botButtonsPerRow ?? 1,
         botEmojis: (data as AdminSettings).botEmojis ?? {},
         botBackLabel: (data as AdminSettings).botBackLabel ?? "◀️ В меню",
         botMenuTexts: { ...DEFAULT_BOT_MENU_TEXTS, ...((data as AdminSettings).botMenuTexts ?? {}) },
@@ -137,6 +144,7 @@ export function SettingsPage() {
         agreementLink: (data as AdminSettings).agreementLink ?? "",
         offerLink: (data as AdminSettings).offerLink ?? "",
         instructionsLink: (data as AdminSettings).instructionsLink ?? "",
+        ticketsEnabled: (data as AdminSettings).ticketsEnabled ?? false,
         sellOptionsEnabled: (data as AdminSettings).sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: (data as AdminSettings).sellOptionsTrafficEnabled ?? false,
         sellOptionsTrafficProducts: (data as AdminSettings).sellOptionsTrafficProducts ?? [],
@@ -276,6 +284,7 @@ export function SettingsPage() {
         publicAppUrl: settings.publicAppUrl ?? null,
         telegramBotToken: settings.telegramBotToken ?? null,
         telegramBotUsername: settings.telegramBotUsername ?? null,
+        botAdminTelegramIds: settings.botAdminTelegramIds ?? null,
         plategaMerchantId: settings.plategaMerchantId ?? null,
         plategaSecret: settings.plategaSecret && settings.plategaSecret !== "********" ? settings.plategaSecret : undefined,
         plategaMethods: settings.plategaMethods != null ? JSON.stringify(settings.plategaMethods) : undefined,
@@ -286,6 +295,7 @@ export function SettingsPage() {
         yookassaShopId: settings.yookassaShopId ?? null,
         yookassaSecretKey: settings.yookassaSecretKey && settings.yookassaSecretKey !== "********" ? settings.yookassaSecretKey : undefined,
         botButtons: settings.botButtons != null ? JSON.stringify(settings.botButtons) : undefined,
+        botButtonsPerRow: settings.botButtonsPerRow ?? 1,
         botEmojis: settings.botEmojis != null ? settings.botEmojis : undefined,
         botBackLabel: settings.botBackLabel ?? null,
         botMenuTexts: settings.botMenuTexts != null ? JSON.stringify(settings.botMenuTexts) : undefined,
@@ -298,6 +308,7 @@ export function SettingsPage() {
         agreementLink: settings.agreementLink ?? undefined,
         offerLink: settings.offerLink ?? undefined,
         instructionsLink: settings.instructionsLink ?? undefined,
+        ticketsEnabled: settings.ticketsEnabled ?? false,
         themeAccent: settings.themeAccent ?? "default",
         forceSubscribeEnabled: settings.forceSubscribeEnabled ?? false,
         forceSubscribeChannelId: settings.forceSubscribeChannelId ?? null,
@@ -384,9 +395,26 @@ export function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Общие</CardTitle>
-                <p className="text-sm text-muted-foreground">Название, логотип, языки и валюты</p>
+                <p className="text-sm text-muted-foreground">Название, логотип, тикет-система, языки и валюты</p>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="tickets-enabled-general"
+                      checked={!!settings.ticketsEnabled}
+                      onCheckedChange={(checked) =>
+                        setSettings((s) => (s ? { ...s, ticketsEnabled: checked === true } : s))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="tickets-enabled-general" className="text-base font-medium cursor-pointer">Тикет-система</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Раздел «Тикеты» в кабинете (сайт и мини-апп) и кнопка «🎫 Тикеты» в боте — обращения в поддержку и переписка.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label>Название сервиса</Label>
                   <Input
@@ -487,7 +515,7 @@ export function SettingsPage() {
                       </Label>
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">Фото в приветственном сообщении Telegram-бота. Если не задан — используется логотип сайта</p>
+                  <p className="text-xs text-muted-foreground">Фото или GIF в приветственном сообщении Telegram-бота. Если не задан — используется логотип сайта</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Favicon</Label>
@@ -786,6 +814,25 @@ export function SettingsPage() {
                   <p className="text-xs text-muted-foreground mb-3">
                     Отметьте видимость, измените текст, выберите эмодзи по ключу (из блока выше), задайте порядок. Стиль: primary / success / danger или пусто.
                   </p>
+                  <div className="flex flex-wrap items-center gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="bot-buttons-per-row" className="text-sm whitespace-nowrap">Кнопок в ряд:</Label>
+                      <select
+                        id="bot-buttons-per-row"
+                        className="flex h-9 w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                        value={settings.botButtonsPerRow ?? 1}
+                        onChange={(e) =>
+                          setSettings((s) =>
+                            s ? { ...s, botButtonsPerRow: e.target.value === "2" ? 2 : 1 } : s
+                          )
+                        }
+                      >
+                        <option value={1}>1 (по одной)</option>
+                        <option value={2}>2 (по две)</option>
+                      </select>
+                    </div>
+                    <span className="text-xs text-muted-foreground">По умолчанию: по одной кнопке в ряд, как сейчас.</span>
+                  </div>
                   <div className="space-y-3">
                     {[...(settings.botButtons ?? DEFAULT_BOT_BUTTONS)]
                       .sort((a, b) => a.order - b.order)
@@ -809,12 +856,13 @@ export function SettingsPage() {
                             className="w-32 flex-shrink-0"
                             type="number"
                             min={0}
+                            step="any"
                             value={btn.order}
                             onChange={(e) =>
                               setSettings((s) => {
                                 if (!s?.botButtons) return s;
-                                const v = parseInt(e.target.value, 10);
-                                if (!Number.isFinite(v)) return s;
+                                const v = parseFloat(e.target.value.replace(",", "."));
+                                if (!Number.isFinite(v) || v < 0) return s;
                                 return {
                                   ...s,
                                   botButtons: s.botButtons.map((b) =>
@@ -881,10 +929,31 @@ export function SettingsPage() {
                             <option value="success">success</option>
                             <option value="danger">danger</option>
                           </select>
+                          <div className="flex items-center gap-1.5">
+                            <Checkbox
+                              id={`onePerRow-${btn.id}`}
+                              checked={btn.onePerRow === true}
+                              onCheckedChange={(checked) =>
+                                setSettings((s) => {
+                                  if (!s?.botButtons) return s;
+                                  return {
+                                    ...s,
+                                    botButtons: s.botButtons.map((b) =>
+                                      b.id === btn.id ? { ...b, onePerRow: checked === true } : b
+                                    ),
+                                  };
+                                })
+                              }
+                            />
+                            <Label htmlFor={`onePerRow-${btn.id}`} className="text-xs cursor-pointer whitespace-nowrap">В один ряд</Label>
+                          </div>
                           <span className="text-xs text-muted-foreground capitalize">{btn.id}</span>
                         </div>
                       ))}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    «В один ряд» — кнопка всегда в отдельной строке. Остальные кнопки выстраиваются по настройке «Кнопок в ряд» выше.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Стили внутренних кнопок бота</Label>
@@ -1583,6 +1652,61 @@ export function SettingsPage() {
                     onChange={(e) => setSettings((s) => (s ? { ...s, telegramBotUsername: e.target.value || null } : s))}
                     placeholder="MyStealthNetBot"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Админы бота (Telegram ID)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Пользователи с этими Telegram ID увидят в боте кнопку «Панель админа» (ссылка на веб-панель). Узнать свой ID: @userinfobot или в настройках бота.
+                  </p>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {(settings.botAdminTelegramIds ?? []).map((id) => (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-sm">
+                        {id}
+                        <button
+                          type="button"
+                          onClick={() => setSettings((s) => (s ? { ...s, botAdminTelegramIds: (s.botAdminTelegramIds ?? []).filter((x) => x !== id) } : s))}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="123456789"
+                        className="w-36"
+                        id="newBotAdminId"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const input = document.getElementById("newBotAdminId") as HTMLInputElement;
+                            const v = input?.value?.trim();
+                            if (v && /^\d+$/.test(v)) {
+                              setSettings((s) => (s ? { ...s, botAdminTelegramIds: [...(s.botAdminTelegramIds ?? []), v] } : s));
+                              input.value = "";
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const input = document.getElementById("newBotAdminId") as HTMLInputElement;
+                          const v = input?.value?.trim();
+                          if (v && /^\d+$/.test(v)) {
+                            setSettings((s) => (s ? { ...s, botAdminTelegramIds: [...(s.botAdminTelegramIds ?? []), v] } : s));
+                            input.value = "";
+                          }
+                        }}
+                      >
+                        Добавить ID
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
                 <Button type="submit" disabled={saving}>

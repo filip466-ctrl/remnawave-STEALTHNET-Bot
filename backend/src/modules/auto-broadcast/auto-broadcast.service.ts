@@ -17,7 +17,8 @@ export type TriggerType =
   | "trial_not_connected"      // зарегистрирован N дней, триал не подключал
   | "trial_used_never_paid"    // пользовался триалом, но ни разу не платил
   | "no_traffic"               // подключён к VPN N дней, напоминание (без данных Remna о трафике — по delayDays)
-  | "subscription_expired";    // подписка истекла (последний PAID оплачен, но срок вышел)
+  | "subscription_expired"     // подписка истекла (последний PAID оплачен, но срок вышел)
+  | "subscription_ending_soon"; // подписка заканчивается через N дней (delayDays = 1, 2 или 3 — уведомлять за N дней)
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -148,6 +149,35 @@ export async function getEligibleClientIds(ruleId: string): Promise<string[]> {
       (await prisma.client.findMany({ where: { isBlocked: true }, select: { id: true } })).map((c) => c.id)
     );
     clients = Array.from(expiredClientIds)
+      .filter((id) => !blockedSet.has(id))
+      .map((id) => ({ id }));
+  } else if (rule.triggerType === "subscription_ending_soon") {
+    // Подписка заканчивается через N дней (delayDays = 1, 2 или 3). Уведомлять за N дней до окончания.
+    const daysLeft = Math.min(3, Math.max(1, rule.delayDays));
+    const windowStart = new Date(now.getTime() + daysLeft * dayMs);
+    const windowEnd = new Date(now.getTime() + (daysLeft + 1) * dayMs);
+    const paidWithTariff = await prisma.payment.findMany({
+      where: { status: "PAID", tariffId: { not: null }, paidAt: { not: null } },
+      select: { clientId: true, paidAt: true, tariff: { select: { durationDays: true } } },
+      orderBy: { paidAt: "desc" },
+    });
+    const clientLastExpire = new Map<string, Date>();
+    for (const p of paidWithTariff) {
+      if (p.clientId && p.paidAt && p.tariff?.durationDays != null && !clientLastExpire.has(p.clientId)) {
+        const expireAt = new Date(p.paidAt.getTime() + p.tariff.durationDays * dayMs);
+        clientLastExpire.set(p.clientId, expireAt);
+      }
+    }
+    const endingSoonIds = new Set<string>();
+    for (const [clientId, expireAt] of clientLastExpire) {
+      if (expireAt >= now && expireAt >= windowStart && expireAt < windowEnd) {
+        endingSoonIds.add(clientId);
+      }
+    }
+    const blockedSet = new Set(
+      (await prisma.client.findMany({ where: { isBlocked: true }, select: { id: true } })).map((c) => c.id)
+    );
+    clients = Array.from(endingSoonIds)
       .filter((id) => !blockedSet.has(id))
       .map((id) => ({ id }));
   }

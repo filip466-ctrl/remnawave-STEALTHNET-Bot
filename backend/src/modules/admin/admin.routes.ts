@@ -29,18 +29,15 @@ import {
   remnaUpdateUser,
   remnaRevokeUserSubscription,
   remnaDisableUser,
+  remnaDeleteUser,
   remnaEnableUser,
   remnaResetUserTraffic,
-  remnaRemoveUsersFromInternalSquad,
   isRemnaConfigured,
 } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
 import { syncFromRemna, syncToRemna, createRemnaUsersForClientsWithoutUuid } from "../sync/sync.service.js";
 import { distributeReferralRewards } from "../referral/referral.service.js";
-import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
-import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
-import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
-import { notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
+import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
 import { runBroadcast, getBroadcastRecipientsCount } from "../broadcast/broadcast.service.js";
 import { runRule, runAllRules, getEligibleClientIds } from "../auto-broadcast/auto-broadcast.service.js";
@@ -246,63 +243,17 @@ adminRouter.patch("/payments/:id", asyncRoute(async (req, res) => {
     const err = !params.success ? params.error.flatten() : body.error!.flatten();
     return res.status(400).json({ message: "Invalid input", errors: err });
   }
-  const { id: paymentId } = params.data;
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!payment) {
-    return res.status(404).json({ message: "Payment not found" });
+  const result = await markPaymentPaid(params.data.id);
+  if (!result.ok) {
+    return res.status(404).json({ message: result.error ?? "Payment not found" });
   }
-  if (payment.status === "PAID") {
-    const result = await distributeReferralRewards(paymentId);
-    return res.json({ payment: { ...payment, status: "PAID" }, referral: result });
-  }
-  const now = new Date();
-  const isTopUp = (payment.provider === "yoomoney_form" || payment.provider === "platega" || payment.provider === "yookassa") && !payment.tariffId && !payment.proxyTariffId && !payment.singboxTariffId;
-  if (isTopUp) {
-    await prisma.$transaction([
-      prisma.payment.update({
-        where: { id: paymentId },
-        data: { status: "PAID", paidAt: now },
-      }),
-      prisma.client.update({
-        where: { id: payment.clientId },
-        data: { balance: { increment: payment.amount } },
-      }),
-    ]);
-  } else {
-    await prisma.payment.update({
-      where: { id: paymentId },
-      data: { status: "PAID", paidAt: now },
-    });
-  }
-
-  // Активируем тариф в Remnawave или создаём прокси-слоты
-  let activation: { ok: boolean; error?: string } = { ok: false, error: "no tariff" };
-  let proxySlots: { ok: boolean; slotsCreated?: number; error?: string } = { ok: false };
-  if (payment.tariffId) {
-    activation = await activateTariffByPaymentId(paymentId);
-  } else if (payment.proxyTariffId) {
-    const proxyResult = await createProxySlotsByPaymentId(paymentId);
-    if (proxyResult.ok) {
-      proxySlots = { ok: true, slotsCreated: proxyResult.slotsCreated };
-      const tariff = await prisma.proxyTariff.findUnique({ where: { id: payment.proxyTariffId }, select: { name: true } });
-      await notifyProxySlotsCreated(payment.clientId, proxyResult.slotIds, tariff?.name ?? undefined).catch(() => {});
-    } else {
-      proxySlots = { ok: false, error: proxyResult.error };
-    }
-  } else if (payment.singboxTariffId) {
-    const singboxResult = await createSingboxSlotsByPaymentId(paymentId);
-    if (singboxResult.ok) {
-      proxySlots = { ok: true, slotsCreated: singboxResult.slotsCreated };
-      const tariff = await prisma.singboxTariff.findUnique({ where: { id: payment.singboxTariffId }, select: { name: true } });
-      await notifySingboxSlotsCreated(payment.clientId, singboxResult.slotIds, tariff?.name ?? undefined).catch(() => {});
-    } else {
-      proxySlots = { ok: false, error: singboxResult.error };
-    }
-  }
-
-  const result = await distributeReferralRewards(paymentId);
-  const updated = await prisma.payment.findUnique({ where: { id: paymentId } });
-  return res.json({ payment: updated, referral: result, activation, proxySlots: proxySlots.ok ? proxySlots : undefined, balanceCredited: isTopUp });
+  return res.json({
+    payment: result.payment,
+    referral: result.referral,
+    activation: result.activation,
+    proxySlots: result.proxySlots,
+    balanceCredited: result.balanceCredited,
+  });
 }));
 
 /** Сериализация тарифа для JSON (BigInt → number) */
@@ -667,8 +618,14 @@ adminRouter.patch("/clients/:id/password", async (req, res) => {
 adminRouter.delete("/clients/:id", async (req, res) => {
   const parsed = clientIdParam.safeParse(req.params);
   if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
-  const client = await prisma.client.findUnique({ where: { id: parsed.data.id } });
+  const client = await prisma.client.findUnique({ where: { id: parsed.data.id }, select: { id: true, remnawaveUuid: true } });
   if (!client) return res.status(404).json({ message: "Клиент не найден" });
+  if (client.remnawaveUuid && isRemnaConfigured()) {
+    const remnaRes = await remnaDeleteUser(client.remnawaveUuid);
+    if (remnaRes.error) {
+      console.warn(`[admin delete client] Remna delete failed for ${client.remnawaveUuid}:`, remnaRes.error);
+    }
+  }
   await prisma.client.delete({ where: { id: parsed.data.id } });
   return res.json({ success: true });
 });
@@ -818,7 +775,12 @@ adminRouter.post("/clients/:id/remna/squads/remove", async (req, res) => {
   if (!remnaUuid) return res.status(400).json({ message: "Клиент не привязан к Remna" });
   const body = squadActionSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Invalid input" });
-  const result = await remnaRemoveUsersFromInternalSquad(body.data.squadUuid, { userUuids: [remnaUuid] });
+  // По api-1.yaml у DELETE .../remove-users нет requestBody — только uuid сквада в path; эндпоинт может убирать всех из сквада. Поэтому убираем сквад только у этого пользователя через PATCH user (как при add).
+  const userRes = await remnaGetUser(remnaUuid);
+  if (userRes.error) return res.status(userRes.status >= 400 ? userRes.status : 500).json({ message: userRes.error });
+  const current = getRemnaUserFieldsForMerge(userRes.data);
+  const currentSquads = current.activeInternalSquads.filter((u) => u !== body.data.squadUuid);
+  const result = await remnaUpdateUser({ uuid: remnaUuid, activeInternalSquads: currentSquads });
   if (result.error) return res.status(result.status >= 400 ? result.status : 500).json({ message: result.error });
   return res.json(result.data ?? {});
 });
@@ -869,9 +831,9 @@ const updateSettingsSchema = z.object({
   trialDeviceLimit: z.number().int().min(0).nullable().optional(),
   trialTrafficLimitBytes: z.number().int().min(0).nullable().optional(),
   serviceName: z.string().max(200).optional(),
-  logo: z.string().max(2_000_000).nullable().optional(),
-  logoBot: z.string().max(2_000_000).nullable().optional(),
-  favicon: z.string().max(2_000_000).nullable().optional(),
+  logo: z.string().max(5_500_000).nullable().optional(),
+  logoBot: z.string().max(5_500_000).nullable().optional(),
+  favicon: z.string().max(5_500_000).nullable().optional(),
   remnaClientUrl: z.string().max(2000).nullable().optional(),
   smtpHost: z.string().max(255).nullable().optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
@@ -883,6 +845,7 @@ const updateSettingsSchema = z.object({
   publicAppUrl: z.string().max(2000).nullable().optional(),
   telegramBotToken: z.string().max(500).nullable().optional(),
   telegramBotUsername: z.string().max(100).nullable().optional(),
+  botAdminTelegramIds: z.union([z.string().max(2000), z.array(z.string())]).nullable().optional(),
   plategaMerchantId: z.string().max(200).nullable().optional(),
   plategaSecret: z.string().max(500).nullable().optional(),
   plategaMethods: z.string().max(2000).nullable().optional(),
@@ -893,6 +856,7 @@ const updateSettingsSchema = z.object({
   yookassaShopId: z.string().max(200).nullable().optional(),
   yookassaSecretKey: z.string().max(500).nullable().optional(),
   botButtons: z.string().max(10000).nullable().optional(),
+  botButtonsPerRow: z.union([z.literal(1), z.literal(2), z.number().int().min(1).max(2)]).optional(),
   botEmojis: z.union([z.string().max(15000), z.record(z.object({ unicode: z.string().max(20).optional(), tgEmojiId: z.string().max(50).optional() }))]).nullable().optional(),
   botBackLabel: z.string().max(200).nullable().optional(),
   botMenuTexts: z.string().max(8000).nullable().optional(),
@@ -902,6 +866,7 @@ const updateSettingsSchema = z.object({
   agreementLink: z.string().max(2000).nullable().optional(),
   offerLink: z.string().max(2000).nullable().optional(),
   instructionsLink: z.string().max(2000).nullable().optional(),
+  ticketsEnabled: z.boolean().optional(),
   themeAccent: z.string().max(50).optional(),
   forceSubscribeEnabled: z.boolean().optional(),
   forceSubscribeChannelId: z.string().max(200).nullable().optional(),
@@ -1096,6 +1061,11 @@ adminRouter.patch("/settings", async (req, res) => {
     const val = updates.telegramBotUsername ?? "";
     await prisma.systemSetting.upsert({ where: { key: "telegram_bot_username" }, create: { key: "telegram_bot_username", value: val }, update: { value: val } });
   }
+  if (updates.botAdminTelegramIds !== undefined) {
+    const raw = updates.botAdminTelegramIds;
+    const val = Array.isArray(raw) ? JSON.stringify(raw) : (raw ?? "");
+    await prisma.systemSetting.upsert({ where: { key: "bot_admin_telegram_ids" }, create: { key: "bot_admin_telegram_ids", value: val }, update: { value: val } });
+  }
   if (updates.plategaMerchantId !== undefined) {
     const val = updates.plategaMerchantId ?? "";
     await prisma.systemSetting.upsert({ where: { key: "platega_merchant_id" }, create: { key: "platega_merchant_id", value: val }, update: { value: val } });
@@ -1135,6 +1105,10 @@ adminRouter.patch("/settings", async (req, res) => {
   if (updates.botButtons !== undefined) {
     const val = updates.botButtons ?? "";
     await prisma.systemSetting.upsert({ where: { key: "bot_buttons" }, create: { key: "bot_buttons", value: val }, update: { value: val } });
+  }
+  if (updates.botButtonsPerRow !== undefined) {
+    const val = updates.botButtonsPerRow === 2 ? "2" : "1";
+    await prisma.systemSetting.upsert({ where: { key: "bot_buttons_per_row" }, create: { key: "bot_buttons_per_row", value: val }, update: { value: val } });
   }
   if (updates.botEmojis !== undefined) {
     const raw = updates.botEmojis;
@@ -1198,6 +1172,10 @@ adminRouter.patch("/settings", async (req, res) => {
       });
     }
   }
+  if (updates.ticketsEnabled !== undefined) {
+    const val = updates.ticketsEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({ where: { key: "tickets_enabled" }, create: { key: "tickets_enabled", value: val }, update: { value: val } });
+  }
   if (updates.forceSubscribeEnabled !== undefined) {
     const val = updates.forceSubscribeEnabled ? "true" : "false";
     await prisma.systemSetting.upsert({ where: { key: "force_subscribe_enabled" }, create: { key: "force_subscribe_enabled", value: val }, update: { value: val } });
@@ -1257,6 +1235,71 @@ adminRouter.patch("/settings", async (req, res) => {
   const config = await getSystemConfig();
   return res.json(config);
 });
+
+// ——— Тикеты (админ: список, просмотр, закрытие, ответ)
+adminRouter.get("/tickets", asyncRoute(async (req, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const where = status === "open" || status === "closed" ? { status } : {};
+  const list = await prisma.ticket.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+    include: { client: { select: { id: true, email: true, telegramUsername: true } } },
+  });
+  return res.json({
+    items: list.map((t) => ({
+      id: t.id,
+      subject: t.subject,
+      status: t.status,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      client: t.client,
+    })),
+  });
+}));
+
+adminRouter.get("/tickets/:id", asyncRoute(async (req, res) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: {
+      client: { select: { id: true, email: true, telegramUsername: true } },
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+  });
+  if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  return res.json({
+    id: ticket.id,
+    subject: ticket.subject,
+    status: ticket.status,
+    createdAt: ticket.createdAt.toISOString(),
+    updatedAt: ticket.updatedAt.toISOString(),
+    client: ticket.client,
+    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+  });
+}));
+
+adminRouter.patch("/tickets/:id", asyncRoute(async (req, res) => {
+  const body = z.object({ status: z.enum(["open", "closed"]) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const ticket = await prisma.ticket.update({
+    where: { id: req.params.id },
+    data: { status: body.data.status },
+  });
+  return res.json({ id: ticket.id, status: ticket.status });
+}));
+
+const adminTicketMessageSchema = z.object({ content: z.string().min(1).max(10000) });
+adminRouter.post("/tickets/:id/messages", asyncRoute(async (req, res) => {
+  const body = adminTicketMessageSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+  if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  const msg = await prisma.ticketMessage.create({
+    data: { ticketId: ticket.id, authorType: "support", content: body.data.content.trim() },
+  });
+  await prisma.ticket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
+  return res.status(201).json({ id: msg.id, authorType: msg.authorType, content: msg.content, createdAt: msg.createdAt.toISOString() });
+}));
 
 // Синхронизация с Remna
 adminRouter.post("/sync/from-remna", async (_req, res) => {
@@ -1358,6 +1401,7 @@ const autoBroadcastRuleSchema = z.object({
     "trial_used_never_paid",
     "no_traffic",
     "subscription_expired",
+    "subscription_ending_soon",
   ]),
   delayDays: z.union([z.number(), z.string()]).transform((v) => (typeof v === "string" ? parseInt(v, 10) : v)).pipe(z.number().int().min(0).max(365)),
   channel: z.enum(["telegram", "email", "both"]),

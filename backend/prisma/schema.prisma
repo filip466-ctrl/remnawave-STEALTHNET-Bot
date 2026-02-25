@@ -80,11 +80,42 @@ model Client {
   autoBroadcastLogs AutoBroadcastLog[]
   proxySlots ProxySlot[]
   singboxSlots SingboxSlot[]
+  tickets     Ticket[]
 
   @@index([telegramId])
   @@index([email])
   @@index([utmSource])
   @@map("clients")
+}
+
+// Тикет поддержки (включается/выключается в настройках)
+model Ticket {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  subject   String   @db.VarChar(500)
+  status    String   @default("open") @db.VarChar(20) // open | closed
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([clientId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String   @map("ticket_id")
+  authorType String  @map("author_type") @db.VarChar(20) // client | support
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
 }
 
 // Одноразовый код для привязки Telegram к аккаунту (сайт → бот)

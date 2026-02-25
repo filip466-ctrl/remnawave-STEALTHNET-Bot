@@ -420,6 +420,38 @@ export const api = {
     return request("/admin/settings", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
+  /** Админ: список тикетов (опционально ?status=open|closed) */
+  async getAdminTickets(token: string, status?: "open" | "closed"): Promise<{
+    items: { id: string; subject: string; status: string; createdAt: string; updatedAt: string; client: { id: string; email: string | null; telegramUsername: string | null } }[];
+  }> {
+    const q = status ? `?status=${status}` : "";
+    return request(`/admin/tickets${q}`, { token });
+  },
+  /** Админ: один тикет с сообщениями */
+  async getAdminTicket(token: string, id: string): Promise<{
+    id: string;
+    subject: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    client: { id: string; email: string | null; telegramUsername: string | null };
+    messages: { id: string; authorType: string; content: string; createdAt: string }[];
+  }> {
+    return request(`/admin/tickets/${id}`, { token });
+  },
+  /** Админ: закрыть/открыть тикет */
+  async patchAdminTicket(token: string, id: string, data: { status: "open" | "closed" }): Promise<{ id: string; status: string }> {
+    return request(`/admin/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
+  },
+  /** Админ: ответ в тикет (поддержка) */
+  async postAdminTicketMessage(
+    token: string,
+    ticketId: string,
+    data: { content: string }
+  ): Promise<{ id: string; authorType: string; content: string; createdAt: string }> {
+    return request(`/admin/tickets/${ticketId}/messages`, { method: "POST", body: JSON.stringify(data), token });
+  },
+
   async syncFromRemna(token: string): Promise<SyncResult> {
     return request("/admin/sync/from-remna", { method: "POST", token });
   },
@@ -799,6 +831,44 @@ export const api = {
     return request("/client/referral-stats", { token });
   },
 
+  /** Список тикетов клиента (доступно при включённой тикет-системе) */
+  async getTickets(token: string): Promise<{ items: { id: string; subject: string; status: string; createdAt: string; updatedAt: string }[] }> {
+    return request("/client/tickets", { token });
+  },
+  /** Один тикет с сообщениями */
+  async getTicket(token: string, id: string): Promise<{
+    id: string;
+    subject: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    messages: { id: string; authorType: string; content: string; createdAt: string }[];
+  }> {
+    return request(`/client/tickets/${id}`, { token });
+  },
+  /** Создать тикет (тема + первое сообщение) */
+  async createTicket(
+    token: string,
+    data: { subject: string; message: string }
+  ): Promise<{
+    id: string;
+    subject: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    messages: { id: string; authorType: string; content: string; createdAt: string }[];
+  }> {
+    return request("/client/tickets", { method: "POST", body: JSON.stringify(data), token });
+  },
+  /** Ответ в тикет */
+  async replyTicket(
+    token: string,
+    ticketId: string,
+    data: { content: string }
+  ): Promise<{ id: string; authorType: string; content: string; createdAt: string }> {
+    return request(`/client/tickets/${ticketId}/messages`, { method: "POST", body: JSON.stringify(data), token });
+  },
+
   // ——— Промо-группы (админ) ———
   async getPromoGroups(token: string): Promise<PromoGroup[]> {
     return request("/admin/promo-groups", { token });
@@ -898,7 +968,8 @@ export type AutoBroadcastTriggerType =
   | "trial_not_connected"
   | "trial_used_never_paid"
   | "no_traffic"
-  | "subscription_expired";
+  | "subscription_expired"
+  | "subscription_ending_soon";
 
 export interface AutoBroadcastRule {
   id: string;
@@ -955,6 +1026,7 @@ export type UpdateSettingsPayload = {
   publicAppUrl?: string | null;
   telegramBotToken?: string | null;
   telegramBotUsername?: string | null;
+  botAdminTelegramIds?: string[] | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: string | null;
@@ -965,6 +1037,7 @@ export type UpdateSettingsPayload = {
   yookassaShopId?: string | null;
   yookassaSecretKey?: string | null;
   botButtons?: string | null;
+  botButtonsPerRow?: 1 | 2;
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | string | null;
   botBackLabel?: string | null;
   botMenuTexts?: string | null;
@@ -974,6 +1047,7 @@ export type UpdateSettingsPayload = {
   agreementLink?: string | null;
   offerLink?: string | null;
   instructionsLink?: string | null;
+  ticketsEnabled?: boolean;
   themeAccent?: string;
   forceSubscribeEnabled?: boolean;
   forceSubscribeChannelId?: string | null;
@@ -1055,6 +1129,8 @@ export interface AdminSettings {
   publicAppUrl?: string | null;
   telegramBotToken?: string | null;
   telegramBotUsername?: string | null;
+  /** Telegram ID админов бота (видят кнопку «Панель админа» в боте) */
+  botAdminTelegramIds?: string[] | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: { id: number; enabled: boolean; label: string }[];
@@ -1064,8 +1140,10 @@ export interface AdminSettings {
   yoomoneyNotificationSecret?: string | null;
   yookassaShopId?: string | null;
   yookassaSecretKey?: string | null;
-  /** Кнопки главного меню бота: порядок, видимость, текст, стиль, ключ эмодзи (TRIAL, PACKAGE, …) */
-  botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string }[];
+  /** Кнопки главного меню бота: порядок, видимость, текст, стиль, ключ эмодзи, в один ряд */
+  botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string; onePerRow?: boolean }[];
+  /** Кнопок в ряд в главном меню: 1 или 2 (по умолчанию 1) */
+  botButtonsPerRow?: 1 | 2;
   /** Эмодзи по ключам: Unicode и/или TG custom emoji ID (премиум). Ключи: TRIAL, PACKAGE, CARD, LINK, SERVERS, … */
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }>;
   /** Текст кнопки «В меню» */
@@ -1081,6 +1159,8 @@ export interface AdminSettings {
   agreementLink?: string | null;
   offerLink?: string | null;
   instructionsLink?: string | null;
+  /** Тикет-система включена (кабинет + мини-апп) */
+  ticketsEnabled?: boolean;
   /** Глобальная цветовая тема */
   themeAccent?: string;
   /** Принудительная подписка на канал/группу */
@@ -1571,6 +1651,7 @@ export interface PublicConfig {
   trialEnabled?: boolean;
   trialDays?: number;
   themeAccent?: string;
+  ticketsEnabled?: boolean;
   sellOptionsEnabled?: boolean;
   sellOptions?: PublicSellOption[];
   showProxyEnabled?: boolean;

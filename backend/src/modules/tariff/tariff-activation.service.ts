@@ -47,6 +47,26 @@ function calculateExpireAt(currentExpireAt: Date | null, durationDays: number): 
   return new Date(base.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 }
 
+/** Извлечь activeInternalSquads (uuid[]) из ответа Remna — чтобы мержить со сквадами тарифа и не затирать доп. опции. */
+function extractCurrentSquads(data: unknown): string[] {
+  if (!data || typeof data !== "object") return [];
+  const resp = (data as Record<string, unknown>).response ?? (data as Record<string, unknown>).data ?? data;
+  const ais = (resp as Record<string, unknown>)?.activeInternalSquads;
+  if (!Array.isArray(ais)) return [];
+  const out: string[] = [];
+  for (const s of ais) {
+    const u = s && typeof s === "object" && "uuid" in s ? (s as Record<string, unknown>).uuid : s;
+    if (typeof u === "string") out.push(u);
+  }
+  return out;
+}
+
+/** Объединить сквады тарифа с текущими сквадами пользователя (тариф в приоритете, доп. сквады сохраняются). */
+function mergeSquads(tariffSquadUuids: string[], currentSquadUuids: string[]): string[] {
+  const extra = currentSquadUuids.filter((u) => !tariffSquadUuids.includes(u));
+  return [...tariffSquadUuids, ...extra];
+}
+
 /**
  * Активирует тариф для клиента в Remnawave:
  * - обновляет/создаёт пользователя с expireAt, trafficLimitBytes (в байтах), deviceLimit
@@ -71,17 +91,19 @@ export async function activateTariffForClient(
   const hwidDeviceLimit = tariff.deviceLimit ?? null;
 
   if (client.remnawaveUuid) {
-    // Получаем текущие данные пользователя из Remnawave, чтобы узнать его expireAt
+    // Получаем текущие данные пользователя из Remnawave (expireAt и сквады для мержа)
     const userRes = await remnaGetUser(client.remnawaveUuid);
     const currentExpireAt = extractCurrentExpireAt(userRes.data);
+    const currentSquads = extractCurrentSquads(userRes.data);
     const expireAt = calculateExpireAt(currentExpireAt, tariff.durationDays);
+    const activeInternalSquads = mergeSquads(tariff.internalSquadUuids, currentSquads);
 
     const updateRes = await remnaUpdateUser({
       uuid: client.remnawaveUuid,
       expireAt,
       trafficLimitBytes,
       hwidDeviceLimit,
-      activeInternalSquads: tariff.internalSquadUuids,
+      activeInternalSquads,
     });
     if (updateRes.error) {
       return { ok: false, error: updateRes.error, status: updateRes.status >= 400 ? updateRes.status : 500 };
@@ -125,7 +147,9 @@ export async function activateTariffForClient(
     }
     if (!existingUuid) return { ok: false, error: "Ошибка создания пользователя VPN", status: 502 };
 
-    await remnaUpdateUser({ uuid: existingUuid, expireAt, trafficLimitBytes, hwidDeviceLimit, activeInternalSquads: tariff.internalSquadUuids });
+    const currentSquads = existingUuid ? extractCurrentSquads((await remnaGetUser(existingUuid)).data) : [];
+    const activeInternalSquads = mergeSquads(tariff.internalSquadUuids, currentSquads);
+    await remnaUpdateUser({ uuid: existingUuid, expireAt, trafficLimitBytes, hwidDeviceLimit, activeInternalSquads });
     // Не вызываем add-users: по api-1.yaml эндпоинт добавляет ВСЕХ пользователей в сквад.
     await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: existingUuid } });
   }

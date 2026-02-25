@@ -72,6 +72,11 @@ export function remnaGetUser(uuid: string) {
   return remnaFetch<unknown>(`/api/users/${uuid}`);
 }
 
+/** DELETE /api/users/{uuid} — удалить пользователя из Remna */
+export function remnaDeleteUser(uuid: string) {
+  return remnaFetch<unknown>(`/api/users/${uuid}`, { method: "DELETE" });
+}
+
 /** GET /api/users/by-username/{username} */
 export function remnaGetUserByUsername(username: string) {
   const encoded = encodeURIComponent(username);
@@ -225,7 +230,26 @@ export function remnaResetUserTraffic(uuid: string) {
   return remnaFetch<unknown>(`/api/users/${uuid}/actions/reset-traffic`, { method: "POST" });
 }
 
-/** POST /api/users/bulk/update-squads — uuids + activeInternalSquads */
+/** GET /api/hwid/devices/{userUuid} — список устройств пользователя (Remna HWID) */
+export function remnaGetUserHwidDevices(userUuid: string) {
+  return remnaFetch<unknown>(`/api/hwid/devices/${userUuid}`);
+}
+
+/** POST /api/hwid/devices/delete — удалить устройство пользователя (Remna HWID) */
+export function remnaDeleteUserHwidDevice(userUuid: string, hwid: string) {
+  return remnaFetch<unknown>("/api/hwid/devices/delete", {
+    method: "POST",
+    body: JSON.stringify({ userUuid, hwid }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Массовые эндпоинты Remna (api-1.yaml, docs.rw/api). НЕ использовать для
+// действий над одним пользователем — иначе сквады/данные могут затронуть всех.
+// Для одного пользователя: remnaUpdateUser({ uuid, activeInternalSquads, ... }).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** POST /api/users/bulk/update-squads — массово выставляет один и тот же список сквадов многим пользователям (uuids[]). Не использовать для одного — нет мержа с доп. сквадами. */
 export function remnaBulkUpdateUsersSquads(body: { uuids: string[]; activeInternalSquads: string[] }) {
   return remnaFetch<unknown>("/api/users/bulk/update-squads", {
     method: "POST",
@@ -233,7 +257,7 @@ export function remnaBulkUpdateUsersSquads(body: { uuids: string[]; activeIntern
   });
 }
 
-/** POST /api/internal-squads/{squadUuid}/bulk-actions/add-users */
+/** POST /api/internal-squads/{uuid}/bulk-actions/add-users — в Remna добавляет ВСЕХ пользователей в сквад (summary в api-1.yaml). Не вызывать для назначения сквада одному пользователю — только remnaUpdateUser(activeInternalSquads). */
 export function remnaAddUsersToInternalSquad(squadUuid: string, body: { userUuids: string[] }) {
   return remnaFetch<unknown>(`/api/internal-squads/${squadUuid}/bulk-actions/add-users`, {
     method: "POST",
@@ -241,10 +265,13 @@ export function remnaAddUsersToInternalSquad(squadUuid: string, body: { userUuid
   });
 }
 
-/** DELETE /api/internal-squads/{squadUuid}/bulk-actions/remove-users */
-export function remnaRemoveUsersFromInternalSquad(squadUuid: string, body: { userUuids: string[] }) {
+/**
+ * DELETE /api/internal-squads/{squadUuid}/bulk-actions/remove-users
+ * Массовое действие в Remna: убирает из сквада ВСЕХ пользователей (тело запроса не принимается).
+ * Чтобы убрать сквад только у одного пользователя — remnaUpdateUser(uuid, { activeInternalSquads: [...] }) без этого сквада.
+ */
+export function remnaRemoveAllUsersFromInternalSquad(squadUuid: string) {
   return remnaFetch<unknown>(`/api/internal-squads/${squadUuid}/bulk-actions/remove-users`, {
     method: "DELETE",
-    body: JSON.stringify(body),
   });
 }

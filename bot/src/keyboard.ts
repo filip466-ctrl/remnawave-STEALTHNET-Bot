@@ -16,7 +16,7 @@ type WebAppButton = { text: string; web_app: { url: string }; icon_custom_emoji_
 type UrlButton = { text: string; url: string; icon_custom_emoji_id?: string };
 export type InlineMarkup = { inline_keyboard: (InlineButton | WebAppButton | UrlButton)[][] };
 
-export type BotButtonConfig = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string };
+export type BotButtonConfig = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean };
 
 function btn(text: string, data: string, style?: ButtonStyle | null, iconCustomEmojiId?: string): InlineButton {
   const b: InlineButton = { text, callback_data: data };
@@ -37,6 +37,7 @@ const MENU_IDS: Record<string, string> = {
   singbox: "menu:singbox",
   my_singbox: "menu:my_singbox",
   profile: "menu:profile",
+  devices: "menu:devices",
   topup: "menu:topup",
   referral: "menu:referral",
   trial: "menu:trial",
@@ -53,11 +54,13 @@ const DEFAULT_BUTTONS: BotButtonConfig[] = [
   { id: "singbox", visible: true, label: "🔑 Доступы", order: 0.55, style: "primary" },
   { id: "my_singbox", visible: true, label: "📋 Мои доступы", order: 0.65, style: "primary" },
   { id: "profile", visible: true, label: "👤 Профиль", order: 1, style: "" },
+  { id: "devices", visible: true, label: "📱 Устройства", order: 1.5, style: "primary" },
   { id: "topup", visible: true, label: "💳 Пополнить баланс", order: 2, style: "success" },
   { id: "referral", visible: true, label: "🔗 Реферальная программа", order: 3, style: "primary" },
   { id: "trial", visible: true, label: "🎁 Попробовать бесплатно", order: 4, style: "success" },
-  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger" },
+  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", onePerRow: true },
   { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary" },
+  { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary" },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary" },
   { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary" },
@@ -89,7 +92,7 @@ export type InnerEmojiIds = {
   connect?: string;
 };
 
-/** Главное меню: кнопки из конфига. Эмодзи в label (Unicode) и/или icon_custom_emoji_id (премиум). Поддержка показывается только если задана хотя бы одна ссылка. */
+/** Главное меню: кнопки из конфига. Эмодзи в label (Unicode) и/или icon_custom_emoji_id (премиум). Поддержка показывается только если задана хотя бы одна ссылка. Тикеты — Web App при включённой тикет-системе. buttonsPerRow: 1 или 2. */
 export function mainMenu(opts: {
   showTrial: boolean;
   showVpn: boolean;
@@ -99,9 +102,18 @@ export function mainMenu(opts: {
   botButtons?: BotButtonConfig[] | null;
   botBackLabel?: string | null;
   hasSupportLinks?: boolean;
+  showTickets?: boolean;
   showExtraOptions?: boolean;
+  /** Кнопок в ряд: 1 или 2 (по умолчанию 1) */
+  buttonsPerRow?: 1 | 2;
 }): InlineMarkup {
-  const list = (opts.botButtons && opts.botButtons.length > 0 ? opts.botButtons : DEFAULT_BUTTONS)
+  const configButtons = opts.botButtons ?? [];
+  const fromConfig = configButtons.length > 0;
+  let list = fromConfig ? [...configButtons] : [...DEFAULT_BUTTONS];
+  if (fromConfig && !list.some((b) => b.id === "devices")) {
+    list.push({ id: "devices", visible: true, label: "📱 Устройства", order: 1.5, style: "primary" });
+  }
+  list = list
     .filter((b) => b.visible)
     .filter((b) => {
       if (b.id === "trial") return opts.showTrial;
@@ -109,29 +121,54 @@ export function mainMenu(opts: {
       if (b.id === "proxy" || b.id === "my_proxy") return opts.showProxy === true;
       if (b.id === "singbox" || b.id === "my_singbox") return opts.showSingbox === true;
       if (b.id === "cabinet") return !!opts.appUrl?.trim();
+      if (b.id === "tickets") return opts.showTickets === true && !!opts.appUrl?.trim();
       if (b.id === "support") return !!opts.hasSupportLinks;
       if (b.id === "extra_options") return opts.showExtraOptions === true;
       return true;
     })
     .sort((a, b) => a.order - b.order);
   const base = opts.appUrl?.replace(/\/$/, "") ?? "";
-  const rows: (InlineButton | WebAppButton)[][] = [];
+  const perRow = opts.buttonsPerRow === 2 ? 2 : 1;
+  const items: { node: InlineButton | WebAppButton; onePerRow: boolean }[] = [];
   for (const b of list) {
     const iconId = b.iconCustomEmojiId;
+    const onePerRow = b.onePerRow === true;
     if (b.id === "cabinet") {
       if (base) {
         const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet` } };
         if (iconId) w.icon_custom_emoji_id = iconId;
-        rows.push([w]);
+        items.push({ node: w, onePerRow });
       }
-    } else if (b.id === "vpn" && base) {
+    } else     if (b.id === "vpn" && base) {
       const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet/subscribe` } };
       if (iconId) w.icon_custom_emoji_id = iconId;
-      rows.push([w]);
+      items.push({ node: w, onePerRow });
+    } else if (b.id === "tickets" && base) {
+      const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet/tickets` } };
+      if (iconId) w.icon_custom_emoji_id = iconId;
+      items.push({ node: w, onePerRow });
     } else if (MENU_IDS[b.id]) {
-      rows.push([btn(b.label, MENU_IDS[b.id], toStyle(b.style), iconId)]);
+      items.push({ node: btn(b.label, MENU_IDS[b.id], toStyle(b.style), iconId), onePerRow });
     }
   }
+  const rows: (InlineButton | WebAppButton)[][] = [];
+  let currentRow: (InlineButton | WebAppButton)[] = [];
+  for (const { node, onePerRow } of items) {
+    if (onePerRow) {
+      if (currentRow.length > 0) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+      rows.push([node]);
+    } else {
+      currentRow.push(node);
+      if (currentRow.length >= perRow) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+    }
+  }
+  if (currentRow.length > 0) rows.push(currentRow);
   return { inline_keyboard: rows };
 }
 

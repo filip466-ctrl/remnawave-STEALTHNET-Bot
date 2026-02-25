@@ -14,6 +14,7 @@ import { remnaWebhooksRouter } from "./modules/webhooks/remna.webhooks.routes.js
 import { plategaWebhooksRouter } from "./modules/webhooks/platega.webhooks.routes.js";
 import { yoomoneyWebhooksRouter } from "./modules/webhooks/yoomoney.webhooks.routes.js";
 import { yookassaWebhooksRouter } from "./modules/webhooks/yookassa.webhooks.routes.js";
+import { botAdminRouter } from "./modules/bot-admin/bot-admin.routes.js";
 
 const app = express();
 
@@ -45,7 +46,7 @@ const limiter = rateLimit({
 app.use("/api/", limiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.1.8" });
+  res.json({ status: "ok", version: "3.1.9" });
 });
 
 app.use("/api/auth", authRouter);
@@ -56,6 +57,7 @@ app.use("/api/proxy-nodes", proxyAgentRouter);
 app.use("/api/singbox-nodes", singboxAgentRouter);
 app.use("/api/client", clientRouter);
 app.use("/api/public", publicConfigRouter);
+app.use("/api/bot-admin", botAdminRouter);
 app.use("/api/webhooks", remnaWebhooksRouter);
 app.use("/api/webhooks", plategaWebhooksRouter);
 app.use("/api/webhooks", yoomoneyWebhooksRouter);

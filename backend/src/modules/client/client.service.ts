@@ -44,15 +44,16 @@ const SYSTEM_CONFIG_KEYS = [
   "service_name", "logo", "logo_bot", "favicon", "remna_client_url",
   "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_password",
   "smtp_from_email", "smtp_from_name", "public_app_url",
-  "telegram_bot_token", "telegram_bot_username",
+  "telegram_bot_token", "telegram_bot_username", "bot_admin_telegram_ids",
   "platega_merchant_id", "platega_secret", "platega_methods",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key",
-  "bot_buttons", "bot_back_label", "bot_menu_texts", "bot_inner_button_styles",
+  "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_inner_button_styles",
   "bot_emojis", // JSON: { "TRIAL": { "unicode": "🎁", "tgEmojiId": "..." }, "PACKAGE": ... } — эмодзи кнопок/текста, TG ID для премиум
   "category_emojis", // JSON: { "ordinary": "📦", "premium": "⭐" } — эмодзи категорий по коду
   "subscription_page_config",
   "support_link", "agreement_link", "offer_link", "instructions_link", // Поддержка: тех поддержка, соглашения, оферта, инструкции
+  "tickets_enabled", // Тикет-система: true/false
   "theme_accent", // Глобальная цветовая тема: default, blue, violet, rose, orange, green, emerald, cyan, amber, red, pink, indigo
   "force_subscribe_enabled", "force_subscribe_channel_id", "force_subscribe_message", // Принудительная подписка на канал/группу
   // Продажа опций: доп. трафик, доп. устройства, доп. серверы (сквады)
@@ -70,20 +71,26 @@ export type SellOptionDeviceProduct = { id: string; name: string; deviceCount: n
 /** Продукт «Доп. сервер»: сквад Remna, опционально трафик (ГБ), цена */
 export type SellOptionServerProduct = { id: string; name: string; squadUuid: string; trafficGb?: number; price: number; currency: string };
 
-export type BotButtonConfig = { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string };
+export type BotButtonConfig = { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string; onePerRow?: boolean };
 export type BotEmojiEntry = { unicode?: string; tgEmojiId?: string };
 export type BotEmojisConfig = Record<string, BotEmojiEntry>;
 const DEFAULT_BOT_BUTTONS: BotButtonConfig[] = [
-  { id: "tariffs", visible: true, label: "📦 Тарифы", order: 0, style: "success" },
-  { id: "profile", visible: true, label: "👤 Профиль", order: 1, style: "" },
-  { id: "topup", visible: true, label: "💳 Пополнить баланс", order: 2, style: "success" },
-  { id: "referral", visible: true, label: "🔗 Реферальная программа", order: 3, style: "primary" },
-  { id: "trial", visible: true, label: "🎁 Попробовать бесплатно", order: 4, style: "success" },
-  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger" },
-  { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary" },
-  { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary" },
-  { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary" },
-  { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary" },
+  { id: "tariffs", visible: true, label: "📦 Тарифы", order: 0, style: "success", emojiKey: "PACKAGE" },
+  { id: "proxy", visible: true, label: "🌐 Прокси", order: 0.5, style: "primary", emojiKey: "SERVERS" },
+  { id: "my_proxy", visible: true, label: "📋 Мои прокси", order: 0.6, style: "primary", emojiKey: "SERVERS" },
+  { id: "singbox", visible: true, label: "🔑 Доступы", order: 0.55, style: "primary", emojiKey: "SERVERS" },
+  { id: "my_singbox", visible: true, label: "📋 Мои доступы", order: 0.65, style: "primary", emojiKey: "SERVERS" },
+  { id: "profile", visible: true, label: "👤 Профиль", order: 1, style: "", emojiKey: "PUZZLE" },
+  { id: "devices", visible: true, label: "📱 Устройства", order: 1.5, style: "primary", emojiKey: "DEVICES" },
+  { id: "topup", visible: true, label: "💳 Пополнить баланс", order: 2, style: "success", emojiKey: "CARD" },
+  { id: "referral", visible: true, label: "🔗 Реферальная программа", order: 3, style: "primary", emojiKey: "LINK" },
+  { id: "trial", visible: true, label: "🎁 Попробовать бесплатно", order: 4, style: "success", emojiKey: "TRIAL" },
+  { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", emojiKey: "SERVERS", onePerRow: true },
+  { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary", emojiKey: "SERVERS" },
+  { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary", emojiKey: "NOTE" },
+  { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary", emojiKey: "NOTE" },
+  { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary", emojiKey: "STAR" },
+  { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary", emojiKey: "PACKAGE" },
 ];
 
 export type BotMenuTexts = {
@@ -191,16 +198,17 @@ function parseBotButtons(raw: string | undefined): BotButtonConfig[] {
         id,
         visible: typeof o.visible === "boolean" ? o.visible : true,
         label: typeof o.label === "string" && o.label.trim() ? o.label.trim() : def.label,
-        order: typeof o.order === "number" ? o.order : (typeof o.order === "string" ? parseInt(o.order, 10) : i),
+        order: typeof o.order === "number" ? o.order : (typeof o.order === "string" ? parseFloat(o.order) : i),
         style: typeof o.style === "string" ? o.style : (def as BotButtonConfig).style ?? "",
-        emojiKey: typeof o.emojiKey === "string" && o.emojiKey.trim() ? o.emojiKey.trim() : undefined,
+        emojiKey: typeof o.emojiKey === "string" ? o.emojiKey.trim() : undefined,
+        onePerRow: typeof o.onePerRow === "boolean" ? o.onePerRow : (def as BotButtonConfig).onePerRow,
       };
     });
     // Дополняем кнопками из дефолтов, которых нет в сохранённом списке
     const savedIds = new Set(result.map((b) => b.id));
     for (const def of DEFAULT_BOT_BUTTONS) {
       if (!savedIds.has(def.id)) {
-        result.push({ id: def.id, visible: def.visible, label: def.label, order: def.order, style: def.style ?? "", emojiKey: undefined });
+        result.push({ id: def.id, visible: def.visible, label: def.label, order: def.order, style: def.style ?? "", emojiKey: undefined, onePerRow: def.onePerRow });
       }
     }
     return result;
@@ -267,6 +275,7 @@ export async function getSystemConfig() {
     publicAppUrl: map.public_app_url || null,
     telegramBotToken: map.telegram_bot_token || null,
     telegramBotUsername: map.telegram_bot_username || null,
+    botAdminTelegramIds: parseBotAdminTelegramIds(map.bot_admin_telegram_ids),
     plategaMerchantId: map.platega_merchant_id || null,
     plategaSecret: map.platega_secret || null,
     plategaMethods: parsePlategaMethods(map.platega_methods),
@@ -277,6 +286,7 @@ export async function getSystemConfig() {
     yookassaShopId: map.yookassa_shop_id || null,
     yookassaSecretKey: map.yookassa_secret_key || null,
     botButtons: parseBotButtons(map.bot_buttons),
+    botButtonsPerRow: map.bot_buttons_per_row === "2" ? 2 : 1,
     botEmojis: parseBotEmojis(map.bot_emojis),
     botBackLabel: (map.bot_back_label || "◀️ В меню").trim() || "◀️ В меню",
     botMenuTexts: parseBotMenuTexts(map.bot_menu_texts),
@@ -287,6 +297,7 @@ export async function getSystemConfig() {
     agreementLink: (map.agreement_link ?? "").trim() || null,
     offerLink: (map.offer_link ?? "").trim() || null,
     instructionsLink: (map.instructions_link ?? "").trim() || null,
+    ticketsEnabled: map.tickets_enabled === "true" || map.tickets_enabled === "1",
     themeAccent: (map.theme_accent ?? "").trim() || "default",
     forceSubscribeEnabled: map.force_subscribe_enabled === "true" || map.force_subscribe_enabled === "1",
     forceSubscribeChannelId: (map.force_subscribe_channel_id ?? "").trim() || null,
@@ -305,6 +316,17 @@ export async function getSystemConfig() {
 }
 
 export type CategoryEmojis = Record<string, string>;
+
+function parseBotAdminTelegramIds(raw: string | undefined): string[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === "string" && /^\d+$/.test(x.trim())).map((x) => x.trim());
+  } catch {
+    return [];
+  }
+}
 
 function parseCategoryEmojis(raw: string | undefined): CategoryEmojis {
   if (!raw || !raw.trim()) return { ordinary: "📦", premium: "⭐" };
@@ -409,8 +431,8 @@ function parseSellOptionServerProducts(raw: string | undefined): SellOptionServe
   }
 }
 
-/** Кнопка для бота: label уже с эмодзи (Unicode) и опционально TG custom emoji ID для премиум-эмодзи */
-export type PublicBotButton = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string };
+/** Кнопка для бота: label уже с эмодзи (Unicode) и опционально TG custom emoji ID для премиум-эмодзи. onePerRow = всегда в одну кнопку в ряд. */
+export type PublicBotButton = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean };
 
 /** Публичный конфиг для сайта/бота (без паролей и секретов). botButtons с подставленными эмодзи. */
 export async function getPublicConfig() {
@@ -420,6 +442,8 @@ export async function getPublicConfig() {
   const botEmojis = full.botEmojis ?? {};
   const defaultEmojiKeyByButtonId: Record<string, string> = {
     trial: "TRIAL", tariffs: "PACKAGE", profile: "PUZZLE", topup: "CARD", referral: "LINK", vpn: "SERVERS", cabinet: "SERVERS",
+    devices: "DEVICES", proxy: "SERVERS", my_proxy: "SERVERS", singbox: "SERVERS", my_singbox: "SERVERS",
+    support: "NOTE", tickets: "NOTE", promocode: "STAR", extra_options: "PACKAGE",
   };
   const resolvedButtons: PublicBotButton[] = (full.botButtons ?? []).map((b) => {
     const emojiKey = b.emojiKey ?? defaultEmojiKeyByButtonId[b.id];
@@ -430,7 +454,7 @@ export async function getPublicConfig() {
       if (entry.tgEmojiId) iconCustomEmojiId = entry.tgEmojiId;
       if (entry.unicode) label = (entry.unicode + " " + label).trim();
     }
-    return { id: b.id, visible: b.visible, label, order: b.order, style: b.style, iconCustomEmojiId };
+    return { id: b.id, visible: b.visible, label, order: b.order, style: b.style, iconCustomEmojiId, onePerRow: b.onePerRow };
   });
 
   const menuTexts = full.botMenuTexts ?? DEFAULT_BOT_MENU_TEXTS;
@@ -464,12 +488,14 @@ export async function getPublicConfig() {
     remnaClientUrl: full.remnaClientUrl,
     publicAppUrl: full.publicAppUrl,
     telegramBotUsername: full.telegramBotUsername,
+    botAdminTelegramIds: full.botAdminTelegramIds ?? [],
     plategaMethods: full.plategaMethods.filter((m) => m.enabled).map((m) => ({ id: m.id, label: m.label })),
     yoomoneyEnabled: Boolean(full.yoomoneyReceiverWallet?.trim()),
     yookassaEnabled: Boolean(full.yookassaShopId?.trim() && full.yookassaSecretKey?.trim()),
     trialEnabled,
     trialDays,
     botButtons: resolvedButtons,
+    botButtonsPerRow: full.botButtonsPerRow ?? 1,
     botBackLabel: full.botBackLabel,
     botMenuTexts: menuTexts,
     resolvedBotMenuTexts,
@@ -484,6 +510,7 @@ export async function getPublicConfig() {
     agreementLink: full.agreementLink ?? null,
     offerLink: full.offerLink ?? null,
     instructionsLink: full.instructionsLink ?? null,
+    ticketsEnabled: (full as { ticketsEnabled?: boolean }).ticketsEnabled ?? false,
     themeAccent: full.themeAccent ?? "default",
     googleAnalyticsId: full.googleAnalyticsId ?? null,
     yandexMetrikaId: full.yandexMetrikaId ?? null,

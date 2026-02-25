@@ -23,6 +23,7 @@ import { MarketingPage } from "@/pages/marketing";
 import { AdminsPage } from "@/pages/admins";
 import { SalesReportPage } from "@/pages/sales-report";
 import { BackupPage } from "@/pages/backup";
+import { AdminTicketsPage } from "@/pages/admin-tickets";
 import { BroadcastPage } from "@/pages/broadcast";
 import { AutoBroadcastPage } from "@/pages/auto-broadcast";
 import { ProxyPage } from "@/pages/proxy";
@@ -42,6 +43,7 @@ import { ClientYooMoneyPayPage } from "@/pages/cabinet/client-yoomoney-pay";
 import { ClientExtraOptionsPage } from "@/pages/cabinet/client-extra-options";
 import { ClientProxyPage } from "@/pages/cabinet/client-proxy";
 import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
+import { ClientTicketsPage } from "@/pages/cabinet/client-tickets";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
@@ -149,6 +151,7 @@ function AppRoutes() {
         <Route path="proxy" element={<ForceChangePassword><ProxyPage /></ForceChangePassword>} />
         <Route path="singbox" element={<ForceChangePassword><SingboxPage /></ForceChangePassword>} />
         <Route path="backup" element={<ForceChangePassword><BackupPage /></ForceChangePassword>} />
+        <Route path="tickets" element={<ForceChangePassword><AdminTicketsPage /></ForceChangePassword>} />
       </Route>
       <Route
         path="/cabinet"
@@ -192,6 +195,14 @@ function AppRoutes() {
           element={
             <RequireClientAuth>
               <ClientReferralPage />
+            </RequireClientAuth>
+          }
+        />
+        <Route
+          path="tickets"
+          element={
+            <RequireClientAuth>
+              <ClientTicketsPage />
             </RequireClientAuth>
           }
         />

@@ -16,7 +16,7 @@ import {
   type SellOptionServerProduct,
 } from "./client.service.js";
 import { requireClientAuth } from "./client.middleware.js";
-import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient } from "../remna/remna.client.js";
+import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient, remnaGetUserHwidDevices, remnaDeleteUserHwidDevice } from "../remna/remna.client.js";
 import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured } from "../mail/mail.service.js";
 import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
 import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
@@ -1087,6 +1087,40 @@ clientRouter.get("/subscription", async (req, res) => {
   return res.json({ subscription: result.data ?? null, tariffDisplayName });
 });
 
+/** GET /api/client/devices — список устройств (HWID) пользователя в Remna */
+clientRouter.get("/devices", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
+  if (!client.remnawaveUuid) {
+    return res.status(400).json({ message: "Подписка не привязана" });
+  }
+  const result = await remnaGetUserHwidDevices(client.remnawaveUuid);
+  if (result.error) {
+    return res.status(result.status >= 500 ? 503 : 400).json({ message: result.error });
+  }
+  const data = result.data as { response?: { total?: number; devices?: Array<{ hwid: string; platform?: string; deviceModel?: string; createdAt?: string }> } } | undefined;
+  const resp = data?.response;
+  const devices = Array.isArray(resp?.devices) ? resp.devices : [];
+  const total = typeof resp?.total === "number" ? resp.total : devices.length;
+  return res.json({ total, devices });
+});
+
+const deleteDeviceSchema = z.object({ hwid: z.string().min(1).max(500) });
+
+/** POST /api/client/devices/delete — удалить устройство по HWID */
+clientRouter.post("/devices/delete", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
+  if (!client.remnawaveUuid) {
+    return res.status(400).json({ message: "Подписка не привязана" });
+  }
+  const body = deleteDeviceSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const result = await remnaDeleteUserHwidDevice(client.remnawaveUuid, body.data.hwid);
+  if (result.error) {
+    return res.status(result.status >= 500 ? 503 : 400).json({ message: result.error });
+  }
+  return res.json({ ok: true, message: "Устройство удалено" });
+});
+
 const createPlategaPaymentSchema = z.object({
   amount: z.number().positive().optional(),
   currency: z.string().min(1).max(10).optional(),
@@ -1983,6 +2017,89 @@ clientRouter.get("/payments", async (req, res) => {
       paidAt: p.paidAt?.toISOString() ?? null,
     })),
   });
+});
+
+// ——— Тикеты (доступны только при включённой тикет-системе в настройках)
+async function ensureTicketsEnabled(res: import("express").Response): Promise<boolean> {
+  const config = await getPublicConfig();
+  if (!config?.ticketsEnabled) {
+    res.status(404).json({ message: "Тикет-система отключена" });
+    return false;
+  }
+  return true;
+}
+
+const createTicketSchema = z.object({ subject: z.string().min(1).max(500), message: z.string().min(1).max(10000) });
+clientRouter.post("/tickets", async (req, res) => {
+  if (!(await ensureTicketsEnabled(res))) return;
+  const clientId = (req as unknown as { client: { id: string } }).client.id;
+  const body = createTicketSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const ticket = await prisma.ticket.create({
+    data: {
+      clientId,
+      subject: body.data.subject.trim(),
+      status: "open",
+      messages: {
+        create: { authorType: "client", content: body.data.message.trim() },
+      },
+    },
+    include: { messages: true },
+  });
+  return res.status(201).json({
+    id: ticket.id,
+    subject: ticket.subject,
+    status: ticket.status,
+    createdAt: ticket.createdAt.toISOString(),
+    updatedAt: ticket.updatedAt.toISOString(),
+    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+  });
+});
+
+clientRouter.get("/tickets", async (req, res) => {
+  if (!(await ensureTicketsEnabled(res))) return;
+  const clientId = (req as unknown as { client: { id: string } }).client.id;
+  const list = await prisma.ticket.findMany({
+    where: { clientId },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, subject: true, status: true, createdAt: true, updatedAt: true },
+  });
+  return res.json({
+    items: list.map((t) => ({ id: t.id, subject: t.subject, status: t.status, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() })),
+  });
+});
+
+clientRouter.get("/tickets/:id", async (req, res) => {
+  if (!(await ensureTicketsEnabled(res))) return;
+  const clientId = (req as unknown as { client: { id: string } }).client.id;
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: req.params.id, clientId },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+  if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  return res.json({
+    id: ticket.id,
+    subject: ticket.subject,
+    status: ticket.status,
+    createdAt: ticket.createdAt.toISOString(),
+    updatedAt: ticket.updatedAt.toISOString(),
+    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+  });
+});
+
+const replyTicketSchema = z.object({ content: z.string().min(1).max(10000) });
+clientRouter.post("/tickets/:id/messages", async (req, res) => {
+  if (!(await ensureTicketsEnabled(res))) return;
+  const clientId = (req as unknown as { client: { id: string } }).client.id;
+  const body = replyTicketSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const ticket = await prisma.ticket.findFirst({ where: { id: req.params.id, clientId } });
+  if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  const msg = await prisma.ticketMessage.create({
+    data: { ticketId: ticket.id, authorType: "client", content: body.data.content.trim() },
+  });
+  await prisma.ticket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
+  return res.status(201).json({ id: msg.id, authorType: msg.authorType, content: msg.content, createdAt: msg.createdAt.toISOString() });
 });
 
 // Публичный конфиг для бота, mini app, сайта (без паролей и секретов)

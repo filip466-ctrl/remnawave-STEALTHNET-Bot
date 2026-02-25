@@ -100,14 +100,25 @@ export async function syncFromRemna(): Promise<{
           const existing = existingByUuid || existingByTg || existingByEmail;
 
           if (existing) {
+            const data: { remnawaveUuid: string; telegramId?: string; email?: string | null; telegramUsername?: string } = {
+              remnawaveUuid: uuid,
+            };
+            if (telegramId) {
+              const otherWithTg = await prisma.client.findFirst({
+                where: { telegramId, id: { not: existing.id } },
+              });
+              if (!otherWithTg) data.telegramId = telegramId;
+            }
+            if (email != null && email !== "") {
+              const otherWithEmail = await prisma.client.findFirst({
+                where: { email, id: { not: existing.id } },
+              });
+              if (!otherWithEmail) data.email = email;
+            }
+            if (username && !existing.telegramUsername) data.telegramUsername = username;
             await prisma.client.update({
               where: { id: existing.id },
-              data: {
-                remnawaveUuid: uuid,
-                ...(telegramId && { telegramId }),
-                ...(email && { email }),
-                ...(username && !existing.telegramUsername && { telegramUsername: username }),
-              },
+              data,
             });
             result.updated++;
           } else {
@@ -137,16 +148,30 @@ export async function syncFromRemna(): Promise<{
   return { ok: result.errors.length === 0, ...result };
 }
 
-/** Извлечь telegramId и email из ответа Remna (getUser) — чтобы не затирать при частичном PATCH. */
-function extractRemnaUserFields(data: unknown): { telegramId?: number; email?: string | null } {
-  if (!data || typeof data !== "object") return {};
+/** Извлечь telegramId, email и activeInternalSquads из ответа Remna (getUser) — чтобы не затирать при PATCH. */
+function extractRemnaUserFields(data: unknown): {
+  telegramId?: number;
+  email?: string | null;
+  activeInternalSquads: string[];
+} {
+  if (!data || typeof data !== "object") return { activeInternalSquads: [] };
   const o = data as Record<string, unknown>;
   const resp = (o.response ?? o) as Record<string, unknown> | undefined;
   const telegramId = resp?.telegramId;
   const email = resp?.email;
+  const ais = resp?.activeInternalSquads;
+  const squads: string[] = [];
+  if (Array.isArray(ais)) {
+    for (const x of ais) {
+      if (typeof x === "string" && x.trim()) squads.push(x.trim());
+      else if (x && typeof x === "object" && typeof (x as { uuid?: string }).uuid === "string")
+        squads.push((x as { uuid: string }).uuid);
+    }
+  }
   return {
     ...(typeof telegramId === "number" && { telegramId }),
     ...(email !== undefined && { email: email != null ? String(email) : null }),
+    activeInternalSquads: squads,
   };
 }
 
@@ -155,9 +180,9 @@ function isRemnaNotFoundError(status: number, error?: string): boolean {
   return status === 404 || (typeof error === "string" && /not found|not exist/i.test(error));
 }
 
-/** Синхронизация в Remna: отправляем в Remna только telegramId и email наших клиентов.
- *  Сквады (activeInternalSquads) не трогаем: если брать их из GET и слать в PATCH, при баге/особенности
- *  Remna (например, возврат одних и тех же сквадов всем) всем пользователям могли бы выставиться все сквады.
+/** Синхронизация в Remna: отправляем telegramId и email наших клиентов.
+ *  Текущие activeInternalSquads из GET подставляем в PATCH явно, чтобы Remna не обнулял сквады при «частичном» PATCH
+ *  (иначе один запуск синхронизации мог бы сбросить сквады всем пользователям).
  *  Если пользователь в Remna не найден (404) — отвязываем клиента (remnawaveUuid = null) и считаем как unlinked. */
 export async function syncToRemna(): Promise<{
   ok: boolean;
@@ -195,6 +220,8 @@ export async function syncToRemna(): Promise<{
       const body: Record<string, unknown> = { uuid };
       body.telegramId = c.telegramId != null ? parseInt(c.telegramId, 10) : (currentRemna.telegramId ?? undefined);
       body.email = c.email != null ? c.email : (currentRemna.email ?? undefined);
+      if (currentRemna.activeInternalSquads.length > 0)
+        body.activeInternalSquads = currentRemna.activeInternalSquads;
       const res = await remnaUpdateUser(body);
       if (res.error) {
         if (isRemnaNotFoundError(res.status, res.error)) {

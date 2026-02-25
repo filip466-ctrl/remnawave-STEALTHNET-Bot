@@ -51,6 +51,8 @@ export async function getPublicConfig(): Promise<{
   serviceName?: string | null;
   logo?: string | null;
   logoBot?: string | null;
+  /** Telegram ID пользователей, которым показывается кнопка «Панель админа» в боте */
+  botAdminTelegramIds?: string[] | null;
   publicAppUrl?: string | null;
   defaultCurrency?: string;
   trialEnabled?: boolean;
@@ -58,7 +60,9 @@ export async function getPublicConfig(): Promise<{
   plategaMethods?: { id: number; label: string }[];
   yoomoneyEnabled?: boolean;
   yookassaEnabled?: boolean;
-  botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string }[] | null;
+  botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean }[] | null;
+  /** Кнопок в ряд в главном меню: 1 или 2 */
+  botButtonsPerRow?: 1 | 2;
   /** Тексты меню с уже подставленными эмодзи ({{BALANCE}} → unicode из bot_emojis) */
   resolvedBotMenuTexts?: Record<string, string>;
   /** Для каких ключей текста меню в начале стоит премиум-эмодзи: key → custom_emoji_id (для entities) */
@@ -77,6 +81,7 @@ export async function getPublicConfig(): Promise<{
   agreementLink?: string | null;
   offerLink?: string | null;
   instructionsLink?: string | null;
+  ticketsEnabled?: boolean;
   forceSubscribeEnabled?: boolean;
   forceSubscribeChannelId?: string | null;
   forceSubscribeMessage?: string | null;
@@ -123,6 +128,16 @@ export async function getMe(token: string): Promise<{
 /** Подписка Remna (для ссылки VPN, статус, трафик) + отображаемое имя тарифа с сайта */
 export async function getSubscription(token: string): Promise<{ subscription: unknown; tariffDisplayName?: string | null; message?: string }> {
   return fetchJson("/api/client/subscription", { token });
+}
+
+/** Список устройств (HWID) пользователя в Remna */
+export async function getClientDevices(token: string): Promise<{ total: number; devices: { hwid: string; platform?: string; deviceModel?: string; createdAt?: string }[] }> {
+  return fetchJson("/api/client/devices", { token });
+}
+
+/** Удалить устройство по HWID */
+export async function postClientDeviceDelete(token: string, hwid: string): Promise<{ ok: boolean; message?: string }> {
+  return fetchJson("/api/client/devices/delete", { method: "POST", body: { hwid }, token });
 }
 
 /** Публичный список тарифов прокси по категориям */
@@ -241,4 +256,319 @@ export async function checkPromoCode(token: string, code: string): Promise<{ typ
 /** Активировать промокод FREE_DAYS */
 export async function activatePromoCode(token: string, code: string): Promise<{ message: string }> {
   return fetchJson("/api/client/promo-code/activate", { method: "POST", body: { code }, token });
+}
+
+// ——— Bot Admin API (X-Telegram-Bot-Token + telegramId в query/body) ———
+
+const BOT_ADMIN_BASE = "/api/bot-admin";
+
+export type BotAdminStats = {
+  users: { total: number; withRemna: number; newLast7Days: number; newLast30Days: number };
+  sales: {
+    totalAmount: number;
+    totalCount: number;
+    last7DaysAmount: number;
+    last7DaysCount: number;
+    last30DaysAmount: number;
+    last30DaysCount: number;
+  };
+};
+
+export async function getBotAdminStats(telegramId: number): Promise<BotAdminStats> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/stats?telegramId=${telegramId}`, {
+    headers: { "X-Telegram-Bot-Token": botToken },
+  });
+  const data = (await res.json().catch(() => ({}))) as BotAdminStats | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as BotAdminStats;
+}
+
+export type BotAdminClientItem = {
+  id: string;
+  email: string | null;
+  telegramId: string | null;
+  telegramUsername: string | null;
+  balance: number;
+  isBlocked: boolean;
+  createdAt: string;
+};
+
+export async function getBotAdminClients(
+  telegramId: number,
+  page: number,
+  search?: string
+): Promise<{ items: BotAdminClientItem[]; total: number; page: number; limit: number }> {
+  const params = new URLSearchParams({ telegramId: String(telegramId), page: String(page), limit: "8" });
+  if (search?.trim()) params.set("search", search.trim());
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients?${params}`, {
+    headers: { "X-Telegram-Bot-Token": botToken },
+  });
+  const data = (await res.json().catch(() => ({}))) as { items: BotAdminClientItem[]; total: number; page: number; limit: number } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { items: BotAdminClientItem[]; total: number; page: number; limit: number };
+}
+
+export type BotAdminClient = BotAdminClientItem & {
+  preferredLang: string | null;
+  preferredCurrency: string | null;
+  referralCode: string | null;
+  remnawaveUuid: string | null;
+  trialUsed: boolean | null;
+  blockReason: string | null;
+  _count: { referrals: number };
+};
+
+export async function getBotAdminClient(telegramId: number, clientId: string): Promise<BotAdminClient> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}?telegramId=${telegramId}`, {
+    headers: { "X-Telegram-Bot-Token": botToken },
+  });
+  const data = (await res.json().catch(() => ({}))) as BotAdminClient | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as BotAdminClient;
+}
+
+export async function patchBotAdminClientBlock(
+  telegramId: number,
+  clientId: string,
+  isBlocked: boolean,
+  blockReason?: string
+): Promise<{ ok: boolean; isBlocked: boolean }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/block`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId, isBlocked, blockReason }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok: boolean; isBlocked: boolean } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean; isBlocked: boolean };
+}
+
+export type BotAdminPaymentItem = {
+  id: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  status: string;
+  tariffName: string | null;
+  clientEmail: string | null;
+  clientTelegramId: string | null;
+  clientTelegramUsername: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export async function getBotAdminPayments(
+  telegramId: number,
+  status: "PENDING" | "PAID",
+  page: number
+): Promise<{ items: BotAdminPaymentItem[]; total: number; page: number; limit: number }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(
+    `${API_URL}${BOT_ADMIN_BASE}/payments?telegramId=${telegramId}&status=${status}&page=${page}&limit=8`,
+    { headers: { "X-Telegram-Bot-Token": botToken } }
+  );
+  const data = (await res.json().catch(() => ({}))) as {
+    items: BotAdminPaymentItem[];
+    total: number;
+    page: number;
+    limit: number;
+  } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { items: BotAdminPaymentItem[]; total: number; page: number; limit: number };
+}
+
+export async function patchBotAdminPaymentMarkPaid(telegramId: number, paymentId: string): Promise<unknown> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/payments/${encodeURIComponent(paymentId)}/mark-paid`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+export async function getBotAdminBroadcastCount(telegramId: number): Promise<{ withTelegram: number; withEmail: number }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/broadcast/count?telegramId=${telegramId}`, {
+    headers: { "X-Telegram-Bot-Token": botToken },
+  });
+  const data = (await res.json().catch(() => ({}))) as { withTelegram: number; withEmail: number } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { withTelegram: number; withEmail: number };
+}
+
+export async function postBotAdminBroadcast(
+  telegramId: number,
+  message: string,
+  channel: "telegram" | "email" | "both",
+  photoFileId?: string
+): Promise<{ ok: boolean; sentTelegram: number; sentEmail: number; failedTelegram: number; failedEmail: number; errors: string[] }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/broadcast`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId, message, channel, photoFileId: photoFileId ?? undefined }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    ok: boolean;
+    sentTelegram: number;
+    sentEmail: number;
+    failedTelegram: number;
+    failedEmail: number;
+    errors: string[];
+  } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean; sentTelegram: number; sentEmail: number; failedTelegram: number; failedEmail: number; errors: string[] };
+}
+
+export async function patchBotAdminClientBalance(telegramId: number, clientId: string, amount: number): Promise<{ ok: boolean; newBalance: number }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/balance`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId, amount }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok: boolean; newBalance: number } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean; newBalance: number };
+}
+
+export async function postBotAdminClientRemnaRevoke(telegramId: number, clientId: string): Promise<unknown> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/revoke-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`);
+  return data;
+}
+
+export async function postBotAdminClientRemnaDisable(telegramId: number, clientId: string): Promise<unknown> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/disable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`);
+  return data;
+}
+
+export async function postBotAdminClientRemnaEnable(telegramId: number, clientId: string): Promise<unknown> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`);
+  return data;
+}
+
+export async function postBotAdminClientRemnaResetTraffic(telegramId: number, clientId: string): Promise<unknown> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/reset-traffic`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`);
+  return data;
+}
+
+export type BotAdminSquadItem = { uuid: string; name: string };
+
+export async function getBotAdminRemnaSquadsInternal(telegramId: number): Promise<{ items: BotAdminSquadItem[] }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/remna/squads/internal?telegramId=${telegramId}`, {
+    headers: { "X-Telegram-Bot-Token": botToken },
+  });
+  const data = (await res.json().catch(() => ({}))) as { items: BotAdminSquadItem[] } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { items: BotAdminSquadItem[] };
+}
+
+export async function getBotAdminClientRemna(telegramId: number, clientId: string): Promise<{ remnaUuid: string; activeInternalSquads: string[] }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(
+    `${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna?telegramId=${telegramId}`,
+    { headers: { "X-Telegram-Bot-Token": botToken } }
+  );
+  const data = (await res.json().catch(() => ({}))) as { remnaUuid: string; activeInternalSquads: string[] } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { remnaUuid: string; activeInternalSquads: string[] };
+}
+
+export async function postBotAdminClientRemnaSquadAdd(telegramId: number, clientId: string, squadUuid: string): Promise<{ ok: boolean; activeInternalSquads: string[] }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/squads/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId, squadUuid }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok: boolean; activeInternalSquads: string[] } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean; activeInternalSquads: string[] };
+}
+
+export async function postBotAdminClientRemnaSquadRemove(telegramId: number, clientId: string, squadUuid: string): Promise<{ ok: boolean; activeInternalSquads: string[] }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/clients/${encodeURIComponent(clientId)}/remna/squads/remove`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
+    body: JSON.stringify({ telegramId, squadUuid }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok: boolean; activeInternalSquads: string[] } | { message?: string };
+  if (!res.ok) {
+    const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean; activeInternalSquads: string[] };
 }

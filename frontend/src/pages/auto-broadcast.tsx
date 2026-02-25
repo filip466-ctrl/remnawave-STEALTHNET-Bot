@@ -20,6 +20,7 @@ const TRIGGER_LABELS: Record<AutoBroadcastTriggerType, string> = {
   trial_used_never_paid: "Пользовался триалом, но не оплатил",
   no_traffic: "Подключён к VPN (напоминание)",
   subscription_expired: "Подписка истекла",
+  subscription_ending_soon: "Подписка заканчивается скоро (за N дней)",
 };
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -281,7 +282,11 @@ export function AutoBroadcastPage() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {TRIGGER_LABELS[rule.triggerType]} · через {rule.delayDays} дн. · {CHANNEL_LABELS[rule.channel]}
+                      {TRIGGER_LABELS[rule.triggerType]}
+                      {rule.triggerType === "subscription_ending_soon"
+                        ? ` · за ${rule.delayDays} дн. до окончания`
+                        : ` · через ${rule.delayDays} дн.`}{" "}
+                      · {CHANNEL_LABELS[rule.channel]}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Отправлено: {rule.sentCount ?? 0} · Сейчас подходят: {eligibleCounts[rule.id] ?? "—"}
@@ -342,7 +347,17 @@ export function AutoBroadcastPage() {
                   <select
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                     value={form.triggerType}
-                    onChange={(e) => setForm((f) => ({ ...f, triggerType: e.target.value as AutoBroadcastTriggerType }))}
+                    onChange={(e) => {
+                    const t = e.target.value as AutoBroadcastTriggerType;
+                    setForm((f) => ({
+                      ...f,
+                      triggerType: t,
+                      delayDays:
+                        t === "subscription_ending_soon"
+                          ? Math.max(1, Math.min(3, f.delayDays))
+                          : f.delayDays,
+                    }));
+                  }}
                   >
                     {(Object.keys(TRIGGER_LABELS) as AutoBroadcastTriggerType[]).map((t) => (
                       <option key={t} value={t}>
@@ -354,14 +369,28 @@ export function AutoBroadcastPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Через сколько дней (0–365)</Label>
+                  <Label>
+                    {form.triggerType === "subscription_ending_soon"
+                      ? "За сколько дней до окончания (1–3)"
+                      : "Через сколько дней (0–365)"}
+                  </Label>
                   <Input
                     type="number"
-                    min={0}
-                    max={365}
+                    min={form.triggerType === "subscription_ending_soon" ? 1 : 0}
+                    max={form.triggerType === "subscription_ending_soon" ? 3 : 365}
                     value={form.delayDays}
-                    onChange={(e) => setForm((f) => ({ ...f, delayDays: Math.max(0, Math.min(365, Number(e.target.value) || 0)) }))}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) || 0;
+                      const min = form.triggerType === "subscription_ending_soon" ? 1 : 0;
+                      const max = form.triggerType === "subscription_ending_soon" ? 3 : 365;
+                      setForm((f) => ({ ...f, delayDays: Math.max(min, Math.min(max, v)) }));
+                    }}
                   />
+                  {form.triggerType === "subscription_ending_soon" && (
+                    <p className="text-xs text-muted-foreground">
+                      Создайте 3 правила (за 3, за 2, за 1 день) — рассылка будет каждый день с нужным текстом.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Канал</Label>

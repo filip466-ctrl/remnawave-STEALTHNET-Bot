@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare } from "lucide-react";
 import { useTheme } from "@/contexts/theme";
 
 /** Подключает Google Analytics 4 и Яндекс.Метрику на страницах кабинета по настройкам из админки (Маркетинг). */
@@ -53,6 +53,7 @@ const ALL_NAV_ITEMS = [
   { to: "/cabinet/proxy", label: "Прокси", icon: Globe },
   { to: "/cabinet/singbox", label: "Доступы", icon: KeyRound },
   { to: "/cabinet/referral", label: "Рефералы", icon: Users },
+  { to: "/cabinet/tickets", label: "Тикеты", icon: MessageSquare },
   { to: "/cabinet/profile", label: "Профиль", icon: User },
 ];
 
@@ -72,20 +73,21 @@ function ThemeToggleButton({ className }: { className?: string }) {
   );
 }
 
-function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnabled?: boolean; showSingboxEnabled?: boolean } | null) {
+function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnabled?: boolean; showSingboxEnabled?: boolean; ticketsEnabled?: boolean } | null) {
   let items = ALL_NAV_ITEMS;
   if (!config?.sellOptionsEnabled) items = items.filter((i) => i.to !== "/cabinet/extra-options");
   if (!config?.showProxyEnabled) items = items.filter((i) => i.to !== "/cabinet/proxy");
   if (!config?.showSingboxEnabled) items = items.filter((i) => i.to !== "/cabinet/singbox");
+  if (!config?.ticketsEnabled) items = items.filter((i) => i.to !== "/cabinet/tickets");
   return items;
 }
 
-/** Мобильная оболочка для Mini App: компактный хедер + нижняя навигация, тот же стиль. */
+/** Мобильная оболочка для Mini App: компактный хедер + нижняя панель с горизонтальным скроллом (все пункты в одну линию). */
 function MobileCabinetShell() {
   const location = useLocation();
   const { state, logout, refreshProfile } = useClientAuth();
   const config = useCabinetConfig();
-  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled]);
+  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled, config?.ticketsEnabled]);
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
@@ -124,19 +126,27 @@ function MobileCabinetShell() {
       <main className="flex-1 w-full min-w-0 overflow-x-hidden px-4 py-4 pb-24 box-border max-w-[100%] mx-auto" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
         <Outlet />
       </main>
+
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+        <div
+          className="flex items-center gap-1 h-16 overflow-x-auto overflow-y-hidden px-2 max-w-[100vw]"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {navItems.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to;
             return (
-              <Link key={to} to={to} className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs min-w-0">
+              <Link
+                key={to}
+                to={to}
+                className="flex flex-shrink-0 flex-col items-center justify-center gap-0.5 py-2 px-3 min-w-[4rem] text-xs"
+              >
                 <span className={active ? "text-primary" : "text-muted-foreground"}>
-                  <Icon className={`h-6 w-6 ${active ? "text-primary" : ""}`} />
+                  <Icon className={`h-6 w-6 shrink-0 ${active ? "text-primary" : ""}`} />
                 </span>
-                <span className={`truncate max-w-full ${active ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                <span className={`whitespace-nowrap truncate max-w-[5rem] ${active ? "font-medium text-foreground" : "text-muted-foreground"}`}>
                   {label}
                 </span>
               </Link>
@@ -165,7 +175,7 @@ function CabinetShell() {
   const location = useLocation();
   const { state, logout, refreshProfile } = useClientAuth();
   const config = useCabinetConfig();
-  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled]);
+  const navItems = useMemo(() => resolveNavItems(config), [config?.sellOptionsEnabled, config?.showProxyEnabled, config?.showSingboxEnabled, config?.ticketsEnabled]);
   const isMiniapp = useIsMiniapp();
   const isMobile = useIsMobile();
   const [logoError, setLogoError] = useState(false);
