@@ -44,10 +44,6 @@ import {
   notifyAdminsAboutSupportReply,
   notifyAdminsAboutTicketStatusChange,
 } from "../notification/telegram-notify.service.js";
-import {
-  notifyAdminsAboutSupportReply,
-  notifyAdminsAboutTicketStatusChange,
-} from "../notification/telegram-notify.service.js";
 import { runRule, runAllRules, getEligibleClientIds } from "../auto-broadcast/auto-broadcast.service.js";
 
 export const adminRouter = Router();
@@ -544,7 +540,7 @@ adminRouter.get("/clients", async (req, res) => {
       }),
       prisma.client.count({ where: whereClause }),
     ]);
-    let items = clients as (typeof clients)[number] & { activeNode?: string | null }[];
+    let items: ((typeof clients)[number] & { activeNode?: string | null })[] = clients;
 
     // Попробуем обогатить клиентов информацией об активной ноде Remna (если Remna настроен)
     if (isRemnaConfigured()) {
@@ -920,6 +916,7 @@ const updateSettingsSchema = z.object({
   telegramBotToken: z.string().max(500).nullable().optional(),
   telegramBotUsername: z.string().max(100).nullable().optional(),
   botAdminTelegramIds: z.union([z.string().max(2000), z.array(z.string())]).nullable().optional(),
+  notificationTelegramGroupId: z.string().max(100).nullable().optional(),
   plategaMerchantId: z.string().max(200).nullable().optional(),
   plategaSecret: z.string().max(500).nullable().optional(),
   plategaMethods: z.string().max(2000).nullable().optional(),
@@ -1140,6 +1137,14 @@ adminRouter.patch("/settings", async (req, res) => {
     const raw = updates.botAdminTelegramIds;
     const val = Array.isArray(raw) ? JSON.stringify(raw) : (raw ?? "");
     await prisma.systemSetting.upsert({ where: { key: "bot_admin_telegram_ids" }, create: { key: "bot_admin_telegram_ids", value: val }, update: { value: val } });
+  }
+  if (updates.notificationTelegramGroupId !== undefined) {
+    const val = (updates.notificationTelegramGroupId ?? "").trim() || "";
+    await prisma.systemSetting.upsert({
+      where: { key: "notification_telegram_group_id" },
+      create: { key: "notification_telegram_group_id", value: val },
+      update: { value: val },
+    });
   }
   if (updates.plategaMerchantId !== undefined) {
     const val = updates.plategaMerchantId ?? "";

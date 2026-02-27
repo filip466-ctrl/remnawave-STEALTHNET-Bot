@@ -1031,6 +1031,7 @@ export type UpdateSettingsPayload = {
   telegramBotToken?: string | null;
   telegramBotUsername?: string | null;
   botAdminTelegramIds?: string[] | null;
+  notificationTelegramGroupId?: string | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: string | null;
@@ -1138,6 +1139,8 @@ export interface AdminSettings {
   telegramBotUsername?: string | null;
   /** Telegram ID админов бота (видят кнопку «Панель админа» в боте) */
   botAdminTelegramIds?: string[] | null;
+  /** Группа для уведомлений: Chat ID (например -1001234567890). Бот должен быть в группе. */
+  notificationTelegramGroupId?: string | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: { id: number; enabled: boolean; label: string }[];

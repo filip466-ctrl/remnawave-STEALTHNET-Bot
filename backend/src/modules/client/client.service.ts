@@ -45,6 +45,7 @@ const SYSTEM_CONFIG_KEYS = [
   "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_password",
   "smtp_from_email", "smtp_from_name", "public_app_url",
   "telegram_bot_token", "telegram_bot_username", "bot_admin_telegram_ids",
+  "notification_telegram_group_id", // Группа/чат для дублирования админских уведомлений (chat_id, например -1001234567890)
   "platega_merchant_id", "platega_secret", "platega_methods",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key",
@@ -54,6 +55,7 @@ const SYSTEM_CONFIG_KEYS = [
   "subscription_page_config",
   "support_link", "agreement_link", "offer_link", "instructions_link", // Поддержка: тех поддержка, соглашения, оферта, инструкции
   "tickets_enabled", // Тикет-система: true/false
+  "admin_front_notifications_enabled", // Всплывающие уведомления в админке: true/false
   "theme_accent", // Глобальная цветовая тема: default, blue, violet, rose, orange, green, emerald, cyan, amber, red, pink, indigo
   "force_subscribe_enabled", "force_subscribe_channel_id", "force_subscribe_message", // Принудительная подписка на канал/группу
   // Продажа опций: доп. трафик, доп. устройства, доп. серверы (сквады)
@@ -276,6 +278,7 @@ export async function getSystemConfig() {
     telegramBotToken: map.telegram_bot_token || null,
     telegramBotUsername: map.telegram_bot_username || null,
     botAdminTelegramIds: parseBotAdminTelegramIds(map.bot_admin_telegram_ids),
+    notificationTelegramGroupId: (map.notification_telegram_group_id ?? "").trim() || null,
     plategaMerchantId: map.platega_merchant_id || null,
     plategaSecret: map.platega_secret || null,
     plategaMethods: parsePlategaMethods(map.platega_methods),

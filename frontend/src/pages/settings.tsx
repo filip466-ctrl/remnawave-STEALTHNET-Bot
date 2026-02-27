@@ -285,6 +285,7 @@ export function SettingsPage() {
         telegramBotToken: settings.telegramBotToken ?? null,
         telegramBotUsername: settings.telegramBotUsername ?? null,
         botAdminTelegramIds: settings.botAdminTelegramIds ?? null,
+        notificationTelegramGroupId: settings.notificationTelegramGroupId ?? null,
         plategaMerchantId: settings.plategaMerchantId ?? null,
         plategaSecret: settings.plategaSecret && settings.plategaSecret !== "********" ? settings.plategaSecret : undefined,
         plategaMethods: settings.plategaMethods != null ? JSON.stringify(settings.plategaMethods) : undefined,
@@ -309,6 +310,7 @@ export function SettingsPage() {
         offerLink: settings.offerLink ?? undefined,
         instructionsLink: settings.instructionsLink ?? undefined,
         ticketsEnabled: settings.ticketsEnabled ?? false,
+        adminFrontNotificationsEnabled: settings.adminFrontNotificationsEnabled ?? true,
         themeAccent: settings.themeAccent ?? "default",
         forceSubscribeEnabled: settings.forceSubscribeEnabled ?? false,
         forceSubscribeChannelId: settings.forceSubscribeChannelId ?? null,
@@ -435,6 +437,17 @@ export function SettingsPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+                <div className="space-y-2 rounded-lg border p-4 bg-muted/20">
+                  <Label>Группа для уведомлений (Telegram Chat ID)</Label>
+                  <Input
+                    value={settings.notificationTelegramGroupId ?? ""}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, notificationTelegramGroupId: e.target.value.trim() || null } : s))}
+                    placeholder="-1001234567890"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Если указать Chat ID группы или канала, туда будут дублироваться все админские уведомления (новые клиенты, оплаты, тикеты). Добавьте бота в группу. У супергрупп ID обычно начинается с -100.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Название сервиса</Label>

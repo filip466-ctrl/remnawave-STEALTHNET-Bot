@@ -46,7 +46,7 @@ const limiter = rateLimit({
 app.use("/api/", limiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.1.9" });
+  res.json({ status: "ok", version: "3.1.10" });
 });
 
 app.use("/api/auth", authRouter);

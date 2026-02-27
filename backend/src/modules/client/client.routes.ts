@@ -20,10 +20,6 @@ import {
   notifyAdminsAboutNewClient,
   notifyAdminsAboutNewTicket,
 } from "../notification/telegram-notify.service.js";
-import {
-  notifyAdminsAboutClientTicketMessage,
-  notifyAdminsAboutNewTicket,
-} from "../notification/telegram-notify.service.js";
 import { requireClientAuth } from "./client.middleware.js";
 import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient, remnaGetUserHwidDevices, remnaDeleteUserHwidDevice } from "../remna/remna.client.js";
 import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured } from "../mail/mail.service.js";

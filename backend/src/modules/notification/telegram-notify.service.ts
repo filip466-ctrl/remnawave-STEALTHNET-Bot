@@ -49,6 +49,14 @@ async function sendTelegramToUser(telegramId: string, text: string): Promise<voi
 
 async function sendTelegramToAdminsForEvent(eventType: AdminNotificationEventType, text: string): Promise<void> {
   const config = await getSystemConfig();
+  const groupId = config.notificationTelegramGroupId?.trim();
+  // Если указана группа — шлём только в группу; иначе — только админам в личку
+  if (groupId) {
+    await sendTelegramToUser(groupId, text).catch((e) => {
+      console.warn("[Telegram notify] send to group failed", e);
+    });
+    return;
+  }
   const adminIds = config.botAdminTelegramIds ?? [];
   if (!adminIds.length) return;
   const prefs = (await prisma.adminNotificationPreference.findMany({
