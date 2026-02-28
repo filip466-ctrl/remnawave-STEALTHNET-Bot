@@ -390,8 +390,9 @@ const DEFAULT_MENU_EMOJI_KEY_BY_ID: Record<string, string> = {
 function getMenuEmojiKey(
   config: Awaited<ReturnType<typeof api.getPublicConfig>> | null | undefined,
   menuId: string
-): string | undefined {
+): string | null | undefined {
   const btn = config?.botButtons?.find((b) => b.id === menuId);
+  if (btn && btn.emojiKey === "") return null;
   return btn?.emojiKey || DEFAULT_MENU_EMOJI_KEY_BY_ID[menuId];
 }
 
@@ -462,6 +463,15 @@ function titleWithEmojiAndCustomEmojis(
     entities.push({ ...e, offset: e.offset + leading.length });
   }
   return { text: leading + restText, entities };
+}
+
+function titleWithOptionalEmoji(
+  emojiKey: string | null | undefined,
+  rest: string,
+  botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | null
+): { text: string; entities: CustomEmojiEntity[] } {
+  if (!emojiKey) return applyCustomEmojiPlaceholders(rest, botEmojis);
+  return titleWithEmojiAndCustomEmojis(emojiKey, rest, botEmojis);
 }
 
 /** Полный текст главного меню + entities для премиум-эмодзи в тексте (владелец бота должен иметь Telegram Premium). */
@@ -730,7 +740,7 @@ bot.command("start", async (ctx) => {
       tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
       menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
       menuLineVisibility: config?.botMenuLineVisibility ?? null,
-      menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
+      menuTextCustomEmojiIds: null,
       botEmojis: config?.botEmojis ?? null,
     });
     const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
@@ -1378,7 +1388,7 @@ bot.on("callback_query:data", async (ctx) => {
         tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
         menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
         menuLineVisibility: config?.botMenuLineVisibility ?? null,
-        menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
+        menuTextCustomEmojiIds: null,
         botEmojis: config?.botEmojis ?? null,
       });
       const hasSupportLinks = !!(config?.supportLink || config?.agreementLink || config?.offerLink || config?.instructionsLink);
@@ -1432,14 +1442,16 @@ bot.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, "Тарифы пока не настроены.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
-      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs") ?? "PACKAGE";
-      const tariffsEmojiEntry = config?.botEmojis?.[tariffsEmojiKey];
-      const tariffsEmojiUnicode = tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey];
-      const tariffsEmojiIds = innerEmojiIds
-        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry?.tgEmojiId ?? innerEmojiIds.tariff }
+      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs");
+      const tariffsEmojiEntry = tariffsEmojiKey ? config?.botEmojis?.[tariffsEmojiKey] : undefined;
+      const tariffsEmojiUnicode = tariffsEmojiKey && !tariffsEmojiEntry?.tgEmojiId
+        ? (tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey])
+        : undefined;
+      const tariffsEmojiIds = innerEmojiIds && tariffsEmojiEntry?.tgEmojiId
+        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry.tgEmojiId }
         : innerEmojiIds;
       if (items.length > 1) {
-        const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, "Тарифы\n\nВыберите категорию:", config?.botEmojis);
+        const { text, entities } = titleWithOptionalEmoji(tariffsEmojiKey, "Тарифы\n\nВыберите категорию:", config?.botEmojis);
         await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode), entities);
         return;
       }
@@ -1449,7 +1461,7 @@ bot.on("callback_query:data", async (ctx) => {
       const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
       const tariffLines = cat.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
-      const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, body, config?.botEmojis);
+      const { text, entities } = titleWithOptionalEmoji(tariffsEmojiKey, body, config?.botEmojis);
       await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode), entities);
       return;
     }
@@ -1463,17 +1475,19 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       const head = (category.emoji && category.emoji.trim() ? category.emoji + " " : "") + category.name;
-      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs") ?? "PACKAGE";
-      const tariffsEmojiEntry = config?.botEmojis?.[tariffsEmojiKey];
-      const tariffsEmojiUnicode = tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey];
-      const tariffsEmojiIds = innerEmojiIds
-        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry?.tgEmojiId ?? innerEmojiIds.tariff }
+      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs");
+      const tariffsEmojiEntry = tariffsEmojiKey ? config?.botEmojis?.[tariffsEmojiKey] : undefined;
+      const tariffsEmojiUnicode = tariffsEmojiKey && !tariffsEmojiEntry?.tgEmojiId
+        ? (tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey])
+        : undefined;
+      const tariffsEmojiIds = innerEmojiIds && tariffsEmojiEntry?.tgEmojiId
+        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry.tgEmojiId }
         : innerEmojiIds;
       const tariffFields = { ...DEFAULT_TARIFF_LINE_FIELDS, ...(config?.botTariffsFields ?? {}) };
       const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
       const tariffLines = category.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
-      const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, body, config?.botEmojis);
+      const { text, entities } = titleWithOptionalEmoji(tariffsEmojiKey, body, config?.botEmojis);
       await editMessageContent(ctx, text, tariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", tariffsEmojiIds, tariffsEmojiUnicode), entities);
       return;
     }

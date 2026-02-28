@@ -548,18 +548,18 @@ export async function getPublicConfig() {
     support: "NOTE", tickets: "NOTE", promocode: "STAR", extra_options: "PACKAGE",
   };
   const resolvedButtons: PublicBotButton[] = (full.botButtons ?? []).map((b) => {
-    const emojiKey = b.emojiKey ?? defaultEmojiKeyByButtonId[b.id];
+    const emojiKey = b.emojiKey === "" ? null : (b.emojiKey ?? defaultEmojiKeyByButtonId[b.id]);
     const entry = emojiKey ? botEmojis[emojiKey] : undefined;
     let label = b.label;
     let iconCustomEmojiId: string | undefined;
     if (entry) {
       if (entry.tgEmojiId) iconCustomEmojiId = entry.tgEmojiId;
-      if (entry.unicode) {
+      if (entry.unicode && !entry.tgEmojiId) {
         const base = stripLeadingEmoji(label).trim();
         label = (entry.unicode + " " + base).trim();
       }
     }
-    return { id: b.id, visible: b.visible, label, order: b.order, style: b.style, iconCustomEmojiId, onePerRow: b.onePerRow, emojiKey };
+    return { id: b.id, visible: b.visible, label, order: b.order, style: b.style, iconCustomEmojiId, onePerRow: b.onePerRow, emojiKey: emojiKey ?? undefined };
   });
 
   const menuTexts = full.botMenuTexts ?? DEFAULT_BOT_MENU_TEXTS;

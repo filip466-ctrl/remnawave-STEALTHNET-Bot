@@ -990,7 +990,7 @@ export function SettingsPage() {
                                 return {
                                   ...s,
                                   botButtons: s.botButtons.map((b) =>
-                                    b.id === btn.id ? { ...b, emojiKey: e.target.value || undefined } : b
+                                    b.id === btn.id ? { ...b, emojiKey: e.target.value } : b
                                   ),
                                 };
                               })
