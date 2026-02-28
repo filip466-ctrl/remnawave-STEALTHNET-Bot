@@ -366,6 +366,7 @@ const DEFAULT_EMOJI_UNICODE: Record<string, string> = {
   PACKAGE: "📦", TARIFFS: "📦", CARD: "💳", LINK: "🔗", PUZZLE: "👤", PROFILE: "👤",
   TRIAL: "🎁", SERVERS: "🌐", CONNECT: "🌐",
 };
+const DEFAULT_CUSTOM_EMOJI_CHAR = "🙂";
 
 const DEFAULT_MENU_EMOJI_KEY_BY_ID: Record<string, string> = {
   tariffs: "PACKAGE",
@@ -426,11 +427,12 @@ function applyCustomEmojiPlaceholders(
     const key = match[1];
     out += text.slice(lastIdx, match.index);
     const entry = botEmojis[key];
-    if (entry?.unicode) {
+    const unicode = entry?.unicode?.trim() || (entry?.tgEmojiId ? DEFAULT_CUSTOM_EMOJI_CHAR : "");
+    if (unicode) {
       const offset = out.length;
-      out += entry.unicode;
-      if (entry.tgEmojiId) {
-        entities.push({ type: "custom_emoji", offset, length: entry.unicode.length, custom_emoji_id: entry.tgEmojiId });
+      out += unicode;
+      if (entry?.tgEmojiId) {
+        entities.push({ type: "custom_emoji", offset, length: unicode.length, custom_emoji_id: entry.tgEmojiId });
       }
     } else {
       out += match[0];

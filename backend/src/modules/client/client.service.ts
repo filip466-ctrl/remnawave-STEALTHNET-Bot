@@ -532,6 +532,10 @@ function parseSellOptionServerProducts(raw: string | undefined): SellOptionServe
 /** Кнопка для бота: label уже с эмодзи (Unicode) и опционально TG custom emoji ID для премиум-эмодзи. onePerRow = всегда в одну кнопку в ряд. */
 export type PublicBotButton = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean; emojiKey?: string };
 
+function stripLeadingEmoji(label: string): string {
+  return label.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "");
+}
+
 /** Публичный конфиг для сайта/бота (без паролей и секретов). botButtons с подставленными эмодзи. */
 export async function getPublicConfig() {
   const full = await getSystemConfig();
@@ -550,7 +554,10 @@ export async function getPublicConfig() {
     let iconCustomEmojiId: string | undefined;
     if (entry) {
       if (entry.tgEmojiId) iconCustomEmojiId = entry.tgEmojiId;
-      if (entry.unicode) label = (entry.unicode + " " + label).trim();
+      if (entry.unicode) {
+        const base = stripLeadingEmoji(label).trim();
+        label = (entry.unicode + " " + base).trim();
+      }
     }
     return { id: b.id, visible: b.visible, label, order: b.order, style: b.style, iconCustomEmojiId, onePerRow: b.onePerRow, emojiKey };
   });
