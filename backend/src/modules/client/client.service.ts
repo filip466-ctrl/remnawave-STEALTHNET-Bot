@@ -50,6 +50,7 @@ const SYSTEM_CONFIG_KEYS = [
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key",
   "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_menu_line_visibility", "bot_inner_button_styles",
+  "bot_tariffs_text", "bot_tariffs_fields",
   "bot_emojis", // JSON: { "TRIAL": { "unicode": "🎁", "tgEmojiId": "..." }, "PACKAGE": ... } — эмодзи кнопок/текста, TG ID для премиум
   "category_emojis", // JSON: { "ordinary": "📦", "premium": "⭐" } — эмодзи категорий по коду
   "subscription_page_config",
@@ -135,6 +136,26 @@ const DEFAULT_BOT_MENU_TEXTS: Required<BotMenuTexts> = {
   chooseAction: "Выберите действие:",
 };
 
+export type BotTariffLineFields = {
+  name?: boolean;
+  durationDays?: boolean;
+  price?: boolean;
+  currency?: boolean;
+  trafficLimit?: boolean;
+  deviceLimit?: boolean;
+};
+
+const DEFAULT_BOT_TARIFFS_TEXT = "Тарифы\n\n{{CATEGORY}}\n{{TARIFFS}}\n\nВыберите тариф для оплаты:";
+
+const DEFAULT_BOT_TARIFF_LINE_FIELDS: Required<BotTariffLineFields> = {
+  name: true,
+  durationDays: false,
+  price: true,
+  currency: true,
+  trafficLimit: false,
+  deviceLimit: false,
+};
+
 export type BotMenuLineVisibility = {
   welcomeTitlePrefix?: boolean;
   welcomeGreeting?: boolean;
@@ -212,6 +233,26 @@ function parseBotMenuTexts(raw: string | undefined): Required<BotMenuTexts> {
     return out;
   } catch {
     return { ...DEFAULT_BOT_MENU_TEXTS };
+  }
+}
+
+function parseBotTariffsText(raw: string | undefined): string {
+  if (!raw || !raw.trim()) return DEFAULT_BOT_TARIFFS_TEXT;
+  return raw;
+}
+
+function parseBotTariffLineFields(raw: string | undefined): Required<BotTariffLineFields> {
+  if (!raw || !raw.trim()) return { ...DEFAULT_BOT_TARIFF_LINE_FIELDS };
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_BOT_TARIFF_LINE_FIELDS };
+    const out = { ...DEFAULT_BOT_TARIFF_LINE_FIELDS };
+    for (const k of Object.keys(DEFAULT_BOT_TARIFF_LINE_FIELDS) as (keyof BotTariffLineFields)[]) {
+      if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean;
+    }
+    return out;
+  } catch {
+    return { ...DEFAULT_BOT_TARIFF_LINE_FIELDS };
   }
 }
 
@@ -338,6 +379,8 @@ export async function getSystemConfig() {
     botMenuTexts: parseBotMenuTexts(map.bot_menu_texts),
     botMenuLineVisibility: parseBotMenuLineVisibility(map.bot_menu_line_visibility),
     botInnerButtonStyles: parseBotInnerButtonStyles(map.bot_inner_button_styles),
+    botTariffsText: parseBotTariffsText(map.bot_tariffs_text),
+    botTariffsFields: parseBotTariffLineFields(map.bot_tariffs_fields),
     categoryEmojis: parseCategoryEmojis(map.category_emojis),
     subscriptionPageConfig: map.subscription_page_config ?? null,
     supportLink: (map.support_link ?? "").trim() || null,
@@ -552,6 +595,8 @@ export async function getPublicConfig() {
     menuTextCustomEmojiIds,
     botEmojis,
     botInnerButtonStyles: full.botInnerButtonStyles ?? DEFAULT_BOT_INNER_BUTTON_STYLES,
+    botTariffsText: full.botTariffsText ?? DEFAULT_BOT_TARIFFS_TEXT,
+    botTariffsFields: full.botTariffsFields ?? DEFAULT_BOT_TARIFF_LINE_FIELDS,
     categoryEmojis: full.categoryEmojis,
     defaultReferralPercent: full.defaultReferralPercent ?? 0,
     referralPercentLevel2: full.referralPercentLevel2 ?? 0,

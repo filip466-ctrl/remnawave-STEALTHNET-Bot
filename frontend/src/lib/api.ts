@@ -1048,6 +1048,8 @@ export type UpdateSettingsPayload = {
   botMenuTexts?: string | null;
   botMenuLineVisibility?: string | null;
   botInnerButtonStyles?: string | null;
+  botTariffsText?: string | null;
+  botTariffsFields?: string | null;
   subscriptionPageConfig?: string | null;
   supportLink?: string | null;
   agreementLink?: string | null;
@@ -1165,6 +1167,10 @@ export interface AdminSettings {
   botMenuLineVisibility?: Record<string, boolean> | null;
   /** Стили внутренних кнопок бота (тарифы, пополнение, «Назад» и т.д.) */
   botInnerButtonStyles?: Record<string, string> | null;
+  /** Текст экрана тарифов в боте */
+  botTariffsText?: string | null;
+  /** Какие поля показывать в строке тарифа */
+  botTariffsFields?: Record<string, boolean> | null;
   /** JSON конфиг страницы подписки (приложения, тексты) */
   subscriptionPageConfig?: string | null;
   /** Ссылки раздела «Поддержка» в боте (если пусто — кнопка не показывается) */

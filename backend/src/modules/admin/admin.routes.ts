@@ -933,6 +933,8 @@ const updateSettingsSchema = z.object({
   botMenuTexts: z.string().max(8000).nullable().optional(),
   botMenuLineVisibility: z.union([z.string().max(5000), z.record(z.boolean())]).nullable().optional(),
   botInnerButtonStyles: z.union([z.string().max(2000), z.record(z.string())]).nullable().optional(),
+  botTariffsText: z.string().max(8000).nullable().optional(),
+  botTariffsFields: z.union([z.string().max(2000), z.record(z.boolean())]).nullable().optional(),
   subscriptionPageConfig: z.string().max(500000).nullable().optional(),
   supportLink: z.string().max(2000).nullable().optional(),
   agreementLink: z.string().max(2000).nullable().optional(),
@@ -1234,6 +1236,28 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "bot_inner_button_styles" },
       create: { key: "bot_inner_button_styles", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.botTariffsText !== undefined) {
+    const val = updates.botTariffsText ?? "";
+    await prisma.systemSetting.upsert({
+      where: { key: "bot_tariffs_text" },
+      create: { key: "bot_tariffs_text", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.botTariffsFields !== undefined) {
+    const raw = updates.botTariffsFields;
+    const val =
+      typeof raw === "string"
+        ? raw
+        : raw !== null && typeof raw === "object" && !Array.isArray(raw)
+          ? JSON.stringify(raw)
+          : "";
+    await prisma.systemSetting.upsert({
+      where: { key: "bot_tariffs_fields" },
+      create: { key: "bot_tariffs_fields", value: val },
       update: { value: val },
     });
   }

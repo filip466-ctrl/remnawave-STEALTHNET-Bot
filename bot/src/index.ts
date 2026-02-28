@@ -172,7 +172,16 @@ async function enforceSubscription(
   return true;
 }
 
-type TariffItem = { id: string; name: string; price: number; currency: string };
+type TariffItem = {
+  id: string;
+  name: string;
+  description?: string | null;
+  durationDays: number;
+  trafficLimitBytes?: number | null;
+  deviceLimit?: number | null;
+  price: number;
+  currency: string;
+};
 type TariffCategory = { id: string; name: string; emoji?: string; emojiKey?: string | null; tariffs: TariffItem[] };
 
 // Токены по telegram_id (в памяти; для продакшена лучше Redis/БД)
@@ -260,6 +269,63 @@ const DEFAULT_MENU_TEXTS: Record<string, string> = {
   linkLabel: "🔗 Ссылка подключения:",
   chooseAction: "Выберите действие:",
 };
+
+const DEFAULT_TARIFFS_TEXT = "Тарифы\n\n{{CATEGORY}}\n{{TARIFFS}}\n\nВыберите тариф для оплаты:";
+
+type BotTariffLineFields = {
+  name?: boolean;
+  durationDays?: boolean;
+  price?: boolean;
+  currency?: boolean;
+  trafficLimit?: boolean;
+  deviceLimit?: boolean;
+};
+
+const DEFAULT_TARIFF_LINE_FIELDS: Required<BotTariffLineFields> = {
+  name: true,
+  durationDays: false,
+  price: true,
+  currency: true,
+  trafficLimit: false,
+  deviceLimit: false,
+};
+
+function formatDaysRu(days: number): string {
+  const d = Math.abs(Math.trunc(days));
+  const mod10 = d % 10;
+  const mod100 = d % 100;
+  if (mod10 === 1 && mod100 !== 11) return "день";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "дня";
+  return "дней";
+}
+
+function formatTariffLine(tariff: TariffItem, fields: Required<BotTariffLineFields>): string {
+  const parts: string[] = [];
+  if (fields.name) parts.push(tariff.name);
+  if (fields.durationDays) parts.push(`${tariff.durationDays} ${formatDaysRu(tariff.durationDays)}`);
+  if (fields.price) {
+    const pricePart = fields.currency ? `${tariff.price} ${tariff.currency}` : `${tariff.price}`;
+    parts.push(pricePart);
+  } else if (fields.currency) {
+    parts.push(`${tariff.currency}`);
+  }
+  if (fields.trafficLimit) {
+    const limit = tariff.trafficLimitBytes;
+    parts.push(limit == null ? "трафик без лимита" : `трафик ${bytesToGb(limit)} GB`);
+  }
+  if (fields.deviceLimit) {
+    const limit = tariff.deviceLimit;
+    parts.push(limit == null ? "устройства без лимита" : `устройства ${limit}`);
+  }
+  if (!parts.length) return `• ${tariff.name}`;
+  return `• ${parts.join(" — ")}`;
+}
+
+function renderTariffsText(template: string, category: string, tariffLines: string): string {
+  return template
+    .split("{{CATEGORY}}").join(category)
+    .split("{{TARIFFS}}").join(tariffLines);
+}
 
 function t(texts: Record<string, string> | null | undefined, key: string): string {
   return (texts?.[key] ?? DEFAULT_MENU_TEXTS[key]) || "";
@@ -1262,8 +1328,11 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const cat = items[0]!;
       const head = (cat.emoji && cat.emoji.trim() ? cat.emoji + " " : "") + cat.name;
-      const tariffLines = cat.tariffs.map((t: TariffItem) => `• ${t.name} — ${t.price} ${t.currency}`).join("\n");
-      const { text, entities } = titleWithEmoji("PACKAGE", `Тарифы\n\n${head}\n${tariffLines}\n\nВыберите тариф для оплаты:`, config?.botEmojis);
+      const tariffFields = { ...DEFAULT_TARIFF_LINE_FIELDS, ...(config?.botTariffsFields ?? {}) };
+      const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
+      const tariffLines = cat.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
+      const body = renderTariffsText(template, head, tariffLines);
+      const { text, entities } = titleWithEmoji("PACKAGE", body, config?.botEmojis);
       await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, innerEmojiIds), entities);
       return;
     }
@@ -1277,8 +1346,11 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       const head = (category.emoji && category.emoji.trim() ? category.emoji + " " : "") + category.name;
-      const tariffLines = category.tariffs.map((t: TariffItem) => `• ${t.name} — ${t.price} ${t.currency}`).join("\n");
-      const { text, entities } = titleWithEmoji("PACKAGE", `${head}\n\n${tariffLines}\n\nВыберите тариф для оплаты:`, config?.botEmojis);
+      const tariffFields = { ...DEFAULT_TARIFF_LINE_FIELDS, ...(config?.botTariffsFields ?? {}) };
+      const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
+      const tariffLines = category.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
+      const body = renderTariffsText(template, head, tariffLines);
+      const { text, entities } = titleWithEmoji("PACKAGE", body, config?.botEmojis);
       await editMessageContent(ctx, text, tariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", innerEmojiIds), entities);
       return;
     }

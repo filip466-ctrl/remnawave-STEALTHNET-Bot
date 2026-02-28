@@ -73,6 +73,8 @@ export async function getPublicConfig(): Promise<{
   botMenuTexts?: Record<string, string> | null;
   botMenuLineVisibility?: Record<string, boolean> | null;
   botInnerButtonStyles?: Record<string, string> | null;
+  botTariffsText?: string | null;
+  botTariffsFields?: Record<string, boolean> | null;
   activeLanguages?: string[];
   activeCurrencies?: string[];
   defaultReferralPercent?: number;
@@ -176,7 +178,7 @@ export async function getPublicTariffs(): Promise<{
     name: string;
     emojiKey: string | null;
     emoji: string;
-    tariffs: { id: string; name: string; price: number; currency: string }[];
+    tariffs: { id: string; name: string; description?: string | null; durationDays: number; trafficLimitBytes?: number | null; deviceLimit?: number | null; price: number; currency: string }[];
   }[];
 }> {
   return fetchJson("/api/public/tariffs");

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2 } from "lucide-react";
 import { ACCENT_PALETTES } from "@/contexts/theme";
@@ -64,6 +65,17 @@ const DEFAULT_BOT_MENU_TEXTS: Record<string, string> = {
   chooseAction: "Выберите действие:",
 };
 
+const DEFAULT_BOT_TARIFFS_TEXT = "Тарифы\n\n{{CATEGORY}}\n{{TARIFFS}}\n\nВыберите тариф для оплаты:";
+
+const DEFAULT_BOT_TARIFF_FIELDS: Record<string, boolean> = {
+  name: true,
+  durationDays: false,
+  price: true,
+  currency: true,
+  trafficLimit: false,
+  deviceLimit: false,
+};
+
 const DEFAULT_BOT_MENU_LINE_VISIBILITY: Record<string, boolean> = {
   welcomeTitlePrefix: true,
   welcomeGreeting: true,
@@ -76,6 +88,15 @@ const DEFAULT_BOT_MENU_LINE_VISIBILITY: Record<string, boolean> = {
   trafficPrefix: true,
   linkLabel: true,
   chooseAction: true,
+};
+
+const BOT_TARIFF_FIELD_LABELS: Record<string, string> = {
+  name: "Название",
+  durationDays: "Длительность (дни)",
+  price: "Цена",
+  currency: "Валюта",
+  trafficLimit: "Лимит трафика",
+  deviceLimit: "Лимит устройств",
 };
 
 const BOT_MENU_LINE_LABELS: Record<string, string> = {
@@ -162,6 +183,8 @@ export function SettingsPage() {
         botBackLabel: (data as AdminSettings).botBackLabel ?? "◀️ В меню",
         botMenuTexts: { ...DEFAULT_BOT_MENU_TEXTS, ...((data as AdminSettings).botMenuTexts ?? {}) },
         botMenuLineVisibility: { ...DEFAULT_BOT_MENU_LINE_VISIBILITY, ...((data as AdminSettings).botMenuLineVisibility ?? {}) },
+        botTariffsText: (data as AdminSettings).botTariffsText ?? DEFAULT_BOT_TARIFFS_TEXT,
+        botTariffsFields: { ...DEFAULT_BOT_TARIFF_FIELDS, ...((data as AdminSettings).botTariffsFields ?? {}) },
         botInnerButtonStyles: (() => {
           const raw = (data as AdminSettings).botInnerButtonStyles;
           const loaded =
@@ -330,6 +353,8 @@ export function SettingsPage() {
         botBackLabel: settings.botBackLabel ?? null,
         botMenuTexts: settings.botMenuTexts != null ? JSON.stringify(settings.botMenuTexts) : undefined,
         botMenuLineVisibility: settings.botMenuLineVisibility != null ? JSON.stringify(settings.botMenuLineVisibility) : undefined,
+        botTariffsText: settings.botTariffsText ?? undefined,
+        botTariffsFields: settings.botTariffsFields != null ? JSON.stringify(settings.botTariffsFields) : undefined,
         botInnerButtonStyles: JSON.stringify({
           ...DEFAULT_BOT_INNER_STYLES,
           ...(settings.botInnerButtonStyles ?? {}),
@@ -1139,6 +1164,58 @@ export function SettingsPage() {
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    <Label className="text-base font-medium">Экран тарифов</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Текст, который видит пользователь в разделе «Тарифы». Используйте плейсхолдеры: <code className="rounded bg-muted px-1">{'{{CATEGORY}}'}</code> — название категории, <code className="rounded bg-muted px-1">{'{{TARIFFS}}'}</code> — список тарифов.
+                  </p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Текст сообщения</Label>
+                    <Textarea
+                      rows={6}
+                      value={settings.botTariffsText ?? DEFAULT_BOT_TARIFFS_TEXT}
+                      onChange={(e) => setSettings((s) => (s ? { ...s, botTariffsText: e.target.value } : s))}
+                      placeholder={DEFAULT_BOT_TARIFFS_TEXT}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm">Что показывать в строке тарифа</Label>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSettings((s) => (s ? { ...s, botTariffsFields: { ...DEFAULT_BOT_TARIFF_FIELDS } } : s))}
+                    >
+                      Сбросить поля
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {Object.keys(DEFAULT_BOT_TARIFF_FIELDS).map((key) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <Checkbox
+                          checked={(settings.botTariffsFields ?? DEFAULT_BOT_TARIFF_FIELDS)[key] !== false}
+                          onCheckedChange={(checked) =>
+                            setSettings((s) =>
+                              s
+                                ? {
+                                    ...s,
+                                    botTariffsFields: {
+                                      ...(s.botTariffsFields ?? DEFAULT_BOT_TARIFF_FIELDS),
+                                      [key]: checked === true,
+                                    },
+                                  }
+                                : s
+                            )
+                          }
+                        />
+                        <Label className="text-xs">{BOT_TARIFF_FIELD_LABELS[key] ?? key}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
