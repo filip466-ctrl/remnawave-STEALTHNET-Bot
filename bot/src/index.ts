@@ -367,6 +367,33 @@ const DEFAULT_EMOJI_UNICODE: Record<string, string> = {
   TRIAL: "🎁", SERVERS: "🌐", CONNECT: "🌐",
 };
 
+const DEFAULT_MENU_EMOJI_KEY_BY_ID: Record<string, string> = {
+  tariffs: "PACKAGE",
+  proxy: "SERVERS",
+  my_proxy: "SERVERS",
+  singbox: "SERVERS",
+  my_singbox: "SERVERS",
+  profile: "PUZZLE",
+  devices: "DEVICES",
+  topup: "CARD",
+  referral: "LINK",
+  trial: "TRIAL",
+  vpn: "SERVERS",
+  cabinet: "SERVERS",
+  support: "NOTE",
+  tickets: "NOTE",
+  promocode: "STAR",
+  extra_options: "PACKAGE",
+};
+
+function getMenuEmojiKey(
+  config: Awaited<ReturnType<typeof api.getPublicConfig>> | null | undefined,
+  menuId: string
+): string | undefined {
+  const btn = config?.botButtons?.find((b) => b.id === menuId);
+  return btn?.emojiKey || DEFAULT_MENU_EMOJI_KEY_BY_ID[menuId];
+}
+
 /** Заголовок с эмодзи: если в botEmojis есть tgEmojiId для ключа — добавляем entity (премиум-эмодзи в тексте). */
 function titleWithEmoji(
   emojiKey: string,
@@ -446,17 +473,21 @@ function buildMainMenuText(opts: {
   menuTexts?: Record<string, string> | null;
   menuLineVisibility?: Record<string, boolean> | null;
   menuTextCustomEmojiIds?: Record<string, string> | null;
+  botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | null;
 }): { text: string; entities: CustomEmojiEntity[] } {
-  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuLineVisibility, menuTextCustomEmojiIds } = opts;
+  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuLineVisibility, menuTextCustomEmojiIds, botEmojis } = opts;
   const name = serviceName.trim() || "Кабинет";
   const balanceStr = formatMoney(balance, currency);
   const lines: string[] = [];
   const lineStartKeys: (string | null)[] = [];
+  const lineEntitiesByIndex: CustomEmojiEntity[][] = [];
   const shouldShow = (key: string) => menuLineVisibility?.[key] !== false;
   const pushLine = (key: string, text: string) => {
     if (!shouldShow(key)) return;
-    lines.push(text);
+    const { text: processed, entities } = applyCustomEmojiPlaceholders(text, botEmojis);
+    lines.push(processed);
     lineStartKeys.push(key);
+    lineEntitiesByIndex.push(entities);
   };
 
   pushLine("welcomeGreeting", t(menuTexts, "welcomeGreeting"));
@@ -526,8 +557,10 @@ function buildMainMenuText(opts: {
     }
     if (url) {
       if (shouldShow("linkLabel")) {
-        lines.push(t(menuTexts, "linkLabel"), url);
+        const { text: label, entities } = applyCustomEmojiPlaceholders(t(menuTexts, "linkLabel"), botEmojis);
+        lines.push(label, url);
         lineStartKeys.push("linkLabel", null);
+        lineEntitiesByIndex.push(entities, []);
       }
     }
     pushLine("chooseAction", t(menuTexts, "chooseAction"));
@@ -535,17 +568,19 @@ function buildMainMenuText(opts: {
 
   const text = lines.join("\n");
   const entities: CustomEmojiEntity[] = [];
-  if (menuTextCustomEmojiIds && Object.keys(menuTextCustomEmojiIds).length > 0) {
-    let offset = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const key = lineStartKeys[i];
-      if (key && menuTextCustomEmojiIds[key]) {
-        const line = lines[i]!;
-        const firstLen = firstCharLengthUtf16(line);
-        if (firstLen > 0) entities.push({ type: "custom_emoji", offset, length: firstLen, custom_emoji_id: menuTextCustomEmojiIds[key]! });
-      }
-      offset += lines[i]!.length + 1;
+  let offset = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const lineEntities = lineEntitiesByIndex[i] ?? [];
+    for (const e of lineEntities) {
+      entities.push({ ...e, offset: e.offset + offset });
     }
+    const key = lineStartKeys[i];
+    if (key && menuTextCustomEmojiIds?.[key] && !lineEntities.some((e) => e.offset === 0)) {
+      const line = lines[i]!;
+      const firstLen = firstCharLengthUtf16(line);
+      if (firstLen > 0) entities.push({ type: "custom_emoji", offset, length: firstLen, custom_emoji_id: menuTextCustomEmojiIds[key]! });
+    }
+    offset += lines[i]!.length + 1;
   }
   return { text, entities };
 }
@@ -691,9 +726,10 @@ bot.command("start", async (ctx) => {
       currency: client.preferredCurrency,
       subscription: subRes.subscription,
       tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
-      menuTexts: config?.resolvedBotMenuTexts ?? config?.botMenuTexts ?? null,
+      menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
       menuLineVisibility: config?.botMenuLineVisibility ?? null,
       menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
+      botEmojis: config?.botEmojis ?? null,
     });
     const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
     const captionEntities = text.length > TELEGRAM_CAPTION_MAX && entities.length ? entities.filter((e) => e.offset + e.length <= TELEGRAM_CAPTION_MAX - 3) : entities;
@@ -1338,9 +1374,10 @@ bot.on("callback_query:data", async (ctx) => {
         currency: client.preferredCurrency,
         subscription: subRes.subscription,
         tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
-        menuTexts: config?.resolvedBotMenuTexts ?? config?.botMenuTexts ?? null,
+        menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
         menuLineVisibility: config?.botMenuLineVisibility ?? null,
         menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
+        botEmojis: config?.botEmojis ?? null,
       });
       const hasSupportLinks = !!(config?.supportLink || config?.agreementLink || config?.offerLink || config?.instructionsLink);
       const backMarkup = mainMenu({
@@ -1393,9 +1430,15 @@ bot.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, "Тарифы пока не настроены.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
+      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs") ?? "PACKAGE";
+      const tariffsEmojiEntry = config?.botEmojis?.[tariffsEmojiKey];
+      const tariffsEmojiUnicode = tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey];
+      const tariffsEmojiIds = innerEmojiIds
+        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry?.tgEmojiId ?? innerEmojiIds.tariff }
+        : innerEmojiIds;
       if (items.length > 1) {
-        const { text, entities } = titleWithEmoji("PACKAGE", "Тарифы\n\nВыберите категорию:", config?.botEmojis);
-        await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, innerEmojiIds), entities);
+        const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, "Тарифы\n\nВыберите категорию:", config?.botEmojis);
+        await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode), entities);
         return;
       }
       const cat = items[0]!;
@@ -1404,8 +1447,8 @@ bot.on("callback_query:data", async (ctx) => {
       const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
       const tariffLines = cat.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
-      const { text, entities } = titleWithEmojiAndCustomEmojis("PACKAGE", body, config?.botEmojis);
-      await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, innerEmojiIds), entities);
+      const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, body, config?.botEmojis);
+      await editMessageContent(ctx, text, tariffPayButtons(items, config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode), entities);
       return;
     }
 
@@ -1418,12 +1461,18 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       const head = (category.emoji && category.emoji.trim() ? category.emoji + " " : "") + category.name;
+      const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs") ?? "PACKAGE";
+      const tariffsEmojiEntry = config?.botEmojis?.[tariffsEmojiKey];
+      const tariffsEmojiUnicode = tariffsEmojiEntry?.unicode?.trim() || DEFAULT_EMOJI_UNICODE[tariffsEmojiKey];
+      const tariffsEmojiIds = innerEmojiIds
+        ? { ...innerEmojiIds, tariff: tariffsEmojiEntry?.tgEmojiId ?? innerEmojiIds.tariff }
+        : innerEmojiIds;
       const tariffFields = { ...DEFAULT_TARIFF_LINE_FIELDS, ...(config?.botTariffsFields ?? {}) };
       const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
       const tariffLines = category.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
-      const { text, entities } = titleWithEmojiAndCustomEmojis("PACKAGE", body, config?.botEmojis);
-      await editMessageContent(ctx, text, tariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", innerEmojiIds), entities);
+      const { text, entities } = titleWithEmojiAndCustomEmojis(tariffsEmojiKey, body, config?.botEmojis);
+      await editMessageContent(ctx, text, tariffsOfCategoryButtons(category, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", tariffsEmojiIds, tariffsEmojiUnicode), entities);
       return;
     }
 
@@ -1798,16 +1847,14 @@ bot.on("callback_query:data", async (ctx) => {
           paymentType: "AC",
           tariffId: tariff.id,
         });
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮMoney:",
         });
-        const yooTitle = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, yooTitle.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTitle.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
         await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
@@ -1833,16 +1880,14 @@ bot.on("callback_query:data", async (ctx) => {
           currency: "RUB",
           tariffId: tariff.id,
         });
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮKassa:",
         });
-        const yooTitle = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, yooTitle.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTitle.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮKassa";
         await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
@@ -1896,16 +1941,14 @@ bot.on("callback_query:data", async (ctx) => {
           extraOption: { kind: option.kind, productId: option.id },
         });
         const optName = option.name || (option.kind === "traffic" ? `+${option.trafficGb} ГБ` : option.kind === "devices" ? `+${option.deviceCount} устр.` : "Сервер");
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: optName,
           price: formatMoney(option.price, option.currency),
           amount: String(option.price),
           currency: option.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮKassa:",
         });
-        const yooTitle = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, yooTitle.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTitle.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
         const isAuthError = /401|unauthorized|истек|авториз|токен/i.test(msg);
@@ -1932,16 +1975,14 @@ bot.on("callback_query:data", async (ctx) => {
           extraOption: { kind: option.kind, productId: option.id },
         });
         const optName = option.name || (option.kind === "traffic" ? `+${option.trafficGb} ГБ` : option.kind === "devices" ? `+${option.deviceCount} устр.` : "Сервер");
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: optName,
           price: formatMoney(option.price, option.currency),
           amount: String(option.price),
           currency: option.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮMoney:",
         });
-        const yooTitle = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, yooTitle.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTitle.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
         await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
@@ -1973,16 +2014,14 @@ bot.on("callback_query:data", async (ctx) => {
           extraOption: { kind: option.kind, productId: option.id },
         });
         const optName = option.name || (option.kind === "traffic" ? `+${option.trafficGb} ГБ` : option.kind === "devices" ? `+${option.deviceCount} устр.` : "Сервер");
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: optName,
           price: formatMoney(option.price, option.currency),
           amount: String(option.price),
           currency: option.currency,
           action: "Нажмите кнопку ниже для оплаты:",
         });
-        const payTitle = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, payTitle.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), payTitle.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
         await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
@@ -2006,15 +2045,13 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const client = await api.getMe(token);
       const optName = option.name || (option.kind === "traffic" ? `+${option.trafficGb} ГБ` : option.kind === "devices" ? `+${option.deviceCount} устр.` : "Сервер");
-      const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-      const choiceBody = renderPaymentText(template, {
+      const choiceText = buildPaymentMessage(config, {
         name: optName,
         price: formatMoney(option.price, option.currency),
         amount: String(option.price),
         currency: option.currency,
         action: "Выберите способ оплаты:",
       });
-      const choiceText = titleWithEmojiAndCustomEmojis("CARD", choiceBody, config?.botEmojis);
       const markup = optionPaymentMethodButtons(
         option,
         client.balance,
@@ -2052,28 +2089,24 @@ bot.on("callback_query:data", async (ctx) => {
           description: `Тариф: ${tariff.name}`,
           tariffId: tariff.id,
         });
-        const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-        const body = renderPaymentText(template, {
+        const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты:",
         });
-        const pay1 = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
-        await editMessageContent(ctx, pay1.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), pay1.entities);
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         return;
       }
       // Показываем способы оплаты (всегда, чтобы была кнопка баланса)
-      const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-      const body = renderPaymentText(template, {
+      const pay2 = buildPaymentMessage(config, {
         name: tariff.name,
         price: formatMoney(tariff.price, tariff.currency),
         amount: String(tariff.price),
         currency: tariff.currency,
         action: "Выберите способ оплаты:",
       });
-      const pay2 = titleWithEmojiAndCustomEmojis("CARD", body, config?.botEmojis);
       await editMessageContent(ctx, pay2.text, tariffPaymentMethodButtons(tariffId, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, tariff.currency), pay2.entities);
       return;
     }
