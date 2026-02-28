@@ -8,6 +8,7 @@ const routerFutureFlags = {
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { ClientAuthProvider, useClientAuth } from "@/contexts/client-auth";
 import { ThemeProvider } from "@/contexts/theme";
+import { AnimatedBackground } from "@/components/animated-background";
 import type { ThemeAccent } from "@/contexts/theme";
 import { api } from "@/lib/api";
 import { LoginPage } from "@/pages/login";
@@ -311,6 +312,7 @@ export default function App() {
     <ThemeProvider forcedAccent={globalAccent}>
       <AuthProvider>
         <BrowserRouter future={routerFutureFlags}>
+          <AnimatedBackground />
           <TitleAndThemeSync onAccent={setGlobalAccent} />
           <AppRoutes />
         </BrowserRouter>

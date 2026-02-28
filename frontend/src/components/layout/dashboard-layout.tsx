@@ -46,12 +46,9 @@ const MODE_OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
   { value: "system", icon: Monitor, label: "Система" },
 ];
 
-/** Проверка активности пункта навигации — exact match или startsWith, но без пересечения /admin/promo и /admin/promo-codes */
 function isNavActive(pathname: string, to: string): boolean {
   if (to === "/admin") return pathname === "/admin";
-  // exact match
   if (pathname === to) return true;
-  // startsWith, но только если следующий символ — / или конец
   if (pathname.startsWith(to)) {
     const next = pathname[to.length];
     return next === "/" || next === undefined;
@@ -76,10 +73,9 @@ function NavItems({ onClick }: { onClick?: () => void }) {
             onClick={onClick}
             className={cn(
               "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              "hover:bg-accent/80 hover:text-accent-foreground",
               isActive
-                ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-                : "text-muted-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <item.icon className="h-4 w-4 shrink-0" />
@@ -103,12 +99,8 @@ export function DashboardLayout() {
   const lastCountersRef = useRef<AdminNotificationCounters | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
-  // Редирект менеджера при заходе в раздел без доступа
   useEffect(() => {
     const admin = state.admin;
     if (!admin || admin.role !== "MANAGER") return;
@@ -125,13 +117,10 @@ export function DashboardLayout() {
   useEffect(() => {
     const token = state.accessToken;
     if (token) {
-      api
-        .getSettings(token)
-        .then((s) => {
-          setBrand({ serviceName: s.serviceName, logo: s.logo ?? null });
-          setNotificationsEnabled(s.adminFrontNotificationsEnabled ?? true);
-        })
-        .catch(() => {});
+      api.getSettings(token).then((s) => {
+        setBrand({ serviceName: s.serviceName, logo: s.logo ?? null });
+        setNotificationsEnabled(s.adminFrontNotificationsEnabled ?? true);
+      }).catch(() => {});
     }
   }, [state.accessToken]);
 
@@ -142,9 +131,7 @@ export function DashboardLayout() {
     const pushToast = (text: string) => {
       const id = Date.now() + Math.random();
       setNotificationToasts((prev) => [...prev, { id, text }]);
-      window.setTimeout(() => {
-        setNotificationToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 5000);
+      window.setTimeout(() => { setNotificationToasts((prev) => prev.filter((t) => t.id !== id)); }, 5000);
     };
     const fetchCounters = async () => {
       try {
@@ -152,30 +139,17 @@ export function DashboardLayout() {
         if (cancelled) return;
         const last = lastCountersRef.current;
         if (last) {
-          if (data.totalClients > last.totalClients) {
-            pushToast("Новый пользователь зарегистрировался.");
-          }
-          if (data.totalTariffPayments > last.totalTariffPayments) {
-            pushToast("Есть новые оплаты тарифов.");
-          }
-          if (data.totalBalanceTopups > last.totalBalanceTopups) {
-            pushToast("Есть новые пополнения баланса.");
-          }
-          if (data.totalTickets > last.totalTickets) {
-            pushToast("Появились новые тикеты.");
-          }
+          if (data.totalClients > last.totalClients) pushToast("Новый пользователь зарегистрировался.");
+          if (data.totalTariffPayments > last.totalTariffPayments) pushToast("Есть новые оплаты тарифов.");
+          if (data.totalBalanceTopups > last.totalBalanceTopups) pushToast("Есть новые пополнения баланса.");
+          if (data.totalTickets > last.totalTickets) pushToast("Появились новые тикеты.");
         }
         lastCountersRef.current = data;
-      } catch {
-        // игнорируем ошибки опроса
-      }
+      } catch { /* ignore */ }
     };
     fetchCounters();
     const id = window.setInterval(fetchCounters, 15000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
+    return () => { cancelled = true; window.clearInterval(id); };
   }, [state.accessToken, notificationsEnabled]);
 
   async function handleLogout() {
@@ -184,9 +158,9 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-svh">
+    <div className="flex min-h-svh bg-transparent">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden border-r bg-card md:flex md:w-56 md:flex-col shrink-0">
+      <aside className="hidden md:flex md:w-56 md:flex-col shrink-0 bg-card border-r">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
@@ -217,27 +191,16 @@ export function DashboardLayout() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 md:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-background/50 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
             <motion.aside
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
+              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r bg-card flex flex-col md:hidden"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card border-r"
             >
               <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
                 <div className="flex items-center gap-2 min-w-0">
-                  {brand.logo ? (
-                    <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
-                  ) : (
-                    <Shield className="h-6 w-6 text-primary shrink-0" />
-                  )}
+                  {brand.logo ? <img src={brand.logo} alt="" className="h-8 w-auto object-contain" /> : <Shield className="h-6 w-6 text-primary shrink-0" />}
                   {brand.serviceName ? <span className="font-semibold truncate">{brand.serviceName}</span> : null}
                 </div>
                 <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setMobileMenuOpen(false)}>
@@ -251,13 +214,11 @@ export function DashboardLayout() {
                 <div className="text-xs text-muted-foreground truncate px-3 py-1">{state.admin?.email}</div>
                 <Link to="/admin/change-password" className="block" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl">
-                    <KeyRound className="h-4 w-4" />
-                    Сменить пароль
+                    <KeyRound className="h-4 w-4" />Сменить пароль
                   </Button>
                 </Link>
                 <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" />
-                  Выйти
+                  <LogOut className="h-4 w-4" />Выйти
                 </Button>
               </div>
             </motion.aside>
@@ -266,24 +227,17 @@ export function DashboardLayout() {
       </AnimatePresence>
 
       {/* ═══ Main content ═══ */}
-      <main className="flex-1 overflow-auto min-w-0">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-4 md:px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 px-4 md:px-6 bg-card border-b">
           <div className="flex items-center gap-2 min-w-0">
-            {/* Mobile hamburger */}
             <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
             </Button>
             {brand.serviceName ? <span className="text-sm text-muted-foreground md:hidden truncate">{brand.serviceName}</span> : null}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Theme toggle */}
             <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-xs h-8 px-2"
-                onClick={() => setShowThemePanel(!showThemePanel)}
-              >
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2" onClick={() => setShowThemePanel(!showThemePanel)}>
                 <Palette className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Тема</span>
               </Button>
@@ -294,41 +248,20 @@ export function DashboardLayout() {
                     <p className="text-xs font-medium text-muted-foreground mb-2">Режим</p>
                     <div className="flex gap-1 mb-4">
                       {MODE_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setMode(opt.value)}
-                          className={cn(
-                            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
-                            themeConfig.mode === opt.value
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                          )}
-                        >
-                          <opt.icon className="h-3.5 w-3.5" />
-                          {opt.label}
+                        <button key={opt.value} onClick={() => setMode(opt.value)}
+                          className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                            themeConfig.mode === opt.value ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted")}>
+                          <opt.icon className="h-3.5 w-3.5" />{opt.label}
                         </button>
                       ))}
                     </div>
                     <p className="text-xs font-medium text-muted-foreground mb-2">Акцент</p>
                     <div className="grid grid-cols-4 gap-2">
                       {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
-                        <button
-                          key={key}
-                          onClick={() => setAccent(key)}
-                          className={cn(
-                            "flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
-                            themeConfig.accent === key
-                              ? "ring-2 ring-primary bg-muted"
-                              : "hover:bg-muted/50"
-                          )}
-                        >
-                          <div
-                            className="h-6 w-6 rounded-full border-2"
-                            style={{
-                              backgroundColor: palette.swatch,
-                              borderColor: themeConfig.accent === key ? "hsl(var(--primary))" : "transparent",
-                            }}
-                          />
+                        <button key={key} onClick={() => setAccent(key)}
+                          className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
+                            themeConfig.accent === key ? "ring-2 ring-primary bg-muted" : "hover:bg-muted/50")}>
+                          <div className="h-6 w-6 rounded-full border-2 border-foreground/10" style={{ backgroundColor: palette.swatch }} />
                           <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
                         </button>
                       ))}
@@ -337,36 +270,21 @@ export function DashboardLayout() {
                 </>
               )}
             </div>
-
-            {/* Version badge */}
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <Shield className="h-3 w-3" />
-              Версия {PANEL_VERSION}
-              <ExternalLink className="h-3 w-3 opacity-50" />
+            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent">
+              <Shield className="h-3 w-3" />Версия {PANEL_VERSION}<ExternalLink className="h-3 w-3 opacity-50" />
             </a>
           </div>
         </header>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-          className="p-4 md:p-6"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex-1 p-4 md:p-6">
           <Outlet />
         </motion.div>
       </main>
+
       {notificationToasts.length > 0 && (
         <div className="fixed bottom-4 right-4 z-50 space-y-2">
           {notificationToasts.map((t) => (
-            <div
-              key={t.id}
-              className="max-w-xs rounded-lg border bg-card px-4 py-3 text-sm shadow-lg text-foreground"
-            >
+            <div key={t.id} className="max-w-xs rounded-lg border bg-card px-4 py-3 text-sm shadow-lg">
               {t.text}
             </div>
           ))}
