@@ -49,7 +49,7 @@ const SYSTEM_CONFIG_KEYS = [
   "platega_merchant_id", "platega_secret", "platega_methods",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key",
-  "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_inner_button_styles",
+  "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_menu_line_visibility", "bot_inner_button_styles",
   "bot_emojis", // JSON: { "TRIAL": { "unicode": "🎁", "tgEmojiId": "..." }, "PACKAGE": ... } — эмодзи кнопок/текста, TG ID для премиум
   "category_emojis", // JSON: { "ordinary": "📦", "premium": "⭐" } — эмодзи категорий по коду
   "subscription_page_config",
@@ -135,6 +135,34 @@ const DEFAULT_BOT_MENU_TEXTS: Required<BotMenuTexts> = {
   chooseAction: "Выберите действие:",
 };
 
+export type BotMenuLineVisibility = {
+  welcomeTitlePrefix?: boolean;
+  welcomeGreeting?: boolean;
+  balancePrefix?: boolean;
+  tariffPrefix?: boolean;
+  subscriptionPrefix?: boolean;
+  expirePrefix?: boolean;
+  daysLeftPrefix?: boolean;
+  devicesLabel?: boolean;
+  trafficPrefix?: boolean;
+  linkLabel?: boolean;
+  chooseAction?: boolean;
+};
+
+const DEFAULT_BOT_MENU_LINE_VISIBILITY: Required<BotMenuLineVisibility> = {
+  welcomeTitlePrefix: true,
+  welcomeGreeting: true,
+  balancePrefix: true,
+  tariffPrefix: true,
+  subscriptionPrefix: true,
+  expirePrefix: true,
+  daysLeftPrefix: true,
+  devicesLabel: true,
+  trafficPrefix: true,
+  linkLabel: true,
+  chooseAction: true,
+};
+
 export type BotInnerButtonStyles = {
   tariffPay?: string;
   topup?: string;
@@ -184,6 +212,21 @@ function parseBotMenuTexts(raw: string | undefined): Required<BotMenuTexts> {
     return out;
   } catch {
     return { ...DEFAULT_BOT_MENU_TEXTS };
+  }
+}
+
+function parseBotMenuLineVisibility(raw: string | undefined): Required<BotMenuLineVisibility> {
+  if (!raw || !raw.trim()) return { ...DEFAULT_BOT_MENU_LINE_VISIBILITY };
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return { ...DEFAULT_BOT_MENU_LINE_VISIBILITY };
+    const out = { ...DEFAULT_BOT_MENU_LINE_VISIBILITY };
+    for (const k of Object.keys(DEFAULT_BOT_MENU_LINE_VISIBILITY) as (keyof BotMenuLineVisibility)[]) {
+      if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean;
+    }
+    return out;
+  } catch {
+    return { ...DEFAULT_BOT_MENU_LINE_VISIBILITY };
   }
 }
 
@@ -293,6 +336,7 @@ export async function getSystemConfig() {
     botEmojis: parseBotEmojis(map.bot_emojis),
     botBackLabel: (map.bot_back_label || "◀️ В меню").trim() || "◀️ В меню",
     botMenuTexts: parseBotMenuTexts(map.bot_menu_texts),
+    botMenuLineVisibility: parseBotMenuLineVisibility(map.bot_menu_line_visibility),
     botInnerButtonStyles: parseBotInnerButtonStyles(map.bot_inner_button_styles),
     categoryEmojis: parseCategoryEmojis(map.category_emojis),
     subscriptionPageConfig: map.subscription_page_config ?? null,
@@ -462,6 +506,7 @@ export async function getPublicConfig() {
   });
 
   const menuTexts = full.botMenuTexts ?? DEFAULT_BOT_MENU_TEXTS;
+  const menuLineVisibility = full.botMenuLineVisibility ?? DEFAULT_BOT_MENU_LINE_VISIBILITY;
   const resolvedBotMenuTexts: Record<string, string> = {};
   const menuTextCustomEmojiIds: Record<string, string> = {};
   for (const [k, v] of Object.entries(menuTexts)) {
@@ -502,6 +547,7 @@ export async function getPublicConfig() {
     botButtonsPerRow: full.botButtonsPerRow ?? 1,
     botBackLabel: full.botBackLabel,
     botMenuTexts: menuTexts,
+    botMenuLineVisibility: menuLineVisibility,
     resolvedBotMenuTexts,
     menuTextCustomEmojiIds,
     botEmojis,

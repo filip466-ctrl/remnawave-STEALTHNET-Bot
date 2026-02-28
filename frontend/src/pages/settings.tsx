@@ -64,6 +64,34 @@ const DEFAULT_BOT_MENU_TEXTS: Record<string, string> = {
   chooseAction: "Выберите действие:",
 };
 
+const DEFAULT_BOT_MENU_LINE_VISIBILITY: Record<string, boolean> = {
+  welcomeTitlePrefix: true,
+  welcomeGreeting: true,
+  balancePrefix: true,
+  tariffPrefix: true,
+  subscriptionPrefix: true,
+  expirePrefix: true,
+  daysLeftPrefix: true,
+  devicesLabel: true,
+  trafficPrefix: true,
+  linkLabel: true,
+  chooseAction: true,
+};
+
+const BOT_MENU_LINE_LABELS: Record<string, string> = {
+  welcomeTitlePrefix: "Название бота",
+  welcomeGreeting: "Приветствие",
+  balancePrefix: "Баланс",
+  tariffPrefix: "Тариф",
+  subscriptionPrefix: "Статус подписки",
+  expirePrefix: "Дата окончания",
+  daysLeftPrefix: "Осталось дней",
+  devicesLabel: "Устройства",
+  trafficPrefix: "Трафик",
+  linkLabel: "Ссылка подключения",
+  chooseAction: "Призыв к действию",
+};
+
 /** Все ключи стилей внутренних кнопок и их дефолты — при изменении одного не терять остальные */
 const DEFAULT_BOT_INNER_STYLES: Record<string, string> = {
   tariffPay: "success",
@@ -133,6 +161,7 @@ export function SettingsPage() {
         botEmojis: (data as AdminSettings).botEmojis ?? {},
         botBackLabel: (data as AdminSettings).botBackLabel ?? "◀️ В меню",
         botMenuTexts: { ...DEFAULT_BOT_MENU_TEXTS, ...((data as AdminSettings).botMenuTexts ?? {}) },
+        botMenuLineVisibility: { ...DEFAULT_BOT_MENU_LINE_VISIBILITY, ...((data as AdminSettings).botMenuLineVisibility ?? {}) },
         botInnerButtonStyles: (() => {
           const raw = (data as AdminSettings).botInnerButtonStyles;
           const loaded =
@@ -300,6 +329,7 @@ export function SettingsPage() {
         botEmojis: settings.botEmojis != null ? settings.botEmojis : undefined,
         botBackLabel: settings.botBackLabel ?? null,
         botMenuTexts: settings.botMenuTexts != null ? JSON.stringify(settings.botMenuTexts) : undefined,
+        botMenuLineVisibility: settings.botMenuLineVisibility != null ? JSON.stringify(settings.botMenuLineVisibility) : undefined,
         botInnerButtonStyles: JSON.stringify({
           ...DEFAULT_BOT_INNER_STYLES,
           ...(settings.botInnerButtonStyles ?? {}),
@@ -1038,6 +1068,42 @@ export function SettingsPage() {
                       <p className="text-xs text-muted-foreground">
                         Подписи и фразы главного меню бота. Чтобы подставлять эмодзи из блока «Эмодзи (текст и кнопки)», используйте плейсхолдеры: <code className="rounded bg-muted px-1">{'{{BALANCE}}'}</code>, <code className="rounded bg-muted px-1">{'{{STATUS}}'}</code>, <code className="rounded bg-muted px-1">{'{{TRIAL}}'}</code>, <code className="rounded bg-muted px-1">{'{{LINK}}'}</code>, <code className="rounded bg-muted px-1">{'{{DATE}}'}</code>, <code className="rounded bg-muted px-1">{'{{TRAFFIC}}'}</code> и др. (ключи как в списке эмодзи выше). Unicode подставится автоматически; TG ID используется для премиум-эмодзи в кнопках.
                       </p>
+                      <div className="space-y-2 rounded-lg border p-3 bg-background/60">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-sm">Видимость строк приветствия</Label>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSettings((s) => (s ? { ...s, botMenuLineVisibility: { ...DEFAULT_BOT_MENU_LINE_VISIBILITY } } : s))}
+                          >
+                            Сбросить видимость
+                          </Button>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {Object.keys(DEFAULT_BOT_MENU_LINE_VISIBILITY).map((key) => (
+                            <div key={key} className="flex items-center gap-2">
+                              <Checkbox
+                                checked={(settings.botMenuLineVisibility ?? DEFAULT_BOT_MENU_LINE_VISIBILITY)[key] !== false}
+                                onCheckedChange={(checked) =>
+                                  setSettings((s) =>
+                                    s
+                                      ? {
+                                          ...s,
+                                          botMenuLineVisibility: {
+                                            ...(s.botMenuLineVisibility ?? DEFAULT_BOT_MENU_LINE_VISIBILITY),
+                                            [key]: checked === true,
+                                          },
+                                        }
+                                      : s
+                                  )
+                                }
+                              />
+                              <Label className="text-xs">{BOT_MENU_LINE_LABELS[key] ?? key}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         variant="secondary"

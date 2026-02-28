@@ -1046,6 +1046,7 @@ export type UpdateSettingsPayload = {
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | string | null;
   botBackLabel?: string | null;
   botMenuTexts?: string | null;
+  botMenuLineVisibility?: string | null;
   botInnerButtonStyles?: string | null;
   subscriptionPageConfig?: string | null;
   supportLink?: string | null;
@@ -1160,6 +1161,8 @@ export interface AdminSettings {
   botBackLabel?: string | null;
   /** Тексты главного меню бота (приветствие, подписи) */
   botMenuTexts?: Record<string, string> | null;
+  /** Видимость строк приветственного текста и главного меню */
+  botMenuLineVisibility?: Record<string, boolean> | null;
   /** Стили внутренних кнопок бота (тарифы, пополнение, «Назад» и т.д.) */
   botInnerButtonStyles?: Record<string, string> | null;
   /** JSON конфиг страницы подписки (приложения, тексты) */

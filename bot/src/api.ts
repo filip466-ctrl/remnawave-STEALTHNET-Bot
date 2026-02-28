@@ -71,6 +71,7 @@ export async function getPublicConfig(): Promise<{
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }>;
   botBackLabel?: string | null;
   botMenuTexts?: Record<string, string> | null;
+  botMenuLineVisibility?: Record<string, boolean> | null;
   botInnerButtonStyles?: Record<string, string> | null;
   activeLanguages?: string[];
   activeCurrencies?: string[];

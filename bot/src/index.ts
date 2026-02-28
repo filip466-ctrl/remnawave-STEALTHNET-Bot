@@ -306,34 +306,34 @@ function buildMainMenuText(opts: {
   /** Отображаемое имя тарифа с бэкенда: Триал, название с сайта или «Тариф не выбран» */
   tariffDisplayName?: string | null;
   menuTexts?: Record<string, string> | null;
+  menuLineVisibility?: Record<string, boolean> | null;
   menuTextCustomEmojiIds?: Record<string, string> | null;
 }): { text: string; entities: CustomEmojiEntity[] } {
-  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuTextCustomEmojiIds } = opts;
+  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuLineVisibility, menuTextCustomEmojiIds } = opts;
   const name = serviceName.trim() || "Кабинет";
   const balanceStr = formatMoney(balance, currency);
   const lines: string[] = [];
   const lineStartKeys: (string | null)[] = [];
+  const shouldShow = (key: string) => menuLineVisibility?.[key] !== false;
+  const pushLine = (key: string, text: string) => {
+    if (!shouldShow(key)) return;
+    lines.push(text);
+    lineStartKeys.push(key);
+  };
 
-  lines.push(t(menuTexts, "welcomeGreeting"));
-  lineStartKeys.push("welcomeGreeting");
-  lines.push(t(menuTexts, "welcomeTitlePrefix") + name);
-  lineStartKeys.push("welcomeTitlePrefix");
-  lines.push(t(menuTexts, "balancePrefix") + balanceStr);
-  lineStartKeys.push("balancePrefix");
+  pushLine("welcomeGreeting", t(menuTexts, "welcomeGreeting"));
+  pushLine("welcomeTitlePrefix", t(menuTexts, "welcomeTitlePrefix") + name);
+  pushLine("balancePrefix", t(menuTexts, "balancePrefix") + balanceStr);
 
   const user = getSubUser(subscription);
   const url = getSubscriptionUrl(subscription);
   const tariffName = (tariffDisplayName && tariffDisplayName.trim()) || "Тариф не выбран";
-  lines.push(t(menuTexts, "tariffPrefix") + tariffName);
-  lineStartKeys.push("tariffPrefix");
+  pushLine("tariffPrefix", t(menuTexts, "tariffPrefix") + tariffName);
 
   if (!user && !url) {
-    lines.push(t(menuTexts, "subscriptionPrefix") + t(menuTexts, "statusInactive"));
-    lineStartKeys.push("subscriptionPrefix");
-    lines.push(t(menuTexts, "trafficPrefix") + " 0.00 GB");
-    lineStartKeys.push("trafficPrefix");
-    lines.push(t(menuTexts, "chooseAction"));
-    lineStartKeys.push("chooseAction");
+    pushLine("subscriptionPrefix", t(menuTexts, "subscriptionPrefix") + t(menuTexts, "statusInactive"));
+    pushLine("trafficPrefix", t(menuTexts, "trafficPrefix") + " 0.00 GB");
+    pushLine("chooseAction", t(menuTexts, "chooseAction"));
   } else {
     const expireAt = user?.expireAt ?? user?.expirationDate ?? user?.expire_at;
     let expireDate: Date | null = null;
@@ -356,20 +356,16 @@ function buildMainMenuText(opts: {
         ? Math.max(0, Math.ceil((expireDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
         : null;
 
-    lines.push(t(menuTexts, "subscriptionPrefix") + statusLabel);
-    lineStartKeys.push("subscriptionPrefix");
-    lines.push(t(menuTexts, "expirePrefix") + expireStr);
-    lineStartKeys.push("expirePrefix");
+    pushLine("subscriptionPrefix", t(menuTexts, "subscriptionPrefix") + statusLabel);
+    pushLine("expirePrefix", t(menuTexts, "expirePrefix") + expireStr);
     if (daysLeft != null) {
-      lines.push(t(menuTexts, "daysLeftPrefix") + `${daysLeft} ${daysLeft === 1 ? "день" : daysLeft < 5 ? "дня" : "дней"}`);
-      lineStartKeys.push("daysLeftPrefix");
+      pushLine("daysLeftPrefix", t(menuTexts, "daysLeftPrefix") + `${daysLeft} ${daysLeft === 1 ? "день" : daysLeft < 5 ? "дня" : "дней"}`);
     }
     const deviceLimit = user?.hwidDeviceLimit ?? user?.deviceLimit ?? user?.device_limit;
     const devicesUsed = user?.devicesUsed ?? user?.devices_used;
     if (deviceLimit != null && typeof deviceLimit === "number") {
       const available = devicesUsed != null ? Math.max(0, deviceLimit - Number(devicesUsed)) : deviceLimit;
-      lines.push(t(menuTexts, "devicesLabel") + available + t(menuTexts, "devicesAvailable"));
-      lineStartKeys.push("devicesLabel");
+      pushLine("devicesLabel", t(menuTexts, "devicesLabel") + available + t(menuTexts, "devicesAvailable"));
     }
     const trafficUsedBytes =
       (user?.userTraffic as { usedTrafficBytes?: number } | undefined)?.usedTrafficBytes ??
@@ -384,19 +380,19 @@ function buildMainMenuText(opts: {
       const usedGb = bytesToGb(usedNum);
       const limitGb = bytesToGb(limitNum);
       const pctInt = Math.round(Math.min(100, pct * 100));
-      lines.push(t(menuTexts, "trafficPrefix") + `🟢 ${progressBar(pct, 14)} ${pctInt}% (${usedGb} / ${limitGb} GB)`);
+      pushLine("trafficPrefix", t(menuTexts, "trafficPrefix") + `🟢 ${progressBar(pct, 14)} ${pctInt}% (${usedGb} / ${limitGb} GB)`);
     } else if (Number.isFinite(usedNum)) {
-      lines.push(t(menuTexts, "trafficPrefix") + ` ${bytesToGb(usedNum)} GB`);
+      pushLine("trafficPrefix", t(menuTexts, "trafficPrefix") + ` ${bytesToGb(usedNum)} GB`);
     } else {
-      lines.push(t(menuTexts, "trafficPrefix") + " 0.00 GB");
+      pushLine("trafficPrefix", t(menuTexts, "trafficPrefix") + " 0.00 GB");
     }
-    lineStartKeys.push("trafficPrefix");
     if (url) {
-      lines.push(t(menuTexts, "linkLabel"), url);
-      lineStartKeys.push("linkLabel", null);
+      if (shouldShow("linkLabel")) {
+        lines.push(t(menuTexts, "linkLabel"), url);
+        lineStartKeys.push("linkLabel", null);
+      }
     }
-    lines.push(t(menuTexts, "chooseAction"));
-    lineStartKeys.push("chooseAction");
+    pushLine("chooseAction", t(menuTexts, "chooseAction"));
   }
 
   const text = lines.join("\n");
@@ -558,6 +554,7 @@ bot.command("start", async (ctx) => {
       subscription: subRes.subscription,
       tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
       menuTexts: config?.resolvedBotMenuTexts ?? config?.botMenuTexts ?? null,
+      menuLineVisibility: config?.botMenuLineVisibility ?? null,
       menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
     });
     const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
@@ -1204,6 +1201,7 @@ bot.on("callback_query:data", async (ctx) => {
         subscription: subRes.subscription,
         tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
         menuTexts: config?.resolvedBotMenuTexts ?? config?.botMenuTexts ?? null,
+        menuLineVisibility: config?.botMenuLineVisibility ?? null,
         menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
       });
       const hasSupportLinks = !!(config?.supportLink || config?.agreementLink || config?.offerLink || config?.instructionsLink);
