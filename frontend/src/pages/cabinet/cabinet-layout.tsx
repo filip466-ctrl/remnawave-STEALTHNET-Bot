@@ -6,10 +6,10 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare } from "lucide-react";
-import { useTheme } from "@/contexts/theme";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor } from "lucide-react";
+import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
+import { cn } from "@/lib/utils";
 
-/** Подключает Google Analytics 4 и Яндекс.Метрику на страницах кабинета по настройкам из админки (Маркетинг). */
 function AnalyticsScripts() {
   useEffect(() => {
     api.getPublicConfig().then((c) => {
@@ -57,19 +57,51 @@ const ALL_NAV_ITEMS = [
   { to: "/cabinet/profile", label: "Профиль", icon: User },
 ];
 
-/** Кнопка переключения тёмная/светлая тема */
-function ThemeToggleButton({ className }: { className?: string }) {
-  const { resolvedMode, setMode } = useTheme();
+const MODE_OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
+  { value: "light", icon: Sun, label: "Светлая" },
+  { value: "dark", icon: Moon, label: "Тёмная" },
+  { value: "system", icon: Monitor, label: "Система" },
+];
+
+function ThemePopover() {
+  const [show, setShow] = useState(false);
+  const { config: themeConfig, setMode, setAccent } = useTheme();
+
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className={className}
-      onClick={() => setMode(resolvedMode === "dark" ? "light" : "dark")}
-      title={resolvedMode === "dark" ? "Светлая тема" : "Тёмная тема"}
-    >
-      {resolvedMode === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-    </Button>
+    <div className="relative">
+      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
+        <Palette className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Тема</span>
+      </Button>
+      {show && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border bg-card p-4 shadow-xl">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Режим</p>
+            <div className="flex gap-1 mb-4">
+              {MODE_OPTIONS.map((opt) => (
+                <button key={opt.value} onClick={() => setMode(opt.value)}
+                  className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                    themeConfig.mode === opt.value ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted")}>
+                  <opt.icon className="h-3.5 w-3.5" />{opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Акцент</p>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
+                <button key={key} onClick={() => setAccent(key)}
+                  className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
+                    themeConfig.accent === key ? "ring-2 ring-primary bg-muted scale-105" : "hover:bg-muted/50")}>
+                  <div className="h-6 w-6 rounded-full border-2 border-foreground/10" style={{ backgroundColor: palette.swatch }} />
+                  <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -82,7 +114,6 @@ function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnable
   return items;
 }
 
-/** Мобильная оболочка для Mini App: компактный хедер + нижняя панель с горизонтальным скроллом (все пункты в одну линию). */
 function MobileCabinetShell() {
   const location = useLocation();
   const { state, logout, refreshProfile } = useClientAuth();
@@ -97,25 +128,22 @@ function MobileCabinetShell() {
   const logo = config?.logo && !logoError ? config.logo : null;
 
   return (
-    <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden">
-      <header
-        className="sticky top-0 z-50 isolate border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shrink-0"
-        style={{ background: "hsl(var(--background))", paddingTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="flex h-14 items-center justify-between gap-3 px-4 min-w-0">
+    <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-20">
+      <header className="sticky top-0 z-50 border-b border-border bg-card/40 backdrop-blur-xl shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="flex h-14 items-center justify-between gap-3 px-4 min-w-0 w-full max-w-7xl mx-auto">
           <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-base tracking-tight shrink-0 min-w-0">
             {logo ? (
-              <img src={logo} alt="" className="h-8 w-8 rounded-lg object-contain bg-card shrink-0" onError={() => setLogoError(true)} />
+              <img src={logo} alt="" className="h-8 w-8 rounded-lg object-contain bg-background/50 shrink-0 shadow-sm" onError={() => setLogoError(true)} />
             ) : (
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm">
                 <Shield className="h-4 w-4" />
               </span>
             )}
             {serviceName ? <span className="truncate">{serviceName}</span> : null}
           </Link>
-          <div className="flex items-center gap-1 shrink-0">
-            <ThemeToggleButton />
-            <Button variant="ghost" size="icon" className="shrink-0" asChild>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ThemePopover />
+            <Button variant="ghost" size="icon" className="shrink-0 bg-background/20 hover:bg-background/40 text-muted-foreground hover:text-foreground" asChild>
               <Link to="/cabinet/login" onClick={() => logout()} title="Выйти">
                 <LogOut className="h-5 w-5" />
               </Link>
@@ -123,42 +151,42 @@ function MobileCabinetShell() {
           </div>
         </div>
       </header>
-      <main className="flex-1 w-full min-w-0 overflow-x-hidden px-4 py-4 pb-24 box-border max-w-[100%] mx-auto" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
+
+      <main className="flex-1 w-full min-w-0 px-4 py-6 max-w-7xl mx-auto transition-all duration-300">
         <Outlet />
       </main>
 
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div
-          className="flex items-center gap-1 h-16 overflow-x-auto overflow-y-hidden px-2 max-w-[100vw]"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          {navItems.map(({ to, label, icon: Icon }) => {
-            const active = location.pathname === to;
-            return (
-              <Link
-                key={to}
-                to={to}
-                className="flex flex-shrink-0 flex-col items-center justify-center gap-0.5 py-2 px-3 min-w-[4rem] text-xs"
-              >
-                <span className={active ? "text-primary" : "text-muted-foreground"}>
-                  <Icon className={`h-6 w-6 shrink-0 ${active ? "text-primary" : ""}`} />
-                </span>
-                <span className={`whitespace-nowrap truncate max-w-[5rem] ${active ? "font-medium text-foreground" : "text-muted-foreground"}`}>
-                  {label}
-                </span>
-              </Link>
-            );
-          })}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/60 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] transition-all duration-300">
+        <div className="flex items-center w-full overflow-x-auto no-scrollbar h-[4.5rem] px-2">
+          {/* Контейнер растягивается и центрируется */}
+          <div className="flex items-center justify-between sm:justify-center w-full min-w-max gap-1 md:gap-2 mx-auto">
+            {navItems.map(({ to, label, icon: Icon }) => {
+              const active = location.pathname === to;
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 py-1 px-1 h-14 flex-1 min-w-[4.2rem] max-w-[6rem] rounded-xl transition-all duration-300",
+                    active ? "bg-primary/20 text-primary shadow-sm scale-105" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground hover:scale-105"
+                  )}
+                >
+                  <Icon className={cn("h-5 w-5 shrink-0 transition-transform duration-300", active && "scale-110 drop-shadow-md")} />
+                  <span className="text-[10px] font-medium leading-none tracking-tight whitespace-nowrap">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      ` }} />
     </div>
   );
 }
 
-/** Hook: true on mobile screen widths */
 function useIsMobile(breakpoint = 768) {
   const [mobile, setMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < breakpoint);
   useEffect(() => {
@@ -186,45 +214,50 @@ function CabinetShell() {
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
 
-  // На мобилках и в мини-апп — единый компактный дизайн
   if (isMiniapp || isMobile) {
     return <MobileCabinetShell />;
   }
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent">
-      <header className="sticky top-0 z-50 isolate border-b border-border bg-background shadow-sm" >
-        <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
-          <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-lg tracking-tight shrink-0">
+      <header className="sticky top-0 z-50 border-b border-border bg-card/40 backdrop-blur-xl shadow-sm transition-all duration-300">
+        <div className="w-full max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4">
+          <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-lg tracking-tight shrink-0 hover:opacity-80 transition-opacity">
             {logo ? (
-              <img src={logo} alt="" className="h-9 w-9 rounded-lg object-contain bg-card" onError={() => setLogoError(true)} />
+              <img src={logo} alt="" className="h-9 w-9 rounded-lg object-contain bg-background/50 shadow-sm" onError={() => setLogoError(true)} />
             ) : (
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm">
                 <Shield className="h-5 w-5" />
               </span>
             )}
             {serviceName ? <span className="hidden sm:inline truncate">{serviceName}</span> : null}
           </Link>
-          <nav className="flex items-center gap-1">
-            {navItems.map(({ to, label, icon: Icon }) => (
-              <Link key={to} to={to}>
-                <Button
-                  variant={location.pathname === to ? "secondary" : "ghost"}
-                  size="sm"
-                  className="inline-flex items-center gap-2 whitespace-nowrap"
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </Button>
-              </Link>
-            ))}
+          <nav className="flex items-center gap-1 flex-wrap justify-center flex-1">
+            {navItems.map(({ to, label, icon: Icon }) => {
+              const active = location.pathname === to;
+              return (
+                <Link key={to} to={to}>
+                  <Button
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "inline-flex items-center gap-2 whitespace-nowrap transition-all duration-300",
+                      active ? "bg-primary/20 hover:bg-primary/30 text-primary shadow-sm scale-105" : "hover:scale-105 hover:bg-background/40"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </Button>
+                </Link>
+              );
+            })}
           </nav>
           <div className="flex items-center gap-2 shrink-0">
-            <ThemeToggleButton className="shrink-0" />
-            <span className="max-w-[160px] truncate text-sm text-muted-foreground" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
+            <ThemePopover />
+            <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
               {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
             </span>
-            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap" asChild>
+            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
               <Link to="/cabinet/login" onClick={() => logout()}>
                 <LogOut className="h-4 w-4 shrink-0" />
                 Выйти
@@ -233,7 +266,8 @@ function CabinetShell() {
           </div>
         </div>
       </header>
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
+      {/* Главный контейнер теперь расширяется до max-w-7xl (гораздо шире) */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-6 transition-all duration-300">
         <Outlet />
       </main>
     </div>
@@ -263,7 +297,6 @@ export function CabinetLayout() {
 function CabinetShellWithMiniapp() {
   const isMiniapp = useIsMiniapp();
   const isMobile = useIsMobile();
-  // На мобилках страницы тоже рендерятся в компактном режиме (как мини-апп)
   return (
     <IsMiniappContext.Provider value={isMiniapp || isMobile}>
       <CabinetShell />
