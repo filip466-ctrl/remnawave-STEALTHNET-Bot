@@ -2,23 +2,25 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  CreditCard,
+  
   Package,
   Wallet,
   Wifi,
   Calendar,
-  Smartphone,
-  ExternalLink,
+  
+  
   ArrowRight,
   PlusCircle,
-  HelpCircle,
+  
   Copy,
   Check,
   Gift,
   Loader2,
   Users,
-  Percent,
+  
   Tag,
+  AlertCircle,
+  Zap
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -57,16 +59,7 @@ function formatBytes(bytes: number) {
   return (bytes / 1024).toFixed(0) + " КБ";
 }
 
-function formatPaymentStatus(status: string): string {
-  const s = (status || "").toLowerCase();
-  if (s === "paid") return "Оплачен";
-  if (s === "pending") return "Не оплачено";
-  if (s === "failed") return "Не прошёл";
-  if (s === "refunded") return "Возврат";
-  return status || "—";
-}
 
-/** Remna API может вернуть { response: { ... } } или { data: { response: { ... } } } или сам объект пользователя */
 function getSubscriptionPayload(sub: unknown): Record<string, unknown> | null {
   if (!sub || typeof sub !== "object") return null;
   const raw = sub as Record<string, unknown>;
@@ -116,13 +109,13 @@ export function ClientDashboardPage() {
   const [subscription, setSubscription] = useState<unknown>(null);
   const [tariffDisplayName, setTariffDisplayName] = useState<string | null>(null);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
-  const [payments, setPayments] = useState<ClientPayment[]>([]);
+  const [_payments, setPayments] = useState<ClientPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [paymentMessage, setPaymentMessage] = useState<"success_topup" | "success_tariff" | "success" | "failed" | null>(null);
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
+  const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
 
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
@@ -203,7 +196,6 @@ export function ClientDashboardPage() {
   const subParsed = parseSubscription(subscription);
   const hasActiveSubscription =
     subscription && typeof subscription === "object" && (subParsed.status === "ACTIVE" || subParsed.status === undefined);
-  // Ссылка на VPN берётся только из Remna (subscriptionUrl), без резервной ссылки из настроек
   const vpnUrl = subParsed.subscriptionUrl || null;
   const [referralCopied, setReferralCopied] = useState<"site" | "bot" | null>(null);
   const siteOrigin = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
@@ -233,11 +225,29 @@ export function ClientDashboardPage() {
     ? Math.max(0, Math.ceil((expireDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
 
+  // Компонент-состояние отсутствия подписки
+  const NoSubscriptionState = () => (
+    <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
+      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+        <Package className="h-8 w-8 text-primary/70" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">Нет активной подписки</h3>
+        <p className="text-[14px] text-muted-foreground max-w-xs mt-2 mx-auto leading-relaxed">
+          У вас пока нет привязанной подписки. Перейдите во вкладку Тарифы, чтобы выбрать и оплатить доступ.
+        </p>
+      </div>
+      <Button className="mt-2 shadow-lg h-11 px-6 rounded-xl hover:scale-105 transition-transform duration-300" asChild>
+        <Link to="/cabinet/tariffs">Выбрать тариф</Link>
+      </Button>
+    </div>
+  );
+
   if (isMiniapp) {
     return (
-      <div className="w-full min-w-0 overflow-hidden space-y-4">
+      <div className="w-full min-w-0 overflow-hidden space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {(paymentMessage === "success" || paymentMessage === "success_topup" || paymentMessage === "success_tariff") && (
-          <div className="rounded-lg bg-green-500/15 border border-green-500/30 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400">
+          <div className="rounded-xl bg-green-500/15 backdrop-blur-md border border-green-500/30 px-4 py-3 text-sm font-medium text-green-700 dark:text-green-400 shadow-sm">
             {paymentMessage === "success_topup"
               ? "Оплата прошла успешно. Баланс пополнен."
               : paymentMessage === "success_tariff"
@@ -246,65 +256,69 @@ export function ClientDashboardPage() {
           </div>
         )}
         {paymentMessage === "failed" && (
-          <div className="rounded-lg bg-destructive/15 border border-destructive/30 px-3 py-2 text-sm font-medium text-destructive">
+          <div className="rounded-xl bg-destructive/15 backdrop-blur-md border border-destructive/30 px-4 py-3 text-sm font-medium text-destructive shadow-sm">
             Оплата не прошла. Попробуйте снова.
           </div>
         )}
 
         {/* 1. Статус, срок, тариф, трафик, устройства — с иконками */}
-        <section className="rounded-xl border bg-card p-4 overflow-hidden">
-          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
-            <Package className="h-4 w-4 shrink-0" />
-            Подписка
+        <section className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl p-5 shadow-sm overflow-hidden transition-all duration-300">
+          <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-5">
+            <div className="p-1.5 bg-primary/20 rounded-lg">
+              <Zap className="h-4 w-4 shrink-0 text-primary" />
+            </div>
+            Статус Подписки
           </h2>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Загрузка…</p>
-          ) : subscriptionError ? (
-            <p className="text-sm text-destructive break-words">{subscriptionError}</p>
-          ) : hasActiveSubscription ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+            </div>
+          ) : subscriptionError || !hasActiveSubscription ? (
+            <NoSubscriptionState />
+          ) : (
             <div className="space-y-4 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-green-500/20 text-green-700 dark:text-green-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/20">
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
                   Активна
                 </span>
                 {daysLeft != null && (
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-sm font-semibold text-foreground bg-foreground/5 px-3 py-1.5 rounded-full border border-border/50">
                     Осталось {daysLeft} {daysLeft === 1 ? "день" : daysLeft < 5 ? "дня" : "дней"}
                   </span>
                 )}
               </div>
 
-              <div className="space-y-2.5 border-t border-border pt-3">
+              <div className="space-y-3 border-t border-border/50 pt-4 mt-2">
                 {subParsed.expireAt && (
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
+                  <div className="flex items-center gap-3 min-w-0 bg-background/30 p-2.5 rounded-xl border border-border/50">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Calendar className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">До окончания</p>
-                      <p className="text-sm font-medium truncate">{formatDate(subParsed.expireAt)}</p>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">До окончания</p>
+                      <p className="text-[15px] font-semibold truncate text-foreground">{formatDate(subParsed.expireAt)}</p>
                     </div>
                   </div>
                 )}
                 {(tariffDisplayName ?? subParsed.productName) && (
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Package className="h-4 w-4" />
+                  <div className="flex items-center gap-3 min-w-0 bg-background/30 p-2.5 rounded-xl border border-border/50">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Package className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">Тариф</p>
-                      <p className="text-sm font-medium truncate" title={tariffDisplayName ?? subParsed.productName ?? ""}>{tariffDisplayName ?? subParsed.productName ?? ""}</p>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Тариф</p>
+                      <p className="text-[15px] font-semibold truncate text-foreground" title={tariffDisplayName ?? subParsed.productName ?? ""}>{tariffDisplayName ?? subParsed.productName ?? ""}</p>
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    <Wifi className="h-4 w-4" />
+                <div className="flex items-center gap-3 min-w-0 bg-background/30 p-2.5 rounded-xl border border-border/50">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Wifi className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">Трафик</p>
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Трафик</p>
+                    <p className="text-[15px] font-semibold truncate text-foreground">
                       {subParsed.trafficLimitBytes != null && subParsed.trafficLimitBytes > 0
                         ? subParsed.trafficUsed != null
                           ? `${formatBytes(subParsed.trafficUsed)} из ${formatBytes(subParsed.trafficLimitBytes)}`
@@ -315,46 +329,30 @@ export function ClientDashboardPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    <Smartphone className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">Устройств</p>
-                    <p className="text-sm font-medium">
-                      {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0
-                        ? `До ${subParsed.hwidDeviceLimit}`
-                        : "Без лимита"}
-                    </p>
-                  </div>
-                </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                {subParsed.status === "EXPIRED" ? "Истекла" : subParsed.status === "DISABLED" ? "Отключена" : "Нет подписки"}
-              </span>
-              <p className="text-sm text-muted-foreground">Выберите тариф и оплатите — вклад «Тарифы» внизу.</p>
             </div>
           )}
         </section>
 
         {/* 2. Как подключиться — ссылка и кнопка */}
-        <section className="rounded-xl border bg-card p-4 overflow-hidden">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">Как подключиться</h2>
+        <section className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl p-5 shadow-sm overflow-hidden transition-all duration-300">
+          <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-4">
+             <div className="p-1.5 bg-primary/20 rounded-lg">
+              <Wifi className="h-4 w-4 shrink-0 text-primary" />
+            </div>
+            Подключение
+          </h2>
           {vpnUrl ? (
-            <div className="space-y-3">
-              <p className="text-sm text-foreground">Нажмите кнопку ниже — откроется страница с приложениями и кнопкой «Добавить подписку» (как на сайте).</p>
+            <div className="space-y-4">
+              <p className="text-[14px] text-muted-foreground leading-relaxed">Нажмите кнопку ниже — откроется страница с приложениями и настройкой в 1 клик.</p>
               <div className="flex gap-2 min-w-0">
-                <code className="flex-1 min-w-0 truncate rounded-lg bg-muted px-3 py-2 text-xs font-mono" title={vpnUrl}>
+                <code className="flex-1 min-w-0 truncate rounded-xl bg-background/50 border border-border/50 px-3 py-2.5 text-xs font-mono flex items-center text-foreground/80" title={vpnUrl}>
                   {vpnUrl}
                 </code>
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="outline"
-                  className="shrink-0"
+                  className="shrink-0 h-auto w-11 rounded-xl bg-background/50 hover:bg-background/80 transition-transform hover:scale-105"
                   onClick={() => {
                     navigator.clipboard.writeText(vpnUrl);
                     window.Telegram?.WebApp?.showPopup?.({ title: "Скопировано", message: "Ссылка в буфере обмена" });
@@ -363,7 +361,7 @@ export function ClientDashboardPage() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <Button className="w-full gap-2" size="lg" asChild>
+              <Button className="w-full gap-2 shadow-lg h-12 rounded-xl text-md hover:scale-[1.02] transition-transform duration-300" asChild>
                 <Link to="/cabinet/subscribe">
                   <Wifi className="h-5 w-5 shrink-0" />
                   Подключиться к VPN
@@ -371,20 +369,26 @@ export function ClientDashboardPage() {
               </Button>
             </div>
           ) : showTrial ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-4 text-center">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10 text-green-600 mb-2">
+                 <Gift className="h-6 w-6" />
+              </div>
+              <p className="text-[14px] text-muted-foreground">
                 Получите бесплатный доступ на {formatRuDays(trialDays)}.
               </p>
-              <Button className="w-full gap-2 bg-green-600 hover:bg-green-700" size="lg" onClick={activateTrial} disabled={trialLoading}>
+              <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" onClick={activateTrial} disabled={trialLoading}>
                 {trialLoading ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" /> : <Gift className="h-5 w-5 shrink-0" />}
-                Попробовать бесплатно
+                <span className="font-medium text-base">Активировать триал</span>
               </Button>
-              {trialError && <p className="text-sm text-destructive break-words">{trialError}</p>}
+              {trialError && <p className="text-sm text-destructive break-words text-center">{trialError}</p>}
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Ссылка появится после оплаты тарифа. Перейдите во вкладку «Тарифы» и оплатите.</p>
-              <Button className="w-full" variant="outline" size="lg" asChild>
+            <div className="space-y-4">
+              <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 text-[14px] text-primary flex gap-3 items-start">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">Ссылка появится после оплаты тарифа. Перейдите во вкладку «Тарифы» и оплатите.</p>
+              </div>
+              <Button className="w-full shadow-md rounded-xl hover:scale-[1.02] transition-transform duration-300 h-12" variant="default" asChild>
                 <Link to="/cabinet/tariffs">Выбрать тариф</Link>
               </Button>
             </div>
@@ -392,443 +396,237 @@ export function ClientDashboardPage() {
         </section>
 
         {/* 3. Баланс */}
-        <section className="rounded-xl border bg-card p-4 overflow-hidden">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Баланс</h2>
-          <p className="text-2xl font-semibold truncate">{formatMoney(client.balance, client.preferredCurrency)}</p>
-          <Button className="w-full mt-3 gap-2" size="sm" asChild>
+        <section className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl p-6 shadow-sm overflow-hidden flex items-center justify-between transition-all duration-300">
+          <div>
+            <h2 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">Мой баланс</h2>
+            <p className="text-3xl font-bold tracking-tight text-foreground">{formatMoney(client.balance, client.preferredCurrency)}</p>
+          </div>
+          <Button className="gap-2 shadow-md hover:scale-105 transition-transform duration-300 rounded-2xl h-12 px-5" asChild>
             <Link to="/cabinet/profile#topup">
-              <PlusCircle className="h-4 w-4 shrink-0" />
+              <PlusCircle className="h-5 w-5 shrink-0" />
               Пополнить
             </Link>
           </Button>
-        </section>
-
-        {/* 3.5 Рефералы — процент, количество, заработок */}
-        <section className="rounded-xl border bg-card p-4 overflow-hidden">
-          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
-            <Users className="h-4 w-4 shrink-0" />
-            Рефералы
-          </h2>
-          {referralStats ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-3 text-sm">
-                <span className="flex items-center gap-1.5">
-                  <Percent className="h-4 w-4 text-muted-foreground" />
-                  <strong>{referralStats.referralPercent}%</strong>
-                  <span className="text-muted-foreground">ваш процент</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <strong>{referralStats.referralCount}</strong>
-                  <span className="text-muted-foreground">приглашено</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                  <strong>{formatMoney(referralStats.totalEarnings, client.preferredCurrency)}</strong>
-                  <span className="text-muted-foreground">заработок</span>
-                </span>
-              </div>
-              {hasReferralLinks && (
-                <div className="flex flex-wrap gap-2">
-                  {referralLinkSite && (
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => copyReferral("site")}>
-                      {referralCopied === "site" ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                      Ссылка на сайт
-                    </Button>
-                  )}
-                  {referralLinkBot && (
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => copyReferral("bot")}>
-                      {referralCopied === "bot" ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                      Ссылка на бот
-                    </Button>
-                  )}
-                </div>
-              )}
-              <Button className="w-full gap-2" variant="outline" size="sm" asChild>
-                <Link to="/cabinet/referral">
-                  Подробнее
-                  <ArrowRight className="h-4 w-4 shrink-0" />
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <Button className="w-full gap-2" variant="outline" size="sm" asChild>
-              <Link to="/cabinet/referral">
-                <Users className="h-4 w-4 shrink-0" />
-                Реферальная программа
-              </Link>
-            </Button>
-          )}
-        </section>
-
-        {/* 4. Краткая инструкция */}
-        <section className="rounded-xl border border-muted bg-muted/30 p-4 overflow-hidden">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Инструкция</h2>
-          <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
-            <li>Нажмите «Подключиться к VPN» выше — откроется страница с приложениями и кнопкой «Добавить подписку» (как на сайте).</li>
-            <li>Тарифы и пополнение — во вкладках «Тарифы» и «Профиль» внизу.</li>
-          </ol>
         </section>
       </div>
     );
   }
 
+  // DESKTOP LAYOUT
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
       {/* Hero + CTA */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-transparent border p-6 sm:p-8"
+        transition={{ duration: 0.4 }}
+        className="relative overflow-hidden rounded-3xl bg-card/40 backdrop-blur-2xl border border-border/50 p-8 sm:p-10 shadow-xl"
       >
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Добро пожаловать{client.email ? `, ${client.email.split("@")[0]}` : client.telegramUsername ? `, @${client.telegramUsername}` : ""}
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {hasActiveSubscription
-              ? "Ваша подписка активна. Подключитесь к VPN и пользуйтесь интернетом без ограничений."
-              : "Подключитесь к VPN — выберите тариф и оплатите картой на сайте или в боте."}
-          </p>
-          {(paymentMessage === "success" || paymentMessage === "success_topup" || paymentMessage === "success_tariff") && (
-            <p className="text-sm text-green-600 font-medium">
-              {paymentMessage === "success_topup"
-                ? "Оплата прошла успешно. Баланс пополнен."
-                : paymentMessage === "success_tariff"
-                  ? "Оплата прошла успешно. Тариф активируется автоматически."
-                  : "Оплата прошла успешно. Статус обновляется автоматически."}
+        {/* Декоративное свечение */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
+              Добро пожаловать{client.email ? `, ${client.email.split("@")[0]}` : client.telegramUsername ? `, @${client.telegramUsername}` : ""}
+            </h1>
+            <p className="mt-3 text-[16px] text-muted-foreground max-w-xl leading-relaxed">
+              {hasActiveSubscription
+                ? "Ваша подписка активна. Подключитесь к VPN и наслаждайтесь свободным интернетом."
+                : "Подключитесь к VPN — выберите удобный тариф и оплатите прямо на сайте."}
             </p>
-          )}
-          {paymentMessage === "failed" && (
-            <p className="text-sm text-destructive font-medium">Оплата не прошла. Попробуйте снова или выберите другой способ.</p>
-          )}
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+            
+            {(paymentMessage === "success" || paymentMessage === "success_topup" || paymentMessage === "success_tariff") && (
+              <div className="mt-4 inline-flex items-center gap-2 bg-green-500/15 border border-green-500/30 px-4 py-2 rounded-xl text-green-700 dark:text-green-400 font-medium text-sm">
+                <Check className="h-4 w-4" />
+                {paymentMessage === "success_topup" ? "Баланс пополнен." : paymentMessage === "success_tariff" ? "Тариф активирован." : "Оплата прошла успешно."}
+              </div>
+            )}
+            {paymentMessage === "failed" && (
+              <div className="mt-4 inline-flex items-center gap-2 bg-destructive/15 border border-destructive/30 px-4 py-2 rounded-xl text-destructive font-medium text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Оплата не прошла. Попробуйте снова.
+              </div>
+            )}
+            {trialError && <p className="mt-3 text-sm text-destructive font-medium">{trialError}</p>}
+          </div>
+
+          <div className="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0 min-w-[240px]">
             {showTrial ? (
-              <Button
-                size="lg"
-                variant="default"
-                className="inline-flex items-center gap-2 whitespace-nowrap bg-green-600 hover:bg-green-700"
-                onClick={activateTrial}
-                disabled={trialLoading}
-              >
+              <Button size="lg" className="w-full gap-2 shadow-xl bg-green-600 hover:bg-green-700 text-white rounded-xl h-14 hover:scale-105 transition-transform" onClick={activateTrial} disabled={trialLoading}>
                 {trialLoading ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" /> : <Gift className="h-5 w-5 shrink-0" />}
-                Попробовать бесплатно{trialDays > 0 ? ` (${formatRuDays(trialDays)})` : ""}
+                <span className="text-base font-medium">Бесплатный триал</span>
               </Button>
             ) : vpnUrl ? (
-              <Button size="lg" className="inline-flex items-center gap-2 whitespace-nowrap" asChild>
+              <Button size="lg" className="w-full gap-2 shadow-xl rounded-xl h-14 hover:scale-105 transition-transform bg-primary text-primary-foreground" asChild>
                 <Link to="/cabinet/subscribe">
                   <Wifi className="h-5 w-5 shrink-0" />
-                  Подключиться к VPN
-                  <ExternalLink className="h-4 w-4 shrink-0" />
+                  <span className="text-base font-medium">Настроить VPN</span>
                 </Link>
               </Button>
             ) : (
-              <Button size="lg" className="inline-flex items-center gap-2 whitespace-nowrap" disabled title="Ссылка на VPN будет доступна после активации подписки">
-                <Wifi className="h-5 w-5 shrink-0" />
-                Подключиться к VPN
+              <Button size="lg" variant="default" className="w-full gap-2 shadow-xl rounded-xl h-14 hover:scale-105 transition-transform" asChild>
+                <Link to="/cabinet/tariffs">
+                  <Package className="h-5 w-5 shrink-0" />
+                  <span className="text-base font-medium">Выбрать тариф</span>
+                </Link>
               </Button>
             )}
-            <Button variant="outline" size="lg" className="inline-flex items-center gap-2 whitespace-nowrap" asChild>
-              <Link to="/cabinet/tariffs">
-                Выбрать тариф
-                <ArrowRight className="h-4 w-4 shrink-0" />
-              </Link>
-            </Button>
-            <Button variant="secondary" size="lg" className="inline-flex items-center gap-2 whitespace-nowrap" asChild>
+            <Button variant="secondary" size="lg" className="w-full gap-2 rounded-xl h-14 hover:scale-105 transition-transform bg-background/50 hover:bg-background/80 border border-border/50" asChild>
               <Link to="/cabinet/profile#topup">
-                <PlusCircle className="h-5 w-5 shrink-0" />
-                Пополнить баланс
+                <PlusCircle className="h-5 w-5 shrink-0 text-foreground/70" />
+                <span className="text-base font-medium">Пополнить баланс</span>
               </Link>
             </Button>
           </div>
-          {trialError && <p className="mt-2 text-sm text-destructive">{trialError}</p>}
         </div>
-      </motion.section>
-
-      {/* Быстрые действия */}
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        {showTrial ? (
-          <Button
-            variant="outline"
-            className="h-auto flex-col gap-2 py-4 border-green-500/50 bg-green-500/5 hover:bg-green-500/10"
-            onClick={activateTrial}
-            disabled={trialLoading}
-          >
-            <Gift className="h-6 w-6 text-green-600" />
-            <span>Попробовать бесплатно</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              {trialDays > 0 ? `${formatRuDays(trialDays)} триала` : "Триал"}
-            </span>
-          </Button>
-        ) : vpnUrl ? (
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link to="/cabinet/subscribe">
-              <Wifi className="h-6 w-6 text-primary" />
-              <span>Подключиться к VPN</span>
-              <span className="text-xs font-normal text-muted-foreground">Добавление подписки</span>
-            </Link>
-          </Button>
-        ) : (
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" disabled>
-            <Wifi className="h-6 w-6 text-muted-foreground" />
-            <span>Подключиться к VPN</span>
-            <span className="text-xs font-normal text-muted-foreground">После активации подписки</span>
-          </Button>
-        )}
-        <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-          <Link to="/cabinet/profile#topup">
-            <PlusCircle className="h-6 w-6 text-primary" />
-            <span>Пополнить баланс</span>
-            <span className="text-xs font-normal text-muted-foreground">Картой на сайте (Platega)</span>
-          </Link>
-        </Button>
-        <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-          <Link to="/cabinet/tariffs">
-            <Package className="h-6 w-6 text-primary" />
-            <span>Тарифы</span>
-            <span className="text-xs font-normal text-muted-foreground">Выбрать и оплатить картой</span>
-          </Link>
-        </Button>
-        <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-          <Link to="/cabinet/profile">
-            <Wallet className="h-6 w-6 text-primary" />
-            <span>Профиль и платежи</span>
-            <span className="text-xs font-normal text-muted-foreground">Настройки, история</span>
-          </Link>
-        </Button>
       </motion.section>
 
       {/* Cards grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {/* Подписка / тариф */}
-        <Card className="rounded-xl border bg-card text-card-foreground shadow sm:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="h-5 w-5 text-primary" />
-              Подписка
+        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1 flex flex-col">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-xl text-foreground">
+              <div className="p-2.5 bg-primary/20 rounded-xl">
+                <Package className="h-6 w-6 text-primary" />
+              </div>
+              Моя Подписка
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex-1 flex flex-col justify-center">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Загрузка…</p>
-            ) : subscriptionError ? (
-              <p className="text-sm text-destructive">{subscriptionError}</p>
-            ) : subscription && typeof subscription === "object" ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    hasActiveSubscription ? "bg-green-500/15 text-green-700 dark:text-green-400" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {hasActiveSubscription ? "Активна" : subParsed.status === "EXPIRED" ? "Истекла" : subParsed.status === "DISABLED" ? "Отключена" : "Неактивна"}
+              <div className="flex justify-center py-6"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            ) : subscriptionError || !hasActiveSubscription ? (
+              <NoSubscriptionState />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    Активна
                   </span>
                 </div>
-                {((tariffDisplayName ?? subParsed.productName) || (hasActiveSubscription && client?.trialUsed)) && (
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>Тариф: {((tariffDisplayName ?? subParsed.productName?.trim() ?? "").trim()) || "Триал"}</span>
+                {((tariffDisplayName ?? subParsed.productName) || client?.trialUsed) && (
+                  <div className="flex items-center gap-3 text-[15px] font-medium text-foreground bg-background/40 p-3.5 rounded-xl border border-border/50">
+                    <Tag className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="truncate">Тариф: {((tariffDisplayName ?? subParsed.productName?.trim() ?? "").trim()) || "Триал"}</span>
                   </div>
                 )}
                 {subParsed.expireAt && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="flex items-center gap-3 text-[15px] font-medium text-foreground bg-background/40 p-3.5 rounded-xl border border-border/50">
+                    <Calendar className="h-5 w-5 shrink-0 text-primary" />
                     <span>До {formatDate(subParsed.expireAt)}</span>
                   </div>
                 )}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="space-y-3 bg-background/40 p-4 rounded-xl border border-border/50">
+                  <div className="flex items-center justify-between text-[15px] font-medium text-foreground">
+                    <span className="flex items-center gap-3">
+                      <Wifi className="h-5 w-5 shrink-0 text-primary" />
                       {subParsed.trafficLimitBytes != null && subParsed.trafficLimitBytes > 0
-                        ? subParsed.trafficUsed != null
-                          ? `Использовано: ${formatBytes(subParsed.trafficUsed)} из ${formatBytes(subParsed.trafficLimitBytes)}`
-                          : `Лимит: ${formatBytes(subParsed.trafficLimitBytes)}`
-                        : subParsed.trafficUsed != null
-                          ? `Использовано: ${formatBytes(subParsed.trafficUsed)}`
-                          : "Трафик: без лимита"}
+                        ? `${formatBytes(subParsed.trafficUsed ?? 0)} / ${formatBytes(subParsed.trafficLimitBytes)}`
+                        : "Трафик: Безлимит"}
                     </span>
-                    {trafficPercent != null && (
-                      <span className="text-muted-foreground text-xs">{trafficPercent}%</span>
-                    )}
+                    {trafficPercent != null && <span className="text-muted-foreground text-[14px]">{trafficPercent}%</span>}
                   </div>
                   {trafficPercent != null && (
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${trafficPercent}%` }}
-                      />
+                    <div className="h-2.5 w-full rounded-full bg-muted/50 overflow-hidden">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${trafficPercent}%` }} />
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>
-                    {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0
-                      ? `Лимит устройств: ${subParsed.hwidDeviceLimit}`
-                      : "Устройства: без лимита"}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Нет активной подписки. <Link to="/cabinet/tariffs" className="text-primary underline">Выбрать тариф</Link>
-              </p>
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Баланс + пополнение */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Wallet className="h-5 w-5 text-primary" />
+        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-xl text-foreground">
+              <div className="p-2.5 bg-primary/20 rounded-xl">
+                <Wallet className="h-6 w-6 text-primary" />
+              </div>
               Баланс
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-2xl font-semibold">
-              {formatMoney(client.balance, client.preferredCurrency)}
-            </p>
-            <p className="text-xs text-muted-foreground">Для оплаты тарифов и продления</p>
-            <Button variant="default" size="sm" className="w-full gap-2" asChild>
+          <CardContent className="space-y-6 flex-1 flex flex-col justify-center text-center">
+            <div>
+              <p className="text-5xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
+                {formatMoney(client.balance, client.preferredCurrency)}
+              </p>
+              <p className="text-[15px] text-muted-foreground mt-3">На счету для продления тарифов</p>
+            </div>
+            <Button variant="default" size="lg" className="w-full gap-2 shadow-lg h-14 rounded-xl text-[16px] hover:scale-105 transition-transform" asChild>
               <Link to="/cabinet/profile#topup">
-                <PlusCircle className="h-4 w-4" />
+                <PlusCircle className="h-5 w-5" />
                 Пополнить баланс
               </Link>
             </Button>
           </CardContent>
         </Card>
 
-        {/* Справа от баланса: реферальные ссылки или ссылка VPN */}
-        <Card className="sm:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              {hasReferralLinks ? "Реферальные ссылки" : "Подключение"}
+        {/* Справа от баланса: Рефералы или Подключение */}
+        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-xl text-foreground">
+              <div className="p-2.5 bg-primary/20 rounded-xl">
+                {hasReferralLinks ? <Users className="h-6 w-6 text-primary" /> : <Wifi className="h-6 w-6 text-primary" />}
+              </div>
+              {hasReferralLinks ? "Рефералы" : "Подключение"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-5 pt-2 flex flex-col justify-center h-[calc(100%-5rem)]">
             {hasReferralLinks ? (
               <>
-                <p className="text-sm text-muted-foreground">Поделитесь с друзьями — при регистрации по ссылке вы получите бонус</p>
+                <p className="text-[15px] text-muted-foreground leading-relaxed">Делитесь ссылкой и получайте <strong className="text-foreground">бонус на баланс</strong> за каждого приглашенного друга!</p>
                 {referralLinkSite && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Сайт</p>
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Сайт</p>
                     <div className="flex items-center gap-2">
-                      <code className="rounded bg-muted px-2 py-1.5 text-sm font-mono flex-1 truncate block" title={referralLinkSite}>
+                      <code className="rounded-xl bg-background/50 border border-border/50 px-4 py-3 text-[15px] font-mono flex-1 truncate block text-foreground/80" title={referralLinkSite}>
                         {referralLinkSite}
                       </code>
-                      <Button variant="outline" size="sm" onClick={() => copyReferral("site")} className="shrink-0 gap-1" title="Копировать">
-                        {referralCopied === "site" ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      <Button variant="secondary" size="icon" onClick={() => copyReferral("site")} className="shrink-0 h-12 w-12 rounded-xl hover:scale-105 transition-transform border border-border/50 bg-background/50" title="Копировать">
+                        {referralCopied === "site" ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-foreground/70" />}
                       </Button>
                     </div>
                   </div>
                 )}
-                {referralLinkBot && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Бот Telegram</p>
-                    <div className="flex items-center gap-2">
-                      <code className="rounded bg-muted px-2 py-1.5 text-sm font-mono flex-1 truncate block" title={referralLinkBot}>
-                        {referralLinkBot}
-                      </code>
-                      <Button variant="outline" size="sm" onClick={() => copyReferral("bot")} className="shrink-0 gap-1" title="Копировать">
-                        {referralCopied === "bot" ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <div className="pt-3">
+                  <Button variant="outline" className="w-full rounded-xl h-12 text-[15px] bg-background/30 hover:bg-background/60 transition-colors border-border/50" asChild>
+                     <Link to="/cabinet/referral">Подробная статистика <ArrowRight className="h-4 w-4 ml-2"/></Link>
+                  </Button>
+                </div>
               </>
             ) : vpnUrl ? (
-              <>
-                <p className="text-sm text-muted-foreground">Добавление подписки</p>
-                <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+              <div className="flex flex-col h-full justify-between space-y-6">
+                <p className="text-[15px] text-muted-foreground leading-relaxed">Ваша подписка готова к использованию. Перейдите к настройке приложения.</p>
+                <div className="p-6 bg-primary/10 rounded-2xl border border-primary/20 text-center">
+                   <Wifi className="h-12 w-12 text-primary mx-auto mb-3 opacity-80" />
+                   <p className="text-[15px] text-foreground font-medium">Всё готово к работе</p>
+                </div>
+                <Button variant="default" size="lg" className="w-full gap-2 rounded-xl shadow-lg h-14 text-[16px] hover:scale-105 transition-transform" asChild>
                   <Link to="/cabinet/subscribe">
-                    <Wifi className="h-4 w-4" />
-                    Подключиться к VPN
+                    <Wifi className="h-5 w-5" />
+                    Настроить VPN
                   </Link>
                 </Button>
-              </>
+              </div>
             ) : (
-              <>
-                <p className="text-sm text-muted-foreground">После оплаты тарифа здесь появится ссылка на подключение</p>
-                <Button variant="outline" size="sm" className="w-full" asChild>
+              <div className="flex flex-col h-full justify-center space-y-6">
+                <div className="p-6 bg-background/30 rounded-2xl border border-border/50 text-center">
+                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                   <p className="text-[15px] text-muted-foreground">Оплатите тариф, чтобы получить ссылку</p>
+                </div>
+                <Button variant="outline" size="lg" className="w-full rounded-xl h-14 text-[16px] bg-background/30 hover:bg-background/60 border-border/50 transition-colors" asChild>
                   <Link to="/cabinet/tariffs">Выбрать тариф</Link>
                 </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Последние платежи */}
-        <Card className="sm:col-span-2 lg:col-span-3">
-          <CardHeader className="pb-2">
-            <div className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CreditCard className="h-5 w-5 text-primary" />
-                Последние платежи
-              </CardTitle>
-              {payments.length > 0 && (
-                <Link to="/cabinet/profile" className="text-sm text-primary hover:underline">
-                  Все
-                </Link>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground font-normal mt-1">Оплата открывается в новой вкладке — кабинет остаётся открытым.</p>
-          </CardHeader>
-          <CardContent>
-            {payments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Платежей пока нет</p>
-            ) : (
-              <ul className="space-y-2">
-                {payments.slice(0, 5).map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <span className="font-medium">{p.orderId}</span>
-                    <span>{formatMoney(p.amount, p.currency)}</span>
-                    <span
-                      className={
-                        p.status?.toLowerCase() === "paid" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
-                      }
-                    >
-                      {formatPaymentStatus(p.status)}
-                    </span>
-                    <span className="text-muted-foreground text-xs">{formatDate(p.paidAt ?? p.createdAt)}</span>
-                  </li>
-                ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Как начать */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-      >
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <HelpCircle className="h-5 w-5 text-primary" />
-              Как начать
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Выберите тариф в разделе <Link to="/cabinet/tariffs" className="text-primary underline">Тарифы</Link> и оплатите в Telegram-боте или по инструкциям.</li>
-              <li>После оплаты нажмите «Подключиться к VPN» и откройте ссылку подписки.</li>
-              <li>Установите приложение или настройте клиент по инструкции Remna и пользуйтесь VPN.</li>
-            </ol>
-          </CardContent>
-        </Card>
-      </motion.div>
     </div>
   );
 }
