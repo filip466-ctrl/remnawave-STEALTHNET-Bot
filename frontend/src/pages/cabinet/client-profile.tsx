@@ -66,6 +66,7 @@ export function ClientProfilePage() {
   const [linkEmailLoading, setLinkEmailLoading] = useState(false);
   const [linkEmailSent, setLinkEmailSent] = useState(false);
   const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
+  const [paymentsHistoryOpen, setPaymentsHistoryOpen] = useState(false);
 
   const client = state.client;
   const token = state.token;
@@ -523,14 +524,21 @@ export function ClientProfilePage() {
           </div>
           
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
-                <Wallet className="h-6 w-6" />
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
+                  <Wallet className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xl font-bold tracking-tight text-foreground truncate">История платежей</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5 truncate">Последние 3 транзакции</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-xl font-bold tracking-tight text-foreground truncate">История платежей</h3>
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">Последние транзакции</p>
-              </div>
+              {payments.length > 3 && (
+                <Button variant="outline" size="sm" className="shrink-0" onClick={() => setPaymentsHistoryOpen(true)}>
+                  Вся история ({payments.length})
+                </Button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar min-w-0 -mx-2 px-2">
@@ -541,7 +549,7 @@ export function ClientProfilePage() {
                 </div>
               ) : (
                 <ul className="space-y-3 min-w-0">
-                  {payments.map((p) => (
+                  {payments.slice(0, 3).map((p) => (
                     <li
                       key={p.id}
                       className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 hover:bg-white/10 dark:bg-black/10 dark:hover:bg-black/20 p-4 transition-all duration-300"
@@ -572,6 +580,56 @@ export function ClientProfilePage() {
           </div>
         </div>
       </motion.div>
+
+      <Dialog open={paymentsHistoryOpen} onOpenChange={setPaymentsHistoryOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col" showCloseButton>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              Вся история платежей
+            </DialogTitle>
+            <DialogDescription>
+              {payments.length} {payments.length === 1 ? "транзакция" : payments.length < 5 ? "транзакции" : "транзакций"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-1 px-1 space-y-2 py-2">
+            {payments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Платежей пока нет</p>
+            ) : (
+              payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border bg-muted/30 p-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground">
+                      <Check className={cn("h-3.5 w-3.5", p.status?.toLowerCase() === "paid" && "text-green-500")} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate" title={p.orderId}>{p.orderId}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(p.paidAt ?? p.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1 shrink-0">
+                    <span className="font-semibold text-sm">{formatMoney(p.amount, p.currency)}</span>
+                    <span className={cn(
+                      "text-[10px] font-medium uppercase px-2 py-0.5 rounded-full",
+                      p.status?.toLowerCase() === "paid" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-muted text-muted-foreground"
+                    )}>
+                      {formatPaymentStatus(p.status)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentsHistoryOpen(false)}>
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={topUpModalOpen} onOpenChange={(open) => !topUpLoading && setTopUpModalOpen(open)}>
         <DialogContent className="max-w-sm" showCloseButton={!topUpLoading} onOpenAutoFocus={(e) => e.preventDefault()}>

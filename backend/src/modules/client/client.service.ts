@@ -122,12 +122,12 @@ const DEFAULT_BOT_MENU_TEXTS: Required<BotMenuTexts> = {
   welcomeGreeting: "👋 Добро пожаловать в ",
   balancePrefix: "💰 Баланс: ",
   tariffPrefix: "💎 Ваш тариф : ",
-  subscriptionPrefix: "📊 Статус подписки — ",
-  statusInactive: "🔴 Истекла",
-  statusActive: "🟡 Активна",
-  statusExpired: "🔴 Истекла",
-  statusLimited: "🟡 Ограничена",
-  statusDisabled: "🔴 Отключена",
+  subscriptionPrefix: "{{CHART}} Статус подписки — ",
+  statusInactive: "{{STATUS_INACTIVE}} Истекла",
+  statusActive: "{{STATUS_ACTIVE}} Активна",
+  statusExpired: "{{STATUS_EXPIRED}} Истекла",
+  statusLimited: "{{STATUS_LIMITED}} Ограничена",
+  statusDisabled: "{{STATUS_DISABLED}} Отключена",
   expirePrefix: "📅 до ",
   daysLeftPrefix: "⏰ осталось ",
   devicesLabel: "📱 Устройств: ",
@@ -555,8 +555,10 @@ export async function getPublicConfig() {
     let label = b.label;
     let iconCustomEmojiId: string | undefined;
     if (entry) {
-      if (entry.tgEmojiId) iconCustomEmojiId = entry.tgEmojiId;
-      if (entry.unicode && !entry.tgEmojiId) {
+      if (entry.tgEmojiId) {
+        iconCustomEmojiId = entry.tgEmojiId;
+        label = stripLeadingEmoji(label).trim();
+      } else if (entry.unicode) {
         const base = stripLeadingEmoji(label).trim();
         label = (entry.unicode + " " + base).trim();
       }
@@ -568,19 +570,71 @@ export async function getPublicConfig() {
   const menuLineVisibility = full.botMenuLineVisibility ?? DEFAULT_BOT_MENU_LINE_VISIBILITY;
   const resolvedBotMenuTexts: Record<string, string> = {};
   const menuTextCustomEmojiIds: Record<string, string> = {};
+  /** Дефолтный unicode по ключу эмодзи (для плейсхолдеров и для «премиум по ключу») */
+  const emojiKeyFallbacks: Record<string, string> = {
+    CHART: "📊",
+    STATUS_ACTIVE: "🟡",
+    STATUS_EXPIRED: "🔴",
+    STATUS_INACTIVE: "🔴",
+    STATUS_LIMITED: "🟡",
+    STATUS_DISABLED: "🔴",
+    HEADER: "🛡",
+    MAIN_MENU: "👋",
+    BALANCE: "💰",
+    TARIFFS: "💎",
+    PACKAGE: "📦",
+    DATE: "📅",
+    TIME: "⏰",
+    DEVICES: "📱",
+    TRAFFIC: "📈",
+    LINK: "🔗",
+  };
+  /** Ключи строк меню → ключ эмодзи в botEmojis (как в админке: HEADER, BALANCE и т.д.) */
+  const menuKeyToEmojiKey: Record<string, string> = {
+    welcomeTitlePrefix: "HEADER",
+    welcomeGreeting: "MAIN_MENU",
+    balancePrefix: "BALANCE",
+    tariffPrefix: "TARIFFS",
+    subscriptionPrefix: "CHART",
+    statusActive: "STATUS_ACTIVE",
+    statusExpired: "STATUS_EXPIRED",
+    statusInactive: "STATUS_INACTIVE",
+    statusLimited: "STATUS_LIMITED",
+    statusDisabled: "STATUS_DISABLED",
+    expirePrefix: "DATE",
+    daysLeftPrefix: "TIME",
+    devicesLabel: "DEVICES",
+    trafficPrefix: "TRAFFIC",
+    linkLabel: "LINK",
+  };
   for (const [k, v] of Object.entries(menuTexts)) {
     let s = String(v ?? "");
     for (const [ek, ev] of Object.entries(botEmojis)) {
       const placeholder = "{{" + ek + "}}";
-      if (s.includes(placeholder)) s = s.split(placeholder).join(ev.unicode ?? "").trim();
+      if (s.includes(placeholder)) {
+        const repl = (ev.unicode ?? "").trim() || (emojiKeyFallbacks[ek] ?? "");
+        s = s.split(placeholder).join(repl).trim();
+      }
+    }
+    for (const [pk, pv] of Object.entries(emojiKeyFallbacks)) {
+      const placeholder = "{{" + pk + "}}";
+      if (s.includes(placeholder)) s = s.split(placeholder).join(pv).trim();
     }
     resolvedBotMenuTexts[k] = s;
-    // Если строка начинается с unicode эмодзи, у которого есть tgEmojiId — передаём ID для entities в сообщении
+    // Если строка начинается с unicode эмодзи, у которого есть tgEmojiId — передаём ID для entities
     for (const [ek, ev] of Object.entries(botEmojis)) {
       if (ev.tgEmojiId && ev.unicode && s.startsWith(ev.unicode)) {
         menuTextCustomEmojiIds[k] = ev.tgEmojiId;
         break;
       }
+    }
+    // Премиум по ключу: для этой строки задан emojiKey (HEADER, BALANCE и т.д.) — подставляем tgEmojiId из botEmojis
+    const emojiKey = menuKeyToEmojiKey[k];
+    if (!menuTextCustomEmojiIds[k] && emojiKey && botEmojis[emojiKey]?.tgEmojiId) {
+      const fallback = emojiKeyFallbacks[emojiKey];
+      const unicode = botEmojis[emojiKey].unicode?.trim();
+      if (fallback && s.startsWith(fallback)) menuTextCustomEmojiIds[k] = botEmojis[emojiKey].tgEmojiId!;
+      else if (unicode && s.startsWith(unicode)) menuTextCustomEmojiIds[k] = botEmojis[emojiKey].tgEmojiId!;
     }
   }
 

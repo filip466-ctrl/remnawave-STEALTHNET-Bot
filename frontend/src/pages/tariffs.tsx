@@ -533,8 +533,8 @@ function CategoryModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-background border rounded-lg shadow-lg w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
+      <div className="bg-card-solid border rounded-lg shadow-lg w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{isEdit ? "Редактировать категорию" : "Новая категория"}</h2>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-muted">
@@ -705,8 +705,8 @@ function TariffModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto py-8" onClick={onClose}>
-      <div className="bg-background border rounded-lg shadow-lg w-full max-w-lg p-6 my-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 overflow-y-auto py-8" onClick={onClose}>
+      <div className="bg-card-solid border rounded-lg shadow-lg w-full max-w-lg p-6 my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{isEdit ? "Редактировать тариф" : "Новый тариф"}</h2>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-muted">

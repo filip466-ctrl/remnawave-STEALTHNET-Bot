@@ -257,45 +257,43 @@ export function topUpPresets(currency: string, backLabel?: string | null, innerS
   };
 }
 
-/** Кнопки категорий тарифов (первый экран при нескольких категориях) */
+/** Кнопки категорий тарифов (первый экран при нескольких категориях). Только эмодзи категории (ordinary/premium), без общего эмодзи «Тарифы». */
 export function tariffCategoryButtons(
   categories: { id: string; name: string; emoji?: string }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   emojiIds?: InnerEmojiIds,
-  prefixEmoji?: string
+  _prefixEmoji?: string
 ): InlineMarkup {
   const tariffPay = resolveStyle(toStyle(innerStyles?.tariffPay), "success");
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
-  const prefix = prefixEmoji && prefixEmoji.trim() ? `${prefixEmoji.trim()} ` : "";
   const rows: InlineButton[][] = categories.map((cat) => {
-    const label = prefix + ((cat.emoji && cat.emoji.trim()) ? `${cat.emoji} ` : "") + cat.name;
+    const label = ((cat.emoji && cat.emoji.trim()) ? `${cat.emoji} ` : "") + (cat.name || "").trim();
     return [btn(label.slice(0, 64), `cat_tariffs:${cat.id}`, tariffPay, tariffId)];
   });
   rows.push([btn(back, "menu:main", backSty, emojiIds?.back)]);
   return { inline_keyboard: rows };
 }
 
-/** Кнопки тарифов одной категории. backData: куда ведёт «Назад» (menu:tariffs или menu:main) */
+/** Кнопки тарифов одной категории. Только эмодзи категории (ordinary/premium), без общего эмодзи «Тарифы». */
 export function tariffsOfCategoryButtons(
   category: { name: string; emoji?: string; tariffs: { id: string; name: string; price: number; currency: string }[] },
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   backData: string = "menu:tariffs",
   emojiIds?: InnerEmojiIds,
-  prefixEmoji?: string
+  _prefixEmoji?: string
 ): InlineMarkup {
   const rows: InlineButton[][] = [];
   const tariffPay = resolveStyle(toStyle(innerStyles?.tariffPay), "success");
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const prefix = (category.emoji && category.emoji.trim()) ? `${category.emoji} ` : "";
-  const extraPrefix = prefixEmoji && prefixEmoji.trim() ? `${prefixEmoji.trim()} ` : "";
   const tariffId = emojiIds?.tariff;
   for (const t of category.tariffs) {
-    const label = `${extraPrefix}${prefix}${t.name} — ${t.price} ${t.currency}`.slice(0, 64);
+    const label = `${prefix}${t.name} — ${t.price} ${t.currency}`.slice(0, 64);
     rows.push([btn(label, `pay_tariff:${t.id}`, tariffPay, tariffId)]);
   }
   rows.push([btn(back, backData, backSty, emojiIds?.back)]);

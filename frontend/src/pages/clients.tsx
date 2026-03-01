@@ -402,10 +402,10 @@ function ClientEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-primary/50 shadow-xl">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-primary/50 shadow-xl bg-card-solid">
         <CardHeader className="flex flex-row items-center justify-between shrink-0">
           <CardTitle>Редактировать клиента</CardTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>Закрыть</Button>

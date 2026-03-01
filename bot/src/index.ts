@@ -255,12 +255,12 @@ const DEFAULT_MENU_TEXTS: Record<string, string> = {
   welcomeGreeting: "👋 Добро пожаловать в ",
   balancePrefix: "💰 Баланс: ",
   tariffPrefix: "💎 Ваш тариф : ",
-  subscriptionPrefix: "📊 Статус подписки — ",
-  statusInactive: "🔴 Истекла",
-  statusActive: "🟡 Активна",
-  statusExpired: "🔴 Истекла",
-  statusLimited: "🟡 Ограничена",
-  statusDisabled: "🔴 Отключена",
+  subscriptionPrefix: "{{CHART}} Статус подписки — ",
+  statusInactive: "{{STATUS_INACTIVE}} Истекла",
+  statusActive: "{{STATUS_ACTIVE}} Активна",
+  statusExpired: "{{STATUS_EXPIRED}} Истекла",
+  statusLimited: "{{STATUS_LIMITED}} Ограничена",
+  statusDisabled: "{{STATUS_DISABLED}} Отключена",
   expirePrefix: "📅 до ",
   daysLeftPrefix: "⏰ осталось ",
   devicesLabel: "📱 Устройств: ",
@@ -365,6 +365,9 @@ function firstCharLengthUtf16(s: string): number {
 const DEFAULT_EMOJI_UNICODE: Record<string, string> = {
   PACKAGE: "📦", TARIFFS: "📦", CARD: "💳", LINK: "🔗", PUZZLE: "👤", PROFILE: "👤",
   TRIAL: "🎁", SERVERS: "🌐", CONNECT: "🌐",
+  CHART: "📊",
+  STATUS_ACTIVE: "🟡", STATUS_EXPIRED: "🔴", STATUS_INACTIVE: "🔴",
+  STATUS_LIMITED: "🟡", STATUS_DISABLED: "🔴",
 };
 const DEFAULT_CUSTOM_EMOJI_CHAR = "🙂";
 
@@ -418,17 +421,18 @@ function applyCustomEmojiPlaceholders(
   text: string,
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | null
 ): { text: string; entities: CustomEmojiEntity[] } {
-  if (!text || !botEmojis) return { text, entities: [] };
+  if (!text) return { text, entities: [] };
   const entities: CustomEmojiEntity[] = [];
   const re = /\{\{([A-Z0-9_]+)\}\}/g;
   let out = "";
   let lastIdx = 0;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {
-    const key = match[1];
+    const key = match[1]!;
     out += text.slice(lastIdx, match.index);
-    const entry = botEmojis[key];
-    const unicode = entry?.unicode?.trim() || (entry?.tgEmojiId ? DEFAULT_CUSTOM_EMOJI_CHAR : "");
+    const entry = botEmojis?.[key];
+    const fallbackUnicode = DEFAULT_EMOJI_UNICODE[key];
+    const unicode = entry?.unicode?.trim() || (entry?.tgEmojiId ? DEFAULT_CUSTOM_EMOJI_CHAR : "") || fallbackUnicode || "";
     if (unicode) {
       const offset = out.length;
       out += unicode;
@@ -740,7 +744,7 @@ bot.command("start", async (ctx) => {
       tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
       menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
       menuLineVisibility: config?.botMenuLineVisibility ?? null,
-      menuTextCustomEmojiIds: null,
+      menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
       botEmojis: config?.botEmojis ?? null,
     });
     const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
@@ -1388,7 +1392,7 @@ bot.on("callback_query:data", async (ctx) => {
         tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
         menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
         menuLineVisibility: config?.botMenuLineVisibility ?? null,
-        menuTextCustomEmojiIds: null,
+        menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
         botEmojis: config?.botEmojis ?? null,
       });
       const hasSupportLinks = !!(config?.supportLink || config?.agreementLink || config?.offerLink || config?.instructionsLink);
@@ -1456,7 +1460,8 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       const cat = items[0]!;
-      const head = (cat.emoji && cat.emoji.trim() ? cat.emoji + " " : "") + cat.name;
+      const nameOnly = (cat.name || "").replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "").trim() || cat.name || "";
+      const head = (cat.emoji && cat.emoji.trim() ? cat.emoji + " " : "") + nameOnly;
       const tariffFields = { ...DEFAULT_TARIFF_LINE_FIELDS, ...(config?.botTariffsFields ?? {}) };
       const template = (config?.botTariffsText ?? "").trim() || DEFAULT_TARIFFS_TEXT;
       const tariffLines = cat.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
@@ -1474,7 +1479,8 @@ bot.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, "Категория не найдена.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
-      const head = (category.emoji && category.emoji.trim() ? category.emoji + " " : "") + category.name;
+      const nameOnly = (category.name || "").replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "").trim() || category.name || "";
+      const head = (category.emoji && category.emoji.trim() ? category.emoji + " " : "") + nameOnly;
       const tariffsEmojiKey = getMenuEmojiKey(config, "tariffs");
       const tariffsEmojiEntry = tariffsEmojiKey ? config?.botEmojis?.[tariffsEmojiKey] : undefined;
       const tariffsEmojiUnicode = tariffsEmojiKey && !tariffsEmojiEntry?.tgEmojiId

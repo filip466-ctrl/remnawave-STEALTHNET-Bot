@@ -390,8 +390,8 @@ export function PromoPage() {
 
       {/* Create / Edit modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <Card className="w-full max-w-lg mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+          <Card className="w-full max-w-lg mx-4 shadow-2xl bg-card-solid">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-lg">{editingId ? "Редактировать" : "Создать"} промо-группу</CardTitle>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowForm(false)}>
