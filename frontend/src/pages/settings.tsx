@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2 } from "lucide-react";
 import { ACCENT_PALETTES } from "@/contexts/theme";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const ALLOWED_LANGS = ["ru", "en"];
@@ -373,6 +374,7 @@ export function SettingsPage() {
         forceSubscribeEnabled: settings.forceSubscribeEnabled ?? false,
         forceSubscribeChannelId: settings.forceSubscribeChannelId ?? null,
         forceSubscribeMessage: settings.forceSubscribeMessage ?? null,
+        allowUserThemeChange: (settings as any).allowUserThemeChange ?? true,
         sellOptionsEnabled: settings.sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: settings.sellOptionsTrafficEnabled ?? false,
         sellOptionsTrafficProducts: settings.sellOptionsTrafficProducts?.length ? JSON.stringify(settings.sellOptionsTrafficProducts) : null,
@@ -460,7 +462,7 @@ export function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
                   <div className="flex items-center gap-3">
-                    <Checkbox
+                    <Switch
                       id="tickets-enabled-general"
                       checked={!!settings.ticketsEnabled}
                       onCheckedChange={(checked) =>
@@ -477,7 +479,7 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
                   <div className="flex items-center gap-3">
-                    <Checkbox
+                    <Switch
                       id="admin-front-notifications"
                       checked={settings.adminFrontNotificationsEnabled ?? true}
                       onCheckedChange={(checked) =>
@@ -930,7 +932,7 @@ export function SettingsPage() {
                       .sort((a, b) => a.order - b.order)
                       .map((btn, idx) => (
                         <div key={btn.id} className="flex flex-wrap items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                          <Checkbox
+                          <Switch
                             checked={btn.visible}
                             onCheckedChange={(checked) =>
                               setSettings((s) => {
@@ -1022,7 +1024,7 @@ export function SettingsPage() {
                             <option value="danger">danger</option>
                           </select>
                           <div className="flex items-center gap-1.5">
-                            <Checkbox
+                            <Switch
                               id={`onePerRow-${btn.id}`}
                               checked={btn.onePerRow === true}
                               onCheckedChange={(checked) =>
@@ -1111,7 +1113,7 @@ export function SettingsPage() {
                         <div className="grid gap-2 sm:grid-cols-2">
                           {Object.keys(DEFAULT_BOT_MENU_LINE_VISIBILITY).map((key) => (
                             <div key={key} className="flex items-center gap-2">
-                              <Checkbox
+                              <Switch
                                 checked={(settings.botMenuLineVisibility ?? DEFAULT_BOT_MENU_LINE_VISIBILITY)[key] !== false}
                                 onCheckedChange={(checked) =>
                                   setSettings((s) =>
@@ -1198,7 +1200,7 @@ export function SettingsPage() {
                   <div className="grid gap-2 sm:grid-cols-2">
                     {Object.keys(DEFAULT_BOT_TARIFF_FIELDS).map((key) => (
                       <div key={key} className="flex items-center gap-2">
-                        <Checkbox
+                        <Switch
                           checked={(settings.botTariffsFields ?? DEFAULT_BOT_TARIFF_FIELDS)[key] !== false}
                           onCheckedChange={(checked) =>
                             setSettings((s) =>
@@ -1246,7 +1248,7 @@ export function SettingsPage() {
                     Если включено — пользователь не сможет пользоваться ботом, пока не подпишется на указанный канал/группу. Бот должен быть администратором канала/группы.
                   </p>
                   <div className="flex items-center gap-3">
-                    <Checkbox
+                    <Switch
                       checked={!!settings.forceSubscribeEnabled}
                       onCheckedChange={(checked) =>
                         setSettings((s) => (s ? { ...s, forceSubscribeEnabled: checked === true } : s))
@@ -1522,7 +1524,7 @@ export function SettingsPage() {
                       <div className="rounded-md border divide-y">
                         {(settings.plategaMethods ?? DEFAULT_PLATEGA_METHODS).map((m) => (
                           <div key={m.id} className="flex items-center gap-4 p-3">
-                            <Checkbox
+                            <Switch
                               id={`platega-method-${m.id}`}
                               checked={m.enabled}
                               onCheckedChange={(checked) =>
@@ -1918,6 +1920,25 @@ export function SettingsPage() {
         <TabsContent value="theme">
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between rounded-xl border p-4 bg-background/50 mb-6">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Выбор темы пользователями</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Если включено, клиенты в кабинете смогут сами выбирать цвет интерфейса. Если выключено — у всех будет цвет, выбранный ниже, а кнопка смены цвета скроется.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean((settings as any)?.allowUserThemeChange ?? true)}
+                  onCheckedChange={async (c) => {
+                    setSettings((s) => s ? { ...s, allowUserThemeChange: c } : s);
+                    if (state.accessToken) {
+                      try {
+                        await api.updateSettings(state.accessToken, { allowUserThemeChange: c });
+                      } catch (e) { console.error(e); }
+                    }
+                  }}
+                />
+              </div>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
                 Глобальная тема
@@ -1992,7 +2013,7 @@ export function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-2">
-                <Checkbox
+                <Switch
                   id="sell-options-enabled"
                   checked={settings.sellOptionsEnabled ?? false}
                   onCheckedChange={(c) => setSettings((s) => (s ? { ...s, sellOptionsEnabled: !!c } : s))}
@@ -2007,7 +2028,7 @@ export function SettingsPage() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <div className="flex items-center gap-2 mb-3">
-                    <Checkbox
+                    <Switch
                       id="sell-traffic-enabled"
                       checked={settings.sellOptionsTrafficEnabled ?? false}
                       onCheckedChange={(c) => setSettings((s) => (s ? { ...s, sellOptionsTrafficEnabled: !!c } : s))}
@@ -2057,7 +2078,7 @@ export function SettingsPage() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <div className="flex items-center gap-2 mb-3">
-                    <Checkbox
+                    <Switch
                       id="sell-devices-enabled"
                       checked={settings.sellOptionsDevicesEnabled ?? false}
                       onCheckedChange={(c) => setSettings((s) => (s ? { ...s, sellOptionsDevicesEnabled: !!c } : s))}
@@ -2107,7 +2128,7 @@ export function SettingsPage() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <div className="flex items-center gap-2 mb-3">
-                    <Checkbox
+                    <Switch
                       id="sell-servers-enabled"
                       checked={settings.sellOptionsServersEnabled ?? false}
                       onCheckedChange={(c) => setSettings((s) => (s ? { ...s, sellOptionsServersEnabled: !!c } : s))}

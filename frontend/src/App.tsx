@@ -8,7 +8,7 @@ const routerFutureFlags = {
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { ClientAuthProvider, useClientAuth } from "@/contexts/client-auth";
 import { ThemeProvider } from "@/contexts/theme";
-import type { ThemeAccent } from "@/contexts/theme";
+import { AnimatedBackground } from "@/components/animated-background";
 import { api } from "@/lib/api";
 import { LoginPage } from "@/pages/login";
 import { ChangePasswordPage } from "@/pages/change-password";
@@ -253,7 +253,7 @@ function AppRoutes() {
   );
 }
 
-function TitleAndThemeSync({ onAccent }: { onAccent: (a: ThemeAccent | null) => void }) {
+function TitleAndThemeSync() {
   const location = useLocation();
   const [config, setConfig] = useState<{ serviceName: string; favicon: string | null } | null>(null);
 
@@ -267,8 +267,6 @@ function TitleAndThemeSync({ onAccent }: { onAccent: (a: ThemeAccent | null) => 
           favicon: (cfg as { favicon?: string | null }).favicon ?? null,
         });
         // Глобальная тема из настроек
-        const accent = (cfg as { themeAccent?: string }).themeAccent;
-        onAccent(accent ? (accent as ThemeAccent) : null);
       })
       .catch(() => {
         setConfig({ serviceName: "", favicon: null });
@@ -305,13 +303,13 @@ function TitleAndThemeSync({ onAccent }: { onAccent: (a: ThemeAccent | null) => 
 }
 
 export default function App() {
-  const [globalAccent, setGlobalAccent] = useState<ThemeAccent | null>(null);
 
   return (
-    <ThemeProvider forcedAccent={globalAccent}>
+    <ThemeProvider >
       <AuthProvider>
         <BrowserRouter future={routerFutureFlags}>
-          <TitleAndThemeSync onAccent={setGlobalAccent} />
+          <AnimatedBackground />
+          <TitleAndThemeSync  />
           <AppRoutes />
         </BrowserRouter>
       </AuthProvider>

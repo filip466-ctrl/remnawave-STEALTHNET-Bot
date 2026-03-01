@@ -48,14 +48,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-svh flex items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-svh flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md relative z-10"
       >
-        <Card>
+        <Card className="border-border/50 shadow-2xl">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-2">
               {brand.logo ? (
@@ -88,6 +88,7 @@ export function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
+                  className="bg-transparent"
                 />
               </div>
               <div className="space-y-2">
@@ -99,9 +100,10 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  className="bg-transparent"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full shadow-lg" disabled={loading}>
                 {loading ? "Вход…" : "Войти"}
               </Button>
             </form>

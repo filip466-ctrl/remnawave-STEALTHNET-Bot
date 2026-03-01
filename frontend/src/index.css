@@ -52,13 +52,53 @@
   }
 }
 
-* {
-  border-color: var(--color-border);
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: transparent; /* Обязательно прозрачный, чтобы было видно анимированный фон */
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
 }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-feature-settings: "rlig" 1, "calt" 1;
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+/* ── Glassmorphism Overrides ── */
+@layer components {
+  /* Карточки и выпадающие меню делаем полупрозрачными */
+  .bg-card {
+    background-color: color-mix(in srgb, hsl(var(--card)) 45%, transparent) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in srgb, hsl(var(--foreground)) 8%, transparent);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Панель навигации (хедер, сайдбар) */
+  .bg-background {
+    background-color: transparent !important;
+  }
+  
+  .bg-background\/95 {
+    background-color: color-mix(in srgb, hsl(var(--background)) 50%, transparent) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-color: color-mix(in srgb, hsl(var(--foreground)) 8%, transparent);
+  }
+
+  .border-b, .border-r, .border-t, .border {
+    border-color: color-mix(in srgb, hsl(var(--foreground)) 8%, transparent) !important;
+  }
+
+  /* Инпуты */
+  .bg-transparent.border {
+    background-color: color-mix(in srgb, hsl(var(--background)) 30%, transparent) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Muted зоны (таблицы, плашки) */
+  .bg-muted, .bg-muted\/50, .bg-muted\/30 {
+    background-color: color-mix(in srgb, hsl(var(--foreground)) 5%, transparent) !important;
+  }
 }

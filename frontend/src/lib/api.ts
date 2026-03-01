@@ -1004,6 +1004,7 @@ export interface RunRuleResult {
 }
 
 export type UpdateSettingsPayload = {
+  allowUserThemeChange?: boolean;
   activeLanguages?: string;
   activeCurrencies?: string;
   defaultLanguage?: string;
@@ -1115,6 +1116,7 @@ export type UpdateClientRemnaPayload = {
 };
 
 export interface AdminSettings {
+  allowUserThemeChange?: boolean;
   activeLanguages: string[];
   activeCurrencies: string[];
   defaultLanguage?: string;
