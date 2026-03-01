@@ -108,7 +108,7 @@ export const api = {
       await request("/auth/logout", {
         method: "POST",
         body: JSON.stringify({ refreshToken }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
   },
 
@@ -1516,6 +1516,7 @@ export interface ClientProfile {
   isBlocked: boolean;
   /** Кошелёк ЮMoney подключён (токен сохранён) */
   yoomoneyConnected?: boolean;
+  createdAt?: string;
 }
 
 export interface ClientAuthResponse {

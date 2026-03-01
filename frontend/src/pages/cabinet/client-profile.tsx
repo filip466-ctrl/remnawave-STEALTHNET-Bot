@@ -10,7 +10,7 @@ import type { ClientPayment } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { GlassSelect } from "@/components/ui/glass-select";
 
@@ -74,13 +74,13 @@ export function ClientProfilePage() {
 
   useEffect(() => {
     if (token) {
-      refreshProfile().catch(() => {});
+      refreshProfile().catch(() => { });
     }
   }, [token, refreshProfile]);
 
   useEffect(() => {
     if (token) {
-      api.clientPayments(token).then((r) => setPayments(r.items ?? [])).catch(() => {});
+      api.clientPayments(token).then((r) => setPayments(r.items ?? [])).catch(() => { });
     }
   }, [token]);
 
@@ -93,13 +93,13 @@ export function ClientProfilePage() {
       setActiveCurrencies(c.activeCurrencies?.length ? c.activeCurrencies : ["usd", "rub"]);
       setPublicAppUrl(c.publicAppUrl ?? null);
       setTelegramBotUsername(c.telegramBotUsername ?? null);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     if (params.get("yoomoney") === "connected" || params.get("yoomoney_form") === "success" || params.get("yookassa") === "success") {
-      refreshProfile().catch(() => {});
+      refreshProfile().catch(() => { });
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [refreshProfile]);
@@ -291,7 +291,7 @@ export function ClientProfilePage() {
           <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
             <div className="absolute -top-32 -right-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
           </div>
-          
+
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
             <div className="flex items-center gap-4 mb-8">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
@@ -306,77 +306,77 @@ export function ClientProfilePage() {
             <div className="space-y-4 flex-1 min-w-0">
               {client.email != null && client.email !== "" ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                   <div className="flex items-center gap-4 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
-                        <Mail className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                         <p className="text-xs text-muted-foreground mb-0.5">Email</p>
-                         <p className="font-medium text-sm truncate">{client.email}</p>
-                      </div>
-                   </div>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Email</p>
+                      <p className="font-medium text-sm truncate">{client.email}</p>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                   <div className="flex items-center gap-4 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-orange-500/10 text-orange-500">
-                        <Mail className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                         <p className="text-xs text-muted-foreground mb-0.5">Email</p>
-                         <p className="font-medium text-sm truncate text-orange-500">Не привязан</p>
-                      </div>
-                   </div>
-                   <form onSubmit={sendLinkEmailRequest} className="flex gap-2 mt-2">
-                     <Input
-                       type="email"
-                       placeholder="email@example.com"
-                       value={linkEmailValue}
-                       onChange={(e) => setLinkEmailValue(e.target.value)}
-                       className="h-9 bg-background/50 border-white/10 text-sm"
-                       disabled={linkEmailLoading}
-                     />
-                     <Button type="submit" size="sm" className="h-9 shrink-0 gap-2 px-4 shadow-sm" disabled={linkEmailLoading || !linkEmailValue.trim()}>
-                       {linkEmailLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                       <span className="hidden sm:inline">Привязать</span>
-                     </Button>
-                   </form>
-                   {linkEmailSent && <p className="text-xs font-medium text-green-500 mt-1">Отправлено, проверьте почту.</p>}
-                   {linkEmailError && <p className="text-xs font-medium text-destructive mt-1">{linkEmailError}</p>}
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-orange-500/10 text-orange-500">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Email</p>
+                      <p className="font-medium text-sm truncate text-orange-500">Не привязан</p>
+                    </div>
+                  </div>
+                  <form onSubmit={sendLinkEmailRequest} className="flex gap-2 mt-2">
+                    <Input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={linkEmailValue}
+                      onChange={(e) => setLinkEmailValue(e.target.value)}
+                      className="h-9 bg-background/50 border-white/10 text-sm"
+                      disabled={linkEmailLoading}
+                    />
+                    <Button type="submit" size="sm" className="h-9 shrink-0 gap-2 px-4 shadow-sm" disabled={linkEmailLoading || !linkEmailValue.trim()}>
+                      {linkEmailLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      <span className="hidden sm:inline">Привязать</span>
+                    </Button>
+                  </form>
+                  {linkEmailSent && <p className="text-xs font-medium text-green-500 mt-1">Отправлено, проверьте почту.</p>}
+                  {linkEmailError && <p className="text-xs font-medium text-destructive mt-1">{linkEmailError}</p>}
                 </div>
               )}
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                 <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-[#0088cc]/10 text-[#0088cc]">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.888-.667 3.475-1.512 5.79-2.511 6.945-2.993 3.303-1.385 3.99-1.623 4.43-1.63z" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                       <p className="text-xs text-muted-foreground mb-0.5">Telegram</p>
-                       {client.telegramId ? (
-                         <p className="font-medium text-sm truncate">
-                           {client.telegramUsername ? `@${client.telegramUsername}` : `ID ${client.telegramId}`}
-                         </p>
-                       ) : (
-                         <p className="font-medium text-sm truncate text-orange-500">Не привязан</p>
-                       )}
-                    </div>
-                 </div>
-                 {!client.telegramId && (
-                    <div className="shrink-0">
-                       {isMiniapp ? (
-                         <Button variant="outline" size="sm" onClick={linkTelegramFromMiniapp} disabled={linkTelegramLoading} className="shadow-sm">
-                           {linkTelegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Привязать текущий"}
-                         </Button>
-                       ) : (
-                         <Button variant="outline" size="sm" onClick={requestLinkTelegramCode} disabled={linkTelegramLoading || !!linkTelegramCode} className="shadow-sm">
-                           {linkTelegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Получить код"}
-                         </Button>
-                       )}
-                    </div>
-                 )}
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-[#0088cc]/10 text-[#0088cc]">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.888-.667 3.475-1.512 5.79-2.511 6.945-2.993 3.303-1.385 3.99-1.623 4.43-1.63z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Telegram</p>
+                    {client.telegramId ? (
+                      <p className="font-medium text-sm truncate">
+                        {client.telegramUsername ? `@${client.telegramUsername}` : `ID ${client.telegramId}`}
+                      </p>
+                    ) : (
+                      <p className="font-medium text-sm truncate text-orange-500">Не привязан</p>
+                    )}
+                  </div>
+                </div>
+                {!client.telegramId && (
+                  <div className="shrink-0">
+                    {isMiniapp ? (
+                      <Button variant="outline" size="sm" onClick={linkTelegramFromMiniapp} disabled={linkTelegramLoading} className="shadow-sm">
+                        {linkTelegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Привязать текущий"}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={requestLinkTelegramCode} disabled={linkTelegramLoading || !!linkTelegramCode} className="shadow-sm">
+                        {linkTelegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Получить код"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
               {!isMiniapp && !client.telegramId && linkTelegramCode && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
@@ -385,27 +385,27 @@ export function ClientProfilePage() {
                     <p className="font-mono text-xl tracking-wider font-bold text-primary">{linkTelegramCode}</p>
                   </div>
                   <p className="text-xs text-muted-foreground/80">
-                    Отправьте боту <code className="bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded">/link {linkTelegramCode}</code><br/>Код действует 10 минут.
+                    Отправьте боту <code className="bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded">/link {linkTelegramCode}</code><br />Код действует 10 минут.
                   </p>
                 </motion.div>
               )}
 
               <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
-                 <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-green-500/10 text-green-500">
-                      <Wallet className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                       <p className="text-xs text-muted-foreground mb-0.5">Баланс</p>
-                       <p className="font-bold text-lg truncate tracking-tight">{formatMoney(client.balance, client.preferredCurrency)}</p>
-                    </div>
-                 </div>
-                 <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white shrink-0 shadow-lg shadow-green-500/20 px-5" onClick={() => {
-                    const el = document.getElementById("topup");
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                 }}>
-                   Пополнить
-                 </Button>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-green-500/10 text-green-500">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Баланс</p>
+                    <p className="font-bold text-lg truncate tracking-tight">{formatMoney(client.balance, client.preferredCurrency)}</p>
+                  </div>
+                </div>
+                <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white shrink-0 shadow-lg shadow-green-500/20 px-5" onClick={() => {
+                  const el = document.getElementById("topup");
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}>
+                  Пополнить
+                </Button>
               </div>
 
               {hasReferralLinks && (
@@ -417,20 +417,20 @@ export function ClientProfilePage() {
                   <div className="space-y-2">
                     {referralLinkSite && (
                       <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-black/20 border border-white/5">
-                         <div className="shrink-0 w-12 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Сайт</div>
-                         <code className="flex-1 min-w-[140px] truncate text-xs font-mono text-primary/80 select-all">{referralLinkSite}</code>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 hover:bg-white/10 rounded-lg ml-auto" onClick={() => copyReferral("site")}>
-                           {copiedRef === "site" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                         </Button>
+                        <div className="shrink-0 w-12 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Сайт</div>
+                        <code className="flex-1 min-w-[140px] truncate text-xs font-mono text-primary/80 select-all">{referralLinkSite}</code>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 hover:bg-white/10 rounded-lg ml-auto" onClick={() => copyReferral("site")}>
+                          {copiedRef === "site" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        </Button>
                       </div>
                     )}
                     {referralLinkBot && (
                       <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-black/20 border border-white/5">
-                         <div className="shrink-0 w-12 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бот</div>
-                         <code className="flex-1 min-w-[140px] truncate text-xs font-mono text-primary/80 select-all">{referralLinkBot}</code>
-                         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 hover:bg-white/10 rounded-lg ml-auto" onClick={() => copyReferral("bot")}>
-                           {copiedRef === "bot" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                         </Button>
+                        <div className="shrink-0 w-12 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бот</div>
+                        <code className="flex-1 min-w-[140px] truncate text-xs font-mono text-primary/80 select-all">{referralLinkBot}</code>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 hover:bg-white/10 rounded-lg ml-auto" onClick={() => copyReferral("bot")}>
+                          {copiedRef === "bot" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -444,7 +444,7 @@ export function ClientProfilePage() {
           <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
             <div className="absolute -bottom-32 -left-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
           </div>
-          
+
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
             <div className="flex items-center justify-between mb-8 gap-4">
               <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -484,23 +484,23 @@ export function ClientProfilePage() {
 
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-5 mt-auto">
                 <div className="flex items-center gap-4">
-                   <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><Fingerprint className="w-5 h-5" /></div>
-                   <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground mb-0.5">Уникальный ID Пользователя</p>
-                      <p className="font-mono text-sm font-medium">{client.id}</p>
-                   </div>
+                  <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><Fingerprint className="w-5 h-5" /></div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Уникальный ID Пользователя</p>
+                    <p className="font-mono text-sm font-medium">{client.id}</p>
+                  </div>
                 </div>
                 {client.createdAt && (
                   <div className="flex items-center gap-4">
-                     <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><CalendarDays className="w-5 h-5" /></div>
-                     <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground mb-0.5">Дата регистрации</p>
-                        <p className="text-sm font-medium">{new Date(client.createdAt).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                     </div>
+                    <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><CalendarDays className="w-5 h-5" /></div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Дата регистрации</p>
+                      <p className="text-sm font-medium">{new Date(client.createdAt).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
                   </div>
                 )}
               </div>
-              
+
               <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-2">
                 <div className="min-w-0 mr-4">
                   {message && (
@@ -530,7 +530,7 @@ export function ClientProfilePage() {
             <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
               <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
             </div>
-            
+
             <div className="relative p-6 sm:p-8 flex flex-col h-full">
               <div className="flex items-center gap-4 mb-8">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
@@ -613,7 +613,7 @@ export function ClientProfilePage() {
           <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
             <div className="absolute -bottom-32 -right-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
           </div>
-          
+
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
             <div className="flex items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-4 min-w-0">
