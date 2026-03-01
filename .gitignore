@@ -38,5 +38,10 @@ nginx/ssl/
 # Frontend dist
 frontend/dist/
 
-# For Gemini
-output.xml
+
+# Antigravity / Gemini Instructions
+GEMINI.md
+server_info.md
+
+# Docker Compose local overrides (server-specific)
+docker-compose.override.yml
