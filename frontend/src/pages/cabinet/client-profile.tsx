@@ -293,19 +293,31 @@ export function ClientProfilePage() {
           </div>
 
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
-                <User className="h-6 w-6" />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                <User className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-xl font-bold tracking-tight text-foreground truncate">Данные</h3>
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">Контактная информация</p>
+                <h3 className="text-lg font-bold tracking-tight text-foreground truncate">Данные</h3>
+                <p className="text-xs text-muted-foreground mt-[1px] truncate">Контактная информация</p>
               </div>
             </div>
 
             <div className="space-y-4 flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                    <Fingerprint className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">ID Аккаунта</p>
+                    <p className="font-medium text-sm truncate font-mono select-all">{client.id}</p>
+                  </div>
+                </div>
+              </div>
+
               {client.email != null && client.email !== "" ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
                       <Mail className="w-5 h-5" />
@@ -317,7 +329,7 @@ export function ClientProfilePage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                <div className="flex flex-col gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-orange-500/10 text-orange-500">
                       <Mail className="w-5 h-5" />
@@ -346,7 +358,7 @@ export function ClientProfilePage() {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-[#0088cc]/10 text-[#0088cc]">
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -390,7 +402,7 @@ export function ClientProfilePage() {
                 </motion.div>
               )}
 
-              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+              <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-green-500/10 text-green-500">
                     <Wallet className="w-5 h-5" />
@@ -407,6 +419,18 @@ export function ClientProfilePage() {
                   Пополнить
                 </Button>
               </div>
+
+              {client.createdAt && (
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Дата регистрации</p>
+                    <p className="text-sm font-medium">{new Date(client.createdAt).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                </div>
+              )}
 
               {hasReferralLinks && (
                 <div className="pt-4 border-t border-white/5 space-y-4">
@@ -446,19 +470,13 @@ export function ClientProfilePage() {
           </div>
 
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
-            <div className="flex items-center justify-between mb-8 gap-4">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
-                  <Settings className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xl font-bold tracking-tight text-foreground truncate">Настройки</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5 truncate">Внешний вид и аккаунт</p>
-                </div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                <Settings className="h-5 w-5" />
               </div>
-              <div className="text-right hidden sm:block shrink-0 px-2">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-1">ID Аккаунта</div>
-                <div className="text-sm font-mono bg-muted/50 px-2 py-1 rounded-md">#{client.id}</div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold tracking-tight text-foreground truncate">Настройки</h3>
+                <p className="text-xs text-muted-foreground mt-[1px] truncate">Язык интерфейса и валюта</p>
               </div>
             </div>
 
@@ -482,26 +500,7 @@ export function ClientProfilePage() {
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-5 mt-auto">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><Fingerprint className="w-5 h-5" /></div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground mb-0.5">Уникальный ID Пользователя</p>
-                    <p className="font-mono text-sm font-medium">{client.id}</p>
-                  </div>
-                </div>
-                {client.createdAt && (
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-background text-muted-foreground rounded-xl shadow-inner shrink-0 border border-white/10"><CalendarDays className="w-5 h-5" /></div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground mb-0.5">Дата регистрации</p>
-                      <p className="text-sm font-medium">{new Date(client.createdAt).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-2">
+              <div className="flex items-center justify-between pt-6 border-t border-border/20 mt-auto">
                 <div className="min-w-0 mr-4">
                   {message && (
                     <motion.p initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className={`text-sm font-medium truncate ${message === "Настройки сохранены" ? "text-green-500" : "text-destructive"}`}>
