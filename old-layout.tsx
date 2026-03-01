@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useClientAuth } from "@/contexts/client-auth";
 import { CabinetConfigProvider, useCabinetConfig } from "@/contexts/cabinet-config";
@@ -6,8 +6,7 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { GlassSelect } from "@/components/ui/glass-select";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check, Loader2, Settings } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor } from "lucide-react";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +36,7 @@ function AnalyticsScripts() {
         script.textContent = `(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r)return;}k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");ym(${ymId}, "init", {clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});`;
         document.head.appendChild(script);
       }
-    }).catch(() => { });
+    }).catch(() => {});
   }, []);
   return null;
 }
@@ -48,233 +47,65 @@ export function useCabinetMiniapp() {
 }
 
 const ALL_NAV_ITEMS = [
-  { to: "/cabinet/dashboard", label: "Главная", icon: LayoutDashboard },
-  { to: "/cabinet/tariffs", label: "Тарифы", icon: Package },
-  { to: "/cabinet/extra-options", label: "Опции", icon: PlusCircle },
-  { to: "/cabinet/proxy", label: "Прокси", icon: Globe },
-  { to: "/cabinet/singbox", label: "Доступы", icon: KeyRound },
-  { to: "/cabinet/referral", label: "Рефералы", icon: Users },
-  { to: "/cabinet/tickets", label: "Тикеты", icon: MessageSquare },
-  { to: "/cabinet/profile", label: "Профиль", icon: User },
+  { to: "/cabinet/dashboard", label: "╨У╨╗╨░╨▓╨╜╨░╤П", icon: LayoutDashboard },
+  { to: "/cabinet/tariffs", label: "╨в╨░╤А╨╕╤Д╤Л", icon: Package },
+  { to: "/cabinet/extra-options", label: "╨Ю╨┐╤Ж╨╕╨╕", icon: PlusCircle },
+  { to: "/cabinet/proxy", label: "╨Я╤А╨╛╨║╤Б╨╕", icon: Globe },
+  { to: "/cabinet/singbox", label: "╨Ф╨╛╤Б╤В╤Г╨┐╤Л", icon: KeyRound },
+  { to: "/cabinet/referral", label: "╨а╨╡╤Д╨╡╤А╨░╨╗╤Л", icon: Users },
+  { to: "/cabinet/tickets", label: "╨в╨╕╨║╨╡╤В╤Л", icon: MessageSquare },
+  { to: "/cabinet/profile", label: "╨Я╤А╨╛╤Д╨╕╨╗╤М", icon: User },
 ];
 
 const MODE_OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
-  { value: "light", icon: Sun, label: "Светлая" },
-  { value: "dark", icon: Moon, label: "Тёмная" },
-  { value: "system", icon: Monitor, label: "Система" },
+  { value: "light", icon: Sun, label: "╨б╨▓╨╡╤В╨╗╨░╤П" },
+  { value: "dark", icon: Moon, label: "╨в╤С╨╝╨╜╨░╤П" },
+  { value: "system", icon: Monitor, label: "╨б╨╕╤Б╤В╨╡╨╝╨░" },
 ];
 
 function ThemePopover() {
   const [show, setShow] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const { config: themeConfig, setMode, setAccent, resolvedMode, allowUserThemeChange } = useTheme();
-
-  useEffect(() => {
-    if (!show) return;
-    function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    }
-    // defer to next tick so the opening click doesn't immediately close
-    const timer = setTimeout(() => document.addEventListener("mousedown", handleClick), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClick); };
-  }, [show]);
-
-  // Если смена темы запрещена — просто кнопка солнышко/луна без дропдауна
-  if (!allowUserThemeChange) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0 bg-background/20 hover:bg-background/40 transition-all duration-300"
-        onClick={() => setMode(resolvedMode === "dark" ? "light" : "dark")}
-      >
-        <span className="relative h-4 w-4">
-          <Sun className={cn("absolute inset-0 h-4 w-4 transition-all duration-500", resolvedMode === "dark" ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0")} />
-          <Moon className={cn("absolute inset-0 h-4 w-4 transition-all duration-500", resolvedMode === "light" ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-0 opacity-0")} />
-        </span>
-      </Button>
-    );
-  }
+  const { config: themeConfig, setMode, setAccent, allowUserThemeChange } = useTheme();
 
   return (
-    <div className="relative" ref={popoverRef}>
+    <div className="relative">
       <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
         <Palette className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Внешний вид</span>
+        <span className="hidden sm:inline">╨в╨╡╨╝╨░</span>
       </Button>
-      <div
-        className={cn(
-          "absolute right-0 top-full z-50 mt-3 w-[320px] rounded-3xl border border-white/10 dark:border-white/5 bg-background/70 backdrop-blur-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 origin-top-right",
-          show
-            ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
-            : "opacity-0 scale-95 pointer-events-none -translate-y-2"
-        )}
-      >
-        <div className="mb-5">
-          <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Тема</h4>
-          <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
-            {MODE_OPTIONS.map((opt) => {
-              const isActive = themeConfig.mode === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setMode(opt.value)}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all duration-300",
-                    isActive
-                      ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
-                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
-                  )}
-                >
-                  <opt.icon className="h-3.5 w-3.5" />
-                  {opt.label}
+      {show && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border bg-card p-4 shadow-xl">
+            <p className="text-xs font-medium text-muted-foreground mb-2">╨а╨╡╨╢╨╕╨╝</p>
+            <div className="flex gap-1 mb-4">
+              {MODE_OPTIONS.map((opt) => (
+                <button key={opt.value} onClick={() => setMode(opt.value)}
+                  className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                    themeConfig.mode === opt.value ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted")}>
+                  <opt.icon className="h-3.5 w-3.5" />{opt.label}
                 </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {allowUserThemeChange && (
-          <div>
-            <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Цветовой акцент</h4>
-            <div className="grid grid-cols-4 gap-2">
-              {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => {
-                const isActive = themeConfig.accent === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setAccent(key)}
-                    className={cn(
-                      "group flex flex-col items-center gap-2 rounded-xl p-2 transition-all duration-300",
-                      isActive ? "bg-primary/10" : "hover:bg-muted/60"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "relative flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
-                        isActive ? "scale-110 ring-4 ring-primary/20" : "group-hover:scale-110"
-                      )}
-                      style={{ backgroundColor: palette.swatch }}
-                    >
-                      {isActive && <Check className="h-4 w-4 text-white drop-shadow-md" />}
-                    </div>
-                    <span className={cn(
-                      "text-[10px] font-medium tracking-tight truncate w-full text-center transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                    )}>
-                      {palette.label}
-                    </span>
-                  </button>
-                );
-              })}
+              ))}
             </div>
+            
+            {allowUserThemeChange && (
+              <>
+                <p className="text-xs font-medium text-muted-foreground mb-2">╨Р╨║╤Ж╨╡╨╜╤В</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
+                    <button key={key} onClick={() => setAccent(key)}
+                      className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
+                        themeConfig.accent === key ? "ring-2 ring-primary bg-muted scale-105" : "hover:bg-muted/50")}>
+                      <div className="h-6 w-6 rounded-full border-2 border-foreground/10" style={{ backgroundColor: palette.swatch }} />
+                      <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SettingsPopover() {
-  const [show, setShow] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const { state, refreshProfile } = useClientAuth();
-
-  const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
-  const [activeCurrencies, setActiveCurrencies] = useState<string[]>([]);
-  const [preferredLang, setPreferredLang] = useState(state.client?.preferredLang ?? "ru");
-  const [preferredCurrency, setPreferredCurrency] = useState(state.client?.preferredCurrency ?? "usd");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!show) {
-      if (state.client) {
-        setPreferredLang(state.client.preferredLang);
-        setPreferredCurrency(state.client.preferredCurrency);
-      }
-      return;
-    }
-
-    api.getPublicConfig()
-      .then((c) => {
-        setActiveLanguages(c.activeLanguages?.length ? c.activeLanguages : ["ru", "en"]);
-        setActiveCurrencies(c.activeCurrencies?.length ? c.activeCurrencies : ["usd", "rub"]);
-      })
-      .catch(() => { });
-
-    function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    }
-    const timer = setTimeout(() => document.addEventListener("mousedown", handleClick), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClick); };
-  }, [show, state.client]);
-
-  async function handleSave() {
-    if (!state.token) return;
-    setSaving(true);
-    try {
-      await api.clientUpdateProfile(state.token, { preferredLang, preferredCurrency });
-      await refreshProfile();
-      setShow(false);
-    } catch {
-      // ignore
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const langs = activeLanguages.length ? activeLanguages : ["ru", "en"];
-  const currencies = activeCurrencies.length ? activeCurrencies : ["usd", "rub"];
-
-  return (
-    <div className="relative" ref={popoverRef}>
-      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
-        <Settings className="h-3.5 w-3.5" />
-      </Button>
-      <div
-        className={cn(
-          "absolute right-0 top-full z-50 mt-3 w-[260px] rounded-3xl border border-white/10 dark:border-white/5 bg-background/70 backdrop-blur-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 origin-top-right",
-          show ? "opacity-100 scale-100 pointer-events-auto translate-y-0" : "opacity-0 scale-95 pointer-events-none -translate-y-2"
-        )}
-      >
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-            <Settings className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="text-base font-bold tracking-tight text-foreground truncate">Настройки</h4>
-            <p className="text-[10px] text-muted-foreground mt-[1px] uppercase tracking-wider font-semibold truncate">Язык и валюта</p>
-          </div>
-        </div>
-
-        <div className="space-y-4 mb-5">
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium pl-1 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Язык</label>
-            <GlassSelect
-              value={preferredLang}
-              onChange={(v) => setPreferredLang(v)}
-              options={langs.map((l) => ({ value: l, label: l === "ru" ? "Русский" : l === "en" ? "English" : l.toUpperCase() }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium pl-1 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Валюта</label>
-            <GlassSelect
-              value={preferredCurrency}
-              onChange={(v) => setPreferredCurrency(v)}
-              options={currencies.map((c) => ({ value: c, label: c.toUpperCase() }))}
-            />
-          </div>
-        </div>
-
-        <Button onClick={handleSave} disabled={saving} className="w-full h-10 rounded-xl shadow-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-all hover:scale-[1.02] active:scale-95">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-          Сохранить
-        </Button>
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -296,7 +127,7 @@ function MobileCabinetShell() {
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
-    if (state.token) refreshProfile().catch(() => { });
+    if (state.token) refreshProfile().catch(() => {});
   }, [state.token, refreshProfile]);
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
@@ -318,7 +149,7 @@ function MobileCabinetShell() {
           <div className="flex items-center gap-1.5 shrink-0">
             <ThemePopover />
             <Button variant="ghost" size="icon" className="shrink-0 bg-background/20 hover:bg-background/40 text-muted-foreground hover:text-foreground" asChild>
-              <Link to="/cabinet/login" onClick={() => logout()} title="Выйти">
+              <Link to="/cabinet/login" onClick={() => logout()} title="╨Т╤Л╨╣╤В╨╕">
                 <LogOut className="h-5 w-5" />
               </Link>
             </Button>
@@ -352,8 +183,7 @@ function MobileCabinetShell() {
           </div>
         </div>
       </nav>
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       ` }} />
@@ -383,7 +213,7 @@ function CabinetShell() {
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
-    if (state.token) refreshProfile().catch(() => { });
+    if (state.token) refreshProfile().catch(() => {});
   }, [state.token, refreshProfile]);
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
@@ -426,16 +256,15 @@ function CabinetShell() {
               );
             })}
           </nav>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <ThemePopover />
-            <SettingsPopover />
             <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
-              {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
+              {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "тАФ"}
             </span>
             <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
               <Link to="/cabinet/login" onClick={() => logout()}>
                 <LogOut className="h-4 w-4 shrink-0" />
-                Выйти
+                ╨Т╤Л╨╣╤В╨╕
               </Link>
             </Button>
           </div>

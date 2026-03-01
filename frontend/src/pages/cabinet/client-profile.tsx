@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Settings, Globe, CircleDollarSign, Fingerprint, CalendarDays } from "lucide-react";
+import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
@@ -9,11 +9,7 @@ import { api } from "@/lib/api";
 import type { ClientPayment } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { GlassSelect } from "@/components/ui/glass-select";
-
 function formatDate(s: string | null) {
   if (!s) return "—";
   try {
@@ -44,16 +40,10 @@ function formatPaymentStatus(status: string): string {
 export function ClientProfilePage() {
   const { state, refreshProfile } = useClientAuth();
   const [payments, setPayments] = useState<ClientPayment[]>([]);
-  const [preferredLang, setPreferredLang] = useState(state.client?.preferredLang ?? "ru");
-  const [preferredCurrency, setPreferredCurrency] = useState(state.client?.preferredCurrency ?? "usd");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState<"site" | "bot" | null>(null);
   const [plategaMethods, setPlategaMethods] = useState<{ id: number; label: string }[]>([]);
   const [yoomoneyEnabled, setYoomoneyEnabled] = useState(false);
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
-  const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
-  const [activeCurrencies, setActiveCurrencies] = useState<string[]>([]);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
@@ -89,8 +79,6 @@ export function ClientProfilePage() {
       setPlategaMethods(c.plategaMethods ?? []);
       setYoomoneyEnabled(Boolean(c.yoomoneyEnabled));
       setYookassaEnabled(Boolean(c.yookassaEnabled));
-      setActiveLanguages(c.activeLanguages?.length ? c.activeLanguages : ["ru", "en"]);
-      setActiveCurrencies(c.activeCurrencies?.length ? c.activeCurrencies : ["usd", "rub"]);
       setPublicAppUrl(c.publicAppUrl ?? null);
       setTelegramBotUsername(c.telegramBotUsername ?? null);
     }).catch(() => { });
@@ -175,31 +163,6 @@ export function ClientProfilePage() {
     }
   }
 
-  useEffect(() => {
-    if (state.client) {
-      const lang = state.client.preferredLang;
-      const curr = state.client.preferredCurrency;
-      setPreferredLang(activeLanguages.includes(lang) ? lang : (activeLanguages[0] ?? lang));
-      setPreferredCurrency(activeCurrencies.includes(curr) ? curr : (activeCurrencies[0] ?? curr));
-    }
-  }, [state.client?.preferredLang, state.client?.preferredCurrency, activeLanguages, activeCurrencies]);
-
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    if (!token) return;
-    setSaving(true);
-    setMessage(null);
-    try {
-      await api.clientUpdateProfile(token, { preferredLang, preferredCurrency });
-      await refreshProfile();
-      setMessage("Настройки сохранены");
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function requestLinkTelegramCode() {
     if (!token) return;
     setLinkTelegramLoading(true);
@@ -267,10 +230,6 @@ export function ClientProfilePage() {
   }
 
   if (!client) return null;
-
-  const langs = activeLanguages.length ? activeLanguages : ["ru", "en"];
-  const currencies = activeCurrencies.length ? activeCurrencies : ["usd", "rub"];
-
   const isMiniapp = useCabinetMiniapp();
   const cardClass = isMiniapp ? "min-w-0 overflow-hidden" : "";
 
@@ -471,49 +430,48 @@ export function ClientProfilePage() {
 
           <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
             <div className="flex items-center gap-3 mb-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                <Settings className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500 shrink-0">
+                <Shield className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold tracking-tight text-foreground truncate">Настройки</h3>
-                <p className="text-xs text-muted-foreground mt-[1px] truncate">Язык интерфейса и валюта</p>
+                <h3 className="text-lg font-bold tracking-tight text-foreground truncate">Безопасность</h3>
+                <p className="text-xs text-muted-foreground mt-[1px] truncate">Защита вашего аккаунта</p>
               </div>
             </div>
 
-            <form onSubmit={saveProfile} className="space-y-8 flex-1 flex flex-col min-w-0">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-3 min-w-0">
-                  <Label className="flex items-center gap-2 text-muted-foreground text-sm pl-1"><Globe className="w-4 h-4" /> Язык интерфейса</Label>
-                  <GlassSelect
-                    value={preferredLang}
-                    onChange={(v) => setPreferredLang(v)}
-                    options={langs.map((l) => ({ value: l, label: l === "ru" ? "Русский" : l === "en" ? "English" : l.toUpperCase() }))}
-                  />
+            <div className="flex-1 space-y-4 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Двухфакторная аутентификация</p>
+                    <p className="font-medium text-sm truncate">Многоуровневая защита</p>
+                  </div>
                 </div>
-                <div className="space-y-3 min-w-0">
-                  <Label className="flex items-center gap-2 text-muted-foreground text-sm pl-1"><CircleDollarSign className="w-4 h-4" /> Валюта платежей</Label>
-                  <GlassSelect
-                    value={preferredCurrency}
-                    onChange={(v) => setPreferredCurrency(v)}
-                    options={currencies.map((c) => ({ value: c, label: c.toUpperCase() }))}
-                  />
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">Скоро</span>
+                  <Button variant="outline" size="sm" disabled className="shadow-sm">Включить</Button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-6 border-t border-border/20 mt-auto">
-                <div className="min-w-0 mr-4">
-                  {message && (
-                    <motion.p initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className={`text-sm font-medium truncate ${message === "Настройки сохранены" ? "text-green-500" : "text-destructive"}`}>
-                      {message}
-                    </motion.p>
-                  )}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                    <Monitor className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Сеансы</p>
+                    <p className="font-medium text-sm truncate">Управление устройствами</p>
+                  </div>
                 </div>
-                <Button type="submit" disabled={saving} className="gap-2 px-8 py-6 rounded-[1rem] shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 text-base font-semibold shrink-0">
-                  {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  {saving ? "Сохранение…" : "Сохранить"}
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">Скоро</span>
+                  <Button variant="outline" size="sm" disabled className="shadow-sm">Завершить</Button>
+                </div>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </motion.div>
