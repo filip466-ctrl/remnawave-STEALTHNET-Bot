@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useClientAuth } from "@/contexts/client-auth";
 import { CabinetConfigProvider, useCabinetConfig } from "@/contexts/cabinet-config";
@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check } from "lucide-react";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,7 @@ function AnalyticsScripts() {
         script.textContent = `(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r)return;}k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");ym(${ymId}, "init", {clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});`;
         document.head.appendChild(script);
       }
-    }).catch(() => { });
+    }).catch(() => {});
   }, []);
   return null;
 }
@@ -65,8 +65,22 @@ const MODE_OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
 
 function ThemePopover() {
   const [show, setShow] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const { config: themeConfig, setMode, setAccent, resolvedMode, allowUserThemeChange } = useTheme();
 
+  useEffect(() => {
+    if (!show) return;
+    function handleClick(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    }
+    // defer to next tick so the opening click doesn't immediately close
+    const timer = setTimeout(() => document.addEventListener("mousedown", handleClick), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClick); };
+  }, [show]);
+
+  // Если смена темы запрещена — просто кнопка солнышко/луна без дропдауна
   if (!allowUserThemeChange) {
     return (
       <Button
@@ -84,44 +98,79 @@ function ThemePopover() {
   }
 
   return (
-    <div className="relative">
-      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
-        <Palette className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Тема</span>
+    <div className="relative" ref={popoverRef}>
+      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full border border-border/50 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all shadow-sm" onClick={() => setShow(!show)} title="Внешний вид">
+        <Palette className="h-4 w-4 text-primary" />
       </Button>
-      {show && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
-          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border bg-card p-4 shadow-xl">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Режим</p>
-            <div className="flex gap-1 mb-4">
-              {MODE_OPTIONS.map((opt) => (
-                <button key={opt.value} onClick={() => setMode(opt.value)}
-                  className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
-                    themeConfig.mode === opt.value ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted")}>
-                  <opt.icon className="h-3.5 w-3.5" />{opt.label}
+      <div
+        className={cn(
+          "absolute right-0 top-full z-50 mt-3 w-[320px] rounded-3xl border border-white/10 dark:border-white/5 bg-background/70 backdrop-blur-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 origin-top-right",
+          show
+            ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
+            : "opacity-0 scale-95 pointer-events-none -translate-y-2"
+        )}
+      >
+        <div className="mb-5">
+          <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Тема</h4>
+          <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
+            {MODE_OPTIONS.map((opt) => {
+              const isActive = themeConfig.mode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all duration-300",
+                    isActive
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  )}
+                >
+                  <opt.icon className="h-3.5 w-3.5" />
+                  {opt.label}
                 </button>
-              ))}
-            </div>
-
-            {allowUserThemeChange && (
-              <>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Акцент</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
-                    <button key={key} onClick={() => setAccent(key)}
-                      className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
-                        themeConfig.accent === key ? "ring-2 ring-primary bg-muted scale-105" : "hover:bg-muted/50")}>
-                      <div className="h-6 w-6 rounded-full border-2 border-foreground/10" style={{ backgroundColor: palette.swatch }} />
-                      <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+              );
+            })}
           </div>
-        </>
-      )}
+        </div>
+        
+        {allowUserThemeChange && (
+          <div>
+            <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Цветовой акцент</h4>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => {
+                const isActive = themeConfig.accent === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setAccent(key)}
+                    className={cn(
+                      "group flex flex-col items-center gap-2 rounded-xl p-2 transition-all duration-300",
+                      isActive ? "bg-primary/10" : "hover:bg-muted/60"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "relative flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
+                        isActive ? "scale-110 ring-4 ring-primary/20" : "group-hover:scale-110"
+                      )}
+                      style={{ backgroundColor: palette.swatch }}
+                    >
+                      {isActive && <Check className="h-4 w-4 text-white drop-shadow-md" />}
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-medium tracking-tight truncate w-full text-center transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                    )}>
+                      {palette.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -143,7 +192,7 @@ function MobileCabinetShell() {
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
-    if (state.token) refreshProfile().catch(() => { });
+    if (state.token) refreshProfile().catch(() => {});
   }, [state.token, refreshProfile]);
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
@@ -199,8 +248,7 @@ function MobileCabinetShell() {
           </div>
         </div>
       </nav>
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       ` }} />
@@ -230,7 +278,7 @@ function CabinetShell() {
   const [logoError, setLogoError] = useState(false);
   useEffect(() => { setLogoError(false); }, [config?.logo]);
   useEffect(() => {
-    if (state.token) refreshProfile().catch(() => { });
+    if (state.token) refreshProfile().catch(() => {});
   }, [state.token, refreshProfile]);
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
@@ -242,45 +290,47 @@ function CabinetShell() {
   return (
     <div className="min-h-svh flex flex-col bg-transparent">
       <header className="sticky top-0 z-50 border-b border-border bg-card/40 backdrop-blur-xl shadow-sm transition-all duration-300">
-        <div className="w-full max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4">
-          <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-lg tracking-tight shrink-0 hover:opacity-80 transition-opacity">
+        <div className="w-full max-w-7xl mx-auto flex h-14 items-center justify-between gap-2 xl:gap-4 px-3 xl:px-4 min-w-0">
+          <Link to="/cabinet/dashboard" className="flex items-center gap-2 font-semibold text-sm xl:text-lg tracking-tight shrink-0 min-w-0 hover:opacity-80 transition-opacity">
             {logo ? (
-              <img src={logo} alt="" className="h-9 w-9 rounded-lg object-contain bg-background/50 shadow-sm" onError={() => setLogoError(true)} />
+              <img src={logo} alt="" className="h-8 w-8 xl:h-9 xl:w-9 rounded-lg object-contain bg-background/50 shadow-sm shrink-0" onError={() => setLogoError(true)} />
             ) : (
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm">
-                <Shield className="h-5 w-5" />
+              <span className="flex h-8 w-8 xl:h-9 xl:w-9 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm shrink-0">
+                <Shield className="h-4 w-4 xl:h-5 xl:w-5" />
               </span>
             )}
             {serviceName ? <span className="hidden sm:inline truncate">{serviceName}</span> : null}
           </Link>
-          <nav className="flex items-center gap-1 flex-wrap justify-center flex-1">
-            {navItems.map(({ to, label, icon: Icon }) => {
-              const active = location.pathname === to;
-              return (
-                <Link key={to} to={to}>
-                  <Button
-                    variant={active ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn(
-                      "inline-flex items-center gap-2 whitespace-nowrap transition-all duration-300",
-                      active ? "bg-primary/20 hover:bg-primary/30 text-primary shadow-sm scale-105" : "hover:scale-105 hover:bg-background/40"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {label}
-                  </Button>
-                </Link>
-              );
-            })}
+          <nav className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto overflow-y-hidden justify-center py-1 [scrollbar-width:thin]">
+            <div className="flex items-center gap-0.5 flex-nowrap">
+              {navItems.map(({ to, label, icon: Icon }) => {
+                const active = location.pathname === to;
+                return (
+                  <Link key={to} to={to} className="shrink-0" title={label}>
+                    <Button
+                      variant={active ? "secondary" : "ghost"}
+                      size="sm"
+                      className={cn(
+                        "inline-flex items-center gap-1 whitespace-nowrap transition-all duration-300 text-[13px] px-1.5 py-1 h-7 font-medium",
+                        active ? "bg-primary/20 hover:bg-primary/30 text-primary shadow-sm" : "hover:bg-background/40"
+                      )}
+                    >
+                      <Icon className="h-3 w-3 shrink-0" />
+                      {label}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </div>
           </nav>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0 min-w-0">
             <ThemePopover />
-            <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
+            <span className="max-w-[100px] xl:max-w-[140px] truncate text-[13px] xl:text-sm text-muted-foreground bg-background/30 px-1.5 xl:px-2 py-1 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
               {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
             </span>
-            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
+            <Button variant="outline" size="sm" className="inline-flex items-center gap-1 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all text-[13px] xl:text-sm h-7 px-1.5 xl:px-2 shrink-0" asChild>
               <Link to="/cabinet/login" onClick={() => logout()}>
-                <LogOut className="h-4 w-4 shrink-0" />
+                <LogOut className="h-3 w-3 shrink-0" />
                 Выйти
               </Link>
             </Button>
