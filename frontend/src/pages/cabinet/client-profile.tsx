@@ -4,6 +4,7 @@ import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail } from "luc
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
+import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { ClientPayment } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { GlassSelect } from "@/components/ui/glass-select";
 
 function formatDate(s: string | null) {
   if (!s) return "—";
@@ -272,7 +274,7 @@ export function ClientProfilePage() {
   const cardClass = isMiniapp ? "min-w-0 overflow-hidden" : "";
 
   return (
-    <div className={`space-y-6 w-full min-w-0 overflow-hidden`}>
+    <div className="space-y-6 w-full min-w-0 pb-10">
       <div className="min-w-0">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Профиль</h1>
         <p className="text-muted-foreground text-sm mt-1 truncate">Личные данные и настройки</p>
@@ -398,27 +400,19 @@ export function ClientProfilePage() {
             <form onSubmit={saveProfile} className="space-y-4 min-w-0">
               <div className="space-y-2 min-w-0">
                 <Label>Язык</Label>
-                <select
-                  className="flex h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                <GlassSelect
                   value={preferredLang}
-                  onChange={(e) => setPreferredLang(e.target.value)}
-                >
-                  {langs.map((l) => (
-                    <option key={l} value={l}>{l === "ru" ? "Русский" : l === "en" ? "English" : l.toUpperCase()}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setPreferredLang(v)}
+                  options={langs.map((l) => ({ value: l, label: l === "ru" ? "Русский" : l === "en" ? "English" : l.toUpperCase() }))}
+                />
               </div>
               <div className="space-y-2 min-w-0">
                 <Label>Валюта</Label>
-                <select
-                  className="flex h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                <GlassSelect
                   value={preferredCurrency}
-                  onChange={(e) => setPreferredCurrency(e.target.value)}
-                >
-                  {currencies.map((c) => (
-                    <option key={c} value={c}>{c.toUpperCase()}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setPreferredCurrency(v)}
+                  options={currencies.map((c) => ({ value: c, label: c.toUpperCase() }))}
+                />
               </div>
               {message && (
                 <p className={`text-sm truncate ${message === "Настройки сохранены" ? "text-green-600" : "text-destructive"}`}>
@@ -433,61 +427,151 @@ export function ClientProfilePage() {
         </Card>
       </motion.div>
 
-      {(plategaMethods.length > 0 || yoomoneyEnabled || yookassaEnabled) && (
-        <Card id="topup" className={cardClass}>
-          <CardHeader className="min-w-0">
-            <CardTitle className="flex items-center gap-2 text-base min-w-0 truncate">
-              <CreditCard className="h-5 w-5 text-primary shrink-0" />
-              Пополнить баланс
-            </CardTitle>
-            <p className="text-sm text-muted-foreground break-words">Оплата откроется в новой вкладке. Кабинет останется открыт.</p>
-          </CardHeader>
-          <CardContent className="space-y-4 min-w-0 overflow-hidden">
-            <div className="space-y-2 min-w-0">
-              <Label>Сумма</Label>
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                <Input
-                  type="number"
-                  min={1}
-                  step={0.01}
-                  placeholder="0"
-                  value={topUpAmount}
-                  onChange={(e) => setTopUpAmount(e.target.value)}
-                  className="w-28 min-w-0 font-mono max-w-full"
-                />
-                <span className="text-sm text-muted-foreground uppercase shrink-0">{currency}</span>
-                {[100, 300, 500, 1000].map((n) => (
-                  <Button
-                    key={n}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => setTopUpAmount(String(n))}
-                  >
-                    {n}
-                  </Button>
-                ))}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className={`grid gap-6 ${isMiniapp ? "grid-cols-1" : "lg:grid-cols-2"} min-w-0`}
+      >
+        {(plategaMethods.length > 0 || yoomoneyEnabled || yookassaEnabled) && (
+          <div id="topup" className="relative flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]">
+            <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
+              <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
+            </div>
+            
+            <div className="relative p-6 sm:p-8 flex flex-col h-full">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-foreground">Пополнить баланс</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">Оплата откроется в новой вкладке</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 mt-auto">
+                <div className="relative flex h-32 w-full items-center justify-center rounded-3xl border border-border/50 bg-background/50 shadow-sm transition-all focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={0.01}
+                    placeholder="0"
+                    value={topUpAmount}
+                    onChange={(e) => setTopUpAmount(e.target.value)}
+                    className="absolute inset-0 h-full w-full border-0 bg-transparent px-20 text-center text-5xl sm:text-6xl font-extrabold tracking-tighter shadow-none focus-visible:ring-0"
+                    style={{ WebkitAppearance: "none", MozAppearance: "textfield" }}
+                  />
+                  <span className="pointer-events-none absolute right-[12%] top-1/2 -translate-y-1/2 text-2xl sm:text-3xl font-bold text-muted-foreground uppercase opacity-80">
+                    {currency}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[100, 300, 500, 1000].map((n) => {
+                    const isActive = topUpAmount === String(n);
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setTopUpAmount(String(n))}
+                        className={cn(
+                          "flex items-center justify-center rounded-2xl py-3 text-sm font-bold transition-all duration-300",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-105"
+                            : "bg-muted/60 text-foreground hover:bg-muted hover:scale-105"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {topUpError && (
+                  <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-center text-sm font-medium text-destructive">
+                    {topUpError}
+                  </div>
+                )}
+
+                <Button
+                  className="group relative w-full overflow-hidden rounded-2xl py-7 text-lg font-bold shadow-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-primary/25"
+                  onClick={() => {
+                    const amount = Number(topUpAmount?.replace(",", "."));
+                    if (!Number.isFinite(amount) || amount < 1) {
+                      setTopUpError("Минимальная сумма пополнения — 1");
+                      return;
+                    }
+                    setTopUpError(null);
+                    setTopUpModalOpen(true);
+                  }}
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
+                  <span className="relative flex items-center justify-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Оплатить {topUpAmount ? `${topUpAmount} ${currency.toUpperCase()}` : ""}
+                  </span>
+                </Button>
               </div>
             </div>
-            <Button
-              className="gap-2"
-              onClick={() => {
-                const amount = Number(topUpAmount?.replace(",", "."));
-                if (!Number.isFinite(amount) || amount < 1) {
-                  setTopUpError("Минимальная сумма пополнения — 1");
-                  return;
-                }
-                setTopUpError(null);
-                setTopUpModalOpen(true);
-              }}
-            >
-              <CreditCard className="h-4 w-4" />
-              Пополнить
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
+
+        <div className="relative flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)] min-h-[400px]">
+          <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
+            <div className="absolute -bottom-32 -right-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
+          </div>
+          
+          <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner shrink-0">
+                <Wallet className="h-6 w-6" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xl font-bold tracking-tight text-foreground truncate">История платежей</h3>
+                <p className="text-sm text-muted-foreground mt-0.5 truncate">Последние транзакции</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar min-w-0 -mx-2 px-2">
+              {payments.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center opacity-70">
+                  <Wallet className="mb-3 h-10 w-10 text-muted-foreground" />
+                  <p className="text-sm font-medium text-muted-foreground">Платежей пока нет</p>
+                </div>
+              ) : (
+                <ul className="space-y-3 min-w-0">
+                  {payments.map((p) => (
+                    <li
+                      key={p.id}
+                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 hover:bg-white/10 dark:bg-black/10 dark:hover:bg-black/20 p-4 transition-all duration-300"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background/50 text-muted-foreground shadow-sm">
+                          <Check className={cn("h-4 w-4", p.status?.toLowerCase() === "paid" && "text-green-500")} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate" title={p.orderId}>{p.orderId}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(p.paidAt ?? p.createdAt)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between sm:flex-col sm:items-end sm:justify-center shrink-0">
+                        <span className="font-bold tracking-tight">{formatMoney(p.amount, p.currency)}</span>
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                          p.status?.toLowerCase() === "paid" ? "bg-green-500/10 text-green-500" : "bg-muted text-muted-foreground"
+                        )}>
+                          {formatPaymentStatus(p.status)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
       <Dialog open={topUpModalOpen} onOpenChange={(open) => !topUpLoading && setTopUpModalOpen(open)}>
         <DialogContent className="max-w-sm" showCloseButton={!topUpLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -502,22 +586,22 @@ export function ClientProfilePage() {
             {yoomoneyEnabled && (
               <Button
                 variant="outline"
-                className="justify-start"
+                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
                 disabled={topUpLoading}
                 onClick={() => startTopUpYoomoneyForm("AC")}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
+                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
                 ЮMoney — оплата картой
               </Button>
             )}
             {yookassaEnabled && (
               <Button
                 variant="outline"
-                className="justify-start"
+                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
                 disabled={topUpLoading}
                 onClick={() => startTopUpYookassa()}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
+                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
                 ЮKassa — карта / СБП
               </Button>
             )}
@@ -525,11 +609,11 @@ export function ClientProfilePage() {
               <Button
                 key={m.id}
                 variant="outline"
-                className="justify-start"
+                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
                 disabled={topUpLoading}
                 onClick={() => startTopUp(m.id)}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
+                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
                 {m.label}
               </Button>
             ))}
@@ -542,37 +626,6 @@ export function ClientProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Card className={cardClass}>
-        <CardHeader className="min-w-0">
-          <CardTitle className="flex items-center gap-2 text-base min-w-0 truncate">
-            <Wallet className="h-5 w-5 text-primary shrink-0" />
-            История платежей
-          </CardTitle>
-          <p className="text-sm text-muted-foreground font-normal mt-1 break-words">Оплата открывается в новой вкладке — эта страница остаётся открытой.</p>
-        </CardHeader>
-        <CardContent className="min-w-0 overflow-hidden">
-          {payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Платежей пока нет</p>
-          ) : (
-            <ul className="space-y-2 min-w-0">
-              {payments.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm min-w-0"
-                >
-                  <span className="font-medium truncate min-w-0" title={p.orderId}>{p.orderId}</span>
-                  <span className="shrink-0">{formatMoney(p.amount, p.currency)}</span>
-                  <span className={`shrink-0 ${p.status?.toLowerCase() === "paid" ? "text-green-600" : "text-muted-foreground"}`}>
-                    {formatPaymentStatus(p.status)}
-                  </span>
-                  <span className="text-muted-foreground text-xs shrink-0">{formatDate(p.paidAt ?? p.createdAt)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

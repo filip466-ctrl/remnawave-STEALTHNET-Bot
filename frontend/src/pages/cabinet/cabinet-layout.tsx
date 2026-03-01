@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useClientAuth } from "@/contexts/client-auth";
 import { CabinetConfigProvider, useCabinetConfig } from "@/contexts/cabinet-config";
@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
 import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check } from "lucide-react";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +65,20 @@ const MODE_OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
 
 function ThemePopover() {
   const [show, setShow] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const { config: themeConfig, setMode, setAccent, resolvedMode, allowUserThemeChange } = useTheme();
+
+  useEffect(() => {
+    if (!show) return;
+    function handleClick(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    }
+    // defer to next tick so the opening click doesn't immediately close
+    const timer = setTimeout(() => document.addEventListener("mousedown", handleClick), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClick); };
+  }, [show]);
 
   // Если смена темы запрещена — просто кнопка солнышко/луна без дропдауна
   if (!allowUserThemeChange) {
@@ -85,44 +98,80 @@ function ThemePopover() {
   }
 
   return (
-    <div className="relative">
-      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
-        <Palette className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Тема</span>
+    <div className="relative" ref={popoverRef}>
+      <Button variant="ghost" size="sm" className="gap-2 text-xs h-9 px-3 rounded-full border border-border/50 bg-background/50 backdrop-blur-md hover:bg-background/80 transition-all shadow-sm" onClick={() => setShow(!show)}>
+        <Palette className="h-4 w-4 text-primary" />
+        <span className="hidden sm:inline font-medium">Внешний вид</span>
       </Button>
-      {show && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
-          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border bg-card p-4 shadow-xl">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Режим</p>
-            <div className="flex gap-1 mb-4">
-              {MODE_OPTIONS.map((opt) => (
-                <button key={opt.value} onClick={() => setMode(opt.value)}
-                  className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
-                    themeConfig.mode === opt.value ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted")}>
-                  <opt.icon className="h-3.5 w-3.5" />{opt.label}
+      <div
+        className={cn(
+          "absolute right-0 top-full z-50 mt-3 w-[320px] rounded-3xl border border-white/10 dark:border-white/5 bg-background/70 backdrop-blur-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 origin-top-right",
+          show
+            ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
+            : "opacity-0 scale-95 pointer-events-none -translate-y-2"
+        )}
+      >
+        <div className="mb-5">
+          <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Тема</h4>
+          <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
+            {MODE_OPTIONS.map((opt) => {
+              const isActive = themeConfig.mode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all duration-300",
+                    isActive
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  )}
+                >
+                  <opt.icon className="h-3.5 w-3.5" />
+                  {opt.label}
                 </button>
-              ))}
-            </div>
-            
-            {allowUserThemeChange && (
-              <>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Акцент</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
-                    <button key={key} onClick={() => setAccent(key)}
-                      className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
-                        themeConfig.accent === key ? "ring-2 ring-primary bg-muted scale-105" : "hover:bg-muted/50")}>
-                      <div className="h-6 w-6 rounded-full border-2 border-foreground/10" style={{ backgroundColor: palette.swatch }} />
-                      <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+              );
+            })}
           </div>
-        </>
-      )}
+        </div>
+        
+        {allowUserThemeChange && (
+          <div>
+            <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Цветовой акцент</h4>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => {
+                const isActive = themeConfig.accent === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setAccent(key)}
+                    className={cn(
+                      "group flex flex-col items-center gap-2 rounded-xl p-2 transition-all duration-300",
+                      isActive ? "bg-primary/10" : "hover:bg-muted/60"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "relative flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
+                        isActive ? "scale-110 ring-4 ring-primary/20" : "group-hover:scale-110"
+                      )}
+                      style={{ backgroundColor: palette.swatch }}
+                    >
+                      {isActive && <Check className="h-4 w-4 text-white drop-shadow-md" />}
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-medium tracking-tight truncate w-full text-center transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                    )}>
+                      {palette.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
