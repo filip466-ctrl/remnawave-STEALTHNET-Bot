@@ -92,7 +92,18 @@ export function ClientProfilePage() {
     if (!token) return;
     setDevicesLoading(true);
     setDevicesError(null);
-    api.getClientDevices(token).then((r) => setDevices(r.devices ?? [])).catch(() => { setDevicesError("Не удалось загрузить устройства"); setDevices([]); }).finally(() => setDevicesLoading(false));
+    api.getClientDevices(token)
+      .then((r) => setDevices(r.devices ?? []))
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("Подписка не привязана")) {
+          setDevicesError("NO_SUBSCRIPTION");
+        } else {
+          setDevicesError("Не удалось загрузить устройства");
+        }
+        setDevices([]);
+      })
+      .finally(() => setDevicesLoading(false));
   }, [token]);
 
   async function deleteDevice(hwid: string) {
@@ -619,6 +630,14 @@ export function ClientProfilePage() {
                   {devicesLoading ? (
                     <div className="flex items-center justify-center py-8 text-primary/60">
                       <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                  ) : devicesError === "NO_SUBSCRIPTION" ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground mb-3 border border-border/50">
+                        <Monitor className="h-6 w-6 opacity-60" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Устройств пока нет</p>
+                      <p className="text-xs text-muted-foreground mt-1 text-center max-w-[280px]">Выберите и оплатите тариф из каталога, чтобы подключить устройства.</p>
                     </div>
                   ) : devicesError ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center px-4">
