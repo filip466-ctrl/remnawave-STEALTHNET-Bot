@@ -951,7 +951,7 @@ export function ClientProfilePage() {
       </Dialog>
 
       <Dialog open={twoFaEnableOpen} onOpenChange={(open) => !open && closeTwoFaEnable()}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-3xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <div className="p-6 sm:p-8 flex flex-col items-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-6 shadow-inner border border-primary/20">
               <KeyRound className="h-8 w-8" />
@@ -1026,7 +1026,7 @@ export function ClientProfilePage() {
       </Dialog>
 
       <Dialog open={twoFaDisableOpen} onOpenChange={(open) => !open && setTwoFaDisableOpen(false)}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-3xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <div className="p-6 sm:p-8 flex flex-col items-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-red-500/10 text-red-500 mb-6 shadow-inner border border-red-500/20">
               <Shield className="h-8 w-8" />
