@@ -617,31 +617,51 @@ export function ClientProfilePage() {
                 </div>
                 <div className="p-4 space-y-3">
                   {devicesLoading ? (
-                    <div className="flex items-center justify-center py-6 text-muted-foreground">
-                      <Loader2 className="h-6 w-6 animate-spin" />
+                    <div className="flex items-center justify-center py-8 text-primary/60">
+                      <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
                   ) : devicesError ? (
-                    <p className="text-sm text-destructive">{devicesError}</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive mb-3">
+                        <Monitor className="h-6 w-6 opacity-80" />
+                      </div>
+                      <p className="text-sm font-medium text-destructive">{devicesError}</p>
+                      <p className="text-xs text-muted-foreground mt-1 text-center max-w-[250px]">Попробуйте обновить страницу или обратитесь в поддержку.</p>
+                    </div>
                   ) : devices.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Привязанных устройств пока нет. Подключитесь к VPN с приложения — устройство появится здесь.</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground mb-3 border border-border/50">
+                        <Monitor className="h-6 w-6 opacity-60" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Устройств пока нет</p>
+                      <p className="text-xs text-muted-foreground mt-1 text-center max-w-[280px]">Подключитесь к VPN через приложение, и ваше устройство появится здесь.</p>
+                    </div>
                   ) : (
                     <>
                       <p className="text-xs text-muted-foreground">Отключите устройство, чтобы освободить слот для другого:</p>
-                      <ul className="space-y-2">
+                      <div className="grid grid-cols-1 gap-2 mt-2">
                         {devices.map((d) => {
                           const label = [d.platform, d.deviceModel].filter(Boolean).join(" · ") || (d.hwid.slice(0, 12) + (d.hwid.length > 12 ? "…" : ""));
                           const isDeleting = deletingHwid === d.hwid;
                           return (
-                            <li key={d.hwid} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-background/50 border border-border/50 dark:bg-white/5 dark:border-white/5">
-                              <span className="text-sm font-medium truncate" title={d.hwid}>{label}</span>
-                              <Button variant="outline" size="sm" className="shrink-0 border-red-500 bg-red-500/15 text-red-600 hover:bg-red-500/25 hover:text-red-700 hover:border-red-500 dark:text-red-400 dark:hover:text-red-300 dark:bg-red-500/20 dark:hover:bg-red-500/30" disabled={isDeleting} onClick={() => deleteDevice(d.hwid)}>
-                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                {isDeleting ? "Отключение…" : "Отключить"}
+                            <div key={d.hwid} className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-background/50 border border-border/50 transition-all hover:bg-muted/30 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                  <Monitor className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-sm font-bold truncate block text-foreground" title={label}>{label}</span>
+                                  <span className="text-[10px] sm:text-xs text-muted-foreground truncate block font-mono mt-0.5">{d.hwid.slice(0, 16)}…</span>
+                                </div>
+                              </div>
+                              <Button variant="outline" size="sm" className="shrink-0 w-full sm:w-auto rounded-xl h-9 px-3 sm:px-4 shadow-sm border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive dark:bg-destructive/10 transition-all" disabled={isDeleting} onClick={() => deleteDevice(d.hwid)}>
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2 opacity-80" />}
+                                <span>{isDeleting ? "Удаление…" : "Отключить"}</span>
                               </Button>
-                            </li>
+                            </div>
                           );
                         })}
-                      </ul>
+                      </div>
                     </>
                   )}
                 </div>
@@ -931,74 +951,110 @@ export function ClientProfilePage() {
       </Dialog>
 
       <Dialog open={twoFaEnableOpen} onOpenChange={(open) => !open && closeTwoFaEnable()}>
-        <DialogContent className="max-w-sm" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5" />
-              Включить 2FA
-            </DialogTitle>
-            <DialogDescription>
-              {twoFaStep === 1
-                ? "Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy и т.п.) или введите ключ вручную."
-                : "Введите 6-значный код из приложения для подтверждения."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            {twoFaLoading && !twoFaSetupData ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : twoFaStep === 1 && twoFaSetupData ? (
-              <>
-                <div className="flex justify-center rounded-xl bg-white p-4 dark:bg-white/95">
-                  <QRCodeSVG value={twoFaSetupData.otpauthUrl} size={200} level="M" />
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-6 shadow-inner border border-primary/20">
+              <KeyRound className="h-8 w-8" />
+            </div>
+            <DialogHeader className="p-0 flex flex-col items-center mb-6">
+              <DialogTitle className="text-2xl font-bold tracking-tight">
+                {twoFaStep === 1 ? "Настройка 2FA" : "Подтверждение"}
+              </DialogTitle>
+              <DialogDescription className="text-center text-sm mt-2 max-w-[280px]">
+                {twoFaStep === 1
+                  ? "Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy и т.п.)"
+                  : "Введите 6-значный код из вашего приложения для завершения настройки."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-6 w-full">
+              {twoFaLoading && !twoFaSetupData ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary/60" />
                 </div>
-                <p className="text-xs text-muted-foreground break-all font-mono bg-muted/50 rounded-lg p-2">
-                  Ключ: {twoFaSetupData.secret}
-                </p>
-                <Button onClick={() => setTwoFaStep(2)}>Далее — ввести код</Button>
-              </>
-            ) : twoFaStep === 2 ? (
-              <>
-                <Input
-                  placeholder="000000"
-                  maxLength={6}
-                  value={twoFaCode}
-                  onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
-                  className="text-center text-lg tracking-[0.4em] font-mono"
-                />
-                <Button onClick={confirmTwoFaEnable} disabled={twoFaLoading || twoFaCode.length !== 6}>
-                  {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Подтвердить
-                </Button>
-              </>
-            ) : null}
-            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+              ) : twoFaStep === 1 && twoFaSetupData ? (
+                <div className="flex flex-col items-center gap-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="relative p-4 rounded-3xl bg-white shadow-xl ring-1 ring-black/5 dark:ring-white/10 dark:bg-white/95">
+                    <QRCodeSVG value={twoFaSetupData.otpauthUrl} size={180} level="M" />
+                  </div>
+                  <div className="w-full space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-left pl-1">Секретный ключ ручного ввода</p>
+                    <div className="flex items-center gap-2 p-1.5 pr-2 rounded-2xl bg-muted/50 border border-border/50">
+                      <div className="flex-1 overflow-x-auto no-scrollbar font-mono text-xs font-bold text-foreground text-center tracking-widest pl-2 select-all whitespace-nowrap">
+                        {twoFaSetupData.secret}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => {
+                        navigator.clipboard.writeText(twoFaSetupData.secret);
+                      }}>
+                        <Copy className="h-4 w-4 opacity-70 cursor-pointer" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Button className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-primary/20" onClick={() => setTwoFaStep(2)}>
+                    Далее — ввести код
+                  </Button>
+                </div>
+              ) : twoFaStep === 2 ? (
+                <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-right-8 duration-300">
+                  <div className="relative w-full">
+                    <Input
+                      placeholder="000 000"
+                      maxLength={6}
+                      value={twoFaCode}
+                      onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+                      className="h-16 text-center text-3xl tracking-[0.3em] font-mono font-bold rounded-2xl border-primary/20 bg-primary/5 focus-visible:ring-primary/30"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Button className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-primary/20" onClick={confirmTwoFaEnable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+                      {twoFaLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                      Подтвердить и включить
+                    </Button>
+                    <Button variant="ghost" className="w-full h-10 rounded-xl text-muted-foreground" onClick={() => setTwoFaStep(1)} disabled={twoFaLoading}>
+                      Назад
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              {twoFaError && (
+                <p className="text-sm font-medium text-destructive animate-in fade-in text-center">{twoFaError}</p>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={twoFaDisableOpen} onOpenChange={(open) => !open && setTwoFaDisableOpen(false)}>
-        <DialogContent className="max-w-sm" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Отключить 2FA</DialogTitle>
-            <DialogDescription>
-              Введите 6-значный код из приложения-аутентификатора для отключения двухфакторной аутентификации.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <Input
-              placeholder="000000"
-              maxLength={6}
-              value={twoFaCode}
-              onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
-              className="text-center text-lg tracking-[0.4em] font-mono"
-            />
-            <Button onClick={confirmTwoFaDisable} disabled={twoFaLoading || twoFaCode.length !== 6}>
-              {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Отключить 2FA
-            </Button>
-            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-background/95 backdrop-blur-xl" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-red-500/10 text-red-500 mb-6 shadow-inner border border-red-500/20">
+              <Shield className="h-8 w-8" />
+            </div>
+            <DialogHeader className="p-0 flex flex-col items-center mb-6">
+              <DialogTitle className="text-2xl font-bold tracking-tight">Отключить 2FA</DialogTitle>
+              <DialogDescription className="text-center text-sm mt-2 max-w-[280px]">
+                Введите 6-значный код из вашего приложения-аутентификатора для подтверждения отключения.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Input
+                placeholder="000 000"
+                maxLength={6}
+                value={twoFaCode}
+                onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+                className="h-16 text-center text-3xl tracking-[0.3em] font-mono font-bold rounded-2xl border-red-500/20 bg-red-500/5 focus-visible:ring-red-500/30"
+                autoFocus
+              />
+              <Button variant="destructive" className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-red-500/20" onClick={confirmTwoFaDisable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+                {twoFaLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                Отключить 2FA
+              </Button>
+              {twoFaError && (
+                <p className="text-sm font-medium text-destructive animate-in fade-in text-center">{twoFaError}</p>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

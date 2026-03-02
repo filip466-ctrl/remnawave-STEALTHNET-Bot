@@ -77,36 +77,54 @@ function Client2FAStepScreen() {
   if (!state.pending2FAToken) return null;
 
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center gap-6 p-6 bg-gradient-to-b from-background to-muted/20">
-      <div className="w-full max-w-sm rounded-3xl border border-border bg-card/60 backdrop-blur-xl p-8 shadow-xl">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <KeyRound className="h-6 w-6" />
-          </span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Код из приложения</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Введите 6-значный код двухфакторной аутентификации</p>
+    <div className="relative min-h-dvh flex items-center justify-center bg-background p-4 sm:p-8 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[120px]" />
+        <div className="absolute top-[40%] -right-[10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px]" />
+        <div className="absolute -bottom-[20%] left-[20%] w-[50%] h-[50%] rounded-full bg-purple-500/20 blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10 flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)] min-w-0">
+        <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-3xl pointer-events-none" />
+
+        <div className="relative p-6 sm:p-8 flex flex-col items-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-6 shadow-inner border border-primary/20">
+            <KeyRound className="h-8 w-8" />
           </div>
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Код из приложения</h1>
+            <p className="text-sm text-muted-foreground mt-2 max-w-[280px]">Введите 6-значный код двухфакторной аутентификации для входа.</p>
+          </div>
+          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+            <div className="relative w-full">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000 000"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                className="w-full h-16 text-center text-3xl tracking-[0.3em] font-mono font-bold rounded-2xl border border-primary/20 bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 text-foreground transition-all"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button type="submit" className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-primary/20" disabled={loading || code.trim().length !== 6}>
+                {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                Подтвердить код
+              </Button>
+              <Button type="button" variant="ghost" className="w-full h-10 rounded-xl text-muted-foreground" disabled={loading} onClick={clearPending2FA}>
+                Отмена
+              </Button>
+            </div>
+
+            {error && (
+              <p className="text-sm font-medium text-destructive text-center animate-in fade-in">{error}</p>
+            )}
+          </form>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="000000"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            className="w-full text-center text-2xl tracking-[0.4em] font-mono rounded-xl border border-border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-          <Button type="submit" className="w-full" disabled={loading || code.length !== 6}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Войти"}
-          </Button>
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
-          <Button type="button" variant="ghost" className="w-full" onClick={clearPending2FA}>
-            Отмена
-          </Button>
-        </form>
       </div>
     </div>
   );
