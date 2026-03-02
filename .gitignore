@@ -43,5 +43,12 @@ frontend/dist/
 GEMINI.md
 server_info.md
 
+# Roo/Cline IDE config (MCP токены, локальные инструкции — не для публичного репо)
+.roo/
+.roomodes
+
+# Keys
+/keys/
+
 # Docker Compose local overrides (server-specific)
 docker-compose.override.yml
