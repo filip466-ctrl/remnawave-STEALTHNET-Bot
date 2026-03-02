@@ -162,7 +162,7 @@ export function FloatingChat() {
                     onClick={() => setActiveChat("ai")}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                      activeChat === "ai" ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     )}
                   >
                     <Sparkles className="w-4 h-4" /> AI Чат
@@ -171,7 +171,7 @@ export function FloatingChat() {
                     onClick={() => setActiveChat("support")}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                      activeChat === "support" ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     )}
                   >
                     <Headset className="w-4 h-4" /> Оператор
@@ -285,9 +285,9 @@ export function FloatingChat() {
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen((v) => !v)}
           className={cn(
-            "relative flex h-16 w-16 items-center justify-center rounded-full shadow-2xl",
-            "bg-primary text-primary-foreground transition-colors hover:bg-primary/90",
-            !isOpen && "shadow-[0_0_30px_rgba(var(--primary),0.4)]"
+            "relative flex h-16 w-16 items-center justify-center rounded-full",
+            "bg-card/60 backdrop-blur-xl border border-border/50 text-foreground transition-colors hover:bg-card/80",
+            !isOpen ? "shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "shadow-lg"
           )}
         >
           <AnimatePresence mode="wait">
