@@ -191,12 +191,12 @@ export function DashboardPage() {
         <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Новых за 7 дней</CardTitle>
+              <CardTitle className="text-sm font-medium">Новых сегодня</CardTitle>
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.users.newLast7Days ?? "—"}</div>
-              <p className="text-xs text-muted-foreground">Регистрации</p>
+              <div className="text-2xl font-bold">{stats?.users.newToday ?? "—"}</div>
+              <p className="text-xs text-muted-foreground">Регистрации за день</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -231,6 +231,11 @@ export function DashboardPage() {
                 <p className="text-xs text-muted-foreground">{stats?.sales.totalCount ?? 0} платежей с платёжек (без оплаты с баланса)</p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">За сегодня</p>
+                <p className="text-xl font-semibold">{stats ? formatMoney(stats.sales.todayAmount, defaultCurrency) : "—"}</p>
+                <p className="text-xs text-muted-foreground">{stats?.sales.todayCount ?? 0} платежей</p>
+              </div>
+              <div>
                 <p className="text-sm text-muted-foreground">За 7 дней</p>
                 <p className="text-xl font-semibold">{stats ? formatMoney(stats.sales.last7DaysAmount, defaultCurrency) : "—"}</p>
                 <p className="text-xs text-muted-foreground">{stats?.sales.last7DaysCount ?? 0} платежей</p>
@@ -245,7 +250,7 @@ export function DashboardPage() {
         </Card>
       </motion.div>
 
-      {/* Небольшая аналитика */}
+      {/* Аналитика */}
       <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={5}>
         <Card>
           <CardHeader>
@@ -255,7 +260,11 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+              <div className="rounded-lg border bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Новые пользователи (сегодня)</p>
+                <p className="text-lg font-medium">{stats?.users.newToday ?? "—"}</p>
+              </div>
               <div className="rounded-lg border bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Новые пользователи (7 дн.)</p>
                 <p className="text-lg font-medium">{stats?.users.newLast7Days ?? "—"}</p>
@@ -263,6 +272,10 @@ export function DashboardPage() {
               <div className="rounded-lg border bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Новые пользователи (30 дн.)</p>
                 <p className="text-lg font-medium">{stats?.users.newLast30Days ?? "—"}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Продажи за сегодня</p>
+                <p className="text-lg font-medium">{stats ? formatMoney(stats.sales.todayAmount, defaultCurrency) : "—"}</p>
               </div>
               <div className="rounded-lg border bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">Продажи за 7 дней</p>

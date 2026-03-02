@@ -60,6 +60,7 @@ export async function getPublicConfig(): Promise<{
   plategaMethods?: { id: number; label: string }[];
   yoomoneyEnabled?: boolean;
   yookassaEnabled?: boolean;
+  cryptopayEnabled?: boolean;
   botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean; emojiKey?: string }[] | null;
   /** Кнопок в ряд в главном меню: 1 или 2 */
   botButtonsPerRow?: 1 | 2;
@@ -113,6 +114,17 @@ export async function registerByTelegram(body: {
   utm_term?: string;
 }): Promise<{ token: string; client: { id: string; telegramUsername?: string | null; preferredCurrency: string; balance: number; trialUsed?: boolean; referralCode?: string | null } }> {
   return fetchJson("/api/client/auth/register", { method: "POST", body });
+}
+
+/** Вход по коду 2FA (после register/login, когда бэкенд вернул requires2FA) */
+export async function client2FALogin(
+  tempToken: string,
+  code: string
+): Promise<{ token: string; client: { id: string; balance: number; preferredCurrency: string; trialUsed?: boolean; telegramUsername?: string | null } }> {
+  return fetchJson("/api/client/auth/2fa-login", {
+    method: "POST",
+    body: { tempToken, code },
+  });
 }
 
 /** Текущий пользователь */
@@ -216,6 +228,15 @@ export async function createYookassaPayment(
   body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; confirmationUrl: string }> {
   return fetchJson("/api/client/yookassa/create-payment", { method: "POST", body, token });
+}
+
+/** Crypto Pay (Crypto Bot) — создать инвойс, вернуть ссылку на оплату */
+export async function createCryptopayPayment(
+  token: string,
+  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+): Promise<{ paymentId: string; payUrl: string }> {
+  const res = await fetchJson<{ paymentId: string; payUrl: string }>("/api/client/cryptopay/create-payment", { method: "POST", body, token });
+  return { paymentId: res.paymentId, payUrl: res.payUrl };
 }
 
 /** Обновить профиль (язык, валюта) */

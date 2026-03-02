@@ -66,7 +66,7 @@ adminRouter.get("/me", asyncRoute(async (req, res) => {
   const adminId = (req as unknown as { adminId: string }).adminId;
   const admin = await prisma.admin.findUnique({
     where: { id: adminId },
-    select: { id: true, email: true, mustChangePassword: true, role: true, allowedSections: true },
+    select: { id: true, email: true, mustChangePassword: true, role: true, allowedSections: true, totpEnabled: true },
   });
   if (!admin) return res.status(401).json({ message: "Not found" });
   const allowedSections = admin.allowedSections
@@ -192,16 +192,21 @@ const PAID_EXTERNAL_WHERE = { status: "PAID" as const, provider: { not: "balance
 /** Статистика дашборда: пользователи (локальная БД), продажи (Payment PAID — только внешние поступления). */
 adminRouter.get("/dashboard/stats", async (_req, res) => {
   const now = new Date();
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const [clientsTotal, clientsWithRemna, paidAgg, paidLast7, paidLast30, newClientsLast7, newClientsLast30] =
+  const [clientsTotal, clientsWithRemna, paidAgg, paidToday, paidLast7, paidLast30, newClientsToday, newClientsLast7, newClientsLast30] =
     await Promise.all([
       prisma.client.count(),
       prisma.client.count({ where: { remnawaveUuid: { not: null } } }),
       prisma.payment.aggregate({
         where: PAID_EXTERNAL_WHERE,
+        _sum: { amount: true },
+        _count: true,
+      }),
+      prisma.payment.aggregate({
+        where: { ...PAID_EXTERNAL_WHERE, paidAt: { gte: todayStart } },
         _sum: { amount: true },
         _count: true,
       }),
@@ -215,6 +220,7 @@ adminRouter.get("/dashboard/stats", async (_req, res) => {
         _sum: { amount: true },
         _count: true,
       }),
+      prisma.client.count({ where: { createdAt: { gte: todayStart } } }),
       prisma.client.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
       prisma.client.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
     ]);
@@ -223,12 +229,15 @@ adminRouter.get("/dashboard/stats", async (_req, res) => {
     users: {
       total: clientsTotal,
       withRemna: clientsWithRemna,
+      newToday: newClientsToday,
       newLast7Days: newClientsLast7,
       newLast30Days: newClientsLast30,
     },
     sales: {
       totalAmount: paidAgg._sum.amount ?? 0,
       totalCount: paidAgg._count,
+      todayAmount: paidToday._sum.amount ?? 0,
+      todayCount: paidToday._count,
       last7DaysAmount: paidLast7._sum.amount ?? 0,
       last7DaysCount: paidLast7._count,
       last30DaysAmount: paidLast30._sum.amount ?? 0,
@@ -926,6 +935,10 @@ const updateSettingsSchema = z.object({
   yoomoneyNotificationSecret: z.string().max(500).nullable().optional(),
   yookassaShopId: z.string().max(200).nullable().optional(),
   yookassaSecretKey: z.string().max(500).nullable().optional(),
+  cryptopayApiToken: z.string().max(500).nullable().optional(),
+  cryptopayTestnet: z.boolean().optional(),
+  heleketMerchantId: z.string().max(500).nullable().optional(),
+  heleketApiKey: z.string().max(500).nullable().optional(),
   botButtons: z.string().max(10000).nullable().optional(),
   botButtonsPerRow: z.union([z.literal(1), z.literal(2), z.number().int().min(1).max(2)]).optional(),
   botEmojis: z.union([z.string().max(15000), z.record(z.object({ unicode: z.string().max(20).optional(), tgEmojiId: z.string().max(50).optional() }))]).nullable().optional(),
@@ -1186,6 +1199,22 @@ adminRouter.patch("/settings", async (req, res) => {
   if (updates.yookassaSecretKey !== undefined) {
     const val = updates.yookassaSecretKey ?? "";
     await prisma.systemSetting.upsert({ where: { key: "yookassa_secret_key" }, create: { key: "yookassa_secret_key", value: val }, update: { value: val } });
+  }
+  if (updates.cryptopayApiToken !== undefined) {
+    const val = updates.cryptopayApiToken ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "cryptopay_api_token" }, create: { key: "cryptopay_api_token", value: val }, update: { value: val } });
+  }
+  if (updates.cryptopayTestnet !== undefined) {
+    const val = updates.cryptopayTestnet ? "true" : "false";
+    await prisma.systemSetting.upsert({ where: { key: "cryptopay_testnet" }, create: { key: "cryptopay_testnet", value: val }, update: { value: val } });
+  }
+  if (updates.heleketMerchantId !== undefined) {
+    const val = updates.heleketMerchantId ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "heleket_merchant_id" }, create: { key: "heleket_merchant_id", value: val }, update: { value: val } });
+  }
+  if (updates.heleketApiKey !== undefined) {
+    const val = updates.heleketApiKey ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "heleket_api_key" }, create: { key: "heleket_api_key", value: val }, update: { value: val } });
   }
   if (updates.botButtons !== undefined) {
     const val = updates.botButtons ?? "";
@@ -2048,7 +2077,7 @@ adminRouter.get("/analytics", async (_req, res) => {
 
   // ─── Доход по провайдерам ───
   const providerSeries = Object.entries(revenueByProvider).map(([provider, amount]) => ({
-    provider: provider === "balance" ? "Баланс" : provider === "platega" ? "Platega" : provider,
+    provider: provider === "balance" ? "Баланс" : provider === "platega" ? "Platega" : provider === "cryptopay" ? "Crypto Pay" : provider === "heleket" ? "Heleket" : provider,
     amount,
   }));
 

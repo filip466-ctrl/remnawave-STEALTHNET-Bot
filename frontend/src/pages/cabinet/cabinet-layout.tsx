@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useClientAuth } from "@/contexts/client-auth";
 import { CabinetConfigProvider, useCabinetConfig } from "@/contexts/cabinet-config";
@@ -45,6 +45,71 @@ function AnalyticsScripts() {
 const IsMiniappContext = createContext(false);
 export function useCabinetMiniapp() {
   return useContext(IsMiniappContext);
+}
+
+/** Экран ввода кода 2FA после успешной проверки пароля или Telegram */
+function Client2FAStepScreen() {
+  const { state, submit2FACode, clearPending2FA } = useClientAuth();
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!state.pending2FAToken || code.trim().length !== 6) {
+        setError("Введите 6-значный код из приложения");
+        return;
+      }
+      setError(null);
+      setLoading(true);
+      try {
+        await submit2FACode(code.trim());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Неверный код");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [state.pending2FAToken, code, submit2FACode]
+  );
+
+  if (!state.pending2FAToken) return null;
+
+  return (
+    <div className="min-h-svh flex flex-col items-center justify-center gap-6 p-6 bg-gradient-to-b from-background to-muted/20">
+      <div className="w-full max-w-sm rounded-3xl border border-border bg-card/60 backdrop-blur-xl p-8 shadow-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <KeyRound className="h-6 w-6" />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Код из приложения</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Введите 6-значный код двухфакторной аутентификации</p>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="000000"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            className="w-full text-center text-2xl tracking-[0.4em] font-mono rounded-xl border border-border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          <Button type="submit" className="w-full" disabled={loading || code.length !== 6}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Войти"}
+          </Button>
+          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          <Button type="button" variant="ghost" className="w-full" onClick={clearPending2FA}>
+            Отмена
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 const ALL_NAV_ITEMS = [
@@ -453,11 +518,14 @@ export function CabinetLayout() {
   const { state } = useClientAuth();
   const isAuthPage = location.pathname === "/cabinet/login" || location.pathname === "/cabinet/register";
   const isLoggedIn = Boolean(state.token);
+  const needs2FA = !isLoggedIn && Boolean(state.pending2FAToken);
 
   return (
     <>
       <AnalyticsScripts />
-      {isAuthPage || !isLoggedIn ? (
+      {needs2FA ? (
+        <Client2FAStepScreen />
+      ) : isAuthPage || !isLoggedIn ? (
         <Outlet />
       ) : (
         <CabinetConfigProvider>

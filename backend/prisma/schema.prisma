@@ -15,6 +15,8 @@ model Admin {
   mustChangePassword Boolean @default(true) @map("must_change_password")
   role              String   @default("ADMIN")
   allowedSections   String?  @map("allowed_sections") @db.Text
+  totpSecret        String?  @map("totp_secret")
+  totpEnabled       Boolean  @default(false) @map("totp_enabled")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   refreshTokens     RefreshToken[]
@@ -81,6 +83,8 @@ model Client {
   utmCampaign      String?   @map("utm_campaign")
   utmContent       String?   @map("utm_content")
   utmTerm          String?   @map("utm_term")
+  totpSecret       String?   @map("totp_secret")
+  totpEnabled      Boolean   @default(false) @map("totp_enabled")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 

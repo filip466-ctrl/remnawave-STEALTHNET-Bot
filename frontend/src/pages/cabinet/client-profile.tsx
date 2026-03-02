@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor } from "lucide-react";
+import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
@@ -44,6 +45,8 @@ export function ClientProfilePage() {
   const [plategaMethods, setPlategaMethods] = useState<{ id: number; label: string }[]>([]);
   const [yoomoneyEnabled, setYoomoneyEnabled] = useState(false);
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
+  const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
+  const [heleketEnabled, setHeleketEnabled] = useState(false);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
@@ -57,6 +60,17 @@ export function ClientProfilePage() {
   const [linkEmailSent, setLinkEmailSent] = useState(false);
   const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
   const [paymentsHistoryOpen, setPaymentsHistoryOpen] = useState(false);
+  const [devices, setDevices] = useState<{ hwid: string; platform?: string; deviceModel?: string; createdAt?: string }[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState<string | null>(null);
+  const [deletingHwid, setDeletingHwid] = useState<string | null>(null);
+  const [twoFaEnableOpen, setTwoFaEnableOpen] = useState(false);
+  const [twoFaDisableOpen, setTwoFaDisableOpen] = useState(false);
+  const [twoFaSetupData, setTwoFaSetupData] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [twoFaStep, setTwoFaStep] = useState<1 | 2>(1);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
+  const [twoFaError, setTwoFaError] = useState<string | null>(null);
 
   const client = state.client;
   const token = state.token;
@@ -75,10 +89,97 @@ export function ClientProfilePage() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) return;
+    setDevicesLoading(true);
+    setDevicesError(null);
+    api.getClientDevices(token).then((r) => setDevices(r.devices ?? [])).catch(() => { setDevicesError("Не удалось загрузить устройства"); setDevices([]); }).finally(() => setDevicesLoading(false));
+  }, [token]);
+
+  async function deleteDevice(hwid: string) {
+    if (!token) return;
+    setDeletingHwid(hwid);
+    try {
+      await api.deleteClientDevice(token, hwid);
+      setDevices((prev) => prev.filter((d) => d.hwid !== hwid));
+    } catch {
+      setDevicesError("Не удалось отключить устройство");
+    } finally {
+      setDeletingHwid(null);
+    }
+  }
+
+  async function openTwoFaEnable() {
+    if (!token) return;
+    setTwoFaError(null);
+    setTwoFaSetupData(null);
+    setTwoFaStep(1);
+    setTwoFaCode("");
+    setTwoFaEnableOpen(true);
+    setTwoFaLoading(true);
+    try {
+      const data = await api.client2FASetup(token);
+      setTwoFaSetupData(data);
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Ошибка настройки 2FA");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+  function closeTwoFaEnable() {
+    setTwoFaEnableOpen(false);
+    setTwoFaSetupData(null);
+    setTwoFaStep(1);
+    setTwoFaCode("");
+    setTwoFaError(null);
+  }
+  async function confirmTwoFaEnable() {
+    if (!token || !twoFaCode.trim() || twoFaCode.length !== 6) {
+      setTwoFaError("Введите 6-значный код из приложения");
+      return;
+    }
+    setTwoFaError(null);
+    setTwoFaLoading(true);
+    try {
+      await api.client2FAConfirm(token, twoFaCode.trim());
+      refreshProfile();
+      closeTwoFaEnable();
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Неверный код");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+  async function openTwoFaDisable() {
+    setTwoFaDisableOpen(true);
+    setTwoFaCode("");
+    setTwoFaError(null);
+  }
+  async function confirmTwoFaDisable() {
+    if (!token || !twoFaCode.trim() || twoFaCode.length !== 6) {
+      setTwoFaError("Введите 6-значный код из приложения");
+      return;
+    }
+    setTwoFaError(null);
+    setTwoFaLoading(true);
+    try {
+      await api.client2FADisable(token, twoFaCode.trim());
+      refreshProfile();
+      setTwoFaDisableOpen(false);
+      setTwoFaCode("");
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Неверный код");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+
+  useEffect(() => {
     api.getPublicConfig().then((c) => {
       setPlategaMethods(c.plategaMethods ?? []);
       setYoomoneyEnabled(Boolean(c.yoomoneyEnabled));
       setYookassaEnabled(Boolean(c.yookassaEnabled));
+      setCryptopayEnabled(Boolean(c.cryptopayEnabled));
+      setHeleketEnabled(Boolean(c.heleketEnabled));
       setPublicAppUrl(c.publicAppUrl ?? null);
       setTelegramBotUsername(c.telegramBotUsername ?? null);
     }).catch(() => { });
@@ -86,7 +187,7 @@ export function ClientProfilePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-    if (params.get("yoomoney") === "connected" || params.get("yoomoney_form") === "success" || params.get("yookassa") === "success") {
+    if (params.get("yoomoney") === "connected" || params.get("yoomoney_form") === "success" || params.get("yookassa") === "success" || params.get("heleket") === "success") {
       refreshProfile().catch(() => { });
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -156,6 +257,46 @@ export function ClientProfilePage() {
       const res = await api.yookassaCreatePayment(token, { amount, currency: "RUB" });
       setTopUpModalOpen(false);
       if (res.confirmationUrl) openPaymentInBrowser(res.confirmationUrl);
+    } catch (e) {
+      setTopUpError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setTopUpLoading(false);
+    }
+  }
+
+  async function startTopUpCryptopay() {
+    if (!token || !client) return;
+    const amount = Number(topUpAmount?.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTopUpError("Укажите сумму");
+      return;
+    }
+    setTopUpError(null);
+    setTopUpLoading(true);
+    try {
+      const res = await api.cryptopayCreatePayment(token, { amount, currency });
+      setTopUpModalOpen(false);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
+    } catch (e) {
+      setTopUpError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setTopUpLoading(false);
+    }
+  }
+
+  async function startTopUpHeleket() {
+    if (!token || !client) return;
+    const amount = Number(topUpAmount?.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTopUpError("Укажите сумму");
+      return;
+    }
+    setTopUpError(null);
+    setTopUpLoading(true);
+    try {
+      const res = await api.heleketCreatePayment(token, { amount, currency });
+      setTopUpModalOpen(false);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : "Ошибка создания платежа");
     } finally {
@@ -451,24 +592,58 @@ export function ClientProfilePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">Скоро</span>
-                  <Button variant="outline" size="sm" disabled className="shadow-sm">Включить</Button>
+                  {client.totpEnabled ? (
+                    <>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-green-500/20 text-green-700 dark:text-green-400 dark:bg-green-500/20">Включена</span>
+                      <Button variant="outline" size="sm" className="shadow-sm border-red-500/50 text-red-600 hover:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/20" onClick={openTwoFaDisable}>Отключить</Button>
+                    </>
+                  ) : (
+                    <Button variant="outline" size="sm" className="shadow-sm" onClick={openTwoFaEnable}>Включить</Button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
-                    <Monitor className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground mb-0.5">Сеансы</p>
-                    <p className="font-medium text-sm truncate">Управление устройствами</p>
+              <div className="rounded-2xl bg-muted/40 border border-border/50 overflow-hidden dark:bg-white/5 dark:border-white/5">
+                <div className="p-4 border-b border-border/50 dark:border-white/5">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                      <Monitor className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Сеансы</p>
+                      <p className="font-medium text-sm truncate">Управление устройствами</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-muted text-muted-foreground">Скоро</span>
-                  <Button variant="outline" size="sm" disabled className="shadow-sm">Завершить</Button>
+                <div className="p-4 space-y-3">
+                  {devicesLoading ? (
+                    <div className="flex items-center justify-center py-6 text-muted-foreground">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : devicesError ? (
+                    <p className="text-sm text-destructive">{devicesError}</p>
+                  ) : devices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Привязанных устройств пока нет. Подключитесь к VPN с приложения — устройство появится здесь.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">Отключите устройство, чтобы освободить слот для другого:</p>
+                      <ul className="space-y-2">
+                        {devices.map((d) => {
+                          const label = [d.platform, d.deviceModel].filter(Boolean).join(" · ") || (d.hwid.slice(0, 12) + (d.hwid.length > 12 ? "…" : ""));
+                          const isDeleting = deletingHwid === d.hwid;
+                          return (
+                            <li key={d.hwid} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-background/50 border border-border/50 dark:bg-white/5 dark:border-white/5">
+                              <span className="text-sm font-medium truncate" title={d.hwid}>{label}</span>
+                              <Button variant="outline" size="sm" className="shrink-0 border-red-500 bg-red-500/15 text-red-600 hover:bg-red-500/25 hover:text-red-700 hover:border-red-500 dark:text-red-400 dark:hover:text-red-300 dark:bg-red-500/20 dark:hover:bg-red-500/30" disabled={isDeleting} onClick={() => deleteDevice(d.hwid)}>
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                {isDeleting ? "Отключение…" : "Отключить"}
+                              </Button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -482,7 +657,7 @@ export function ClientProfilePage() {
         transition={{ duration: 0.3, delay: 0.1 }}
         className={`grid gap-6 ${isMiniapp ? "grid-cols-1" : "lg:grid-cols-2"} min-w-0`}
       >
-        {(plategaMethods.length > 0 || yoomoneyEnabled || yookassaEnabled) && (
+        {(plategaMethods.length > 0 || yoomoneyEnabled || yookassaEnabled || cryptopayEnabled || heleketEnabled) && (
           <div id="topup" className="relative flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]">
             <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
               <div className="absolute -top-32 -left-32 h-64 w-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
@@ -685,7 +860,7 @@ export function ClientProfilePage() {
             <DialogTitle>Способ оплаты</DialogTitle>
             <DialogDescription>
               Пополнение на {topUpAmount ? `${Number(topUpAmount.replace(",", "."))} ${currency.toUpperCase()}` : "—"}
-              {(yoomoneyEnabled || yookassaEnabled) && " (ЮMoney и ЮKassa — только рубли)"}
+              {(yoomoneyEnabled || yookassaEnabled) && " (ЮMoney и ЮKassa — только рубли). Crypto Bot и Heleket — USD, RUB, EUR и др."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 py-2">
@@ -711,6 +886,28 @@ export function ClientProfilePage() {
                 ЮKassa — карта / СБП
               </Button>
             )}
+            {cryptopayEnabled && (
+              <Button
+                variant="outline"
+                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                disabled={topUpLoading}
+                onClick={() => startTopUpCryptopay()}
+              >
+                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
+                Crypto Bot — криптовалюта
+              </Button>
+            )}
+            {heleketEnabled && (
+              <Button
+                variant="outline"
+                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                disabled={topUpLoading}
+                onClick={() => startTopUpHeleket()}
+              >
+                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
+                Heleket — криптовалюта
+              </Button>
+            )}
             {plategaMethods.map((m) => (
               <Button
                 key={m.id}
@@ -730,6 +927,79 @@ export function ClientProfilePage() {
               Отмена
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={twoFaEnableOpen} onOpenChange={(open) => !open && closeTwoFaEnable()}>
+        <DialogContent className="max-w-sm" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Включить 2FA
+            </DialogTitle>
+            <DialogDescription>
+              {twoFaStep === 1
+                ? "Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy и т.п.) или введите ключ вручную."
+                : "Введите 6-значный код из приложения для подтверждения."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            {twoFaLoading && !twoFaSetupData ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : twoFaStep === 1 && twoFaSetupData ? (
+              <>
+                <div className="flex justify-center rounded-xl bg-white p-4 dark:bg-white/95">
+                  <QRCodeSVG value={twoFaSetupData.otpauthUrl} size={200} level="M" />
+                </div>
+                <p className="text-xs text-muted-foreground break-all font-mono bg-muted/50 rounded-lg p-2">
+                  Ключ: {twoFaSetupData.secret}
+                </p>
+                <Button onClick={() => setTwoFaStep(2)}>Далее — ввести код</Button>
+              </>
+            ) : twoFaStep === 2 ? (
+              <>
+                <Input
+                  placeholder="000000"
+                  maxLength={6}
+                  value={twoFaCode}
+                  onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+                  className="text-center text-lg tracking-[0.4em] font-mono"
+                />
+                <Button onClick={confirmTwoFaEnable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+                  {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Подтвердить
+                </Button>
+              </>
+            ) : null}
+            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={twoFaDisableOpen} onOpenChange={(open) => !open && setTwoFaDisableOpen(false)}>
+        <DialogContent className="max-w-sm" showCloseButton={!twoFaLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Отключить 2FA</DialogTitle>
+            <DialogDescription>
+              Введите 6-значный код из приложения-аутентификатора для отключения двухфакторной аутентификации.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            <Input
+              placeholder="000000"
+              maxLength={6}
+              value={twoFaCode}
+              onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+              className="text-center text-lg tracking-[0.4em] font-mono"
+            />
+            <Button onClick={confirmTwoFaDisable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+              {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Отключить 2FA
+            </Button>
+            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

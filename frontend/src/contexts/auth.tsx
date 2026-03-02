@@ -13,7 +13,7 @@ function loadState(): AuthState {
   const refresh = localStorage.getItem(STORAGE_KEYS.refresh);
   const adminRaw = localStorage.getItem(STORAGE_KEYS.admin);
   const admin = adminRaw ? (JSON.parse(adminRaw) as Admin) : null;
-  return { accessToken: access, refreshToken: refresh, admin };
+  return { accessToken: access, refreshToken: refresh, admin, pending2FAToken: null };
 }
 
 function saveState(state: AuthState) {
@@ -32,6 +32,10 @@ function clearState() {
 type AuthContextValue = {
   state: AuthState;
   login: (email: string, password: string) => Promise<void>;
+  /** Ввести код 2FA после ответа requires2FA */
+  submit2FACode: (code: string) => Promise<void>;
+  /** Отменить шаг 2FA */
+  clearPending2FA: () => void;
   logout: () => Promise<void>;
   setTokens: (access: string, refresh: string, admin: Admin) => void;
   updateAdmin: (admin: Admin) => void;
@@ -45,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(loadState);
 
   const setTokens = useCallback((access: string, refresh: string, admin: Admin) => {
-    const next = { accessToken: access, refreshToken: refresh, admin };
+    const next = { accessToken: access, refreshToken: refresh, admin, pending2FAToken: null as string | null };
     setState(next);
     saveState(next);
   }, []);
@@ -68,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return res.accessToken;
     } catch {
       clearState();
-      setState({ accessToken: null, refreshToken: null, admin: null });
+      setState({ accessToken: null, refreshToken: null, admin: null, pending2FAToken: null });
       return null;
     }
   }, [state.refreshToken, setTokens]);
@@ -76,15 +80,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const res = await api.login(email, password);
-      setTokens(res.accessToken, res.refreshToken, res.admin);
+      if ("requires2FA" in res && res.requires2FA) {
+        setState((prev) => ({ ...prev, pending2FAToken: res.tempToken }));
+        return;
+      }
+      const auth = res as import("@/lib/api").LoginResponse;
+      setTokens(auth.accessToken, auth.refreshToken, auth.admin);
     },
     [setTokens]
   );
 
+  const submit2FACode = useCallback(
+    async (code: string) => {
+      const tempToken = state.pending2FAToken;
+      if (!tempToken?.trim()) return;
+      const res = await api.admin2FALogin(tempToken, code.trim());
+      const next = { accessToken: res.accessToken, refreshToken: res.refreshToken, admin: res.admin, pending2FAToken: null as string | null };
+      setState(next);
+      saveState(next);
+    },
+    [state.pending2FAToken]
+  );
+
+  const clearPending2FA = useCallback(() => {
+    setState((prev) => ({ ...prev, pending2FAToken: null }));
+  }, []);
+
   const logout = useCallback(async () => {
     await api.logout(state.refreshToken);
     clearState();
-    setState({ accessToken: null, refreshToken: null, admin: null });
+    setState({ accessToken: null, refreshToken: null, admin: null, pending2FAToken: null });
   }, [state.refreshToken]);
 
   useEffect(() => {
@@ -101,6 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextValue = {
     state,
     login,
+    submit2FACode,
+    clearPending2FA,
     logout,
     setTokens,
     updateAdmin,

@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2 } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -147,8 +149,15 @@ const BOT_MENU_TEXT_LABELS: Record<string, string> = {
 };
 
 export function SettingsPage() {
-  const { state } = useAuth();
+  const { state, updateAdmin } = useAuth();
   const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [twoFaEnableOpen, setTwoFaEnableOpen] = useState(false);
+  const [twoFaDisableOpen, setTwoFaDisableOpen] = useState(false);
+  const [twoFaSetupData, setTwoFaSetupData] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [twoFaStep, setTwoFaStep] = useState<1 | 2>(1);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
+  const [twoFaError, setTwoFaError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -159,6 +168,8 @@ export function SettingsPage() {
   const [plategaCallbackCopied, setPlategaCallbackCopied] = useState(false);
   const [yoomoneyWebhookCopied, setYoomoneyWebhookCopied] = useState(false);
   const [yookassaWebhookCopied, setYookassaWebhookCopied] = useState(false);
+  const [cryptopayWebhookCopied, setCryptopayWebhookCopied] = useState(false);
+  const [heleketWebhookCopied, setHeleketWebhookCopied] = useState(false);
   const [defaultSubpageConfig, setDefaultSubpageConfig] = useState<SubscriptionPageConfig | null>(null);
   const token = state.accessToken!;
 
@@ -277,6 +288,72 @@ export function SettingsPage() {
     }
   }
 
+  async function openTwoFaEnable() {
+    setTwoFaError(null);
+    setTwoFaSetupData(null);
+    setTwoFaStep(1);
+    setTwoFaCode("");
+    setTwoFaEnableOpen(true);
+    setTwoFaLoading(true);
+    try {
+      const data = await api.admin2FASetup(token);
+      setTwoFaSetupData(data);
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Ошибка настройки 2FA");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+  function closeTwoFaEnable() {
+    setTwoFaEnableOpen(false);
+    setTwoFaSetupData(null);
+    setTwoFaStep(1);
+    setTwoFaCode("");
+    setTwoFaError(null);
+  }
+  async function confirmTwoFaEnable() {
+    if (!twoFaCode.trim() || twoFaCode.length !== 6) {
+      setTwoFaError("Введите 6-значный код из приложения");
+      return;
+    }
+    setTwoFaError(null);
+    setTwoFaLoading(true);
+    try {
+      await api.admin2FAConfirm(token, twoFaCode.trim());
+      const admin = await api.getMe(token);
+      updateAdmin(admin);
+      closeTwoFaEnable();
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Неверный код");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+  async function openTwoFaDisable() {
+    setTwoFaDisableOpen(true);
+    setTwoFaCode("");
+    setTwoFaError(null);
+  }
+  async function confirmTwoFaDisable() {
+    if (!twoFaCode.trim() || twoFaCode.length !== 6) {
+      setTwoFaError("Введите 6-значный код из приложения");
+      return;
+    }
+    setTwoFaError(null);
+    setTwoFaLoading(true);
+    try {
+      await api.admin2FADisable(token, twoFaCode.trim());
+      const admin = await api.getMe(token);
+      updateAdmin(admin);
+      setTwoFaDisableOpen(false);
+      setTwoFaCode("");
+    } catch (e) {
+      setTwoFaError(e instanceof Error ? e.message : "Неверный код");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  }
+
   async function saveOptionsOnly() {
     if (!settings) return;
     setSaving(true);
@@ -350,6 +427,10 @@ export function SettingsPage() {
         yoomoneyNotificationSecret: settings.yoomoneyNotificationSecret && settings.yoomoneyNotificationSecret !== "********" ? settings.yoomoneyNotificationSecret : undefined,
         yookassaShopId: settings.yookassaShopId ?? null,
         yookassaSecretKey: settings.yookassaSecretKey && settings.yookassaSecretKey !== "********" ? settings.yookassaSecretKey : undefined,
+        cryptopayApiToken: settings.cryptopayApiToken ?? null,
+        cryptopayTestnet: settings.cryptopayTestnet ?? false,
+        heleketMerchantId: settings.heleketMerchantId ?? null,
+        heleketApiKey: settings.heleketApiKey && settings.heleketApiKey !== "********" ? settings.heleketApiKey : undefined,
         botButtons: settings.botButtons != null ? JSON.stringify(settings.botButtons) : undefined,
         botButtonsPerRow: settings.botButtonsPerRow ?? 1,
         botEmojis: settings.botEmojis != null ? settings.botEmojis : undefined,
@@ -759,6 +840,34 @@ export function SettingsPage() {
                         <option key={c} value={c}>{c.toUpperCase()}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+                <div className="space-y-2 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <KeyRound className="h-4 w-4 text-primary shrink-0" />
+                    <Label className="text-base font-medium">Безопасность</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">Двухфакторная аутентификация — вход по коду из приложения (Google Authenticator, Authy и т.п.) после ввода пароля.</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-muted/40 border">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                        <KeyRound className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">2FA</p>
+                        <p className="font-medium text-sm truncate">Многоуровневая защита входа</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {state.admin?.totpEnabled ? (
+                        <>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-green-500/20 text-green-700 dark:text-green-400">Включена</span>
+                          <Button type="button" variant="outline" size="sm" className="border-red-500/50 text-red-600 hover:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/20" onClick={openTwoFaDisable}>Отключить</Button>
+                        </>
+                      ) : (
+                        <Button type="button" variant="outline" size="sm" onClick={openTwoFaEnable}>Включить</Button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
@@ -1740,6 +1849,180 @@ export function SettingsPage() {
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
+
+              <Collapsible defaultOpen={false} className="group mt-4">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-t-lg text-left transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <CardHeader className="pointer-events-none [&_.chevron]:transition-transform [&_.chevron]:duration-200 group-data-[state=open]:[&_.chevron]:rotate-180">
+                      <div className="flex items-center justify-between pr-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-primary" />
+                          <CardTitle>Crypto Pay (Crypto Bot)</CardTitle>
+                          <span className="text-xs font-normal text-muted-foreground">— криптоплатежи в Telegram</span>
+                        </div>
+                        <ChevronDown className="chevron h-5 w-5 shrink-0 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Создайте приложение в <a href="https://t.me/CryptoBot" target="_blank" rel="noreferrer" className="text-primary underline">@CryptoBot</a> → Crypto Pay → Create App и укажите URL вебхука ниже.
+                      </p>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label>URL вебхука для Crypto Pay</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={(settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/cryptopay` : "Укажите «URL приложения» во вкладке «Общие»"}
+                          className="font-mono text-sm bg-muted/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={async () => {
+                            const url = (settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/cryptopay` : "";
+                            if (url && navigator.clipboard) {
+                              await navigator.clipboard.writeText(url);
+                              setCryptopayWebhookCopied(true);
+                              setTimeout(() => setCryptopayWebhookCopied(false), 2000);
+                            }
+                          }}
+                          disabled={!(settings.publicAppUrl ?? "").trim()}
+                          title="Копировать"
+                        >
+                          {cryptopayWebhookCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">В @CryptoBot → Crypto Pay → My Apps → ваш апп → Webhooks укажите этот URL.</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Приём платежей в криптовалюте (USDT, TON и др.) через <a href="https://help.send.tg/en/articles/10279948-crypto-pay-api" target="_blank" rel="noreferrer" className="text-primary underline">Crypto Pay API</a>. Сумма в USD, RUB, EUR и др. — пользователь платит в крипте по курсу.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>API Token</Label>
+                        <Input
+                          type="password"
+                          value={settings.cryptopayApiToken ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, cryptopayApiToken: e.target.value || null } : s))}
+                          placeholder="123456789:AAzQc..."
+                        />
+                        <p className="text-xs text-muted-foreground">Из @CryptoBot → Crypto Pay → My Apps → ваш апп → API Token.</p>
+                      </div>
+                      <div className="space-y-2 flex flex-col justify-end">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="cryptopayTestnet"
+                            checked={settings.cryptopayTestnet ?? false}
+                            onChange={(e) => setSettings((s) => (s ? { ...s, cryptopayTestnet: e.target.checked } : s))}
+                            className="rounded border"
+                          />
+                          <Label htmlFor="cryptopayTestnet">Тестовая сеть (testnet)</Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Для тестов используйте @CryptoTestnetBot и включите этот флаг.</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <Button type="submit" disabled={saving} className="min-w-[140px]">
+                        {saving ? "Сохранение…" : "Сохранить"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Collapsible defaultOpen={false} className="group mt-4">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-t-lg text-left transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <CardHeader className="pointer-events-none [&_.chevron]:transition-transform [&_.chevron]:duration-200 group-data-[state=open]:[&_.chevron]:rotate-180">
+                      <div className="flex items-center justify-between pr-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-primary" />
+                          <CardTitle>Heleket</CardTitle>
+                          <span className="text-xs font-normal text-muted-foreground">— криптоплатежи (USDT и др.)</span>
+                        </div>
+                        <ChevronDown className="chevron h-5 w-5 shrink-0 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        В <a href="https://doc.heleket.com/uk/methods/payments/creating-invoice" target="_blank" rel="noreferrer" className="text-primary underline">личном кабинете Heleket</a> получите Merchant ID и API Key, укажите URL вебхука ниже.
+                      </p>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label>URL вебхука для Heleket</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={(settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/heleket` : "Укажите «URL приложения» во вкладке «Общие»"}
+                          className="font-mono text-sm bg-muted/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={async () => {
+                            const url = (settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/heleket` : "";
+                            if (url && navigator.clipboard) {
+                              await navigator.clipboard.writeText(url);
+                              setHeleketWebhookCopied(true);
+                              setTimeout(() => setHeleketWebhookCopied(false), 2000);
+                            }
+                          }}
+                          disabled={!(settings.publicAppUrl ?? "").trim()}
+                          title="Копировать"
+                        >
+                          {heleketWebhookCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">В личном кабинете Heleket укажите этот URL в настройках callback для платежей.</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Приём платежей в криптовалюте через <a href="https://doc.heleket.com/uk/methods/payments/creating-invoice" target="_blank" rel="noreferrer" className="text-primary underline">Heleket API</a>. Сумма в USD, RUB и др. — пользователь платит в USDT по курсу.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Merchant ID (UUID)</Label>
+                        <Input
+                          value={settings.heleketMerchantId ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, heleketMerchantId: e.target.value || null } : s))}
+                          placeholder="8b03432e-385b-4670-8d06-064591096795"
+                        />
+                        <p className="text-xs text-muted-foreground">UUID мерчанта из личного кабинета Heleket.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>API Key</Label>
+                        <Input
+                          type="password"
+                          value={settings.heleketApiKey ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, heleketApiKey: e.target.value || null } : s))}
+                          placeholder="Секретный ключ API"
+                        />
+                        <p className="text-xs text-muted-foreground">Секретный ключ для подписи запросов и вебхуков.</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <Button type="submit" disabled={saving} className="min-w-[140px]">
+                        {saving ? "Сохранение…" : "Сохранить"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           </TabsContent>
 
@@ -2223,6 +2506,77 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={twoFaEnableOpen} onOpenChange={(open) => !open && closeTwoFaEnable()}>
+        <DialogContent className="max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Включить 2FA
+            </DialogTitle>
+            <DialogDescription>
+              {twoFaStep === 1
+                ? "Отсканируйте QR-код в приложении-аутентификаторе или введите ключ вручную."
+                : "Введите 6-значный код из приложения для подтверждения."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            {twoFaLoading && !twoFaSetupData ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : twoFaStep === 1 && twoFaSetupData ? (
+              <>
+                <div className="flex justify-center rounded-xl bg-white p-4 dark:bg-white/95">
+                  <QRCodeSVG value={twoFaSetupData.otpauthUrl} size={200} level="M" />
+                </div>
+                <p className="text-xs text-muted-foreground break-all font-mono bg-muted/50 rounded-lg p-2">Ключ: {twoFaSetupData.secret}</p>
+                <Button onClick={() => setTwoFaStep(2)}>Далее — ввести код</Button>
+              </>
+            ) : twoFaStep === 2 ? (
+              <>
+                <Input
+                  placeholder="000000"
+                  maxLength={6}
+                  value={twoFaCode}
+                  onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+                  className="text-center text-lg tracking-[0.4em] font-mono"
+                />
+                <Button onClick={confirmTwoFaEnable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+                  {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Подтвердить
+                </Button>
+              </>
+            ) : null}
+            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={twoFaDisableOpen} onOpenChange={(open) => !open && setTwoFaDisableOpen(false)}>
+        <DialogContent className="max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Отключить 2FA</DialogTitle>
+            <DialogDescription>
+              Введите 6-значный код из приложения-аутентификатора для отключения.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            <Input
+              placeholder="000000"
+              maxLength={6}
+              value={twoFaCode}
+              onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ""))}
+              className="text-center text-lg tracking-[0.4em] font-mono"
+            />
+            <Button onClick={confirmTwoFaDisable} disabled={twoFaLoading || twoFaCode.length !== 6}>
+              {twoFaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Отключить 2FA
+            </Button>
+            {twoFaError && <p className="text-sm text-destructive">{twoFaError}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

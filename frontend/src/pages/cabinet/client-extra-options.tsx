@@ -50,6 +50,8 @@ export function ClientExtraOptionsPage() {
   const [plategaMethods, setPlategaMethods] = useState<{ id: number; label: string }[]>([]);
   const [yoomoneyEnabled, setYoomoneyEnabled] = useState(false);
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
+  const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
+  const [heleketEnabled, setHeleketEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [payModal, setPayModal] = useState<PublicSellOption | null>(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -64,6 +66,8 @@ export function ClientExtraOptionsPage() {
       setPlategaMethods(c.plategaMethods ?? []);
       setYoomoneyEnabled(Boolean(c.yoomoneyEnabled));
       setYookassaEnabled(Boolean(c.yookassaEnabled));
+      setCryptopayEnabled(Boolean(c.cryptopayEnabled));
+      setHeleketEnabled(Boolean(c.heleketEnabled));
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -78,6 +82,40 @@ export function ClientExtraOptionsPage() {
       });
       setPayModal(null);
       if (res.confirmationUrl) openPaymentInBrowser(res.confirmationUrl);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startCryptopayPayment(option: PublicSellOption) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.cryptopayCreatePayment(token, {
+        extraOption: { kind: option.kind, productId: option.id },
+      });
+      setPayModal(null);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startHeleketPayment(option: PublicSellOption) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.heleketCreatePayment(token, {
+        extraOption: { kind: option.kind, productId: option.id },
+      });
+      setPayModal(null);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
     } catch (e) {
       setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
     } finally {
@@ -221,6 +259,18 @@ export function ClientExtraOptionsPage() {
               <Button onClick={() => startYookassaPayment(payModal)} disabled={payLoading} className="w-full gap-2">
                 {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Карта / СБП (ЮKassa)
+              </Button>
+            )}
+            {cryptopayEnabled && payModal && (
+              <Button onClick={() => startCryptopayPayment(payModal)} disabled={payLoading} className="w-full gap-2">
+                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Crypto Bot — криптовалюта
+              </Button>
+            )}
+            {heleketEnabled && payModal && (
+              <Button onClick={() => startHeleketPayment(payModal)} disabled={payLoading} className="w-full gap-2">
+                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Heleket — криптовалюта
               </Button>
             )}
             {yoomoneyEnabled && payModal && (

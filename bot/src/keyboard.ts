@@ -334,6 +334,7 @@ export function tariffPaymentMethodButtons(
   balanceLabel?: string | null,
   yoomoneyEnabled?: boolean,
   yookassaEnabled?: boolean,
+  cryptopayEnabled?: boolean,
   tariffCurrency?: string,
 ): InlineMarkup {
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
@@ -351,6 +352,9 @@ export function tariffPaymentMethodButtons(
   // ЮKassa — только RUB
   if (yookassaEnabled && (!tariffCurrency || tariffCurrency.toUpperCase() === "RUB")) {
     rows.push([btn("💳 ЮKassa — карта / СБП", `pay_tariff_yookassa:${tariffId}`, undefined, cardId)]);
+  }
+  if (cryptopayEnabled) {
+    rows.push([btn("💳 Crypto Bot — криптовалюта", `pay_tariff_cryptopay:${tariffId}`, undefined, cardId)]);
   }
   for (const m of methods) {
     rows.push([btn(m.label, `pay_tariff:${tariffId}:${m.id}`, undefined, cardId)]);
@@ -424,6 +428,7 @@ export function proxyPaymentMethodButtons(
   balanceLabel?: string | null,
   yoomoneyEnabled?: boolean,
   yookassaEnabled?: boolean,
+  cryptopayEnabled?: boolean,
   currency?: string,
 ): InlineMarkup {
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
@@ -437,6 +442,7 @@ export function proxyPaymentMethodButtons(
   if (yookassaEnabled && (!currency || currency.toUpperCase() === "RUB")) {
     rows.push([btn("💳 ЮKassa — карта / СБП", `pay_proxy_yookassa:${proxyTariffId}`, undefined, cardId)]);
   }
+  if (cryptopayEnabled) rows.push([btn("💳 Crypto Bot — криптовалюта", `pay_proxy_cryptopay:${proxyTariffId}`, undefined, cardId)]);
   for (const m of methods) {
     rows.push([btn(m.label, `pay_proxy:${proxyTariffId}:${m.id}`, undefined, cardId)]);
   }
@@ -509,6 +515,7 @@ export function singboxPaymentMethodButtons(
   balanceLabel?: string | null,
   yoomoneyEnabled?: boolean,
   yookassaEnabled?: boolean,
+  cryptopayEnabled?: boolean,
   currency?: string,
 ): InlineMarkup {
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
@@ -522,6 +529,7 @@ export function singboxPaymentMethodButtons(
   if (yookassaEnabled && (!currency || currency.toUpperCase() === "RUB")) {
     rows.push([btn("💳 ЮKassa — карта / СБП", `pay_singbox_yookassa:${singboxTariffId}`, undefined, cardId)]);
   }
+  if (cryptopayEnabled) rows.push([btn("💳 Crypto Bot — криптовалюта", `pay_singbox_cryptopay:${singboxTariffId}`, undefined, cardId)]);
   for (const m of methods) {
     rows.push([btn(m.label, `pay_singbox:${singboxTariffId}:${m.id}`, undefined, cardId)]);
   }
@@ -538,6 +546,7 @@ export function topupPaymentMethodButtons(
   emojiIds?: InnerEmojiIds,
   yoomoneyEnabled?: boolean,
   yookassaEnabled?: boolean,
+  cryptopayEnabled?: boolean,
 ): InlineMarkup {
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = resolveStyle(toStyle(backStyle), "danger");
@@ -548,6 +557,9 @@ export function topupPaymentMethodButtons(
   }
   if (yookassaEnabled) {
     rows.push([btn("💳 ЮKassa — карта / СБП", `topup_yookassa:${amount}`, "primary", cardId)]);
+  }
+  if (cryptopayEnabled) {
+    rows.push([btn("💳 Crypto Bot — криптовалюта", `topup_cryptopay:${amount}`, "primary", cardId)]);
   }
   for (const m of methods) {
     rows.push([btn(m.label, `topup:${amount}:${m.id}`, "primary", cardId)]);
@@ -589,7 +601,8 @@ export function optionPaymentMethodButtons(
   emojiIds?: InnerEmojiIds,
   plategaMethods: { id: number; label: string }[] = [],
   yoomoneyEnabled?: boolean,
-  yookassaEnabled?: boolean
+  yookassaEnabled?: boolean,
+  cryptopayEnabled?: boolean,
 ): InlineMarkup {
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = undefined;
@@ -603,6 +616,9 @@ export function optionPaymentMethodButtons(
   }
   if (yookassaEnabled !== false) {
     rows.push([btn("💳 ЮKassa — карта / СБП", `pay_option_yookassa:${option.kind}:${option.id}`, undefined, cardId)]);
+  }
+  if (cryptopayEnabled) {
+    rows.push([btn("💳 Crypto Bot — криптовалюта", `pay_option_cryptopay:${option.kind}:${option.id}`, undefined, cardId)]);
   }
   for (const m of plategaMethods) {
     rows.push([btn(m.label, `pay_option_platega:${option.kind}:${option.id}:${m.id}`, undefined, cardId)]);

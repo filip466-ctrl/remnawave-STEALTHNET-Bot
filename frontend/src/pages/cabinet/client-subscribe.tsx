@@ -12,7 +12,16 @@ import {
   ArrowLeft,
   Monitor,
   Info,
+  QrCode,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { api } from "@/lib/api";
@@ -191,6 +200,16 @@ export function ClientSubscribePage() {
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobileView(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
 
   const subscriptionUrl = getSubscriptionUrl(subscription);
   const platform = detectPlatform();
@@ -233,6 +252,7 @@ export function ClientSubscribePage() {
     other: "Другое",
   };
   const platformLabel = PLATFORM_LABELS[platform] ?? platform;
+  const showQrNextToAddButton = isMiniapp || isMobileView;
 
   if (loading) {
     return (
@@ -357,12 +377,26 @@ export function ClientSubscribePage() {
                           // Если не мини-апп или нет openLink — сработает target="_blank"
                         };
                         return (
-                          <Button key={btnIndex} variant="default" size="sm" className="gap-2 min-h-[44px]" asChild>
-                            <a href={deeplinkUrl} target="_blank" rel="noopener noreferrer" onClick={handleClick}>
-                              <Plus className="h-4 w-4 shrink-0" />
-                              {label}
-                            </a>
-                          </Button>
+                          <span key={btnIndex} className="inline-flex flex-wrap gap-2 items-center">
+                            <Button variant="default" size="sm" className="gap-2 min-h-[44px]" asChild>
+                              <a href={deeplinkUrl} target="_blank" rel="noopener noreferrer" onClick={handleClick}>
+                                <Plus className="h-4 w-4 shrink-0" />
+                                {label}
+                              </a>
+                            </Button>
+                            {showQrNextToAddButton && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1 min-h-[44px] shrink-0"
+                                onClick={() => setQrModalOpen(true)}
+                                type="button"
+                              >
+                                <QrCode className="h-4 w-4" />
+                                QR
+                              </Button>
+                            )}
+                          </span>
                         );
                       }
                       return (
@@ -410,7 +444,7 @@ export function ClientSubscribePage() {
       <p className="text-xs text-muted-foreground mb-2">
         {isMiniapp ? linkCardRefMiniapp : linkCardRef}
       </p>
-      <div className="flex gap-2 min-w-0">
+      <div className="flex gap-2 min-w-0 flex-wrap">
         <code className="flex-1 min-w-0 truncate rounded-lg bg-muted px-3 py-2 text-sm font-mono" title={subscriptionUrl}>
           {subscriptionUrl}
         </code>
@@ -418,6 +452,12 @@ export function ClientSubscribePage() {
           {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
           {copied ? "Скопировано" : "Копировать"}
         </Button>
+        {!showQrNextToAddButton && (
+          <Button variant="outline" size="sm" onClick={() => setQrModalOpen(true)} className="shrink-0 gap-1">
+            <QrCode className="h-4 w-4" />
+            QR-код
+          </Button>
+        )}
       </div>
     </motion.div>
   );
@@ -460,6 +500,28 @@ export function ClientSubscribePage() {
           {appsBlock}
         </>
       )}
+
+      <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              QR-код подписки
+            </DialogTitle>
+            <DialogDescription>
+              Отсканируйте камерой телефона — в вашем приложении VPN. Например (Happ, Stash, v2rayNG и др.).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="rounded-xl border bg-white p-4">
+              <QRCodeSVG value={subscriptionUrl} size={220} level="M" />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Ссылка ведёт на конфигурацию VPN
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

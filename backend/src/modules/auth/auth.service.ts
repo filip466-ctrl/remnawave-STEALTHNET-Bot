@@ -11,6 +11,12 @@ export interface TokenPayload {
   type: "access" | "refresh";
 }
 
+export interface Admin2FAPendingPayload {
+  adminId: string;
+  email: string;
+  type: "admin_2fa_pending";
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -31,6 +37,20 @@ export function verifyToken(token: string, secret: string): TokenPayload | null 
   try {
     const decoded = jwt.verify(token, secret) as TokenPayload;
     return decoded;
+  } catch {
+    return null;
+  }
+}
+
+/** Временный токен для шага 2FA после проверки пароля админа. Живёт 5 минут. */
+export function signAdmin2FAPendingToken(payload: { adminId: string; email: string }, secret: string, expiresIn = "5m"): string {
+  return jwt.sign({ ...payload, type: "admin_2fa_pending" } as Admin2FAPendingPayload, secret, { expiresIn } as jwt.SignOptions);
+}
+
+export function verifyAdmin2FAPendingToken(token: string, secret: string): Admin2FAPendingPayload | null {
+  try {
+    const decoded = jwt.verify(token, secret) as Admin2FAPendingPayload;
+    return decoded?.type === "admin_2fa_pending" ? decoded : null;
   } catch {
     return null;
   }

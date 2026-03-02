@@ -731,15 +731,15 @@ bot.command("start", async (ctx) => {
       api.getPublicSingboxTariffs().catch(() => ({ items: [] })),
     ]);
     const vpnUrl = getSubscriptionUrl(subRes.subscription);
-    const showTrial = Boolean(config?.trialEnabled && !client.trialUsed);
+    const showTrial = Boolean(config?.trialEnabled && !client?.trialUsed);
     const showProxy = proxyRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
     const showSingbox = singboxRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
     const appUrl = config?.publicAppUrl?.replace(/\/$/, "") ?? null;
 
     const { text, entities } = buildMainMenuText({
       serviceName: name,
-      balance: client.balance,
-      currency: client.preferredCurrency,
+      balance: client?.balance ?? 0,
+      currency: client?.preferredCurrency ?? config?.defaultCurrency ?? "usd",
       subscription: subRes.subscription,
       tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
       menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
@@ -1380,14 +1380,14 @@ bot.on("callback_query:data", async (ctx) => {
         api.getPublicSingboxTariffs().catch(() => ({ items: [] })),
       ]);
       const vpnUrl = getSubscriptionUrl(subRes.subscription);
-      const showTrial = Boolean(config?.trialEnabled && !client.trialUsed);
+      const showTrial = Boolean(config?.trialEnabled && !client?.trialUsed);
       const showProxy = proxyRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
       const showSingbox = singboxRes.items?.some((c: { tariffs: unknown[] }) => c.tariffs?.length > 0) ?? false;
       const name = config?.serviceName?.trim() || "Кабинет";
       const { text, entities } = buildMainMenuText({
         serviceName: name,
-        balance: client.balance,
-        currency: client.preferredCurrency,
+        balance: client?.balance ?? 0,
+        currency: client?.preferredCurrency ?? config?.defaultCurrency ?? "usd",
         subscription: subRes.subscription,
         tariffDisplayName: (subRes as { tariffDisplayName?: string | null }).tariffDisplayName ?? null,
         menuTexts: config?.botMenuTexts ?? config?.resolvedBotMenuTexts ?? null,
@@ -1659,6 +1659,25 @@ bot.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    if (data.startsWith("pay_proxy_cryptopay:")) {
+      const proxyTariffId = data.slice("pay_proxy_cryptopay:".length);
+      const { items } = await api.getPublicProxyTariffs();
+      const tariff = items?.flatMap((c: { tariffs: { id: string; name: string; price: number; currency: string }[] }) => c.tariffs).find((t: { id: string }) => t.id === proxyTariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createCryptopayPayment(token, { amount: tariff.price, currency: tariff.currency, proxyTariffId });
+        const msg = buildPaymentMessage(config, { name: tariff.name, price: formatMoney(tariff.price, tariff.currency), amount: String(tariff.price), currency: tariff.currency, action: "Нажмите для оплаты через Crypto Bot:" });
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     if (data.startsWith("pay_proxy:")) {
       const rest = data.slice("pay_proxy:".length);
       const parts = rest.split(":");
@@ -1672,7 +1691,7 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const methods = config?.plategaMethods ?? [];
       const client = await api.getMe(token);
-      const balanceLabel = client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency)})` : null;
+      const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
           const payment = await api.createPlategaPayment(token, {
@@ -1705,6 +1724,7 @@ bot.on("callback_query:data", async (ctx) => {
         balanceLabel,
         !!config?.yoomoneyEnabled,
         !!config?.yookassaEnabled,
+        !!config?.cryptopayEnabled,
         tariff.currency,
       );
       const msg = buildPaymentMessage(config, {
@@ -1784,6 +1804,25 @@ bot.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    if (data.startsWith("pay_singbox_cryptopay:")) {
+      const singboxTariffId = data.slice("pay_singbox_cryptopay:".length);
+      const { items } = await api.getPublicSingboxTariffs();
+      const tariff = items?.flatMap((c: { tariffs: { id: string; name: string; price: number; currency: string }[] }) => c.tariffs).find((t: { id: string }) => t.id === singboxTariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createCryptopayPayment(token, { amount: tariff.price, currency: tariff.currency, singboxTariffId });
+        const msg = buildPaymentMessage(config, { name: tariff.name, price: formatMoney(tariff.price, tariff.currency), amount: String(tariff.price), currency: tariff.currency, action: "Нажмите для оплаты через Crypto Bot:" });
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     if (data.startsWith("pay_singbox:")) {
       const rest = data.slice("pay_singbox:".length);
       const parts = rest.split(":");
@@ -1797,7 +1836,7 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const methods = config?.plategaMethods ?? [];
       const client = await api.getMe(token);
-      const balanceLabel = client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency)})` : null;
+      const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
           const payment = await api.createPlategaPayment(token, {
@@ -1830,6 +1869,7 @@ bot.on("callback_query:data", async (ctx) => {
         balanceLabel,
         !!config?.yoomoneyEnabled,
         !!config?.yookassaEnabled,
+        !!config?.cryptopayEnabled,
         tariff.currency,
       );
       const msg = buildPaymentMessage(config, {
@@ -1917,6 +1957,25 @@ bot.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    if (data.startsWith("pay_tariff_cryptopay:")) {
+      const tariffId = data.slice("pay_tariff_cryptopay:".length);
+      const { items } = await api.getPublicTariffs();
+      const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === tariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createCryptopayPayment(token, { amount: tariff.price, currency: tariff.currency, tariffId: tariff.id });
+        const msg = buildPaymentMessage(config, { name: tariff.name, price: formatMoney(tariff.price, tariff.currency), amount: String(tariff.price), currency: tariff.currency, action: "Нажмите кнопку ниже для оплаты через Crypto Bot:" });
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     if (data === "menu:extra_options") {
       const options = config?.sellOptions ?? [];
       if (!options.length) {
@@ -1971,6 +2030,30 @@ bot.on("callback_query:data", async (ctx) => {
           action: "Нажмите кнопку ниже для оплаты через ЮKassa:",
         });
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
+        const isAuthError = /401|unauthorized|истек|авториз|токен/i.test(msg);
+        const text = isAuthError ? "❌ Сессия истекла. Отправьте /start и попробуйте снова." : `❌ ${msg}`;
+        await editMessageContent(ctx, text, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("pay_option_cryptopay:")) {
+      const parts = data.split(":");
+      const kind = (parts[1] ?? "") as "traffic" | "devices" | "servers";
+      const productId = parts.length > 2 ? parts.slice(2).join(":") : "";
+      const options = config?.sellOptions ?? [];
+      const option = options.find((o) => o.kind === kind && o.id === productId);
+      if (!option) {
+        await editMessageContent(ctx, "Опция не найдена.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const payment = await api.createCryptopayPayment(token, { extraOption: { kind: option.kind, productId: option.id } });
+        const optName = option.name || (option.kind === "traffic" ? `+${option.trafficGb} ГБ` : option.kind === "devices" ? `+${option.deviceCount} устр.` : "Сервер");
+        const msg = buildPaymentMessage(config, { name: optName, price: formatMoney(option.price, option.currency), amount: String(option.price), currency: option.currency, action: "Нажмите кнопку ниже для оплаты через Crypto Bot:" });
+        await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
         const isAuthError = /401|unauthorized|истек|авториз|токен/i.test(msg);
@@ -2076,13 +2159,14 @@ bot.on("callback_query:data", async (ctx) => {
       });
       const markup = optionPaymentMethodButtons(
         option,
-        client.balance,
+        client?.balance ?? 0,
         config?.botBackLabel ?? null,
         innerStyles,
         innerEmojiIds,
         config?.plategaMethods ?? [],
         !!config?.yoomoneyEnabled,
-        !!config?.yookassaEnabled
+        !!config?.yookassaEnabled,
+        !!config?.cryptopayEnabled
       );
       await editMessageContent(ctx, choiceText.text, markup, choiceText.entities);
       return;
@@ -2101,7 +2185,7 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const methods = config?.plategaMethods ?? [];
       const client = await api.getMe(token);
-      const balanceLabel = client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency)})` : null;
+      const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
 
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         const payment = await api.createPlategaPayment(token, {
@@ -2129,7 +2213,7 @@ bot.on("callback_query:data", async (ctx) => {
         currency: tariff.currency,
         action: "Выберите способ оплаты:",
       });
-      await editMessageContent(ctx, pay2.text, tariffPaymentMethodButtons(tariffId, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, tariff.currency), pay2.entities);
+      await editMessageContent(ctx, pay2.text, tariffPaymentMethodButtons(tariffId, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, !!config?.cryptopayEnabled, tariff.currency), pay2.entities);
       return;
     }
 
@@ -2139,7 +2223,7 @@ bot.on("callback_query:data", async (ctx) => {
       const currencies = config?.activeCurrencies?.length ? config.activeCurrencies : ["usd", "rub"];
       const { text, entities } = titleWithEmoji(
         "PROFILE",
-        `Профиль\n\nБаланс: ${formatMoney(client.balance, client.preferredCurrency)}\nЯзык: ${client.preferredLang}\nВалюта: ${client.preferredCurrency}\n\nИзменить:`,
+        `Профиль\n\nБаланс: ${formatMoney(client?.balance ?? 0, client?.preferredCurrency ?? "usd")}\nЯзык: ${client?.preferredLang ?? "ru"}\nВалюта: ${client?.preferredCurrency ?? "usd"}\n\nИзменить:`,
         config?.botEmojis
       );
       await editMessageContent(ctx, text, profileButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds), entities);
@@ -2297,6 +2381,25 @@ bot.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    if (data.startsWith("topup_cryptopay:")) {
+      const amountStr = data.slice("topup_cryptopay:".length);
+      const amount = Number(amountStr);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        await editMessageContent(ctx, "Неверная сумма.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const client = await api.getMe(token);
+      try {
+        const payment = await api.createCryptopayPayment(token, { amount, currency: client.preferredCurrency ?? "RUB" });
+        const cpTopup = titleWithEmoji("CARD", `Пополнение на ${formatMoney(amount, client.preferredCurrency ?? "RUB")}\n\nНажмите кнопку ниже для оплаты через Crypto Bot:`, config?.botEmojis);
+        await editMessageContent(ctx, cpTopup.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), cpTopup.entities);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания платежа Crypto Bot";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     if (data.startsWith("topup:")) {
       const rest = data.slice("topup:".length);
       const parts = rest.split(":");
@@ -2322,9 +2425,10 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const yooEnabled = !!config?.yoomoneyEnabled;
       const yookassaEnabled = !!config?.yookassaEnabled;
-      if (methods.length > 1 || (methods.length >= 1 && (yooEnabled || yookassaEnabled)) || (methods.length === 0 && (yooEnabled && yookassaEnabled))) {
+      const cryptopayEnabled = !!config?.cryptopayEnabled;
+      if (methods.length > 1 || (methods.length >= 1 && (yooEnabled || yookassaEnabled || cryptopayEnabled)) || (methods.length === 0 && ((yooEnabled && yookassaEnabled) || (yooEnabled && cryptopayEnabled) || (yookassaEnabled && cryptopayEnabled)))) {
         const topupPay2 = titleWithEmoji("CARD", `Пополнение на ${formatMoney(amount, client.preferredCurrency)}\n\nВыберите способ оплаты:`, config?.botEmojis);
-        await editMessageContent(ctx, topupPay2.text, topupPaymentMethodButtons(amountStr, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, yooEnabled, yookassaEnabled), topupPay2.entities);
+        await editMessageContent(ctx, topupPay2.text, topupPaymentMethodButtons(amountStr, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, yooEnabled, yookassaEnabled, cryptopayEnabled), topupPay2.entities);
         return;
       }
       // Если ЮMoney единственный способ (нет platega, нет ЮKassa) — сразу создаём платёж ЮMoney
@@ -2614,7 +2718,8 @@ bot.on("message:text", async (ctx) => {
     const methods = config?.plategaMethods ?? [];
     const yooEnabled = !!config?.yoomoneyEnabled;
     const yookassaEnabledMsg = !!config?.yookassaEnabled;
-    if (!methods.length && !yooEnabled && !yookassaEnabledMsg) {
+    const cryptopayEnabledMsg = !!config?.cryptopayEnabled;
+    if (!methods.length && !yooEnabled && !yookassaEnabledMsg && !cryptopayEnabledMsg) {
       await ctx.reply("Пополнение временно недоступно.");
       return;
     }
@@ -2632,11 +2737,11 @@ bot.on("message:text", async (ctx) => {
           connect: botEmojis.SERVERS?.tgEmojiId || botEmojis.CONNECT?.tgEmojiId,
         }
       : undefined;
-    if (methods.length > 1 || (methods.length >= 1 && (yooEnabled || yookassaEnabledMsg)) || (methods.length === 0 && yooEnabled && yookassaEnabledMsg)) {
+    if (methods.length > 1 || (methods.length >= 1 && (yooEnabled || yookassaEnabledMsg || cryptopayEnabledMsg)) || (methods.length === 0 && ((yooEnabled && yookassaEnabledMsg) || (yooEnabled && cryptopayEnabledMsg) || (yookassaEnabledMsg && cryptopayEnabledMsg)))) {
       const topupMsg1 = titleWithEmoji("CARD", `Пополнение на ${formatMoney(num, client.preferredCurrency)}\n\nВыберите способ оплаты:`, config?.botEmojis);
       await ctx.reply(topupMsg1.text, {
         entities: topupMsg1.entities.length ? topupMsg1.entities : undefined,
-        reply_markup: topupPaymentMethodButtons(String(num), methods, config?.botBackLabel ?? null, backStyle, msgEmojiIds, yooEnabled, yookassaEnabledMsg),
+        reply_markup: topupPaymentMethodButtons(String(num), methods, config?.botBackLabel ?? null, backStyle, msgEmojiIds, yooEnabled, yookassaEnabledMsg, cryptopayEnabledMsg),
       });
       return;
     }
@@ -2657,6 +2762,16 @@ bot.on("message:text", async (ctx) => {
       await ctx.reply(topupMsgYoo.text, {
         entities: topupMsgYoo.entities.length ? topupMsgYoo.entities : undefined,
         reply_markup: payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, backStyle, msgEmojiIds),
+      });
+      return;
+    }
+    // Если только Crypto Pay
+    if (methods.length === 0 && cryptopayEnabledMsg) {
+      const payment = await api.createCryptopayPayment(token, { amount: num, currency: client.preferredCurrency });
+      const topupMsgCp = titleWithEmoji("CARD", `Пополнение на ${formatMoney(num, client.preferredCurrency)}\n\nНажмите кнопку ниже для оплаты через Crypto Bot:`, config?.botEmojis);
+      await ctx.reply(topupMsgCp.text, {
+        entities: topupMsgCp.entities.length ? topupMsgCp.entities : undefined,
+        reply_markup: payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, backStyle, msgEmojiIds),
       });
       return;
     }

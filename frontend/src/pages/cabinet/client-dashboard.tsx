@@ -143,6 +143,9 @@ export function ClientDashboardPage() {
     } else if (searchParams.get("yookassa") === "success") {
       setSearchParams({}, { replace: true });
       if (token) refreshProfile().catch(() => {});
+    } else if (searchParams.get("heleket") === "success") {
+      setSearchParams({}, { replace: true });
+      if (token) refreshProfile().catch(() => {});
     }
   }, [searchParams, setSearchParams, token, refreshProfile]);
 

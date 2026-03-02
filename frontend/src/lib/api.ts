@@ -13,6 +13,8 @@ export interface Admin {
   role: string;
   /** Для роли MANAGER — список разделов, к которым есть доступ. Для ADMIN не используется. */
   allowedSections?: string[];
+  /** Включена ли двухфакторная аутентификация */
+  totpEnabled?: boolean;
 }
 
 /** Разделы, которые можно выдать менеджеру (без "admins"). */
@@ -50,10 +52,18 @@ export interface LoginResponse {
   admin: Admin;
 }
 
+/** Ответ входа, когда у админа включена 2FA */
+export interface AdminAuthRequires2FA {
+  requires2FA: true;
+  tempToken: string;
+}
+
 export interface AuthState {
   admin: Admin | null;
   accessToken: string | null;
   refreshToken: string | null;
+  /** Временный токен для шага 2FA после проверки пароля */
+  pending2FAToken: string | null;
 }
 
 async function request<T>(
@@ -89,11 +99,32 @@ async function request<T>(
 }
 
 export const api = {
-  async login(email: string, password: string): Promise<LoginResponse> {
-    return request<LoginResponse>("/auth/login", {
+  async login(email: string, password: string): Promise<LoginResponse | AdminAuthRequires2FA> {
+    return request<LoginResponse | AdminAuthRequires2FA>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+  },
+
+  /** Обмен временного токена на access/refresh после ввода кода 2FA */
+  async admin2FALogin(tempToken: string, code: string): Promise<LoginResponse> {
+    return request("/auth/2fa-login", {
+      method: "POST",
+      body: JSON.stringify({ tempToken, code }),
+    });
+  },
+
+  /** Запуск настройки 2FA админа (возвращает secret и otpauthUrl для QR) */
+  async admin2FASetup(token: string): Promise<{ secret: string; otpauthUrl: string }> {
+    return request("/auth/2fa/setup", { method: "POST", token });
+  },
+  /** Подтвердить включение 2FA админа кодом из приложения */
+  async admin2FAConfirm(token: string, code: string): Promise<{ message: string }> {
+    return request("/auth/2fa/confirm", { method: "POST", body: JSON.stringify({ code }), token });
+  },
+  /** Отключить 2FA админа (требуется код из приложения) */
+  async admin2FADisable(token: string, code: string): Promise<{ message: string }> {
+    return request("/auth/2fa/disable", { method: "POST", body: JSON.stringify({ code }), token });
   },
 
   async refresh(refreshToken: string): Promise<{ accessToken: string; expiresIn: string; admin: Admin }> {
@@ -668,21 +699,21 @@ export const api = {
   },
 
   // ——— Кабинет клиента (клиентский API) ———
-  async clientLogin(email: string, password: string): Promise<ClientAuthResponse> {
+  async clientLogin(email: string, password: string): Promise<ClientAuthResponse | ClientAuthRequires2FA> {
     return request("/client/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
   },
 
-  async clientRegister(data: ClientRegisterPayload): Promise<ClientAuthResponse | { message: string; requiresVerification: true }> {
+  async clientRegister(data: ClientRegisterPayload): Promise<ClientAuthResponse | ClientAuthRequires2FA | { message: string; requiresVerification: true }> {
     return request("/client/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
   },
 
-  async clientVerifyEmail(token: string): Promise<ClientAuthResponse> {
+  async clientVerifyEmail(token: string): Promise<ClientAuthResponse | ClientAuthRequires2FA> {
     return request("/client/auth/verify-email", {
       method: "POST",
       body: JSON.stringify({ token }),
@@ -690,10 +721,17 @@ export const api = {
   },
 
   /** Авторизация по initData из Telegram Mini App (Web App) */
-  async clientAuthByTelegramMiniapp(initData: string): Promise<ClientAuthResponse> {
+  async clientAuthByTelegramMiniapp(initData: string): Promise<ClientAuthResponse | ClientAuthRequires2FA> {
     return request("/client/auth/telegram-miniapp", {
       method: "POST",
       body: JSON.stringify({ initData }),
+    });
+  },
+  /** Обмен временного токена (после пароля/Telegram) на полный токен по коду 2FA */
+  async client2FALogin(tempToken: string, code: string): Promise<ClientAuthResponse> {
+    return request("/client/auth/2fa-login", {
+      method: "POST",
+      body: JSON.stringify({ tempToken, code }),
     });
   },
 
@@ -707,6 +745,29 @@ export const api = {
 
   async clientPayments(token: string): Promise<{ items: ClientPayment[] }> {
     return request("/client/payments", { token });
+  },
+
+  /** Список устройств (HWID) пользователя в Remna */
+  async getClientDevices(token: string): Promise<{ total: number; devices: { hwid: string; platform?: string; deviceModel?: string; createdAt?: string }[] }> {
+    return request("/client/devices", { token });
+  },
+
+  /** Удалить устройство по HWID */
+  async deleteClientDevice(token: string, hwid: string): Promise<{ ok: boolean; message?: string }> {
+    return request("/client/devices/delete", { method: "POST", body: JSON.stringify({ hwid }), token });
+  },
+
+  /** Запуск настройки 2FA: возвращает secret и otpauthUrl для QR */
+  async client2FASetup(token: string): Promise<{ secret: string; otpauthUrl: string }> {
+    return request("/client/2fa/setup", { method: "POST", token });
+  },
+  /** Подтвердить включение 2FA кодом из приложения */
+  async client2FAConfirm(token: string, code: string): Promise<{ message: string }> {
+    return request("/client/2fa/confirm", { method: "POST", body: JSON.stringify({ code }), token });
+  },
+  /** Отключить 2FA (требуется код из приложения) */
+  async client2FADisable(token: string, code: string): Promise<{ message: string }> {
+    return request("/client/2fa/disable", { method: "POST", body: JSON.stringify({ code }), token });
   },
 
   async clientCreatePlategaPayment(
@@ -803,6 +864,22 @@ export const api = {
     return request("/client/yookassa/create-payment", { method: "POST", body: JSON.stringify(data), token });
   },
 
+  /** Crypto Pay (Crypto Bot) — создание инвойса, возвращает ссылку на оплату */
+  async cryptopayCreatePayment(
+    token: string,
+    data: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  ): Promise<{ paymentId: string; payUrl: string; miniAppPayUrl?: string; webAppPayUrl?: string }> {
+    return request("/client/cryptopay/create-payment", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  /** Heleket — создание инвойса (крипто), возвращает ссылку на оплату */
+  async heleketCreatePayment(
+    token: string,
+    data: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  ): Promise<{ paymentId: string; payUrl: string }> {
+    return request("/client/heleket/create-payment", { method: "POST", body: JSON.stringify(data), token });
+  },
+
   async clientActivateTrial(token: string): Promise<{ message: string; client: ClientProfile | null }> {
     return request("/client/trial", { method: "POST", token });
   },
@@ -827,7 +904,7 @@ export const api = {
   },
 
   /** Подтвердить привязку email по токену из письма (без Bearer; возвращает token и client) */
-  async clientVerifyLinkEmail(verificationToken: string): Promise<ClientAuthResponse> {
+  async clientVerifyLinkEmail(verificationToken: string): Promise<ClientAuthResponse | ClientAuthRequires2FA> {
     return request("/client/auth/verify-link-email", { method: "POST", body: JSON.stringify({ token: verificationToken }) });
   },
 
@@ -1042,6 +1119,10 @@ export type UpdateSettingsPayload = {
   yoomoneyNotificationSecret?: string | null;
   yookassaShopId?: string | null;
   yookassaSecretKey?: string | null;
+  cryptopayApiToken?: string | null;
+  cryptopayTestnet?: boolean;
+  heleketMerchantId?: string | null;
+  heleketApiKey?: string | null;
   botButtons?: string | null;
   botButtonsPerRow?: 1 | 2;
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | string | null;
@@ -1156,6 +1237,10 @@ export interface AdminSettings {
   yoomoneyNotificationSecret?: string | null;
   yookassaShopId?: string | null;
   yookassaSecretKey?: string | null;
+  cryptopayApiToken?: string | null;
+  cryptopayTestnet?: boolean;
+  heleketMerchantId?: string | null;
+  heleketApiKey?: string | null;
   /** Кнопки главного меню бота: порядок, видимость, текст, стиль, ключ эмодзи, в один ряд */
   botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; emojiKey?: string; onePerRow?: boolean }[];
   /** Кнопок в ряд в главном меню: 1 или 2 (по умолчанию 1) */
@@ -1240,12 +1325,15 @@ export interface DashboardStats {
   users: {
     total: number;
     withRemna: number;
+    newToday: number;
     newLast7Days: number;
     newLast30Days: number;
   };
   sales: {
     totalAmount: number;
     totalCount: number;
+    todayAmount: number;
+    todayCount: number;
     last7DaysAmount: number;
     last7DaysCount: number;
     last30DaysAmount: number;
@@ -1516,12 +1604,20 @@ export interface ClientProfile {
   isBlocked: boolean;
   /** Кошелёк ЮMoney подключён (токен сохранён) */
   yoomoneyConnected?: boolean;
+  /** Включена ли двухфакторная аутентификация (TOTP) */
+  totpEnabled?: boolean;
   createdAt?: string;
 }
 
 export interface ClientAuthResponse {
   token: string;
   client: ClientProfile;
+}
+
+/** Ответ входа, когда включена 2FA: нужен шаг ввода кода. */
+export interface ClientAuthRequires2FA {
+  requires2FA: true;
+  tempToken: string;
 }
 
 export type ClientRegisterPayload = {
@@ -1682,6 +1778,8 @@ export interface PublicConfig {
   plategaMethods?: { id: number; label: string }[];
   yoomoneyEnabled?: boolean;
   yookassaEnabled?: boolean;
+  cryptopayEnabled?: boolean;
+  heleketEnabled?: boolean;
   trialEnabled?: boolean;
   trialDays?: number;
   themeAccent?: string;

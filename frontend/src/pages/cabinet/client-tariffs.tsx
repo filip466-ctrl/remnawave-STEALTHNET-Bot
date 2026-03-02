@@ -40,6 +40,8 @@ export function ClientTariffsPage() {
   const [plategaMethods, setPlategaMethods] = useState<{ id: number; label: string }[]>([]);
   const [yoomoneyEnabled, setYoomoneyEnabled] = useState(false);
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
+  const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
+  const [heleketEnabled, setHeleketEnabled] = useState(false);
   const [trialConfig, setTrialConfig] = useState<{ trialEnabled: boolean; trialDays: number }>({ trialEnabled: false, trialDays: 0 });
   const [payModal, setPayModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -79,6 +81,8 @@ export function ClientTariffsPage() {
       setPlategaMethods(c.plategaMethods ?? []);
       setYoomoneyEnabled(Boolean(c.yoomoneyEnabled));
       setYookassaEnabled(Boolean(c.yookassaEnabled));
+      setCryptopayEnabled(Boolean(c.cryptopayEnabled));
+      setHeleketEnabled(Boolean(c.heleketEnabled));
       setTrialConfig({ trialEnabled: !!c.trialEnabled, trialDays: c.trialDays ?? 0 });
     }).catch(() => {});
   }, []);
@@ -231,6 +235,52 @@ export function ClientTariffsPage() {
       setPromoInput("");
       setPromoResult(null);
       if (res.confirmationUrl) openPaymentInBrowser(res.confirmationUrl);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startCryptopayPayment(tariff: TariffForPay) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const amount = promoResult ? getDiscountedPrice(tariff.price) : tariff.price;
+      const res = await api.cryptopayCreatePayment(token, {
+        amount,
+        currency: tariff.currency,
+        tariffId: tariff.id,
+        promoCode: promoResult ? promoInput.trim() : undefined,
+      });
+      setPayModal(null);
+      setPromoInput("");
+      setPromoResult(null);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startHeleketPayment(tariff: TariffForPay) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const amount = promoResult ? getDiscountedPrice(tariff.price) : tariff.price;
+      const res = await api.heleketCreatePayment(token, {
+        amount,
+        currency: tariff.currency,
+        tariffId: tariff.id,
+        promoCode: promoResult ? promoInput.trim() : undefined,
+      });
+      setPayModal(null);
+      setPromoInput("");
+      setPromoResult(null);
+      if (res.payUrl) openPaymentInBrowser(res.payUrl);
     } catch (e) {
       setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
     } finally {
@@ -515,6 +565,32 @@ export function ClientTariffsPage() {
               >
                 {payLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CreditCard className="h-4 w-4 shrink-0" />}
                 ЮKassa — карта / СБП
+              </Button>
+            )}
+
+            {/* Crypto Pay (Crypto Bot) */}
+            {payModal && cryptopayEnabled && (
+              <Button
+                variant="outline"
+                className="justify-start gap-2"
+                disabled={payLoading}
+                onClick={() => startCryptopayPayment(payModal.tariff)}
+              >
+                {payLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CreditCard className="h-4 w-4 shrink-0" />}
+                Crypto Bot — криптовалюта
+              </Button>
+            )}
+
+            {/* Heleket */}
+            {payModal && heleketEnabled && (
+              <Button
+                variant="outline"
+                className="justify-start gap-2"
+                disabled={payLoading}
+                onClick={() => startHeleketPayment(payModal.tariff)}
+              >
+                {payLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CreditCard className="h-4 w-4 shrink-0" />}
+                Heleket — криптовалюта
               </Button>
             )}
 

@@ -7,6 +7,7 @@ import { env } from "../../config/index.js";
 const SALT_ROUNDS = 12;
 
 export type ClientTokenPayload = { clientId: string; type: "client_access" };
+export type Client2FAPendingPayload = { clientId: string; type: "client_2fa_pending" };
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
@@ -33,6 +34,24 @@ export function verifyClientToken(token: string): ClientTokenPayload | null {
   }
 }
 
+/** Временный токен для шага «ввод кода 2FA» после успешной проверки пароля/Telegram. Живёт 5 минут. */
+export function signClient2FAPendingToken(clientId: string, expiresIn = "5m"): string {
+  return jwt.sign(
+    { clientId, type: "client_2fa_pending" } as Client2FAPendingPayload,
+    env.JWT_SECRET,
+    { expiresIn } as jwt.SignOptions
+  );
+}
+
+export function verifyClient2FAPendingToken(token: string): Client2FAPendingPayload | null {
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as Client2FAPendingPayload;
+    return decoded?.type === "client_2fa_pending" ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 export function generateReferralCode(): string {
   return "REF-" + randomBytes(4).toString("hex").toUpperCase();
 }
@@ -49,6 +68,8 @@ const SYSTEM_CONFIG_KEYS = [
   "platega_merchant_id", "platega_secret", "platega_methods",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key",
+  "cryptopay_api_token", "cryptopay_testnet",
+  "heleket_merchant_id", "heleket_api_key",
   "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_menu_line_visibility", "bot_inner_button_styles",
   "bot_tariffs_text", "bot_tariffs_fields", "bot_payment_text",
   "bot_emojis", // JSON: { "TRIAL": { "unicode": "🎁", "tgEmojiId": "..." }, "PACKAGE": ... } — эмодзи кнопок/текста, TG ID для премиум
@@ -379,6 +400,10 @@ export async function getSystemConfig() {
     yoomoneyNotificationSecret: map.yoomoney_notification_secret || null,
     yookassaShopId: map.yookassa_shop_id || null,
     yookassaSecretKey: map.yookassa_secret_key || null,
+    cryptopayApiToken: (map.cryptopay_api_token ?? "").trim() || null,
+    cryptopayTestnet: map.cryptopay_testnet === "true" || map.cryptopay_testnet === "1",
+    heleketMerchantId: (map.heleket_merchant_id ?? "").trim() || null,
+    heleketApiKey: (map.heleket_api_key ?? "").trim() || null,
     botButtons: parseBotButtons(map.bot_buttons),
     botButtonsPerRow: map.bot_buttons_per_row === "2" ? 2 : 1,
     botEmojis: parseBotEmojis(map.bot_emojis),
@@ -654,6 +679,8 @@ export async function getPublicConfig() {
     plategaMethods: full.plategaMethods.filter((m) => m.enabled).map((m) => ({ id: m.id, label: m.label })),
     yoomoneyEnabled: Boolean(full.yoomoneyReceiverWallet?.trim()),
     yookassaEnabled: Boolean(full.yookassaShopId?.trim() && full.yookassaSecretKey?.trim()),
+    cryptopayEnabled: Boolean((full as { cryptopayApiToken?: string | null }).cryptopayApiToken?.trim()),
+    heleketEnabled: Boolean((full as { heleketMerchantId?: string | null }).heleketMerchantId?.trim() && (full as { heleketApiKey?: string | null }).heleketApiKey?.trim()),
     trialEnabled,
     trialDays,
     botButtons: resolvedButtons,
