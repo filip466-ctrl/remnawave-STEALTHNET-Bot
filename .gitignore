@@ -1,8 +1,5 @@
 # Dependencies
 node_modules/
-/keys/
-GEMINI.md
-server_info.md
 
 # Build
 dist/
@@ -45,9 +42,6 @@ frontend/dist/
 # Antigravity / Gemini Instructions
 GEMINI.md
 server_info.md
-
-# Roo MCP config (содержит токены/секреты)
-.roo/mcp.json
 
 # Docker Compose local overrides (server-specific)
 docker-compose.override.yml
