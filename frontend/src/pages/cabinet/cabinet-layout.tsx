@@ -320,7 +320,7 @@ function SettingsPopover() {
       </Button>
       <div
         className={cn(
-          "absolute right-0 top-full z-50 mt-3 w-[260px] rounded-3xl border border-white/10 dark:border-white/5 bg-background/70 backdrop-blur-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 origin-top-right",
+          "absolute -right-2 sm:right-0 top-full z-50 mt-3 w-[calc(100vw-2rem)] sm:w-[260px] max-w-[260px] rounded-[2rem] border border-white/40 dark:border-white/10 bg-slate-200/60 dark:bg-slate-900/60 backdrop-blur-[32px] p-5 shadow-[0_10px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_60px_rgba(0,0,0,0.5)] transition-all duration-300 origin-top-right",
           show ? "opacity-100 scale-100 pointer-events-auto translate-y-0" : "opacity-0 scale-95 pointer-events-none -translate-y-2"
         )}
       >
@@ -401,6 +401,7 @@ function MobileCabinetShell() {
           </Link>
           <div className="flex items-center gap-1.5 shrink-0">
             <ThemePopover />
+            <SettingsPopover />
             <Button variant="ghost" size="icon" className="shrink-0 bg-background/20 hover:bg-background/40 text-muted-foreground hover:text-foreground" asChild>
               <Link to="/cabinet/login" onClick={() => logout()} title="Выйти">
                 <LogOut className="h-5 w-5" />
