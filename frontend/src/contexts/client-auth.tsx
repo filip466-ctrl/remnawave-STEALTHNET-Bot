@@ -104,8 +104,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     const auth = res as ClientAuthResponse;
-    setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-    saveState(auth.token, auth.client);
+    if (auth.token) {
+      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(auth.token, auth.client);
+    }
   }, []);
 
   const register = useCallback(
@@ -130,8 +132,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       const authRes = res as ClientAuthResponse;
-      setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-      saveState(authRes.token, authRes.client);
+      if (authRes.token) {
+        setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+        saveState(authRes.token, authRes.client);
+      }
     },
     []
   );
@@ -154,8 +158,8 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
         return;
       }
-      if ("token" in res && res.token) {
-        const authRes = res as ClientAuthResponse;
+      const authRes = res as unknown as ClientAuthResponse;
+      if (authRes && authRes.token) {
         setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
         saveState(authRes.token, authRes.client);
       }
@@ -170,8 +174,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     const auth = res as ClientAuthResponse;
-    setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-    saveState(auth.token, auth.client);
+    if (auth.token) {
+      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(auth.token, auth.client);
+    }
   }, []);
 
   const verifyLinkEmail = useCallback(async (verificationToken: string) => {
@@ -181,8 +187,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     const auth = res as ClientAuthResponse;
-    setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-    saveState(auth.token, auth.client);
+    if (auth.token) {
+      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(auth.token, auth.client);
+    }
   }, []);
 
   const submit2FACode = useCallback(async (code: string) => {
