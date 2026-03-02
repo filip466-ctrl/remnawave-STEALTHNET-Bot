@@ -155,8 +155,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       if ("token" in res && res.token) {
-        setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-        saveState(res.token, res.client);
+        const authRes = res as ClientAuthResponse;
+        setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+        saveState(authRes.token, authRes.client);
       }
     },
     []
