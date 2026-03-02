@@ -10,6 +10,7 @@ import { GlassSelect } from "@/components/ui/glass-select";
 import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check, Loader2, Settings } from "lucide-react";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { cn } from "@/lib/utils";
+import { FloatingChat } from "@/components/floating-chat";
 
 function AnalyticsScripts() {
   useEffect(() => {
@@ -386,6 +387,7 @@ function MobileCabinetShell() {
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-20">
+      <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="absolute inset-0 bg-card/40 backdrop-blur-xl -z-10 pointer-events-none" />
         <div className="relative flex h-14 items-center justify-between gap-3 px-4 min-w-0 w-full max-w-7xl mx-auto">
@@ -479,6 +481,7 @@ function CabinetShell() {
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent">
+      <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shadow-sm transition-all duration-300">
         <div className="absolute inset-0 bg-card/40 backdrop-blur-xl -z-10 pointer-events-none" />
         <div className="relative w-full max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4">
