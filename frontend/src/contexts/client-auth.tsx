@@ -48,6 +48,10 @@ function saveState(token: string | null, client: ClientProfile | null) {
   else localStorage.removeItem(STORAGE_CLIENT);
 }
 
+function isAuthResponse(res: any): res is ClientAuthResponse {
+  return !!res && typeof res.token === "string" && !!res.client;
+}
+
 export function ClientAuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ClientAuthState>(() => ({ ...loadState(), miniappAuthLoading: false, miniappAuthAttempted: false, pending2FAToken: null }));
   const miniappAttemptedRef = useRef(false);
@@ -73,9 +77,10 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
           setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
           return;
         }
-        const auth = res as { token: string; client: ClientProfile };
-        setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-        saveState(auth.token, auth.client);
+        if (isAuthResponse(res)) {
+          setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+          saveState(res.token, res.client);
+        }
       })
       .catch(() => {
         setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true }));
@@ -103,10 +108,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
       return;
     }
-    const auth = res as ClientAuthResponse;
-    if (auth.token) {
-      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-      saveState(auth.token, auth.client);
+    if (isAuthResponse(res)) {
+      setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(res.token, res.client);
     }
   }, []);
 
@@ -131,10 +135,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
         return;
       }
-      const authRes = res as ClientAuthResponse;
-      if (authRes.token) {
-        setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-        saveState(authRes.token, authRes.client);
+      if (isAuthResponse(res)) {
+        setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+        saveState(res.token, res.client);
       }
     },
     []
@@ -158,10 +161,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
         return;
       }
-      const authRes = res as unknown as ClientAuthResponse;
-      if (authRes && authRes.token) {
-        setState({ token: authRes.token, client: authRes.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-        saveState(authRes.token, authRes.client);
+      if (isAuthResponse(res)) {
+        setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+        saveState(res.token, res.client);
       }
     },
     []
@@ -173,10 +175,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
       return;
     }
-    const auth = res as ClientAuthResponse;
-    if (auth.token) {
-      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-      saveState(auth.token, auth.client);
+    if (isAuthResponse(res)) {
+      setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(res.token, res.client);
     }
   }, []);
 
@@ -186,10 +187,9 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken }));
       return;
     }
-    const auth = res as ClientAuthResponse;
-    if (auth.token) {
-      setState({ token: auth.token, client: auth.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
-      saveState(auth.token, auth.client);
+    if (isAuthResponse(res)) {
+      setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null });
+      saveState(res.token, res.client);
     }
   }, []);
 
