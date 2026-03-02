@@ -190,7 +190,7 @@ export function FloatingChat() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth">
                 <AnimatePresence mode="popLayout">
-                  {messages.map((msg, i) => {
+                  {messages.map((msg) => {
                     const isUser = msg.from === "user";
                     return (
                       <motion.div
