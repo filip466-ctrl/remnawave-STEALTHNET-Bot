@@ -922,43 +922,15 @@ export function ClientProfilePage() {
           )}
 
           <div className="flex flex-col gap-3">
-            {yoomoneyEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
-                disabled={topUpLoading}
-                onClick={() => startTopUpYoomoneyForm("AC")}
-              >
-                <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-purple-500" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
-                </div>
-                <span className="text-base font-medium">ЮMoney</span>
-              </Button>
-            )}
-            {yookassaEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
-                disabled={topUpLoading}
-                onClick={() => startTopUpYookassa()}
-              >
-                <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-blue-500" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
-                </div>
-                <span className="text-base font-medium">ЮKassa</span>
-              </Button>
-            )}
             {cryptopayEnabled && (
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
                 disabled={topUpLoading}
                 onClick={() => startTopUpCryptopay()}
               >
-                <div className="p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                <div className="absolute left-6 p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
                   {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Globe className="h-5 w-5 text-yellow-500" />}
                 </div>
                 <span className="text-base font-medium">Crypto Bot</span>
@@ -968,14 +940,42 @@ export function ClientProfilePage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
                 disabled={topUpLoading}
                 onClick={() => startTopUpHeleket()}
               >
-                <div className="p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                <div className="absolute left-6 p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
                   {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Globe className="h-5 w-5 text-orange-500" />}
                 </div>
                 <span className="text-base font-medium">Heleket</span>
+              </Button>
+            )}
+            {yookassaEnabled && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
+                disabled={topUpLoading}
+                onClick={() => startTopUpYookassa()}
+              >
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">СБП</span>
+              </Button>
+            )}
+            {yoomoneyEnabled && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
+                disabled={topUpLoading}
+                onClick={() => startTopUpYoomoneyForm("AC")}
+              >
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">Карты</span>
               </Button>
             )}
             {plategaMethods.map((m) => (
@@ -983,11 +983,11 @@ export function ClientProfilePage() {
                 key={m.id}
                 size="lg"
                 variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
                 disabled={topUpLoading}
                 onClick={() => startTopUp(m.id)}
               >
-                <div className="p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                   {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
                 </div>
                 <span className="text-base font-medium">{m.label}</span>

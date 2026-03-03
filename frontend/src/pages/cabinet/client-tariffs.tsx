@@ -501,28 +501,32 @@ export function ClientTariffsPage() {
         <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="mb-4 text-center sm:text-left">
             <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
-              <Shield className="h-6 w-6 text-primary" />
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Shield className="h-6 w-6 text-primary" />
+              </div>
               Оплата тарифа
             </DialogTitle>
             <DialogDescription className="text-base font-medium mt-2">
               {payModal ? (
-                <div className="flex flex-col gap-1.5 mt-2 bg-background/50 p-4 rounded-2xl border border-border/50 text-left">
-                  <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2 mt-4 bg-background/50 p-4 rounded-2xl border border-border/50 text-left relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex justify-between items-center relative z-10">
                     <span className="text-muted-foreground">Тариф:</span>
                     <span className="font-semibold text-foreground text-right ml-2">{payModal.tariff.name}</span>
                   </div>
+                  <div className="h-px w-full bg-border/50 my-1 relative z-10" />
                   {promoResult ? (
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center relative z-10">
                       <span className="text-muted-foreground">К оплате:</span>
                       <div className="flex items-center gap-2">
                         <span className="line-through text-muted-foreground/70 decoration-2">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
-                        <span className="font-bold text-lg text-primary">{formatMoney(getDiscountedPrice(payModal.tariff.price), payModal.tariff.currency)}</span>
+                        <span className="font-bold text-xl text-primary">{formatMoney(getDiscountedPrice(payModal.tariff.price), payModal.tariff.currency)}</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center relative z-10">
                       <span className="text-muted-foreground">К оплате:</span>
-                      <span className="font-bold text-lg text-primary">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
+                      <span className="font-bold text-xl text-primary">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
                     </div>
                   )}
                 </div>
@@ -531,7 +535,8 @@ export function ClientTariffsPage() {
           </DialogHeader>
 
           {/* Промокод */}
-          <div className="bg-background/40 border border-border/50 rounded-2xl p-4 space-y-3 mb-4 transition-all duration-300 focus-within:border-primary/50 focus-within:bg-background/60 hover:border-primary/30">
+          <div className="bg-background/40 border border-border/50 rounded-2xl p-4 space-y-3 mb-4 transition-all duration-300 focus-within:border-primary/50 focus-within:bg-background/60 hover:border-primary/30 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
               <div className="p-1.5 bg-primary/10 rounded-lg">
                 <Tag className="h-4 w-4 text-primary" />
@@ -592,40 +597,17 @@ export function ClientTariffsPage() {
                   size="lg"
                   onClick={() => payByBalance(payModal.tariff)}
                   disabled={payLoading || !hasBalance}
-                  className="w-full gap-2 shadow-lg hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 bg-gradient-to-r from-primary to-primary/80"
+                  className="w-full gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 bg-gradient-to-r from-primary to-primary/80 relative overflow-hidden group"
                 >
-                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" />}
-                  <span className="text-base font-semibold">Оплатить с баланса</span>
-                  <span className="opacity-80 font-normal ml-1">({formatMoney(client.balance, payModal.tariff.currency)})</span>
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin relative z-10" /> : <Wallet className="h-5 w-5 relative z-10" />}
+                  <span className="text-base font-semibold relative z-10">Оплатить с баланса</span>
+                  <span className="opacity-90 font-medium ml-1 bg-black/10 px-2 py-0.5 rounded-md relative z-10">
+                    ({formatMoney(client.balance, payModal.tariff.currency)})
+                  </span>
                 </Button>
               );
             })()}
-
-            {yoomoneyEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => startYoomoneyPayment(payModal.tariff)}
-                disabled={payLoading}
-                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
-              >
-                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
-                <span className="text-base font-medium">ЮMoney (Российские карты)</span>
-              </Button>
-            )}
-
-            {yookassaEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => startYookassaPayment(payModal.tariff)}
-                disabled={payLoading}
-                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
-              >
-                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
-                <span className="text-base font-medium">ЮKassa (Карта / СБП)</span>
-              </Button>
-            )}
 
             {cryptopayEnabled && payModal && (
               <Button
@@ -633,9 +615,11 @@ export function ClientTariffsPage() {
                 variant="outline"
                 onClick={() => startCryptopayPayment(payModal.tariff)}
                 disabled={payLoading}
-                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
               >
-                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-yellow-500" />}
+                <div className="absolute left-6 p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Zap className="h-5 w-5 text-yellow-500" />}
+                </div>
                 <span className="text-base font-medium">Crypto Bot (Криптовалюта)</span>
               </Button>
             )}
@@ -646,10 +630,42 @@ export function ClientTariffsPage() {
                 variant="outline"
                 onClick={() => startHeleketPayment(payModal.tariff)}
                 disabled={payLoading}
-                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
               >
-                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-orange-500" />}
+                <div className="absolute left-6 p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Zap className="h-5 w-5 text-orange-500" />}
+                </div>
                 <span className="text-base font-medium">Heleket (Криптовалюта)</span>
+              </Button>
+            )}
+
+            {yookassaEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYookassaPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
+              >
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">СБП</span>
+              </Button>
+            )}
+
+            {yoomoneyEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYoomoneyPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
+              >
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">Карты</span>
               </Button>
             )}
 
@@ -660,16 +676,18 @@ export function ClientTariffsPage() {
                 variant="outline"
                 onClick={() => startPayment(payModal.tariff, m.id)}
                 disabled={payLoading}
-                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
               >
-                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
                 <span className="text-base font-medium">{m.label}</span>
               </Button>
             ))}
           </div>
 
           <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
-            <Button variant="ghost" onClick={() => { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); }} disabled={payLoading} className="rounded-xl hover:bg-background/50">
+            <Button variant="ghost" onClick={() => { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); }} disabled={payLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">
               Отмена
             </Button>
           </DialogFooter>
