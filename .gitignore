@@ -32,8 +32,8 @@ backend/prisma/migrations/*_migration.sql
 
 # Nginx: сгенерированный конфиг (создаётся install.sh, у каждого сервера свой)
 # Если файл уже в репозитории — один раз: git rm --cached nginx/nginx.conf && git commit -m "Stop tracking nginx.conf"
-nginx/nginx.conf
-nginx/ssl/
+/nginx/nginx.conf
+/nginx/ssl/
 
 # Frontend dist
 frontend/dist/

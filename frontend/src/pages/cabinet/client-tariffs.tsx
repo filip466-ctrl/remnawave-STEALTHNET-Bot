@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown } from "lucide-react";
+import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import type { PublicTariffCategory } from "@/lib/api";
@@ -84,7 +84,7 @@ export function ClientTariffsPage() {
       setCryptopayEnabled(Boolean(c.cryptopayEnabled));
       setHeleketEnabled(Boolean(c.heleketEnabled));
       setTrialConfig({ trialEnabled: !!c.trialEnabled, trialDays: c.trialDays ?? 0 });
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   async function activateTrial() {
@@ -334,7 +334,7 @@ export function ClientTariffsPage() {
         <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-sm">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
             <Package className="h-12 w-12 opacity-20" />
-            <p className="text-base font-medium text-center">Тарифы пока не опубликованы.<br/>Обратитесь в поддержку.</p>
+            <p className="text-base font-medium text-center">Тарифы пока не опубликованы.<br />Обратитесь в поддержку.</p>
           </CardContent>
         </Card>
       ) : useCategoryCardLayout ? (
@@ -443,7 +443,7 @@ export function ClientTariffsPage() {
                           <p className="text-sm text-muted-foreground font-medium mt-1.5 line-clamp-2">{t.description}</p>
                         ) : null}
                       </div>
-                      
+
                       <div className="flex flex-col gap-2.5 mt-auto mb-5 text-sm font-semibold text-muted-foreground">
                         <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
                           <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
@@ -500,26 +500,33 @@ export function ClientTariffsPage() {
       <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); } }}>
         <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="mb-4 text-center sm:text-left">
-            <DialogTitle className="text-2xl font-black tracking-tight text-foreground">Способ оплаты</DialogTitle>
+            <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              Оплата тарифа
+            </DialogTitle>
             <DialogDescription className="text-base font-medium mt-2">
               {payModal ? (
-                promoResult ? (
-                  <div className="inline-flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-xl border border-border/50">
-                    <span className="text-foreground font-semibold">{payModal.tariff.name}</span>
-                    <span className="text-muted-foreground">—</span>
-                    <span className="line-through text-muted-foreground/70 decoration-2">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
-                    <span className="text-green-500 font-black px-2 py-0.5 bg-green-500/10 rounded-lg">
-                      {formatMoney(getDiscountedPrice(payModal.tariff.price), payModal.tariff.currency)}
-                    </span>
+                <div className="flex flex-col gap-1.5 mt-2 bg-background/50 p-4 rounded-2xl border border-border/50 text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Тариф:</span>
+                    <span className="font-semibold text-foreground text-right ml-2">{payModal.tariff.name}</span>
                   </div>
-                ) : (
-                  <div className="inline-flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-xl border border-border/50">
-                    <span className="text-foreground font-semibold">{payModal.tariff.name}</span>
-                    <span className="text-muted-foreground">—</span>
-                    <span className="text-foreground font-black">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
-                  </div>
-                )
-              ) : ""}
+                  {promoResult ? (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">К оплате:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="line-through text-muted-foreground/70 decoration-2">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
+                        <span className="font-bold text-lg text-primary">{formatMoney(getDiscountedPrice(payModal.tariff.price), payModal.tariff.currency)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">К оплате:</span>
+                      <span className="font-bold text-lg text-primary">{formatMoney(payModal.tariff.price, payModal.tariff.currency)}</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </DialogDescription>
           </DialogHeader>
 
@@ -570,121 +577,99 @@ export function ClientTariffsPage() {
             )}
           </div>
 
+          {payError && (
+            <div className="p-3 mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center font-medium">
+              {payError}
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
-            {/* Оплата балансом */}
             {payModal && client && (() => {
               const price = promoResult ? getDiscountedPrice(payModal.tariff.price) : payModal.tariff.price;
               const hasBalance = client.balance >= price;
               return (
                 <Button
-                  variant={hasBalance ? "default" : "secondary"}
-                  className={`relative overflow-hidden justify-start gap-4 h-16 rounded-2xl px-5 transition-all duration-300 ${hasBalance ? "shadow-lg shadow-primary/20 hover:scale-[1.02] border border-primary/20" : "opacity-70 border border-border/50 bg-muted/50"}`}
-                  disabled={payLoading || !hasBalance}
+                  size="lg"
                   onClick={() => payByBalance(payModal.tariff)}
+                  disabled={payLoading || !hasBalance}
+                  className="w-full gap-2 shadow-lg hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 bg-gradient-to-r from-primary to-primary/80"
                 >
-                  {hasBalance && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-1000" />
-                  )}
-                  <div className={`p-2 rounded-xl shrink-0 ${hasBalance ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" />}
-                  </div>
-                  <div className="flex flex-col items-start gap-0.5">
-                    <span className={`text-base font-bold leading-none ${hasBalance ? "text-primary-foreground" : "text-muted-foreground"}`}>
-                      Оплатить балансом
-                    </span>
-                    <span className={`text-xs font-semibold leading-none ${hasBalance ? "text-primary-foreground/80" : "text-muted-foreground/80"}`}>
-                      На счету: {formatMoney(client.balance, payModal.tariff.currency)}
-                    </span>
-                  </div>
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" />}
+                  <span className="text-base font-semibold">Оплатить с баланса</span>
+                  <span className="opacity-80 font-normal ml-1">({formatMoney(client.balance, payModal.tariff.currency)})</span>
                 </Button>
               );
             })()}
 
-            <div className="grid grid-cols-1 gap-2.5">
-              {/* ЮMoney — только для тарифов в рублях */}
-              {payModal && yoomoneyEnabled && payModal.tariff.currency.toUpperCase() === "RUB" && (
-                <Button
-                  variant="outline"
-                  className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                  disabled={payLoading}
-                  onClick={() => startYoomoneyPayment(payModal.tariff)}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                  </div>
-                  <span className="text-base font-bold text-foreground">ЮMoney — карта</span>
-                </Button>
-              )}
+            {yoomoneyEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYoomoneyPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
+                <span className="text-base font-medium">ЮMoney (Российские карты)</span>
+              </Button>
+            )}
 
-              {/* ЮKassa API — карта, СБП и др., только RUB */}
-              {payModal && yookassaEnabled && payModal.tariff.currency.toUpperCase() === "RUB" && (
-                <Button
-                  variant="outline"
-                  className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                  disabled={payLoading}
-                  onClick={() => startYookassaPayment(payModal.tariff)}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                  </div>
-                  <span className="text-base font-bold text-foreground">ЮKassa — карта / СБП</span>
-                </Button>
-              )}
+            {yookassaEnabled && payModal?.tariff.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYookassaPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
+                <span className="text-base font-medium">ЮKassa (Карта / СБП)</span>
+              </Button>
+            )}
 
-              {/* Crypto Pay (Crypto Bot) */}
-              {payModal && cryptopayEnabled && (
-                <Button
-                  variant="outline"
-                  className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                  disabled={payLoading}
-                  onClick={() => startCryptopayPayment(payModal.tariff)}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                  </div>
-                  <span className="text-base font-bold text-foreground">Crypto Bot</span>
-                </Button>
-              )}
+            {cryptopayEnabled && payModal && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startCryptopayPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-yellow-500" />}
+                <span className="text-base font-medium">Crypto Bot (Криптовалюта)</span>
+              </Button>
+            )}
 
-              {/* Heleket */}
-              {payModal && heleketEnabled && (
-                <Button
-                  variant="outline"
-                  className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                  disabled={payLoading}
-                  onClick={() => startHeleketPayment(payModal.tariff)}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                  </div>
-                  <span className="text-base font-bold text-foreground">Heleket</span>
-                </Button>
-              )}
+            {heleketEnabled && payModal && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startHeleketPayment(payModal.tariff)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-orange-500" />}
+                <span className="text-base font-medium">Heleket (Криптовалюта)</span>
+              </Button>
+            )}
 
-              {/* Platega */}
-              {payModal && plategaMethods.map((m) => (
-                <Button
-                  key={m.id}
-                  variant="outline"
-                  className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                  disabled={payLoading}
-                  onClick={() => startPayment(payModal.tariff, m.id)}
-                >
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                  </div>
-                  <span className="text-base font-bold text-foreground">{m.label}</span>
-                </Button>
-              ))}
-            </div>
+            {plategaMethods.map((m) => payModal && (
+              <Button
+                key={m.id}
+                size="lg"
+                variant="outline"
+                onClick={() => startPayment(payModal.tariff, m.id)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                <span className="text-base font-medium">{m.label}</span>
+              </Button>
+            ))}
           </div>
-          {payError && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-              <p className="text-sm font-bold text-destructive text-center">{payError}</p>
-            </motion.div>
-          )}
+
           <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
-            <Button variant="ghost" className="h-12 rounded-xl px-8 font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50 w-full sm:w-auto transition-colors" onClick={() => { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); }} disabled={payLoading}>
+            <Button variant="ghost" onClick={() => { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); }} disabled={payLoading} className="rounded-xl hover:bg-background/50">
               Отмена
             </Button>
           </DialogFooter>
