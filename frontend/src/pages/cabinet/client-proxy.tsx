@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Globe, Calendar, CreditCard, Loader2, Copy, Check, ChevronDown, Wallet, Tag } from "lucide-react";
+import { Globe, Calendar, CreditCard, Loader2, Copy, Check, ChevronDown, Wallet } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
