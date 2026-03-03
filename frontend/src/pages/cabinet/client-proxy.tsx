@@ -246,20 +246,20 @@ export function ClientProxyPage() {
   const flatTariffs = categories.flatMap((c) => c.tariffs.map((t) => ({ ...t, categoryName: c.name })));
 
   return (
-    <div className="space-y-6 w-full min-w-0 overflow-hidden">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Прокси</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Прокси</h1>
+        <p className="text-muted-foreground text-lg">
           Покупка прокси и управление активными слотами.
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="tariffs" className="gap-2">
+        <TabsList className="grid w-full max-w-md grid-cols-2 rounded-2xl p-1 bg-muted/50 backdrop-blur-md">
+          <TabsTrigger value="tariffs" className="gap-2 rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Globe className="h-4 w-4" /> Купить
           </TabsTrigger>
-          <TabsTrigger value="my" className="gap-2">
+          <TabsTrigger value="my" className="gap-2 rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm">
             Мои прокси
             {slots.length > 0 && (
               <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-xs font-medium">
@@ -271,17 +271,18 @@ export function ClientProxyPage() {
 
         <TabsContent value="tariffs" className="mt-4">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : flatTariffs.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Тарифы прокси пока не настроены. Обратитесь в поддержку.
+            <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-sm">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
+                <Globe className="h-12 w-12 opacity-20" />
+                <p>Тарифы прокси пока не настроены. Обратитесь в поддержку.</p>
               </CardContent>
             </Card>
           ) : isMobileOrMiniapp ? (
-            <div className="space-y-1">
+            <div className="space-y-3">
               {categories.filter((c) => c.tariffs.length > 0).map((cat, catIndex) => (
                 <Collapsible
                   key={cat.id}
@@ -292,12 +293,12 @@ export function ClientProxyPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, delay: catIndex * 0.03 }}
-                    className="rounded-xl border bg-card overflow-hidden"
+                    className="rounded-2xl border border-border/50 bg-card/40 backdrop-blur-md shadow-sm overflow-hidden"
                   >
                     <CollapsibleTrigger asChild>
                       <button
                         type="button"
-                        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-muted/50 active:bg-muted transition-colors"
+                        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/50 active:bg-muted transition-colors"
                       >
                         <span className="flex items-center gap-2 font-semibold">
                           <Globe className="h-4 w-4 text-primary shrink-0" />
@@ -309,34 +310,34 @@ export function ClientProxyPage() {
                       </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="px-2 pb-3 pt-1 flex flex-col gap-2">
+                      <div className="px-3 pb-3 pt-1 flex flex-col gap-3">
                         {cat.tariffs.map((t) => (
-                          <Card key={t.id} className="overflow-hidden">
-                            <CardContent className="flex flex-row items-center gap-3 py-2.5 px-3 min-h-0 min-w-0">
+                          <Card key={t.id} className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-md shadow-sm hover:shadow-md transition-all duration-300">
+                            <CardContent className="flex flex-row items-center gap-4 py-4 px-4 min-h-0 min-w-0">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold leading-tight truncate">{t.name}</p>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Globe className="h-3 w-3 shrink-0 opacity-70" />
-                                    {t.proxyCount} прокси
+                                <p className="text-base font-semibold leading-tight truncate">{t.name}</p>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-0.5 rounded-md font-medium">
+                                    <Globe className="h-3.5 w-3.5 shrink-0" />
+                                    {t.proxyCount} шт.
                                   </span>
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                                  <span className="flex items-center gap-1.5 bg-muted px-2 py-0.5 rounded-md font-medium">
+                                    <Calendar className="h-3.5 w-3.5 shrink-0" />
                                     {t.durationDays} дн.
                                   </span>
                                 </div>
                               </div>
-                              <div className="flex flex-col items-center gap-1 shrink-0">
-                                <span className="text-sm font-semibold tabular-nums whitespace-nowrap">
+                              <div className="flex flex-col items-end gap-2 shrink-0">
+                                <span className="text-lg font-bold tabular-nums whitespace-nowrap text-primary">
                                   {formatMoney(t.price, t.currency)}
                                 </span>
                                 {token ? (
                                   <Button
                                     size="sm"
-                                    className="h-7 px-2.5 text-xs gap-1 w-full"
+                                    className="h-8 px-4 rounded-xl shadow-md hover:scale-105 transition-transform"
                                     onClick={() => setPayModal(t)}
                                   >
-                                    <CreditCard className="h-3 w-3 shrink-0" />
+                                    <CreditCard className="h-4 w-4 shrink-0 mr-1.5" />
                                     Оплатить
                                   </Button>
                                 ) : null}
@@ -351,7 +352,7 @@ export function ClientProxyPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-10">
               {categories.filter((c) => c.tariffs.length > 0).map((cat, catIndex) => (
                 <motion.section
                   key={cat.id}
@@ -359,25 +360,34 @@ export function ClientProxyPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: catIndex * 0.05 }}
                 >
-                  <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-primary shrink-0" />
+                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-primary shrink-0" />
                     {cat.name}
                   </h2>
-                  <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {cat.tariffs.map((t) => (
-                      <Card key={t.id} className="flex flex-col overflow-hidden">
-                        <CardContent className="flex-1 flex flex-col p-4 min-h-0 min-w-0 overflow-hidden">
-                          <p className="text-sm font-semibold leading-tight line-clamp-2">{t.name}</p>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                            <span>{t.proxyCount} прокси</span>
-                            <span>{t.durationDays} дн.</span>
+                      <Card key={t.id} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
+                        <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <p className="text-lg font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">{t.name}</p>
+                            <div className="p-2.5 bg-primary/10 rounded-2xl shrink-0 group-hover:scale-110 transition-transform">
+                              <Globe className="h-5 w-5 text-primary" />
+                            </div>
                           </div>
-                          <div className="mt-auto pt-3 border-t flex items-center justify-between gap-2">
-                            <span className="text-sm sm:text-base font-semibold tabular-nums truncate">
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-medium mt-auto mb-6">
+                            <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-lg">
+                              {t.proxyCount} прокси
+                            </span>
+                            <span className="bg-muted px-2.5 py-1 rounded-lg">
+                              {t.durationDays} дн.
+                            </span>
+                          </div>
+                          <div className="pt-4 border-t border-border/50 flex items-center justify-between gap-2">
+                            <span className="text-xl font-bold tabular-nums truncate text-foreground">
                               {formatMoney(t.price, t.currency)}
                             </span>
                             {token ? (
-                              <Button size="sm" className="h-6 px-2.5 text-xs shrink-0" onClick={() => setPayModal(t)}>
+                              <Button size="sm" className="h-10 px-5 rounded-xl shadow-md hover:scale-105 transition-transform shrink-0" onClick={() => setPayModal(t)}>
                                 Оплатить
                               </Button>
                             ) : null}
@@ -394,59 +404,74 @@ export function ClientProxyPage() {
 
         <TabsContent value="my" className="mt-4">
           {slotsLoading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : slots.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                У вас пока нет активных прокси. Купите тариф во вкладке «Купить».
+            <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-sm">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
+                <Globe className="h-12 w-12 opacity-20" />
+                <p>У вас пока нет активных прокси. Купите тариф во вкладке «Купить».</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               {slots.map((slot) => {
                 const socks5 = `socks5://${slot.login}:${slot.password}@${slot.host}:${slot.socksPort}`;
                 const http = `http://${slot.login}:${slot.password}@${slot.host}:${slot.httpPort}`;
                 const socks5Id = `socks5-${slot.id}`;
                 const httpId = `http-${slot.id}`;
                 return (
-                  <Card key={slot.id} className="overflow-hidden">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <span className="font-medium">Прокси {slot.id.slice(0, 8)}…</span>
-                        <span className="text-muted-foreground">до {formatDate(slot.expiresAt)}</span>
+                  <Card key={slot.id} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-2 border-b border-border/50 pb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+                            <Globe className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">Прокси {slot.id.slice(0, 8)}…</h3>
+                            {slot.trafficLimitBytes && Number(slot.trafficLimitBytes) > 0 ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Трафик: {formatBytes(slot.trafficUsedBytes)} / {formatBytes(slot.trafficLimitBytes)}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end text-sm shrink-0">
+                          <span className="text-xs text-muted-foreground">Действует до</span>
+                          <span className="font-medium text-foreground">{formatDate(slot.expiresAt)}</span>
+                        </div>
                       </div>
-                      {slot.trafficLimitBytes && Number(slot.trafficLimitBytes) > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Трафик: {formatBytes(slot.trafficUsedBytes)} / {formatBytes(slot.trafficLimitBytes)}
-                        </p>
-                      )}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <code className="flex-1 truncate text-xs bg-muted px-2 py-1 rounded font-mono">
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 min-w-0 bg-background/50 p-2 rounded-2xl border border-border/50">
+                          <div className="pl-2 font-semibold text-xs text-muted-foreground w-14 shrink-0">SOCKS5</div>
+                          <code className="flex-1 truncate text-xs font-mono select-all text-foreground">
                             {socks5}
                           </code>
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0 h-7 px-2"
+                            variant="secondary"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 rounded-xl bg-background hover:bg-muted shadow-sm hover:scale-105 transition-transform"
                             onClick={() => copyToClipboard(socks5, socks5Id)}
                           >
-                            {copied === socks5Id ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                            {copied === socks5Id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                           </Button>
                         </div>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <code className="flex-1 truncate text-xs bg-muted px-2 py-1 rounded font-mono">
+                        
+                        <div className="flex items-center gap-2 min-w-0 bg-background/50 p-2 rounded-2xl border border-border/50">
+                          <div className="pl-2 font-semibold text-xs text-muted-foreground w-14 shrink-0">HTTP</div>
+                          <code className="flex-1 truncate text-xs font-mono select-all text-foreground">
                             {http}
                           </code>
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0 h-7 px-2"
+                            variant="secondary"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 rounded-xl bg-background hover:bg-muted shadow-sm hover:scale-105 transition-transform"
                             onClick={() => copyToClipboard(http, httpId)}
                           >
-                            {copied === httpId ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                            {copied === httpId ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                           </Button>
                         </div>
                       </div>
@@ -460,9 +485,9 @@ export function ClientProxyPage() {
       </Tabs>
 
       <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) { setPayModal(null); setPayError(null); } }}>
-        <DialogContent className="max-w-sm" showCloseButton={!payLoading}>
+        <DialogContent className="max-w-sm" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Способ оплаты</DialogTitle>
+            <DialogTitle className="text-xl">Способ оплаты</DialogTitle>
             <DialogDescription>
               {payModal ? `${payModal.name} — ${formatMoney(payModal.price, payModal.currency)}` : ""}
             </DialogDescription>
@@ -472,36 +497,36 @@ export function ClientProxyPage() {
               {client && client.balance >= payModal.price && (
                 <Button
                   variant="default"
-                  className="justify-start gap-2"
+                  className="w-full gap-2 shadow-md h-12 rounded-xl text-md hover:scale-[1.02] transition-transform duration-300"
                   disabled={payLoading}
                   onClick={() => payByBalance(payModal)}
                 >
-                  {payLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : null}
+                  {payLoading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CreditCard className="h-5 w-5 shrink-0" />}
                   Оплатить балансом ({formatMoney(client.balance, payModal.currency)})
                 </Button>
               )}
               {yoomoneyEnabled && payModal.currency.toUpperCase() === "RUB" && (
-                <Button variant="outline" className="justify-start gap-2" disabled={payLoading} onClick={() => startYoomoneyPayment(payModal)}>
+                <Button variant="outline" className="w-full h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" disabled={payLoading} onClick={() => startYoomoneyPayment(payModal)}>
                   ЮMoney — карта
                 </Button>
               )}
               {yookassaEnabled && payModal.currency.toUpperCase() === "RUB" && (
-                <Button variant="outline" className="justify-start gap-2" disabled={payLoading} onClick={() => startYookassaPayment(payModal)}>
+                <Button variant="outline" className="w-full h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" disabled={payLoading} onClick={() => startYookassaPayment(payModal)}>
                   ЮKassa — карта / СБП
                 </Button>
               )}
               {cryptopayEnabled && (
-                <Button variant="outline" className="justify-start gap-2" disabled={payLoading} onClick={() => startCryptopayPayment(payModal)}>
+                <Button variant="outline" className="w-full h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" disabled={payLoading} onClick={() => startCryptopayPayment(payModal)}>
                   Crypto Bot — криптовалюта
                 </Button>
               )}
               {heleketEnabled && (
-                <Button variant="outline" className="justify-start gap-2" disabled={payLoading} onClick={() => startHeleketPayment(payModal)}>
+                <Button variant="outline" className="w-full h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" disabled={payLoading} onClick={() => startHeleketPayment(payModal)}>
                   Heleket — криптовалюта
                 </Button>
               )}
               {plategaMethods.map((m) => (
-                <Button key={m.id} variant="outline" disabled={payLoading} onClick={() => startPlategaPayment(payModal, m.id)}>
+                <Button key={m.id} variant="outline" className="w-full h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" disabled={payLoading} onClick={() => startPlategaPayment(payModal, m.id)}>
                   {m.label}
                 </Button>
               ))}
@@ -509,7 +534,7 @@ export function ClientProxyPage() {
           )}
           {payError && <p className="text-sm text-destructive">{payError}</p>}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setPayModal(null); setPayError(null); }} disabled={payLoading}>
+            <Button variant="ghost" className="w-full h-10 rounded-xl" onClick={() => { setPayModal(null); setPayError(null); }} disabled={payLoading}>
               Отмена
             </Button>
           </DialogFooter>

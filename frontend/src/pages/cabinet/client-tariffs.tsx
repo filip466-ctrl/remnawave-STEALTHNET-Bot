@@ -289,22 +289,24 @@ export function ClientTariffsPage() {
   }
 
   return (
-    <div className={`space-y-6 w-full min-w-0 overflow-hidden`}>
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Тарифы</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Тарифы</h1>
+        <p className="text-muted-foreground text-[15px] font-medium max-w-2xl">
           Выберите подходящий тариф и оплатите.
         </p>
       </div>
 
       {showTrial && (
-        <Card className="border-green-500/30 bg-green-500/5">
+        <Card className="rounded-3xl border border-green-500/30 bg-green-500/5 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300">
           <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6">
-            <div className="flex items-center gap-3">
-              <Gift className="h-10 w-10 text-green-600 shrink-0" />
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/20 text-green-500 shadow-inner shrink-0">
+                <Gift className="h-6 w-6" />
+              </div>
               <div>
-                <p className="font-semibold">Попробовать бесплатно</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-bold text-lg text-foreground">Попробовать бесплатно</p>
+                <p className="text-sm text-muted-foreground font-medium">
                   {trialConfig.trialDays > 0
                     ? `${formatRuDays(trialConfig.trialDays)} триала без оплаты`
                     : "Триал без оплаты"}
@@ -312,24 +314,27 @@ export function ClientTariffsPage() {
               </div>
             </div>
             <Button
-              className="bg-green-600 hover:bg-green-700 shrink-0"
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white shadow-lg h-12 rounded-xl text-md hover:scale-[1.02] transition-transform duration-300 shrink-0 gap-2"
               onClick={activateTrial}
               disabled={trialLoading}
             >
-              {trialLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {trialLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Gift className="h-5 w-5" />}
               Активировать триал
             </Button>
           </CardContent>
-          {trialError && <p className="text-sm text-destructive px-6 pb-4">{trialError}</p>}
+          {trialError && <p className="text-sm text-destructive px-6 pb-4 font-medium">{trialError}</p>}
         </Card>
       )}
 
       {loading ? (
-        <p className="text-muted-foreground">Загрузка…</p>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+        </div>
       ) : tariffs.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Тарифы пока не опубликованы. Обратитесь в поддержку.
+        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
+            <Package className="h-12 w-12 opacity-20" />
+            <p className="text-base font-medium text-center">Тарифы пока не опубликованы.<br/>Обратитесь в поддержку.</p>
           </CardContent>
         </Card>
       ) : useCategoryCardLayout ? (
@@ -344,62 +349,64 @@ export function ClientTariffsPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: catIndex * 0.03 }}
-                className="rounded-xl border bg-card overflow-hidden"
+                className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300"
               >
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
-                    className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-muted/50 active:bg-muted transition-colors"
+                    className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/20 active:bg-muted/30 transition-colors"
                   >
-                    <span className="flex items-center gap-2 font-semibold">
-                      <Package className="h-4 w-4 text-primary shrink-0" />
+                    <span className="flex items-center gap-3 font-bold text-[16px] text-foreground">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-inner shrink-0">
+                        <Package className="h-4 w-4" />
+                      </div>
                       {cat.name}
                     </span>
                     <ChevronDown
-                      className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${expandedCategoryId === cat.id ? "rotate-180" : ""}`}
+                      className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ${expandedCategoryId === cat.id ? "rotate-180" : ""}`}
                     />
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="px-2 pb-3 pt-1 flex flex-col gap-2">
+                  <div className="px-3 pb-4 pt-1 flex flex-col gap-3">
                     {cat.tariffs.map((t) => (
-                      <Card key={t.id} className="overflow-hidden">
-                        <CardContent className="flex flex-row items-center gap-3 py-2.5 px-3 min-h-0 min-w-0">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight truncate">{t.name}</p>
+                      <Card key={t.id} className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-md shadow-sm hover:shadow-md transition-all duration-300">
+                        <CardContent className="flex flex-row items-center gap-4 py-4 px-4 min-h-0 min-w-0">
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <p className="text-[15px] font-bold leading-tight truncate text-foreground">{t.name}</p>
                             {t.description?.trim() ? (
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.description}</p>
+                              <p className="text-xs text-muted-foreground font-medium line-clamp-2">{t.description}</p>
                             ) : null}
-                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                              <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                <Calendar className="h-3 w-3 text-primary" />
                                 {t.durationDays} дн.
                               </span>
-                              <span className="flex items-center gap-1">
-                                <Wifi className="h-3 w-3 shrink-0 opacity-70" />
+                              <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                <Wifi className="h-3 w-3 text-primary" />
                                 {t.trafficLimitBytes != null && t.trafficLimitBytes > 0 ? `${(t.trafficLimitBytes / 1024 / 1024 / 1024).toFixed(1)} ГБ` : "∞"}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <Smartphone className="h-3 w-3 shrink-0 opacity-70" />
-                                {t.deviceLimit != null && t.deviceLimit > 0 ? `${t.deviceLimit}` : "∞"} устр.
+                              <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                <Smartphone className="h-3 w-3 text-primary" />
+                                {t.deviceLimit != null && t.deviceLimit > 0 ? `${t.deviceLimit}` : "∞"}
                               </span>
                             </div>
                           </div>
-                          <div className="flex flex-col items-center gap-1 shrink-0">
-                            <span className="text-sm font-semibold tabular-nums whitespace-nowrap" title={formatMoney(t.price, t.currency)}>
+                          <div className="flex flex-col items-center justify-center gap-2.5 shrink-0 min-w-[90px]">
+                            <span className="text-lg font-bold tabular-nums whitespace-nowrap text-foreground" title={formatMoney(t.price, t.currency)}>
                               {formatMoney(t.price, t.currency)}
                             </span>
                             {token ? (
                               <Button
                                 size="sm"
-                                className="h-7 px-2.5 text-xs gap-1 w-full"
+                                className="w-full h-9 rounded-xl shadow-md text-xs font-semibold gap-1.5 hover:scale-105 transition-transform"
                                 onClick={() => setPayModal({ tariff: { id: t.id, name: t.name, price: t.price, currency: t.currency } })}
                               >
-                                <CreditCard className="h-3 w-3 shrink-0" />
+                                <CreditCard className="h-3.5 w-3.5 shrink-0" />
                                 Оплатить
                               </Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">В боте</span>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">В боте</span>
                             )}
                           </div>
                         </CardContent>
@@ -420,49 +427,65 @@ export function ClientTariffsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: catIndex * 0.05 }}
             >
-              <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary shrink-0" />
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-3 text-foreground">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner shrink-0">
+                  <Package className="h-5 w-5" />
+                </div>
                 {cat.name}
               </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {cat.tariffs.map((t) => (
-                  <Card key={t.id} className="flex flex-col overflow-hidden">
-                    <CardContent className="flex-1 flex flex-col p-4 min-h-0 min-w-0 overflow-hidden">
-                      <p className="text-sm font-semibold leading-tight line-clamp-2">{t.name}</p>
-                      {t.description?.trim() ? (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
-                      ) : null}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 shrink-0 opacity-70" />
-                          {t.durationDays} дн.
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Wifi className="h-3 w-3 shrink-0 opacity-70" />
-                          {t.trafficLimitBytes != null && t.trafficLimitBytes > 0
-                            ? `${(t.trafficLimitBytes / 1024 / 1024 / 1024).toFixed(1)} ГБ`
-                            : "∞ трафик"}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Smartphone className="h-3 w-3 shrink-0 opacity-70" />
-                          {t.deviceLimit != null && t.deviceLimit > 0 ? `${t.deviceLimit}` : "∞"} устр.
-                        </span>
+                  <Card key={t.id} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
+                    <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
+                      <div className="mb-4">
+                        <p className="text-lg font-bold leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">{t.name}</p>
+                        {t.description?.trim() ? (
+                          <p className="text-sm text-muted-foreground font-medium mt-1.5 line-clamp-2">{t.description}</p>
+                        ) : null}
                       </div>
-                      <div className="mt-auto pt-3 border-t flex items-center justify-between gap-2 min-h-[2.25rem] min-w-0">
-                        <span className="text-sm sm:text-base font-semibold tabular-nums truncate min-w-0" title={formatMoney(t.price, t.currency)}>
+                      
+                      <div className="flex flex-col gap-2.5 mt-auto mb-5 text-sm font-semibold text-muted-foreground">
+                        <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                          <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                            <Calendar className="h-4 w-4 shrink-0" />
+                          </div>
+                          <span>{t.durationDays} дней</span>
+                        </div>
+                        <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                          <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                            <Wifi className="h-4 w-4 shrink-0" />
+                          </div>
+                          <span>
+                            {t.trafficLimitBytes != null && t.trafficLimitBytes > 0
+                              ? `${(t.trafficLimitBytes / 1024 / 1024 / 1024).toFixed(1)} ГБ`
+                              : "Безлимитный трафик"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                          <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                            <Smartphone className="h-4 w-4 shrink-0" />
+                          </div>
+                          <span>{t.deviceLimit != null && t.deviceLimit > 0 ? `${t.deviceLimit}` : "∞"} устройств</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-border/50 mt-auto flex flex-col gap-3 min-w-0">
+                        <span className="text-2xl font-black tabular-nums truncate min-w-0 text-foreground text-center" title={formatMoney(t.price, t.currency)}>
                           {formatMoney(t.price, t.currency)}
                         </span>
                         {token ? (
                           <Button
-                            size="sm"
-                            className="h-6 px-2.5 text-xs shrink-0 gap-1"
+                            size="lg"
+                            className="w-full h-12 rounded-xl shadow-md text-[15px] font-bold gap-2 hover:scale-[1.02] transition-transform"
                             onClick={() => setPayModal({ tariff: { id: t.id, name: t.name, price: t.price, currency: t.currency } })}
                           >
-                            <CreditCard className="h-3 w-3 shrink-0" />
+                            <CreditCard className="h-5 w-5 shrink-0" />
                             Оплатить
                           </Button>
                         ) : (
-                          <span className="text-xs text-muted-foreground shrink-0">В боте</span>
+                          <div className="w-full h-12 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center">
+                            <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">В боте</span>
+                          </div>
                         )}
                       </div>
                     </CardContent>
