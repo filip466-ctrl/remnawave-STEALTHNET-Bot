@@ -129,7 +129,7 @@ export function FloatingChat() {
               )}
             >
               {/* Header */}
-              <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
+              <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
                 <div className="relative flex items-center justify-between mb-3 sm:mb-4">
                   <div className="flex items-center gap-3">
@@ -245,7 +245,7 @@ export function FloatingChat() {
               </div>
 
               {/* Input Area */}
-              <div className="p-3 sm:p-4 border-t border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
+              <div className="p-3 sm:p-4 border-t border-black/5 dark:border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
                 <div className="relative flex items-end gap-2 bg-black/5 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
                   <textarea
                     className={cn(
@@ -280,8 +280,8 @@ export function FloatingChat() {
           )}
         </AnimatePresence>
 
-        {/* Toggle button */}
-        <div className="relative group">
+        {/* Toggle button - hidden on mobile when chat is open */}
+        <div className={cn("relative group", isOpen && "hidden sm:block")}>
           {/* Glass blur aura effect behind the button */}
           {!isOpen && (
             <div className="absolute inset-[-20px] sm:inset-[-30px] rounded-full bg-background/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10" />
