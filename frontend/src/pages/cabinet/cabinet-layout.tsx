@@ -387,9 +387,9 @@ function MobileCabinetShell() {
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-36">
-      {/* Плавный эффект "линзы" / черной дыры, засасывающей контент строго под кнопку */}
-      <div className="fixed bottom-[4.5rem] right-0 w-28 h-32 pointer-events-none z-[40] sm:hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent mask-radial-lens" />
+      {/* Эффект стеклянной линзы, искажающей фон */}
+      <div className="fixed bottom-20 right-1 w-28 h-32 pointer-events-none z-[40] sm:hidden">
+        <div className="absolute inset-0 backdrop-blur-md rounded-full mask-radial-lens" />
       </div>
       <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -448,8 +448,8 @@ function MobileCabinetShell() {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .mask-radial-lens {
-          mask-image: radial-gradient(ellipse at bottom right, black 20%, transparent 80%);
-          -webkit-mask-image: radial-gradient(ellipse at bottom right, black 20%, transparent 80%);
+          mask-image: radial-gradient(circle at center, black 0%, transparent 70%);
+          -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 70%);
         }
       ` }} />
     </div>
