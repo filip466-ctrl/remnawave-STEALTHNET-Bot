@@ -289,12 +289,6 @@ export function FloatingChat() {
 
         {/* Toggle button - hidden on mobile when chat is open */}
         <div className={cn("relative group", isOpen && "hidden sm:block")}>
-          {/* Эффект черного затемнения для мобильных устройств, центрированный вокруг кнопки */}
-          {!isOpen && (
-            <div className="absolute inset-[-40px] rounded-full -z-10 sm:hidden pointer-events-none" style={{
-              background: 'radial-gradient(circle at center, black 0%, black 25px, rgba(0,0,0,0) 65px)'
-            }} />
-          )}
 
           <motion.button
             whileHover={{ scale: 1.05 }}
