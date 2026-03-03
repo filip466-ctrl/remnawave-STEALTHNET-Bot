@@ -48,11 +48,18 @@ export function FloatingChat() {
   const [unread, setUnread] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Блокировка скролла body при открытом чате на мобилках
   useEffect(() => {
     if (isOpen) {
+      document.body.style.overflow = 'hidden';
       setUnread(0);
       scrollToBottom();
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, activeChat, chats]);
 
   const scrollToBottom = () => {
@@ -124,7 +131,7 @@ export function FloatingChat() {
                 "inset-0 sm:inset-auto sm:bottom-20 sm:right-0",
                 "w-full h-[100dvh] sm:w-[400px] sm:h-auto sm:max-h-[600px]",
                 "sm:rounded-3xl border-0 sm:border border-white/10",
-                "bg-background sm:bg-background/60 sm:backdrop-blur-2xl sm:shadow-2xl sm:shadow-black/50",
+                "bg-background/80 backdrop-blur-3xl sm:bg-background/60 sm:backdrop-blur-2xl sm:shadow-2xl sm:shadow-black/50",
                 "flex flex-col overflow-hidden"
               )}
             >
@@ -282,14 +289,6 @@ export function FloatingChat() {
 
         {/* Toggle button - hidden on mobile when chat is open */}
         <div className={cn("relative group", isOpen && "hidden sm:block")}>
-          {/* Glass blur aura effect behind the button */}
-          {!isOpen && (
-            <div className="absolute inset-[-20px] sm:inset-[-30px] rounded-full bg-background/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10" />
-          )}
-          {!isOpen && (
-            <div className="absolute inset-[-10px] sm:inset-[-15px] rounded-full bg-background/50 backdrop-blur-[4px] pointer-events-none -z-10" />
-          )}
-          
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -338,6 +337,14 @@ export function FloatingChat() {
             )}
           </AnimatePresence>
           </motion.button>
+          
+          {/* Эффект воронки для мобильных устройств, центрированный вокруг кнопки */}
+          {!isOpen && (
+            <div className="absolute inset-[-20px] rounded-full backdrop-blur-md -z-10 sm:hidden pointer-events-none" style={{
+              maskImage: 'radial-gradient(circle, transparent 25px, black 35px, black 45px, transparent 65px)',
+              WebkitMaskImage: 'radial-gradient(circle, transparent 25px, black 35px, black 45px, transparent 65px)'
+            }} />
+          )}
         </div>
       </div>
     </>
