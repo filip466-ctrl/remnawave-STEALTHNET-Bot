@@ -487,136 +487,137 @@ export function ClientProxyPage() {
       <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) { setPayModal(null); setPayError(null); } }}>
         <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="mb-4 text-center sm:text-left">
-            <DialogTitle className="text-2xl font-black tracking-tight text-foreground">Способ оплаты</DialogTitle>
+            <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Globe className="h-6 w-6 text-primary" />
+              </div>
+              Оплата прокси
+            </DialogTitle>
             <DialogDescription className="text-base font-medium mt-2">
               {payModal ? (
-                <div className="inline-flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-xl border border-border/50">
-                  <span className="text-foreground font-semibold">{payModal.name}</span>
-                  <span className="text-muted-foreground">—</span>
-                  <span className="text-foreground font-black">{formatMoney(payModal.price, payModal.currency)}</span>
+                <div className="flex flex-col gap-2 mt-4 bg-background/50 p-4 rounded-2xl border border-border/50 text-left relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex justify-between items-center relative z-10">
+                    <span className="text-muted-foreground">Тариф:</span>
+                    <span className="font-semibold text-foreground text-right ml-2">{payModal.name}</span>
+                  </div>
+                  <div className="h-px w-full bg-border/50 my-1 relative z-10" />
+                  <div className="flex justify-between items-center relative z-10">
+                    <span className="text-muted-foreground">К оплате:</span>
+                    <span className="font-bold text-xl text-primary">{formatMoney(payModal.price, payModal.currency)}</span>
+                  </div>
                 </div>
-              ) : ""}
+              ) : null}
             </DialogDescription>
           </DialogHeader>
 
-          {payModal && (
-            <div className="flex flex-col gap-3">
-              {/* Оплата балансом */}
-              {client && (() => {
-                const hasBalance = client.balance >= payModal.price;
-                return (
-                  <Button
-                    variant={hasBalance ? "default" : "secondary"}
-                    className={`relative overflow-hidden justify-start gap-4 h-16 rounded-2xl px-5 transition-all duration-300 ${hasBalance ? "shadow-lg shadow-primary/20 hover:scale-[1.02] border border-primary/20" : "opacity-70 border border-border/50 bg-muted/50"}`}
-                    disabled={payLoading || !hasBalance}
-                    onClick={() => payByBalance(payModal)}
-                  >
-                    {hasBalance && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-1000" />
-                    )}
-                    <div className={`p-2 rounded-xl shrink-0 ${hasBalance ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" />}
-                    </div>
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span className={`text-base font-bold leading-none ${hasBalance ? "text-primary-foreground" : "text-muted-foreground"}`}>
-                        Оплатить балансом
-                      </span>
-                      <span className={`text-xs font-semibold leading-none ${hasBalance ? "text-primary-foreground/80" : "text-muted-foreground/80"}`}>
-                        На счету: {formatMoney(client.balance, payModal.currency)}
-                      </span>
-                    </div>
-                  </Button>
-                );
-              })()}
-
-              <div className="grid grid-cols-1 gap-2.5">
-                {/* ЮMoney — только для тарифов в рублях */}
-                {yoomoneyEnabled && payModal.currency.toUpperCase() === "RUB" && (
-                  <Button
-                    variant="outline"
-                    className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                    disabled={payLoading}
-                    onClick={() => startYoomoneyPayment(payModal)}
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                    </div>
-                    <span className="text-base font-bold text-foreground">ЮMoney — карта</span>
-                  </Button>
-                )}
-
-                {/* ЮKassa API — карта, СБП и др., только RUB */}
-                {yookassaEnabled && payModal.currency.toUpperCase() === "RUB" && (
-                  <Button
-                    variant="outline"
-                    className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                    disabled={payLoading}
-                    onClick={() => startYookassaPayment(payModal)}
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                    </div>
-                    <span className="text-base font-bold text-foreground">ЮKassa — карта / СБП</span>
-                  </Button>
-                )}
-
-                {/* Crypto Pay (Crypto Bot) */}
-                {cryptopayEnabled && (
-                  <Button
-                    variant="outline"
-                    className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                    disabled={payLoading}
-                    onClick={() => startCryptopayPayment(payModal)}
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                    </div>
-                    <span className="text-base font-bold text-foreground">Crypto Bot</span>
-                  </Button>
-                )}
-
-                {/* Heleket */}
-                {heleketEnabled && (
-                  <Button
-                    variant="outline"
-                    className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                    disabled={payLoading}
-                    onClick={() => startHeleketPayment(payModal)}
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                    </div>
-                    <span className="text-base font-bold text-foreground">Heleket</span>
-                  </Button>
-                )}
-
-                {/* Platega */}
-                {plategaMethods.map((m) => (
-                  <Button
-                    key={m.id}
-                    variant="outline"
-                    className="justify-start gap-4 h-14 rounded-2xl px-5 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
-                    disabled={payLoading}
-                    onClick={() => startPlategaPayment(payModal, m.id)}
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                    </div>
-                    <span className="text-base font-bold text-foreground">{m.label}</span>
-                  </Button>
-                ))}
-              </div>
+          {payError && (
+            <div className="p-3 mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center font-medium animate-in fade-in slide-in-from-top-2">
+              {payError}
             </div>
           )}
-          {payError && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-              <p className="text-sm font-bold text-destructive text-center">{payError}</p>
-            </motion.div>
-          )}
+
+          <div className="flex flex-col gap-3">
+            {payModal && client && (() => {
+              const hasBalance = client.balance >= payModal.price;
+              return (
+                <Button
+                  size="lg"
+                  onClick={() => payByBalance(payModal)}
+                  disabled={payLoading || !hasBalance}
+                  className="w-full gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 bg-gradient-to-r from-primary to-primary/80 relative overflow-hidden group"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin relative z-10" /> : <Wallet className="h-5 w-5 relative z-10" />}
+                  <span className="text-base font-semibold relative z-10">Оплатить с баланса</span>
+                  <span className="opacity-90 font-medium ml-1 bg-black/10 px-2 py-0.5 rounded-md relative z-10">
+                    {formatMoney(client.balance, payModal.currency)}
+                  </span>
+                </Button>
+              );
+            })()}
+
+            {yoomoneyEnabled && payModal?.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYoomoneyPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+              >
+                <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-purple-500" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
+                </div>
+                <span className="text-base font-medium">ЮMoney</span>
+              </Button>
+            )}
+
+            {yookassaEnabled && payModal?.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYookassaPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+              >
+                <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-blue-500" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
+                </div>
+                <span className="text-base font-medium">ЮKassa</span>
+              </Button>
+            )}
+
+            {cryptopayEnabled && payModal && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startCryptopayPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+              >
+                <div className="p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Globe className="h-5 w-5 text-yellow-500" />}
+                </div>
+                <span className="text-base font-medium">Crypto Bot</span>
+              </Button>
+            )}
+
+            {heleketEnabled && payModal && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startHeleketPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+              >
+                <div className="p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Globe className="h-5 w-5 text-orange-500" />}
+                </div>
+                <span className="text-base font-medium">Heleket</span>
+              </Button>
+            )}
+
+            {plategaMethods.map((m) => payModal && (
+              <Button
+                key={m.id}
+                size="lg"
+                variant="outline"
+                onClick={() => startPlategaPayment(payModal, m.id)}
+                disabled={payLoading}
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
+              >
+                <div className="p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">{m.label}</span>
+              </Button>
+            ))}
+          </div>
+
           <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
-            <Button variant="ghost" className="h-12 rounded-xl px-8 font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50 w-full sm:w-auto transition-colors" onClick={() => { setPayModal(null); setPayError(null); }} disabled={payLoading}>
-              Отмена
-            </Button>
+             <Button variant="ghost" onClick={() => { setPayModal(null); setPayError(null); }} disabled={payLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">
+               Отмена
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
