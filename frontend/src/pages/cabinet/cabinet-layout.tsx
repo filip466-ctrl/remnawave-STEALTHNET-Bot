@@ -386,7 +386,7 @@ function MobileCabinetShell() {
   const logo = config?.logo && !logoError ? config.logo : null;
 
   return (
-    <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-20">
+    <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-36">
       <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="absolute inset-0 bg-card/40 backdrop-blur-xl -z-10 pointer-events-none" />
