@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, User, Sparkles, Headset } from "lucide-react";
+import { MessageCircle, X, Send, User, Sparkles, Headset, ArrowLeft, MessageSquarePlus, CircleDot, CircleCheck, Inbox, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useClientAuth } from "@/contexts/client-auth";
+import { api } from "@/lib/api";
 
 type Message = {
   id: string;
@@ -22,28 +24,299 @@ const INITIAL_AI: Message[] = [
   },
 ];
 
-const INITIAL_SUPPORT: Message[] = [
-  {
-    id: "s1",
-    text: "Здравствуйте! Добро пожаловать в службу поддержки. Если у вас возникли технические сложности или вопросы по оплате — опишите их здесь. 🛠️",
-    from: "bot",
-    time: "10:00",
-  },
-];
+function SupportTab() {
+  const { state } = useClientAuth();
+  const token = state.token ?? null;
+
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newSubject, setNewSubject] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [createSending, setCreateSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const loadList = () => {
+    if (!token) return;
+    api.getTickets(token).then((r) => {
+      setList(r.items);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+    loadList();
+    const intervalId = window.setInterval(loadList, 10000);
+    return () => window.clearInterval(intervalId);
+  }, [token]);
+
+  useEffect(() => {
+    if (!detailId || !token) {
+      setDetail(null);
+      return;
+    }
+    const loadDetail = () => {
+      setDetailLoading(true);
+      api.getTicket(token, detailId)
+        .then((t) => setDetail(t))
+        .catch(() => setDetail(null))
+        .finally(() => setDetailLoading(false));
+    };
+    loadDetail();
+    const intervalId = window.setInterval(loadDetail, 10000);
+    return () => window.clearInterval(intervalId);
+  }, [detailId, token]);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  useEffect(() => {
+    if (detail?.messages) {
+      scrollToBottom();
+    }
+  }, [detail?.messages?.length]);
+
+  const sendReply = () => {
+    if (!token || !detailId || !replyText.trim()) return;
+    setReplySending(true);
+    api.replyTicket(token, detailId, { content: replyText.trim() })
+      .then((msg) => {
+        setDetail((d: any) => (d ? { ...d, messages: [...d.messages, msg] } : d));
+        setReplyText("");
+        scrollToBottom();
+      })
+      .finally(() => setReplySending(false));
+  };
+
+  const createTicket = () => {
+    if (!token || !newSubject.trim() || !newMessage.trim()) return;
+    setCreateSending(true);
+    api.createTicket(token, { subject: newSubject.trim(), message: newMessage.trim() })
+      .then((t) => {
+        setList((prev) => [{ id: t.id, subject: t.subject, status: t.status, createdAt: t.createdAt, updatedAt: t.updatedAt }, ...prev]);
+        setDetailId(t.id);
+        setDetail({ id: t.id, subject: t.subject, status: t.status, messages: t.messages, createdAt: t.createdAt, updatedAt: t.updatedAt });
+        setShowNewForm(false);
+        setNewSubject("");
+        setNewMessage("");
+      })
+      .finally(() => setCreateSending(false));
+  };
+
+  const formatDate = (s: string) => {
+    try {
+      const d = new Date(s);
+      const isToday = new Date().toDateString() === d.toDateString();
+      if (isToday) return "Сегодня, " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return s;
+    }
+  };
+
+  // 1. Detail View (Chat inside a ticket)
+  if (detailId) {
+    return (
+      <div className="flex flex-col h-full w-full">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5 bg-background/50 shrink-0">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => setDetailId(null)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-bold truncate">{detail?.subject || "Загрузка..."}</h3>
+            {detail && (
+              <span className={cn("text-[10px] uppercase font-bold tracking-wider", detail.status === "open" ? "text-emerald-500" : "text-muted-foreground")}>
+                {detail.status === "open" ? "Открыт" : "Закрыт"}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar">
+          {detailLoading && !detail ? (
+            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary/50" /></div>
+          ) : detail?.messages?.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-muted-foreground text-sm font-medium">Нет сообщений</div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {detail?.messages?.map((m: any) => {
+                const isSupport = m.authorType === "support";
+                const isUser = !isSupport;
+                return (
+                  <motion.div
+                    key={m.id}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
+                  >
+                    <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1", isUser ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400")}>
+                      {isUser ? <User className="h-4 w-4" /> : <Headset className="h-4 w-4" />}
+                    </div>
+                    <div className={cn("rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm backdrop-blur-md", isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm")}>
+                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      <p className={cn("text-[10px] mt-1.5 opacity-60 font-medium", isUser ? "text-right" : "text-left text-muted-foreground")}>
+                        {formatDate(m.createdAt)}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
+          <div ref={messagesEndRef} className="h-1" />
+        </div>
+
+        {/* Input area */}
+        {detail?.status === "open" && (
+          <div className="p-3 sm:p-4 border-t border-black/5 dark:border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
+            <div className="relative flex items-end gap-2 bg-black/5 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
+              <textarea
+                className="flex-1 max-h-32 min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none custom-scrollbar"
+                placeholder="Сообщение..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendReply();
+                  }
+                }}
+                rows={1}
+              />
+              <Button
+                size="icon"
+                className="h-10 w-10 rounded-xl shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-transform active:scale-95 mb-0.5 mr-0.5"
+                onClick={sendReply}
+                disabled={replySending || !replyText.trim()}
+              >
+                {replySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 ml-0.5" />}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 2. New Ticket Form
+  if (showNewForm) {
+    return (
+      <div className="flex flex-col h-full w-full overflow-y-auto p-4 sm:p-5 scroll-smooth custom-scrollbar">
+        <div className="flex items-center gap-2 mb-4">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full -ml-2" onClick={() => setShowNewForm(false)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h3 className="text-base font-bold text-foreground">Новое обращение</h3>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Тема</label>
+            <input
+              className="w-full rounded-2xl h-12 bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/10 px-4 text-sm font-medium text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+              placeholder="Коротко о проблеме"
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Сообщение</label>
+            <textarea
+              className="w-full resize-none rounded-2xl min-h-[120px] bg-black/5 dark:bg-black/20 border border-black/5 dark:border-white/10 p-4 text-sm font-medium text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all custom-scrollbar"
+              placeholder="Подробное описание..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+            />
+          </div>
+          <Button 
+            className="w-full h-11 rounded-xl shadow-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" 
+            onClick={createTicket}
+            disabled={createSending || !newSubject.trim() || !newMessage.trim()}
+          >
+            {createSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+            Отправить
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. List of Tickets
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <div className="flex items-center justify-between p-4 shrink-0 border-b border-black/5 dark:border-white/5">
+        <h3 className="text-sm font-bold text-foreground">Мои обращения</h3>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-8 rounded-lg text-xs bg-background/50 border-white/10 dark:border-white/5"
+          onClick={() => setShowNewForm(true)}
+        >
+          <MessageSquarePlus className="h-3 w-3 mr-1.5" />
+          Создать
+        </Button>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+        {loading && list.length === 0 ? (
+          <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/50" /></div>
+        ) : list.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+            <Inbox className="h-8 w-8 opacity-50" />
+            <p className="text-xs font-medium text-center">У вас пока нет<br/>открытых обращений</p>
+          </div>
+        ) : (
+          list.map((t) => {
+            const isOpen = t.status === "open";
+            return (
+              <div
+                key={t.id}
+                onClick={() => setDetailId(t.id)}
+                className="group relative flex flex-col gap-1.5 p-3.5 rounded-2xl border border-black/5 dark:border-white/10 bg-card/60 hover:bg-card/80 transition-all cursor-pointer shadow-sm hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="font-semibold text-[13px] text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">{t.subject}</h4>
+                  {isOpen ? (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                      <CircleDot className="h-2.5 w-2.5" /> Открыт
+                    </span>
+                  ) : (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
+                      <CircleCheck className="h-2.5 w-2.5" /> Закрыт
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {formatDate(t.updatedAt)}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeChat, setActiveChat] = useState<ChatType>("ai");
 
-  const [chats, setChats] = useState<Record<ChatType, Message[]>>({
-    ai: INITIAL_AI,
-    support: INITIAL_SUPPORT,
-  });
-
-  const [inputs, setInputs] = useState<Record<ChatType, string>>({
-    ai: "",
-    support: "",
-  });
+  const [aiChats, setAiChats] = useState<Message[]>(INITIAL_AI);
+  const [aiInput, setAiInput] = useState("");
 
   const [unread, setUnread] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,7 +333,7 @@ export function FloatingChat() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, activeChat, chats]);
+  }, [isOpen, activeChat, aiChats]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -68,8 +341,8 @@ export function FloatingChat() {
     }, 100);
   };
 
-  const handleSend = () => {
-    const text = inputs[activeChat].trim();
+  const handleSendAi = () => {
+    const text = aiInput.trim();
     if (!text) return;
 
     const now = new Date();
@@ -82,38 +355,22 @@ export function FloatingChat() {
       time,
     };
 
-    setChats((prev) => ({
-      ...prev,
-      [activeChat]: [...prev[activeChat], userMsg],
-    }));
+    setAiChats((prev) => [...prev, userMsg]);
+    setAiInput("");
 
-    setInputs((prev) => ({ ...prev, [activeChat]: "" }));
-
-    // Тестовый авто-ответ
-    const currentChat = activeChat;
+    // Тестовый авто-ответ AI
     setTimeout(() => {
-      const replyText =
-        currentChat === "ai"
-          ? "Это тестовый ответ AI-ассистента! 🤖 В будущем здесь будет интеграция с мощной языковой моделью для мгновенной помощи."
-          : "Спасибо за обращение! Наш оператор получил ваше сообщение и ответит в течение нескольких минут. ⏳";
-
       const replyMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: replyText,
+        text: "Это тестовый ответ AI-ассистента! 🤖 В будущем здесь будет интеграция с мощной языковой моделью для мгновенной помощи.",
         from: "bot",
         time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       };
 
-      setChats((prev) => ({
-        ...prev,
-        [currentChat]: [...prev[currentChat], replyMsg],
-      }));
-
+      setAiChats((prev) => [...prev, replyMsg]);
       if (!isOpen) setUnread((n) => n + 1);
-    }, currentChat === "ai" ? 800 : 1500);
+    }, 800);
   };
-
-  const messages = chats[activeChat];
 
   return (
     <>
@@ -182,7 +439,7 @@ export function FloatingChat() {
                       activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     )}
                   >
-                    <Headset className="w-4 h-4" /> Оператор
+                    <Headset className="w-4 h-4" /> Поддержка
                   </button>
                   {/* Sliding Background */}
                   <div
@@ -195,101 +452,94 @@ export function FloatingChat() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth">
-                <AnimatePresence mode="popLayout">
-                  {messages.map((msg) => {
-                    const isUser = msg.from === "user";
-                    return (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                        className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
-                      >
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1",
-                            isUser
-                              ? "bg-primary/20 text-primary"
-                              : activeChat === "ai"
-                              ? "bg-violet-500/20 text-violet-400"
-                              : "bg-blue-500/20 text-blue-400"
-                          )}
-                        >
-                          {isUser ? (
-                            <User className="h-4 w-4" />
-                          ) : activeChat === "ai" ? (
-                            <Sparkles className="h-4 w-4" />
-                          ) : (
-                            <Headset className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div
-                          className={cn(
-                            "rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-sm backdrop-blur-md",
-                            isUser
-                              ? "bg-primary text-primary-foreground rounded-tr-sm"
-                              : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm"
-                          )}
-                        >
-                          <p>{msg.text}</p>
-                          <p
-                            className={cn(
-                              "text-[10px] mt-1.5 opacity-60 font-medium",
-                              isUser ? "text-right" : "text-left text-muted-foreground"
-                            )}
+              {activeChat === "ai" ? (
+                <>
+                  {/* AI Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar">
+                    <AnimatePresence mode="popLayout">
+                      {aiChats.map((msg) => {
+                        const isUser = msg.from === "user";
+                        return (
+                          <motion.div
+                            key={msg.id}
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
                           >
-                            {msg.time}
-                          </p>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-                <div ref={messagesEndRef} className="h-1" />
-              </div>
+                            <div
+                              className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1",
+                                isUser ? "bg-primary/20 text-primary" : "bg-violet-500/20 text-violet-400"
+                              )}
+                            >
+                              {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                            </div>
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-sm backdrop-blur-md",
+                                isUser
+                                  ? "bg-primary text-primary-foreground rounded-tr-sm"
+                                  : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm"
+                              )}
+                            >
+                              <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                              <p
+                                className={cn(
+                                  "text-[10px] mt-1.5 opacity-60 font-medium",
+                                  isUser ? "text-right" : "text-left text-muted-foreground"
+                                )}
+                              >
+                                {msg.time}
+                              </p>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                    <div ref={messagesEndRef} className="h-1" />
+                  </div>
 
-              {/* Input Area */}
-              <div className="p-3 sm:p-4 border-t border-black/5 dark:border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
-                <div className="relative flex items-end gap-2 bg-black/5 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
-                  <textarea
-                    className={cn(
-                      "flex-1 max-h-32 min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5",
-                      "text-sm text-foreground placeholder:text-muted-foreground",
-                      "focus:outline-none custom-scrollbar"
-                    )}
-                    placeholder={activeChat === "ai" ? "Спросите у AI..." : "Напишите сообщение..."}
-                    value={inputs[activeChat]}
-                    onChange={(e) =>
-                      setInputs((prev) => ({ ...prev, [activeChat]: e.target.value }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    rows={1}
-                  />
-                  <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-xl shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-transform active:scale-95 mb-0.5 mr-0.5"
-                    onClick={handleSend}
-                    disabled={!inputs[activeChat].trim()}
-                  >
-                    <Send className="h-4 w-4 ml-0.5" />
-                  </Button>
-                </div>
-              </div>
+                  {/* AI Input Area */}
+                  <div className="p-3 sm:p-4 border-t border-black/5 dark:border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
+                    <div className="relative flex items-end gap-2 bg-black/5 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
+                      <textarea
+                        className={cn(
+                          "flex-1 max-h-32 min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5",
+                          "text-sm text-foreground placeholder:text-muted-foreground",
+                          "focus:outline-none custom-scrollbar"
+                        )}
+                        placeholder="Спросите у AI..."
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendAi();
+                          }
+                        }}
+                        rows={1}
+                      />
+                      <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-xl shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-transform active:scale-95 mb-0.5 mr-0.5"
+                        onClick={handleSendAi}
+                        disabled={!aiInput.trim()}
+                      >
+                        <Send className="h-4 w-4 ml-0.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <SupportTab />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Toggle button - hidden on mobile when chat is open */}
+        {/* Toggle button */}
         <div className={cn("relative group", isOpen && "hidden sm:block")}>
-
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -300,43 +550,43 @@ export function FloatingChat() {
               !isOpen ? "shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "shadow-lg"
             )}
           >
-          <AnimatePresence mode="wait">
-            {isOpen ? (
-              <motion.span
-                key="close"
-                initial={{ rotate: -90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: 90, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <X className="h-7 w-7" />
-              </motion.span>
-            ) : (
-              <motion.span
-                key="open"
-                initial={{ rotate: 90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: -90, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <MessageCircle className="h-7 w-7" />
-              </motion.span>
-            )}
-          </AnimatePresence>
+            <AnimatePresence mode="wait">
+              {isOpen ? (
+                <motion.span
+                  key="close"
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <X className="h-7 w-7" />
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="open"
+                  initial={{ rotate: 90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: -90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <MessageCircle className="h-7 w-7" />
+                </motion.span>
+              )}
+            </AnimatePresence>
 
-          {/* Unread badge */}
-          <AnimatePresence>
-            {unread > 0 && !isOpen && (
-              <motion.span
-                initial={{ scale: 0, y: 10 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0, opacity: 0 }}
-                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-destructive text-[11px] font-bold text-white shadow-md"
-              >
-                {unread}
-              </motion.span>
-            )}
-          </AnimatePresence>
+            {/* Unread badge */}
+            <AnimatePresence>
+              {unread > 0 && !isOpen && (
+                <motion.span
+                  initial={{ scale: 0, y: 10 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-destructive text-[11px] font-bold text-white shadow-md"
+                >
+                  {unread}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </motion.button>
         </div>
       </div>

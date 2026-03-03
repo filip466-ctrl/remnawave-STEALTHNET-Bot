@@ -365,10 +365,13 @@ function SettingsPopover() {
 
 function resolveNavItems(config: { sellOptionsEnabled?: boolean; showProxyEnabled?: boolean; showSingboxEnabled?: boolean; ticketsEnabled?: boolean } | null) {
   let items = ALL_NAV_ITEMS;
+  // Убираем вкладку тикетов, так как теперь поддержка внутри виджета чата
+  items = items.filter((i) => i.to !== "/cabinet/tickets");
+  
   if (!config?.sellOptionsEnabled) items = items.filter((i) => i.to !== "/cabinet/extra-options");
   if (!config?.showProxyEnabled) items = items.filter((i) => i.to !== "/cabinet/proxy");
   if (!config?.showSingboxEnabled) items = items.filter((i) => i.to !== "/cabinet/singbox");
-  if (!config?.ticketsEnabled) items = items.filter((i) => i.to !== "/cabinet/tickets");
+  
   return items;
 }
 
