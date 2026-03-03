@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, User, Sparkles, Headset, ArrowLeft, MessageSquarePlus, CircleDot, CircleCheck, Inbox, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, User, Sparkles, Headset, ArrowLeft, MessageSquarePlus, CircleDot, CircleCheck, Inbox, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientAuth } from "@/contexts/client-auth";
@@ -313,6 +313,7 @@ function SupportTab() {
 
 export function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [activeChat, setActiveChat] = useState<ChatType>("ai");
 
   const [aiChats, setAiChats] = useState<Message[]>(INITIAL_AI);
@@ -386,10 +387,13 @@ export function FloatingChat() {
               className={cn(
                 "fixed sm:absolute z-50",
                 "inset-0 sm:inset-auto sm:bottom-20 sm:right-0",
-                "w-full h-[100dvh] sm:w-[450px] sm:h-[650px] sm:max-h-[85vh]",
+                "w-full h-[100dvh]",
+                isExpanded
+                  ? "sm:w-[calc(100vw-48px)] sm:h-[calc(100dvh-120px)]"
+                  : "sm:w-[450px] sm:h-[650px] sm:max-h-[85vh]",
                 "sm:rounded-3xl border-0 sm:border border-white/10",
                 "bg-background/80 backdrop-blur-3xl sm:bg-background/60 sm:backdrop-blur-2xl sm:shadow-2xl sm:shadow-black/50",
-                "flex flex-col overflow-hidden"
+                "flex flex-col overflow-hidden transition-all duration-500 ease-in-out"
               )}
             >
               {/* Header */}
@@ -413,42 +417,52 @@ export function FloatingChat() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-6 w-6 sm:h-5 sm:w-5" />
-                  </button>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="hidden sm:flex rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+                    >
+                      {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-6 w-6 sm:h-5 sm:w-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Chat Switcher */}
-                <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5">
-                  <button
-                    onClick={() => setActiveChat("ai")}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                      activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                    )}
-                  >
-                    <Sparkles className="w-4 h-4" /> AI Чат
-                  </button>
-                  <button
-                    onClick={() => setActiveChat("support")}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                      activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                    )}
-                  >
-                    <Headset className="w-4 h-4" /> Поддержка
-                  </button>
-                  {/* Sliding Background */}
-                  <div
-                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-primary shadow-md rounded-lg transition-transform duration-300 ease-out z-0"
-                    style={{
-                      transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
-                      left: "4px",
-                    }}
-                  />
+                <div className="flex sm:justify-center">
+                  <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5 w-full sm:w-auto sm:min-w-[320px]">
+                    <button
+                      onClick={() => setActiveChat("ai")}
+                      className={cn(
+                        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+                        activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      )}
+                    >
+                      <Sparkles className="w-4 h-4" /> AI Чат
+                    </button>
+                    <button
+                      onClick={() => setActiveChat("support")}
+                      className={cn(
+                        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+                        activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      )}
+                    >
+                      <Headset className="w-4 h-4" /> Поддержка
+                    </button>
+                    {/* Sliding Background */}
+                    <div
+                      className="absolute top-1 bottom-1 bg-primary shadow-md rounded-lg transition-all duration-300 ease-out z-0 w-[calc(50%-4px)] sm:w-[160px]"
+                      style={{
+                        transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
+                        left: "4px",
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
