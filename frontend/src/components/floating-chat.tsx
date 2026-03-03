@@ -110,7 +110,7 @@ export function FloatingChat() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[100]">
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -285,7 +285,7 @@ export function FloatingChat() {
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen((v) => !v)}
           className={cn(
-            "relative flex h-16 w-16 items-center justify-center rounded-full",
+            "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full",
             "bg-card/60 backdrop-blur-xl border border-border/50 text-foreground transition-colors hover:bg-card/80",
             !isOpen ? "shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "shadow-lg"
           )}
