@@ -387,16 +387,6 @@ function MobileCabinetShell() {
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-36 relative">
-      {/* Эффект воронки/водопада вокруг кнопки */}
-      <div className="fixed bottom-[4.5rem] right-4 w-20 h-20 pointer-events-none z-[40] sm:hidden">
-        <div
-          className="absolute inset-[-40px] backdrop-blur-[12px]"
-          style={{
-            maskImage: "radial-gradient(circle at center, transparent 30%, black 60%, transparent 100%)",
-            WebkitMaskImage: "radial-gradient(circle at center, transparent 30%, black 60%, transparent 100%)"
-          }}
-        />
-      </div>
       <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="absolute inset-0 bg-card/40 backdrop-blur-xl -z-10 pointer-events-none" />
