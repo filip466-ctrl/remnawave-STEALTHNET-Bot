@@ -322,18 +322,25 @@ export function FloatingChat() {
   const [unread, setUnread] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Блокировка скролла body при открытом чате на мобилках
+  // Блокировка скролла body при открытом чате только на мобилках
   useEffect(() => {
-    if (isOpen) {
+    const isMobile = window.innerWidth < 640;
+    if (isOpen && isMobile) {
       document.body.style.overflow = 'hidden';
-      setUnread(0);
-      scrollToBottom();
     } else {
       document.body.style.overflow = '';
     }
+    
     return () => {
       document.body.style.overflow = '';
     };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setUnread(0);
+      scrollToBottom();
+    }
   }, [isOpen, activeChat, aiChats]);
 
   const scrollToBottom = () => {
