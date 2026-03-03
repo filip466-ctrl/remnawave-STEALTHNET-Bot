@@ -386,7 +386,7 @@ export function FloatingChat() {
               className={cn(
                 "fixed sm:absolute z-50",
                 "inset-0 sm:inset-auto sm:bottom-20 sm:right-0",
-                "w-full h-[100dvh] sm:w-[400px] sm:h-auto sm:max-h-[600px]",
+                "w-full h-[100dvh] sm:w-[450px] sm:h-[650px] sm:max-h-[85vh]",
                 "sm:rounded-3xl border-0 sm:border border-white/10",
                 "bg-background/80 backdrop-blur-3xl sm:bg-background/60 sm:backdrop-blur-2xl sm:shadow-2xl sm:shadow-black/50",
                 "flex flex-col overflow-hidden"
