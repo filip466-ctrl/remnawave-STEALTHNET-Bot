@@ -120,17 +120,18 @@ export function FloatingChat() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className={cn(
-                "absolute bottom-20 right-0 w-[360px] sm:w-[400px]",
-                "rounded-3xl border border-white/10",
-                "bg-background/60 backdrop-blur-2xl shadow-2xl shadow-black/50",
+                "fixed sm:absolute z-50",
+                "inset-0 sm:inset-auto sm:bottom-20 sm:right-0",
+                "w-full h-[100dvh] sm:w-[400px] sm:h-auto sm:max-h-[600px]",
+                "sm:rounded-3xl border-0 sm:border border-white/10",
+                "bg-background sm:bg-background/60 sm:backdrop-blur-2xl sm:shadow-2xl sm:shadow-black/50",
                 "flex flex-col overflow-hidden"
               )}
-              style={{ maxHeight: "600px", height: "calc(100vh - 120px)" }}
             >
               {/* Header */}
-              <div className="px-4 py-4 border-b border-white/5 bg-white/5 shrink-0 relative overflow-hidden">
+              <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-                <div className="relative flex items-center justify-between mb-4">
+                <div className="relative flex items-center justify-between mb-3 sm:mb-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner">
                       {activeChat === "ai" ? <Sparkles className="h-5 w-5" /> : <Headset className="h-5 w-5" />}
@@ -150,9 +151,9 @@ export function FloatingChat() {
                   </div>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="rounded-full p-2 hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+                    className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-6 w-6 sm:h-5 sm:w-5" />
                   </button>
                 </div>
 
@@ -244,8 +245,8 @@ export function FloatingChat() {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 border-t border-white/5 bg-background/50 backdrop-blur-xl shrink-0">
-                <div className="relative flex items-end gap-2 bg-black/20 p-1.5 rounded-2xl border border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
+              <div className="p-3 sm:p-4 border-t border-white/5 bg-background/80 sm:bg-background/50 backdrop-blur-xl shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-4">
+                <div className="relative flex items-end gap-2 bg-black/5 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
                   <textarea
                     className={cn(
                       "flex-1 max-h-32 min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5",
@@ -280,16 +281,25 @@ export function FloatingChat() {
         </AnimatePresence>
 
         {/* Toggle button */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen((v) => !v)}
-          className={cn(
-            "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full",
-            "bg-card/60 backdrop-blur-xl border border-border/50 text-foreground transition-colors hover:bg-card/80",
-            !isOpen ? "shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "shadow-lg"
+        <div className="relative group">
+          {/* Glass blur aura effect behind the button */}
+          {!isOpen && (
+            <div className="absolute inset-[-20px] sm:inset-[-30px] rounded-full bg-background/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10" />
           )}
-        >
+          {!isOpen && (
+            <div className="absolute inset-[-10px] sm:inset-[-15px] rounded-full bg-background/50 backdrop-blur-[4px] pointer-events-none -z-10" />
+          )}
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen((v) => !v)}
+            className={cn(
+              "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full z-10",
+              "bg-card/60 backdrop-blur-2xl border border-border/50 text-foreground transition-colors hover:bg-card/80",
+              !isOpen ? "shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "shadow-lg"
+            )}
+          >
           <AnimatePresence mode="wait">
             {isOpen ? (
               <motion.span
@@ -327,7 +337,8 @@ export function FloatingChat() {
               </motion.span>
             )}
           </AnimatePresence>
-        </motion.button>
+          </motion.button>
+        </div>
       </div>
     </>
   );
