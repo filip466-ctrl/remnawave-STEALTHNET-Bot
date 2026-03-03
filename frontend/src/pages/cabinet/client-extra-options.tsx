@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Wifi, Smartphone, Server, CreditCard, Loader2, Wallet } from "lucide-react";
+import { Wifi, Smartphone, Server, CreditCard, Loader2, Wallet, Layers, Shield, Zap } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import type { PublicSellOption } from "@/lib/api";
@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
 
 function formatMoney(amount: number, currency: string) {
@@ -56,8 +55,6 @@ export function ClientExtraOptionsPage() {
   const [payModal, setPayModal] = useState<PublicSellOption | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-
-  const isMobileOrMiniapp = useCabinetMiniapp();
 
   useEffect(() => {
     api.getPublicConfig().then((c) => {
@@ -202,92 +199,247 @@ export function ClientExtraOptionsPage() {
     );
   }
 
+  const trafficOptions = options.filter(o => o.kind === "traffic");
+  const deviceOptions = options.filter(o => o.kind === "devices");
+  const serverOptions = options.filter(o => o.kind === "servers");
+
   return (
-    <div className="space-y-6 w-full min-w-0 overflow-hidden">
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Доп. опции</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Доп. трафик, устройства или серверы — применяются к вашей подписке после оплаты.
-        </p>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto pb-24">
+      <div className="relative overflow-hidden rounded-3xl bg-card/40 backdrop-blur-2xl border border-border/50 p-8 sm:p-10 shadow-xl">
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground flex items-center gap-3">
+              <Layers className="h-8 w-8 text-primary" />
+              Доп. опции
+            </h1>
+            <p className="mt-3 text-[16px] text-muted-foreground max-w-xl leading-relaxed">
+              Не хватает трафика, нужны дополнительные устройства или серверы?
+              Здесь вы можете прокачать вашу текущую подписку. Опции применяются моментально после оплаты.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className={isMobileOrMiniapp ? "space-y-3" : "grid gap-4 sm:grid-cols-2"}>
-        {options.map((opt) => (
-          <Card key={`${opt.kind}-${opt.id}`} className="overflow-hidden">
-            <CardContent className="p-3 sm:p-4 flex flex-row items-center justify-between gap-2 sm:gap-4 min-w-0">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {optionIcon(opt)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate text-sm sm:text-base">{opt.name || optionLabel(opt)}</p>
-                  {!isMobileOrMiniapp && <p className="text-sm text-muted-foreground">{optionLabel(opt)}</p>}
+      {trafficOptions.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold px-2">
+            <Wifi className="h-5 w-5 text-primary" />
+            Дополнительный трафик
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {trafficOptions.map((opt) => (
+              <Card key={`traffic-${opt.id}`} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
+                <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300">
+                      {optionIcon(opt)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-foreground truncate">{opt.name || "Пакет трафика"}</h3>
+                      <p className="text-sm text-muted-foreground truncate">{optionLabel(opt)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto space-y-4 pt-4 border-t border-border/50">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-extrabold text-foreground">{formatMoney(opt.price, opt.currency)}</span>
+                    </div>
+                    <Button onClick={() => setPayModal(opt)} className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform rounded-xl h-12">
+                      <CreditCard className="h-5 w-5" />
+                      Купить пакет
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {deviceOptions.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold px-2">
+            <Smartphone className="h-5 w-5 text-primary" />
+            Устройства (Слоты)
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {deviceOptions.map((opt) => (
+              <Card key={`devices-${opt.id}`} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
+                <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300">
+                      {optionIcon(opt)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-foreground truncate">{opt.name || "Слоты устройств"}</h3>
+                      <p className="text-sm text-muted-foreground truncate">{optionLabel(opt)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto space-y-4 pt-4 border-t border-border/50">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-extrabold text-foreground">{formatMoney(opt.price, opt.currency)}</span>
+                    </div>
+                    <Button onClick={() => setPayModal(opt)} className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform rounded-xl h-12">
+                      <CreditCard className="h-5 w-5" />
+                      Добавить устройства
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {serverOptions.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold px-2">
+            <Server className="h-5 w-5 text-primary" />
+            Дополнительные серверы
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {serverOptions.map((opt) => (
+              <Card key={`servers-${opt.id}`} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
+                <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300">
+                      {optionIcon(opt)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-foreground truncate">{opt.name || "Доп. сервер"}</h3>
+                      <p className="text-sm text-muted-foreground truncate">{optionLabel(opt)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto space-y-4 pt-4 border-t border-border/50">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-extrabold text-foreground">{formatMoney(opt.price, opt.currency)}</span>
+                    </div>
+                    <Button onClick={() => setPayModal(opt)} className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform rounded-xl h-12">
+                      <CreditCard className="h-5 w-5" />
+                      Купить сервер
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) { setPayModal(null); setPayError(null); } }}>
+        <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader className="mb-4 text-center sm:text-left">
+            <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              Оплата опции
+            </DialogTitle>
+            <DialogDescription className="text-base font-medium mt-2">
+              {payModal ? (
+                <div className="flex flex-col gap-1.5 mt-2 bg-background/50 p-4 rounded-2xl border border-border/50 text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Опция:</span>
+                    <span className="font-semibold text-foreground text-right ml-2">{payModal.name || optionLabel(payModal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">К оплате:</span>
+                    <span className="font-bold text-lg text-primary">{formatMoney(payModal.price, payModal.currency)}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="font-semibold text-sm sm:text-base tabular-nums whitespace-nowrap">{formatMoney(opt.price, opt.currency)}</span>
-                <Button onClick={() => setPayModal(opt)} size="sm" className="gap-1.5 shrink-0">
-                  <CreditCard className="h-4 w-4" />
-                  Купить
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Dialog open={!!payModal} onOpenChange={(open) => !open && setPayModal(null)}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-          <DialogHeader>
-            <DialogTitle>Способ оплаты</DialogTitle>
-            <DialogDescription>
-              {payModal && (
-                <>
-                  {payModal.name || optionLabel(payModal)} — {formatMoney(payModal.price, payModal.currency)}
-                </>
-              )}
+              ) : null}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2 py-2">
+
+          {payError && (
+            <div className="p-3 mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center font-medium">
+              {payError}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
             {payModal && balance >= payModal.price && (
-              <Button onClick={() => startBalancePayment(payModal)} disabled={payLoading} variant="default" className="w-full gap-2" type="button">
-                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-                Оплатить с баланса ({formatMoney(balance, payModal.currency)})
+              <Button
+                size="lg"
+                onClick={() => startBalancePayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-2 shadow-lg hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 bg-gradient-to-r from-primary to-primary/80"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" />}
+                <span className="text-base font-semibold">Оплатить с баланса</span>
+                <span className="opacity-80 font-normal ml-1">({formatMoney(balance, payModal.currency)})</span>
               </Button>
             )}
-            {yookassaEnabled && payModal && (
-              <Button onClick={() => startYookassaPayment(payModal)} disabled={payLoading} className="w-full gap-2">
-                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Карта / СБП (ЮKassa)
+
+            {yoomoneyEnabled && payModal?.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYoomoneyPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
+                <span className="text-base font-medium">ЮMoney (Российские карты)</span>
               </Button>
             )}
+
+            {yookassaEnabled && payModal?.currency.toUpperCase() === "RUB" && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startYookassaPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
+                <span className="text-base font-medium">ЮKassa (Карта / СБП)</span>
+              </Button>
+            )}
+
             {cryptopayEnabled && payModal && (
-              <Button onClick={() => startCryptopayPayment(payModal)} disabled={payLoading} className="w-full gap-2">
-                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Crypto Bot — криптовалюта
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startCryptopayPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-yellow-500" />}
+                <span className="text-base font-medium">Crypto Bot (Криптовалюта)</span>
               </Button>
             )}
+
             {heleketEnabled && payModal && (
-              <Button onClick={() => startHeleketPayment(payModal)} disabled={payLoading} className="w-full gap-2">
-                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Heleket — криптовалюта
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startHeleketPayment(payModal)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 text-orange-500" />}
+                <span className="text-base font-medium">Heleket (Криптовалюта)</span>
               </Button>
             )}
-            {yoomoneyEnabled && payModal && (
-              <Button variant="outline" onClick={() => startYoomoneyPayment(payModal)} disabled={payLoading} className="w-full gap-2">
-                {payLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                ЮMoney (карта)
-              </Button>
-            )}
+
             {plategaMethods.map((m) => payModal && (
-              <Button key={m.id} variant="outline" onClick={() => startPlategaPayment(payModal, m.id)} disabled={payLoading} className="w-full">
-                {m.label}
+              <Button
+                key={m.id}
+                size="lg"
+                variant="outline"
+                onClick={() => startPlategaPayment(payModal, m.id)}
+                disabled={payLoading}
+                className="w-full gap-2 hover:bg-background/80 hover:scale-[1.02] transition-all duration-300 rounded-xl h-14 border-border/50"
+              >
+                {payLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                <span className="text-base font-medium">{m.label}</span>
               </Button>
             ))}
           </div>
-          {payError && <p className="text-sm text-destructive">{payError}</p>}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setPayModal(null)}>Отмена</Button>
+
+          <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
+             <Button variant="ghost" onClick={() => setPayModal(null)} disabled={payLoading} className="rounded-xl hover:bg-background/50">
+               Отмена
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
