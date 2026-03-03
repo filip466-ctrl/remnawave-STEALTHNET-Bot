@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2 } from "lucide-react";
+import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2, Globe } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
@@ -894,75 +894,108 @@ export function ClientProfilePage() {
       </Dialog>
 
       <Dialog open={topUpModalOpen} onOpenChange={(open) => !topUpLoading && setTopUpModalOpen(open)}>
-        <DialogContent className="max-w-sm" showCloseButton={!topUpLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Способ оплаты</DialogTitle>
-            <DialogDescription>
-              Пополнение на {topUpAmount ? `${Number(topUpAmount.replace(",", "."))} ${currency.toUpperCase()}` : "—"}
-              {(yoomoneyEnabled || yookassaEnabled) && " (ЮMoney и ЮKassa — только рубли). Crypto Bot и Heleket — USD, RUB, EUR и др."}
+        <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!topUpLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader className="mb-4 text-center sm:text-left">
+            <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Wallet className="h-6 w-6 text-primary" />
+              </div>
+              Способ оплаты
+            </DialogTitle>
+            <DialogDescription className="text-base font-medium mt-2">
+              <div className="flex flex-col gap-2 mt-4 bg-background/50 p-4 rounded-2xl border border-border/50 text-left relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex justify-between items-center relative z-10">
+                  <span className="text-muted-foreground">К оплате:</span>
+                  <span className="font-bold text-xl text-primary">
+                    {topUpAmount ? formatMoney(Number(topUpAmount.replace(",", ".")), currency.toUpperCase()) : "—"}
+                  </span>
+                </div>
+              </div>
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2 py-2">
+
+          {topUpError && (
+            <div className="p-3 mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center font-medium animate-in fade-in slide-in-from-top-2">
+              {topUpError}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
             {yoomoneyEnabled && (
               <Button
+                size="lg"
                 variant="outline"
-                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
                 disabled={topUpLoading}
                 onClick={() => startTopUpYoomoneyForm("AC")}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
-                ЮMoney — оплата картой
+                <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-purple-500" /> : <CreditCard className="h-5 w-5 text-purple-500" />}
+                </div>
+                <span className="text-base font-medium">ЮMoney</span>
               </Button>
             )}
             {yookassaEnabled && (
               <Button
+                size="lg"
                 variant="outline"
-                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
                 disabled={topUpLoading}
                 onClick={() => startTopUpYookassa()}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
-                ЮKassa — карта / СБП
+                <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-blue-500" /> : <CreditCard className="h-5 w-5 text-blue-500" />}
+                </div>
+                <span className="text-base font-medium">ЮKassa</span>
               </Button>
             )}
             {cryptopayEnabled && (
               <Button
+                size="lg"
                 variant="outline"
-                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
                 disabled={topUpLoading}
                 onClick={() => startTopUpCryptopay()}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
-                Crypto Bot — криптовалюта
+                <div className="p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Globe className="h-5 w-5 text-yellow-500" />}
+                </div>
+                <span className="text-base font-medium">Crypto Bot</span>
               </Button>
             )}
             {heleketEnabled && (
               <Button
+                size="lg"
                 variant="outline"
-                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
                 disabled={topUpLoading}
                 onClick={() => startTopUpHeleket()}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
-                Heleket — криптовалюта
+                <div className="p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Globe className="h-5 w-5 text-orange-500" />}
+                </div>
+                <span className="text-base font-medium">Heleket</span>
               </Button>
             )}
             {plategaMethods.map((m) => (
               <Button
                 key={m.id}
+                size="lg"
                 variant="outline"
-                className="justify-start border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-200"
+                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-start px-6"
                 disabled={topUpLoading}
                 onClick={() => startTopUp(m.id)}
               >
-                {topUpLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <CreditCard className="h-4 w-4 mr-2 shrink-0 text-primary" />}
-                {m.label}
+                <div className="p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                </div>
+                <span className="text-base font-medium">{m.label}</span>
               </Button>
             ))}
           </div>
-          {topUpError && <p className="text-sm text-destructive">{topUpError}</p>}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setTopUpModalOpen(false)} disabled={topUpLoading}>
+          <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
+            <Button variant="ghost" onClick={() => setTopUpModalOpen(false)} disabled={topUpLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">
               Отмена
             </Button>
           </DialogFooter>
