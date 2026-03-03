@@ -387,6 +387,8 @@ function MobileCabinetShell() {
 
   return (
     <div className="min-h-svh flex flex-col bg-transparent min-w-0 overflow-x-hidden pb-36">
+      {/* Градиентный переход над меню в мобильной версии для эффекта уплывания */}
+      <div className="fixed bottom-[4.5rem] left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent z-[40] pointer-events-none sm:hidden" />
       <FloatingChat />
       <header className="sticky top-0 z-50 border-b border-border shrink-0 transition-all duration-300" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="absolute inset-0 bg-card/40 backdrop-blur-xl -z-10 pointer-events-none" />
