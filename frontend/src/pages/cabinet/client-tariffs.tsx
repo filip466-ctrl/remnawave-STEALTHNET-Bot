@@ -620,7 +620,7 @@ export function ClientTariffsPage() {
                 <div className="absolute left-6 p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
                   {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Zap className="h-5 w-5 text-yellow-500" />}
                 </div>
-                <span className="text-base font-medium">Crypto Bot (Криптовалюта)</span>
+                <span className="text-base font-medium">⚡ Crypto Bot (Криптовалюта)</span>
               </Button>
             )}
 
@@ -635,7 +635,7 @@ export function ClientTariffsPage() {
                 <div className="absolute left-6 p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
                   {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Zap className="h-5 w-5 text-orange-500" />}
                 </div>
-                <span className="text-base font-medium">Heleket (Криптовалюта)</span>
+                <span className="text-base font-medium">⚡ Heleket (Криптовалюта)</span>
               </Button>
             )}
 
@@ -650,7 +650,7 @@ export function ClientTariffsPage() {
                 <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                   {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
                 </div>
-                <span className="text-base font-medium">СБП</span>
+                <span className="text-base font-medium">💳 СБП</span>
               </Button>
             )}
 
@@ -665,7 +665,7 @@ export function ClientTariffsPage() {
                 <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                   {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
                 </div>
-                <span className="text-base font-medium">Карты</span>
+                <span className="text-base font-medium">💳 Карты</span>
               </Button>
             )}
 
@@ -681,7 +681,7 @@ export function ClientTariffsPage() {
                 <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                   {payLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
                 </div>
-                <span className="text-base font-medium">{m.label}</span>
+                <span className="text-base font-medium">💳 {m.label}</span>
               </Button>
             ))}
           </div>
