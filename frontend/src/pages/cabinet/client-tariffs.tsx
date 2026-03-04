@@ -617,7 +617,7 @@ export function ClientTariffsPage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-6 pb-8">
+            <div className="p-4 sm:p-6">
                <PaymentContent />
             </div>
           </motion.div>

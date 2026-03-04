@@ -213,7 +213,7 @@ export function ClientExtraOptionsPage() {
           </div>
         </div>
 
-        <div className={cn("space-y-3", isMobileOrMiniapp ? "pb-24" : "")}>
+        <div className={cn("space-y-3")}>
           <div className="flex items-center gap-2 pt-2 pb-1">
             <Wallet className={cn("text-primary", isMobileOrMiniapp ? "h-5 w-5" : "h-4 w-4")} />
             <span className={cn("font-bold", isMobileOrMiniapp ? "text-lg" : "text-sm")}>Способ оплаты</span>
@@ -386,7 +386,6 @@ export function ClientExtraOptionsPage() {
                </Button>
             ))}
           </div>
-          {isMobileOrMiniapp && <div className="h-8" />}
         </div>
       </div>
     );
@@ -448,7 +447,7 @@ export function ClientExtraOptionsPage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-6 pb-8">
+            <div className="p-4 sm:p-6">
                <PaymentContent />
             </div>
           </motion.div>
