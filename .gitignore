@@ -47,8 +47,9 @@ server_info.md
 .roo/
 .roomodes
 
-# OpenCode project config (локальные MCP настройки)
+# OpenCode project config (локальные MCP настройки и скиллы)
 opencode.json
+.opencode/
 
 # Keys
 /keys/
