@@ -498,7 +498,7 @@ export function ClientTariffsPage() {
       )}
 
       <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) { setPayModal(null); setPromoInput(""); setPromoResult(null); setPromoError(null); } }}>
-        <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="w-full max-w-md mx-auto sm:rounded-3xl rounded-t-3xl rounded-b-none sm:rounded-b-3xl p-5 sm:p-6 border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl max-h-[90dvh] overflow-y-auto" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="mb-4 text-center sm:text-left">
             <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
               <div className="p-2 bg-primary/10 rounded-xl">

@@ -383,6 +383,8 @@ export function ClientProfilePage() {
 
   if (!client) return null;
   const isMiniapp = useCabinetMiniapp();
+  // Реальный miniapp (TG WebApp) — только если доступен initData
+  const isTgMiniapp = isMiniapp && Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData?.trim());
   const cardClass = isMiniapp ? "min-w-0 overflow-hidden" : "";
 
   return (
@@ -489,7 +491,7 @@ export function ClientProfilePage() {
                 </div>
                 {!client.telegramId && (
                   <div className="shrink-0">
-                    {isMiniapp ? (
+                    {isTgMiniapp ? (
                       <Button variant="outline" size="sm" onClick={linkTelegramFromMiniapp} disabled={linkTelegramLoading} className="shadow-sm">
                         {linkTelegramLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Привязать текущий"}
                       </Button>
@@ -501,7 +503,7 @@ export function ClientProfilePage() {
                   </div>
                 )}
               </div>
-              {!isMiniapp && !client.telegramId && linkTelegramCode && (
+              {!isTgMiniapp && !client.telegramId && linkTelegramCode && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Код привязки</p>

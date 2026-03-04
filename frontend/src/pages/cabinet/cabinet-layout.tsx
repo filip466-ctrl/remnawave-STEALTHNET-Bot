@@ -184,9 +184,8 @@ function ThemePopover() {
 
   return (
     <div className="relative" ref={popoverRef}>
-      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8 px-2 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
+      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 bg-background/20 hover:bg-background/40" onClick={() => setShow(!show)}>
         <Palette className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Внешний вид</span>
       </Button>
       <div
         className={cn(

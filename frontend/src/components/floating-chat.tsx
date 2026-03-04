@@ -315,12 +315,25 @@ export function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeChat, setActiveChat] = useState<ChatType>("ai");
+  const [hasOpenDialog, setHasOpenDialog] = useState(false);
 
   const [aiChats, setAiChats] = useState<Message[]>(INITIAL_AI);
   const [aiInput, setAiInput] = useState("");
 
   const [unread, setUnread] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Скрываем кнопку чата когда открыт любой Dialog (Radix)
+  useEffect(() => {
+    function checkDialogs() {
+      const overlay = document.querySelector("[data-radix-dialog-overlay]");
+      setHasOpenDialog(!!overlay);
+    }
+    const observer = new MutationObserver(checkDialogs);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] });
+    checkDialogs();
+    return () => observer.disconnect();
+  }, []);
 
   // Блокировка скролла body при открытом чате только на мобилках
   useEffect(() => {
@@ -382,7 +395,7 @@ export function FloatingChat() {
 
   return (
     <>
-      <div className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[100]">
+      <div className={cn("fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[100]", hasOpenDialog && !isOpen && "pointer-events-none opacity-0")}>
         <AnimatePresence>
           {isOpen && (
             <motion.div
