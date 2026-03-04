@@ -188,6 +188,7 @@ export function ClientExtraOptionsPage() {
 
   const PaymentContent = () => {
     if (!payModal) return null;
+    // Оставляем кнопку всегда (даже если баланса нет), просто делаем ее disabled
     const hasBalance = balance >= payModal.price;
 
     return (
@@ -212,7 +213,7 @@ export function ClientExtraOptionsPage() {
           </div>
         </div>
 
-        <div className={cn("space-y-3", isMobileOrMiniapp ? "pb-8" : "")}>
+        <div className={cn("space-y-3", isMobileOrMiniapp ? "pb-24" : "")}>
           <div className="flex items-center gap-2 pt-2 pb-1">
             <Wallet className={cn("text-primary", isMobileOrMiniapp ? "h-5 w-5" : "h-4 w-4")} />
             <span className={cn("font-bold", isMobileOrMiniapp ? "text-lg" : "text-sm")}>Способ оплаты</span>
@@ -225,35 +226,34 @@ export function ClientExtraOptionsPage() {
           )}
 
           <div className="space-y-3">
-            {hasBalance && (
-               <Button
-                  size="lg"
-                  onClick={() => startBalancePayment(payModal)}
-                  disabled={payLoading}
-                  className={cn("w-full shadow-lg border-0 group relative overflow-hidden", isMobileOrMiniapp ? "justify-between px-6 h-16 rounded-2xl bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400" : "gap-2 h-14 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300")}
-               >
-                  {!isMobileOrMiniapp && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />}
-                  {isMobileOrMiniapp ? (
-                     <>
-                     <div className="flex items-center gap-3">
-                        {payLoading ? <Loader2 className="h-6 w-6 text-white animate-spin" /> : <Wallet className="h-6 w-6 text-white" />}
-                        <span className="text-base font-bold text-white">Оплатить с баланса</span>
-                     </div>
-                     <span className="text-white/80 font-mono font-medium bg-black/20 px-2 py-1 rounded-lg">
-                        {formatMoney(balance, payModal.currency)}
-                     </span>
-                     </>
-                  ) : (
-                     <>
-                     {payLoading ? <Loader2 className="h-5 w-5 animate-spin relative z-10" /> : <Wallet className="h-5 w-5 relative z-10" />}
-                     <span className="text-base font-semibold relative z-10">Оплатить с баланса</span>
-                     <span className="opacity-90 font-medium ml-1 bg-black/10 px-2 py-0.5 rounded-md relative z-10">
-                        ({formatMoney(balance, payModal.currency)})
-                     </span>
-                     </>
-                  )}
-               </Button>
-            )}
+            {/* Оплата с баланса (теперь показывается всегда, но дизейблится) */}
+            <Button
+              size="lg"
+              onClick={() => startBalancePayment(payModal)}
+              disabled={payLoading || !hasBalance}
+              className={cn("w-full shadow-lg border-0 group relative overflow-hidden", isMobileOrMiniapp ? "justify-between px-6 h-16 rounded-2xl bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400" : "gap-2 h-14 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300")}
+            >
+              {!isMobileOrMiniapp && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />}
+              {isMobileOrMiniapp ? (
+                  <>
+                  <div className="flex items-center gap-3">
+                    {payLoading ? <Loader2 className="h-6 w-6 text-white animate-spin" /> : <Wallet className="h-6 w-6 text-white" />}
+                    <span className="text-base font-bold text-white">Оплатить с баланса</span>
+                  </div>
+                  <span className="text-white/80 font-mono font-medium bg-black/20 px-2 py-1 rounded-lg">
+                    {formatMoney(balance, payModal.currency)}
+                  </span>
+                  </>
+              ) : (
+                  <>
+                  {payLoading ? <Loader2 className="h-5 w-5 animate-spin relative z-10" /> : <Wallet className="h-5 w-5 relative z-10" />}
+                  <span className="text-base font-semibold relative z-10">Оплатить с баланса</span>
+                  <span className="opacity-90 font-medium ml-1 bg-black/10 px-2 py-0.5 rounded-md relative z-10">
+                    ({formatMoney(balance, payModal.currency)})
+                  </span>
+                  </>
+              )}
+            </Button>
 
             {yoomoneyEnabled && payModal?.currency.toUpperCase() === "RUB" && (
                <Button
