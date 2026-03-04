@@ -15,6 +15,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
@@ -406,7 +407,7 @@ export function ClientTariffsPage() {
         </div>
 
         {/* Способы оплаты */}
-        <div className={cn("space-y-3", isMobileOrMiniapp ? "pb-8" : "")}>
+        <div className={cn("space-y-3")}>
           <div className="flex items-center gap-2 pt-2 pb-1">
             <Wallet className={cn("text-primary", isMobileOrMiniapp ? "h-5 w-5" : "h-4 w-4")} />
             <span className={cn("font-bold", isMobileOrMiniapp ? "text-lg" : "text-sm")}>Способ оплаты</span>
@@ -581,7 +582,6 @@ export function ClientTariffsPage() {
               </Button>
             ))}
           </div>
-          {isMobileOrMiniapp && <div className="h-8" />}
         </div>
       </div>
     );
@@ -590,7 +590,7 @@ export function ClientTariffsPage() {
   return (
     <>
       <AnimatePresence mode="wait">
-        {/* MOBILE VIEW: РЕНДЕРИМ ИЛИ ОПЛАТУ, ИЛИ СПИСОК (КАК В ТИКЕТАХ) */}
+        {/* MOBILE VIEW */}
         {isMobileOrMiniapp && payModal ? (
           <motion.div
             key="payment-view"
@@ -598,10 +598,9 @@ export function ClientTariffsPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
-            className="flex flex-col h-[calc(100vh-8rem)] min-h-[500px] w-full rounded-[2.5rem] border border-white/10 dark:border-white/5 bg-slate-50/60 dark:bg-slate-950/60 backdrop-blur-[32px] shadow-2xl overflow-hidden relative"
+            className="flex flex-col w-full rounded-[2.5rem] border border-white/10 dark:border-white/5 bg-slate-50/60 dark:bg-slate-950/60 backdrop-blur-[32px] shadow-2xl relative"
           >
-            {/* Header как в тикетах */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border/50 bg-background/30 backdrop-blur-md shrink-0 z-10 transition-colors">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border/50 bg-background/30 backdrop-blur-md z-10 transition-colors rounded-t-[2.5rem]">
               <div className="flex items-center gap-3 min-w-0">
                 <Button 
                   variant="ghost" 
@@ -618,8 +617,7 @@ export function ClientTariffsPage() {
               </div>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
+            <div className="p-4 sm:p-6 pb-8">
                <PaymentContent />
             </div>
           </motion.div>
@@ -838,36 +836,27 @@ export function ClientTariffsPage() {
         )}
       </AnimatePresence>
 
-      {/* DESKTOP VIEW: ОСТАВЛЯЕМ DIALOG, НО ФИКСИМ СКРОЛЛ */}
+      {/* DESKTOP VIEW: DIALOG БЕЗ СКРОЛЛИНГА */}
       {!isMobileOrMiniapp && (
         <Dialog open={!!payModal} onOpenChange={(open) => { if (!open && !payLoading) closePayment(); }}>
-          <DialogContent className="flex flex-col w-full max-w-md mx-auto sm:rounded-3xl p-0 border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl max-h-[90dvh] overflow-hidden" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
-            
-            {/* Fixed Header */}
-            <DialogHeader className="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border/50 shrink-0 bg-background/50">
+          <DialogContent className="w-full max-w-md mx-auto sm:rounded-3xl p-5 sm:p-6 border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!payLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+            <DialogHeader className="mb-4 text-center sm:text-left">
               <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
                 <div className="p-2 bg-primary/10 rounded-xl">
                   <Shield className="h-6 w-6 text-primary" />
                 </div>
                 Оплата тарифа
               </DialogTitle>
-              <DialogDescription className="text-base font-medium mt-2 hidden">
-                Выберите способ оплаты
-              </DialogDescription>
+              <DialogDescription className="hidden" />
             </DialogHeader>
 
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 custom-scrollbar">
-              <PaymentContent />
-            </div>
+            <PaymentContent />
 
-            {/* Fixed Footer */}
-            <div className="px-5 sm:px-6 py-4 border-t border-border/50 shrink-0 bg-background/50 flex justify-center">
+            <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
               <Button variant="ghost" onClick={closePayment} disabled={payLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">
                 Отмена
               </Button>
-            </div>
-            
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
