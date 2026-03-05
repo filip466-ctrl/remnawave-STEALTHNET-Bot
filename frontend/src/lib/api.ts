@@ -888,6 +888,10 @@ export const api = {
     return request("/client/profile", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
+  async clientChangePassword(token: string, data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
+    return request("/client/change-password", { method: "POST", body: JSON.stringify(data), token });
+  },
+
   /** Запросить код для привязки Telegram через бота (без авторизации по токену не нужен) */
   async clientLinkTelegramRequest(token: string): Promise<{ code: string; expiresAt: string; botUsername: string | null }> {
     return request("/client/link-telegram-request", { method: "POST", token });

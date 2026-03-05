@@ -71,6 +71,13 @@ export function ClientProfilePage() {
   const [twoFaCode, setTwoFaCode] = useState("");
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [twoFaError, setTwoFaError] = useState<string | null>(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState(false);
 
   const client = state.client;
   const token = state.token;
@@ -182,6 +189,51 @@ export function ClientProfilePage() {
     } finally {
       setTwoFaLoading(false);
     }
+  }
+
+  async function submitChangePassword() {
+    if (!token) return;
+    if (!currentPassword.trim()) {
+      setChangePasswordError("Введите текущий пароль");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setChangePasswordError("Новый пароль должен быть минимум 6 символов");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePasswordError("Пароли не совпадают");
+      return;
+    }
+    setChangePasswordError(null);
+    setChangePasswordLoading(true);
+    try {
+      await api.clientChangePassword(token, {
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      });
+      setChangePasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => {
+        setChangePasswordOpen(false);
+        setChangePasswordSuccess(false);
+      }, 2000);
+    } catch (e) {
+      setChangePasswordError(e instanceof Error ? e.message : "Ошибка смены пароля");
+    } finally {
+      setChangePasswordLoading(false);
+    }
+  }
+
+  function closeChangePassword() {
+    setChangePasswordOpen(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setChangePasswordError(null);
+    setChangePasswordSuccess(false);
   }
 
   useEffect(() => {
@@ -614,6 +666,21 @@ export function ClientProfilePage() {
                     <Button variant="outline" size="sm" className="shadow-sm" onClick={openTwoFaEnable}>Включить</Button>
                   )}
                 </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Пароль</p>
+                    <p className="font-medium text-sm truncate">Сменить пароль аккаунта</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="shadow-sm shrink-0" onClick={() => setChangePasswordOpen(true)}>
+                  Сменить
+                </Button>
               </div>
 
               <div className="rounded-2xl bg-muted/40 border border-border/50 overflow-hidden dark:bg-white/5 dark:border-white/5">
@@ -1109,6 +1176,65 @@ export function ClientProfilePage() {
                 <p className="text-sm font-medium text-destructive animate-in fade-in text-center">{twoFaError}</p>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={changePasswordOpen} onOpenChange={(open) => !open && closeChangePassword()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 backdrop-blur-3xl" showCloseButton={!changePasswordLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-6 shadow-inner border border-primary/20">
+              <KeyRound className="h-8 w-8" />
+            </div>
+            <DialogHeader className="p-0 flex flex-col items-center mb-6">
+              <DialogTitle className="text-2xl font-bold tracking-tight">Сменить пароль</DialogTitle>
+              <DialogDescription className="text-center text-sm mt-2 max-w-[280px]">
+                Введите текущий пароль и придумайте новый.
+              </DialogDescription>
+            </DialogHeader>
+
+            {changePasswordSuccess ? (
+              <div className="flex flex-col items-center gap-4 py-6 animate-in fade-in scale-95 duration-300">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 text-green-500">
+                  <Check className="h-8 w-8" />
+                </div>
+                <p className="text-lg font-bold text-green-500">Пароль изменён!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-3">
+                  <Input
+                    type="password"
+                    placeholder="Текущий пароль"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="h-12 rounded-xl"
+                    autoFocus
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Новый пароль (мин. 6 символов)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-12 rounded-xl"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Повторите новый пароль"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                {changePasswordError && (
+                  <p className="text-sm font-medium text-destructive animate-in fade-in text-center">{changePasswordError}</p>
+                )}
+                <Button className="w-full h-12 rounded-xl font-bold text-base shadow-lg" onClick={submitChangePassword} disabled={changePasswordLoading || !currentPassword || !newPassword || !confirmPassword}>
+                  {changePasswordLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                  Сохранить пароль
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

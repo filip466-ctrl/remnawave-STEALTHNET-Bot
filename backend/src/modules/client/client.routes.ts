@@ -593,6 +593,43 @@ clientRouter.post("/2fa/disable", async (req, res) => {
   return res.json({ message: "Двухфакторная аутентификация отключена" });
 });
 
+// ——— Change Password ———
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Введите текущий пароль"),
+  newPassword: z.string().min(6, "Минимум 6 символов"),
+});
+
+clientRouter.post("/change-password", requireClientAuth, async (req, res) => {
+  const client = (req as unknown as { client: { id: string; passwordHash: string | null } }).client;
+  const body = changePasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  }
+
+  // Получаем актуальный passwordHash из базы
+  const clientData = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { passwordHash: true },
+  });
+
+  if (!clientData?.passwordHash) {
+    return res.status(400).json({ message: "У вас нет пароля. Используйте вход через Telegram или Email." });
+  }
+
+  const valid = await verifyPassword(body.data.currentPassword, clientData.passwordHash);
+  if (!valid) {
+    return res.status(400).json({ message: "Неверный текущий пароль" });
+  }
+
+  const newPasswordHash = await hashPassword(body.data.newPassword);
+  await prisma.client.update({
+    where: { id: client.id },
+    data: { passwordHash: newPasswordHash },
+  });
+
+  return res.json({ message: "Пароль успешно изменён" });
+});
+
 const updateProfileSchema = z.object({
   preferredLang: z.string().max(10).optional(),
   preferredCurrency: z.string().max(10).optional(),
