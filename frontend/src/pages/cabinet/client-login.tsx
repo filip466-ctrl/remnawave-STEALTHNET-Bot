@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export function ClientLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [brand, setBrand] = useState<{ serviceName: string; logo: string | null }>({
@@ -23,6 +24,28 @@ export function ClientLoginPage() {
   const [searchParams] = useSearchParams();
   const { login, registerByTelegram } = useClientAuth();
   const navigate = useNavigate();
+
+  function validateEmail(value: string): string {
+    if (!value.trim()) return "Email обязателен";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return "Введите корректный email";
+    return "";
+  }
+
+  function handleEmailBlur() {
+    setEmailError(validateEmail(email));
+  }
+
+  function handleEmailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setEmail(e.target.value);
+    if (emailError) setEmailError("");
+  }
+
+  function validateAll(): boolean {
+    const emailErr = validateEmail(email);
+    setEmailError(emailErr);
+    return !emailErr;
+  }
 
   // Сохраняем UTM из URL для последующей регистрации (если пользователь перейдёт на /cabinet/register)
   useEffect(() => {
@@ -73,6 +96,11 @@ export function ClientLoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    
+    if (!validateAll()) {
+      return;
+    }
+    
     setLoading(true);
     try {
       await login(email, password);
@@ -128,10 +156,13 @@ export function ClientLoginPage() {
                   type="email"
                   placeholder="your@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
                   required
                   autoComplete="email"
+                  className={emailError ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
+                {emailError && <p className="text-xs text-destructive">{emailError}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Пароль</Label>
