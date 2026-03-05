@@ -892,6 +892,10 @@ export const api = {
     return request("/client/change-password", { method: "POST", body: JSON.stringify(data), token });
   },
 
+  async clientSetPassword(token: string, data: { newPassword: string }): Promise<{ message: string }> {
+    return request("/client/set-password", { method: "POST", body: JSON.stringify(data), token });
+  },
+
   /** Запросить код для привязки Telegram через бота (без авторизации по токену не нужен) */
   async clientLinkTelegramRequest(token: string): Promise<{ code: string; expiresAt: string; botUsername: string | null }> {
     return request("/client/link-telegram-request", { method: "POST", token });

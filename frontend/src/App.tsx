@@ -32,6 +32,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { CabinetLayout } from "@/pages/cabinet/cabinet-layout";
 import { ClientLoginPage } from "@/pages/cabinet/client-login";
 import { ClientRegisterPage } from "@/pages/cabinet/client-register";
+import { ClientOnboardingPage } from "@/pages/cabinet/client-onboarding";
 import { ClientVerifyEmailPage } from "@/pages/cabinet/client-verify-email";
 import { ClientVerifyLinkEmailPage } from "@/pages/cabinet/client-verify-link-email";
 import { ClientDashboardPage } from "@/pages/cabinet/client-dashboard";
@@ -164,6 +165,14 @@ function AppRoutes() {
         <Route index element={<CabinetIndexRedirect />} />
         <Route path="login" element={<ClientLoginPage />} />
         <Route path="register" element={<ClientRegisterPage />} />
+        <Route
+          path="onboarding"
+          element={
+            <RequireClientAuth>
+              <ClientOnboardingPage />
+            </RequireClientAuth>
+          }
+        />
         <Route path="verify-email" element={<ClientVerifyEmailPage />} />
         <Route path="verify-link-email" element={<ClientVerifyLinkEmailPage />} />
         <Route

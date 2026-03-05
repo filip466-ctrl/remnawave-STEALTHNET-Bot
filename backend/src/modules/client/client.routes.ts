@@ -165,7 +165,7 @@ clientAuthRouter.post("/register", async (req, res) => {
   if (hasTelegram) {
     const existing = await prisma.client.findUnique({
       where: { telegramId: data.telegramId! },
-      select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+      select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
     });
     if (existing) {
       if (existing.isBlocked) return res.status(403).json({ message: "Account is blocked" });
@@ -224,7 +224,7 @@ clientAuthRouter.post("/verify-link-email", async (req, res) => {
   const client = await prisma.client.update({
     where: { id: pending.clientId },
     data: { email: pending.email },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
   });
   await prisma.pendingEmailLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
   const auth = buildAuthResponse(client);
@@ -248,7 +248,7 @@ clientAuthRouter.post("/verify-email", async (req, res) => {
 
   const existingClient = await prisma.client.findUnique({
     where: { email: pending.email },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
   });
   if (existingClient) {
     await prisma.pendingEmailRegistration.delete({ where: { id: pending.id } }).catch(() => {});
@@ -310,7 +310,7 @@ clientAuthRouter.post("/login", async (req, res) => {
 
   const full = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
   });
   if (!full) return res.status(401).json({ message: "Invalid email or password" });
   const auth = buildAuthResponse(full);
@@ -370,7 +370,7 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
   const telegramUsername = tgUser.username?.trim() ?? null;
   const existing = await prisma.client.findUnique({
     where: { telegramId },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
   });
   if (existing) {
     if (existing.isBlocked) return res.status(403).json({ message: "Account is blocked" });
@@ -425,7 +425,7 @@ clientAuthRouter.post("/2fa-login", async (req, res) => {
   if (!payload) return res.status(401).json({ message: "Сессия истекла. Войдите снова." });
   const client = await prisma.client.findUnique({
     where: { id: payload.clientId },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpSecret: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpSecret: true, totpEnabled: true, createdAt: true },
   });
   if (!client?.totpEnabled || !client.totpSecret) return res.status(401).json({ message: "2FA не включена. Войдите снова." });
   const result = await verify({ secret: client.totpSecret, token: body.data.code });
@@ -438,7 +438,7 @@ clientAuthRouter.get("/me", requireClientAuth, async (req, res) => {
   const client = (req as unknown as { client: { id: string } }).client;
   const full = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
   });
   if (!full) return res.status(401).json({ message: "Unauthorized" });
   return res.json(toClientShape(full));
@@ -459,6 +459,7 @@ function toClientShape(c: {
   isBlocked?: boolean;
   yoomoneyAccessToken?: string | null;
   totpEnabled?: boolean;
+  createdAt?: Date;
 }) {
   return {
     id: c.id,
@@ -475,6 +476,7 @@ function toClientShape(c: {
     isBlocked: c.isBlocked ?? false,
     yoomoneyConnected: Boolean(c.yoomoneyAccessToken),
     totpEnabled: c.totpEnabled ?? false,
+    createdAt: c.createdAt ? c.createdAt.toISOString() : undefined,
   };
 }
 
@@ -630,6 +632,35 @@ clientRouter.post("/change-password", requireClientAuth, async (req, res) => {
   return res.json({ message: "Пароль успешно изменён" });
 });
 
+const setPasswordSchema = z.object({
+  newPassword: z.string().min(6, "Минимум 6 символов"),
+});
+
+clientRouter.post("/set-password", requireClientAuth, async (req, res) => {
+  const client = (req as unknown as { client: { id: string; passwordHash: string | null } }).client;
+  const body = setPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  }
+
+  const clientData = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { passwordHash: true },
+  });
+
+  if (clientData?.passwordHash) {
+    return res.status(400).json({ message: "Пароль уже установлен. Используйте смену пароля." });
+  }
+
+  const newPasswordHash = await hashPassword(body.data.newPassword);
+  await prisma.client.update({
+    where: { id: client.id },
+    data: { passwordHash: newPasswordHash },
+  });
+
+  return res.json({ message: "Пароль установлен" });
+});
+
 const updateProfileSchema = z.object({
   preferredLang: z.string().max(10).optional(),
   preferredCurrency: z.string().max(10).optional(),
@@ -643,13 +674,13 @@ clientRouter.patch("/profile", async (req, res) => {
   if (body.data.preferredLang !== undefined) updates.preferredLang = body.data.preferredLang;
   if (body.data.preferredCurrency !== undefined) updates.preferredCurrency = body.data.preferredCurrency;
   if (Object.keys(updates).length === 0) {
-    const current = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true } });
+    const current = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, createdAt: true } });
     return res.json(current ? toClientShape(current) : { message: "Not found" });
   }
   const updated = await prisma.client.update({
     where: { id: client.id },
     data: updates,
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, createdAt: true },
   });
   return res.json(toClientShape(updated));
 });
@@ -696,7 +727,7 @@ clientRouter.post("/link-telegram", async (req, res) => {
   const updated = await prisma.client.update({
     where: { id: client.id },
     data: { telegramId, telegramUsername },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, createdAt: true },
   });
   return res.json({ client: toClientShape(updated) });
 });
@@ -861,7 +892,7 @@ clientRouter.post("/trial", async (req, res) => {
       where: { id: client.id },
       data: { remnawaveUuid: existingUuid, trialUsed: true },
     });
-    const updated = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true } });
+    const updated = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, createdAt: true } });
     return res.json({ message: "Триал активирован", client: updated ? toClientShape(updated) : null });
   }
 
@@ -869,7 +900,7 @@ clientRouter.post("/trial", async (req, res) => {
     where: { id: client.id },
     data: { trialUsed: true },
   });
-  const updated = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true } });
+  const updated = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, createdAt: true } });
   return res.json({ message: "Триал активирован", client: updated ? toClientShape(updated) : null });
 });
 

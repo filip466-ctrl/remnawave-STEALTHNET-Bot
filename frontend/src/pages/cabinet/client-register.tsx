@@ -155,7 +155,7 @@ export function ClientRegisterPage() {
         preferredCurrency: defaults.currency,
         referralCode: refCode,
         ...utm,
-      }).then(() => navigate("/cabinet/dashboard", { replace: true }));
+      }).then(() => navigate("/cabinet/onboarding", { replace: true }));
     };
     telegramWidgetRef.current.innerHTML = "";
     telegramWidgetRef.current.appendChild(script);
