@@ -24,7 +24,78 @@ const INITIAL_AI: Message[] = [
   },
 ];
 
-function SupportTab() {
+const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen }: any) => (
+  <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
+    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+    <div className="relative flex items-center justify-between mb-3 sm:mb-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner">
+          {activeChat === "ai" ? <Sparkles className="h-5 w-5" /> : <Headset className="h-5 w-5" />}
+        </div>
+        <div>
+          <p className="text-base font-bold text-foreground leading-tight">
+            {activeChat === "ai" ? "AI Ассистент" : "Поддержка"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            {activeChat === "ai" ? "Бот онлайн" : "Операторы онлайн"}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 sm:gap-2">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="hidden sm:flex rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-6 w-6 sm:h-5 sm:w-5" />
+        </button>
+      </div>
+    </div>
+
+    {/* Chat Switcher */}
+    <div className="flex sm:justify-center">
+      <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5 w-full sm:w-auto sm:min-w-[320px]">
+        <button
+          onClick={() => setActiveChat("ai")}
+          className={cn(
+            "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+            activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+          )}
+        >
+          <Sparkles className="w-4 h-4" /> AI Чат
+        </button>
+        <button
+          onClick={() => setActiveChat("support")}
+          className={cn(
+            "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+            activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+          )}
+        >
+          <Headset className="w-4 h-4" /> Поддержка
+        </button>
+        {/* Sliding Background */}
+        <div
+          className="absolute top-1 bottom-1 bg-primary shadow-md rounded-lg transition-all duration-300 ease-out z-0 w-[calc(50%-4px)] sm:w-[160px]"
+          style={{
+            transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
+            left: "4px",
+          }}
+        />
+      </div>
+    </div>
+  </div>
+);
+
+function SupportTab({ headerProps }: { headerProps: any }) {
   const { state } = useClientAuth();
   const token = state.token ?? null;
 
@@ -129,55 +200,60 @@ function SupportTab() {
   // 1. Detail View (Chat inside a ticket)
   if (detailId) {
     return (
-      <div className="flex flex-col h-full w-full">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5 bg-background/50 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => setDetailId(null)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold truncate">{detail?.subject || "Загрузка..."}</h3>
-            {detail && (
-              <span className={cn("text-[10px] uppercase font-bold tracking-wider", detail.status === "open" ? "text-emerald-500" : "text-muted-foreground")}>
-                {detail.status === "open" ? "Открыт" : "Закрыт"}
-              </span>
-            )}
+      <div className="flex flex-col flex-1 min-h-0 w-full">
+        {/* Scrollable Area */}
+        <div className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar flex flex-col">
+          <ChatHeader {...headerProps} />
+          
+          {/* Header */}
+          <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5 bg-background/90 backdrop-blur-md shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => setDetailId(null)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-bold truncate">{detail?.subject || "Загрузка..."}</h3>
+              {detail && (
+                <span className={cn("text-[10px] uppercase font-bold tracking-wider", detail.status === "open" ? "text-emerald-500" : "text-muted-foreground")}>
+                  {detail.status === "open" ? "Открыт" : "Закрыт"}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar">
-          {detailLoading && !detail ? (
-            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary/50" /></div>
-          ) : detail?.messages?.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-muted-foreground text-sm font-medium">Нет сообщений</div>
-          ) : (
-            <AnimatePresence mode="popLayout">
-              {detail?.messages?.map((m: any) => {
-                const isSupport = m.authorType === "support";
-                const isUser = !isSupport;
-                return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
-                  >
-                    <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1", isUser ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400")}>
-                      {isUser ? <User className="h-4 w-4" /> : <Headset className="h-4 w-4" />}
-                    </div>
-                    <div className={cn("rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm backdrop-blur-md", isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm")}>
-                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                      <p className={cn("text-[10px] mt-1.5 opacity-60 font-medium", isUser ? "text-right" : "text-left text-muted-foreground")}>
-                        {formatDate(m.createdAt)}
-                      </p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          )}
-          <div ref={messagesEndRef} className="h-1" />
+          
+          {/* Messages */}
+          <div className="p-4 space-y-4 flex-1">
+            {detailLoading && !detail ? (
+              <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary/50" /></div>
+            ) : detail?.messages?.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground text-sm font-medium">Нет сообщений</div>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {detail?.messages?.map((m: any) => {
+                  const isSupport = m.authorType === "support";
+                  const isUser = !isSupport;
+                  return (
+                    <motion.div
+                      key={m.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
+                    >
+                      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1", isUser ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-400")}>
+                        {isUser ? <User className="h-4 w-4" /> : <Headset className="h-4 w-4" />}
+                      </div>
+                      <div className={cn("rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm backdrop-blur-md", isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm")}>
+                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                        <p className={cn("text-[10px] mt-1.5 opacity-60 font-medium", isUser ? "text-right" : "text-left text-muted-foreground")}>
+                          {formatDate(m.createdAt)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+            <div ref={messagesEndRef} className="h-1" />
+          </div>
         </div>
 
         {/* Input area */}
@@ -215,14 +291,15 @@ function SupportTab() {
   // 2. New Ticket Form
   if (showNewForm) {
     return (
-      <div className="flex flex-col h-full w-full overflow-y-auto p-4 sm:p-5 scroll-smooth custom-scrollbar">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-col flex-1 min-h-0 w-full overflow-y-auto scroll-smooth custom-scrollbar">
+        <ChatHeader {...headerProps} />
+        <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 border-b border-black/5 dark:border-white/5 bg-background/90 backdrop-blur-md shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full -ml-2" onClick={() => setShowNewForm(false)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-base font-bold text-foreground">Новое обращение</h3>
         </div>
-        <div className="space-y-4">
+        <div className="p-4 sm:p-5 space-y-4">
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Тема</label>
             <input
@@ -256,8 +333,9 @@ function SupportTab() {
 
   // 3. List of Tickets
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
-      <div className="flex items-center justify-between p-4 shrink-0 border-b border-black/5 dark:border-white/5">
+    <div className="flex flex-col flex-1 min-h-0 w-full overflow-y-auto custom-scrollbar">
+      <ChatHeader {...headerProps} />
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 shrink-0 border-b border-black/5 dark:border-white/5 bg-background/90 backdrop-blur-md">
         <h3 className="text-sm font-bold text-foreground">Мои обращения</h3>
         <Button 
           variant="outline" 
@@ -270,7 +348,7 @@ function SupportTab() {
         </Button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+      <div className="p-3 space-y-2.5 flex-1">
         {loading && list.length === 0 ? (
           <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/50" /></div>
         ) : list.length === 0 ? (
@@ -417,6 +495,8 @@ export function FloatingChat() {
     }
   };
 
+  const headerProps = { activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen };
+
   return (
     <>
       <div className={cn("fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[100]", hasOpenDialog && !isOpen && "pointer-events-none opacity-0")}>
@@ -440,122 +520,55 @@ export function FloatingChat() {
                 "flex flex-col overflow-hidden transition-all duration-500 ease-in-out"
               )}
             >
-              {/* Header */}
-              <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-                <div className="relative flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner">
-                      {activeChat === "ai" ? <Sparkles className="h-5 w-5" /> : <Headset className="h-5 w-5" />}
-                    </div>
-                    <div>
-                      <p className="text-base font-bold text-foreground leading-tight">
-                        {activeChat === "ai" ? "AI Ассистент" : "Поддержка"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        {activeChat === "ai" ? "Бот онлайн" : "Операторы онлайн"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <button
-                      onClick={() => setIsExpanded(!isExpanded)}
-                      className="hidden sm:flex rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-                    >
-                      {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    </button>
-                    <button
-                      onClick={() => setIsOpen(false)}
-                      className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-6 w-6 sm:h-5 sm:w-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Chat Switcher */}
-                <div className="flex sm:justify-center">
-                  <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5 w-full sm:w-auto sm:min-w-[320px]">
-                    <button
-                      onClick={() => setActiveChat("ai")}
-                      className={cn(
-                        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                        activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                      )}
-                    >
-                      <Sparkles className="w-4 h-4" /> AI Чат
-                    </button>
-                    <button
-                      onClick={() => setActiveChat("support")}
-                      className={cn(
-                        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-                        activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                      )}
-                    >
-                      <Headset className="w-4 h-4" /> Поддержка
-                    </button>
-                    {/* Sliding Background */}
-                    <div
-                      className="absolute top-1 bottom-1 bg-primary shadow-md rounded-lg transition-all duration-300 ease-out z-0 w-[calc(50%-4px)] sm:w-[160px]"
-                      style={{
-                        transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
-                        left: "4px",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
               {activeChat === "ai" ? (
-                <>
+                <div className="flex flex-col flex-1 min-h-0 w-full">
                   {/* AI Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar">
-                    <AnimatePresence mode="popLayout">
-                      {aiChats.map((msg) => {
-                        const isUser = msg.from === "user";
-                        return (
-                          <motion.div
-                            key={msg.id}
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
-                          >
-                            <div
-                              className={cn(
-                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1",
-                                isUser ? "bg-primary/20 text-primary" : "bg-violet-500/20 text-violet-400"
-                              )}
+                  <div className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar flex flex-col">
+                    <ChatHeader {...headerProps} />
+                    <div className="p-4 space-y-4 flex-1">
+                      <AnimatePresence mode="popLayout">
+                        {aiChats.map((msg) => {
+                          const isUser = msg.from === "user";
+                          return (
+                            <motion.div
+                              key={msg.id}
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{ duration: 0.2 }}
+                              className={cn("flex gap-3 max-w-[85%]", isUser ? "ml-auto flex-row-reverse" : "mr-auto")}
                             >
-                              {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                            </div>
-                            <div
-                              className={cn(
-                                "rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-sm backdrop-blur-md",
-                                isUser
-                                  ? "bg-primary text-primary-foreground rounded-tr-sm"
-                                  : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm"
-                              )}
-                            >
-                              <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                              <p
+                              <div
                                 className={cn(
-                                  "text-[10px] mt-1.5 opacity-60 font-medium",
-                                  isUser ? "text-right" : "text-left text-muted-foreground"
+                                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm mt-1",
+                                  isUser ? "bg-primary/20 text-primary" : "bg-violet-500/20 text-violet-400"
                                 )}
                               >
-                                {msg.time}
-                              </p>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                    <div ref={messagesEndRef} className="h-1" />
+                                {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                              </div>
+                              <div
+                                className={cn(
+                                  "rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-sm backdrop-blur-md",
+                                  isUser
+                                    ? "bg-primary text-primary-foreground rounded-tr-sm"
+                                    : "bg-card/60 border border-white/5 text-foreground rounded-tl-sm"
+                                )}
+                              >
+                                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                <p
+                                  className={cn(
+                                    "text-[10px] mt-1.5 opacity-60 font-medium",
+                                    isUser ? "text-right" : "text-left text-muted-foreground"
+                                  )}
+                                >
+                                  {msg.time}
+                                </p>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                      <div ref={messagesEndRef} className="h-1" />
+                    </div>
                   </div>
 
                   {/* AI Input Area */}
@@ -588,9 +601,9 @@ export function FloatingChat() {
                       </Button>
                     </div>
                   </div>
-                </>
+                </div>
               ) : (
-                <SupportTab />
+                <SupportTab headerProps={headerProps} />
               )}
             </motion.div>
           )}
