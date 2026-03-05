@@ -395,7 +395,7 @@ function MobileCabinetShell() {
         <div className="relative flex h-14 items-center justify-between gap-3 px-4 min-w-0 w-full max-w-7xl mx-auto">
           <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-base tracking-tight shrink-0 min-w-0">
             {logo ? (
-              <img src={logo} alt="" className="h-8 w-8 rounded-lg object-contain bg-card shrink-0 shadow-sm p-0.5" onError={() => setLogoError(true)} />
+              <img src={logo} alt="" className="h-8 max-w-[120px] rounded-lg object-contain shrink-0" onError={() => setLogoError(true)} />
             ) : (
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm">
                 <Shield className="h-4 w-4" />
@@ -489,7 +489,7 @@ function CabinetShell() {
         <div className="relative w-full max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4">
           <Link to="/cabinet/dashboard" className="flex items-center gap-2.5 font-semibold text-lg tracking-tight shrink-0 hover:opacity-80 transition-opacity">
             {logo ? (
-              <img src={logo} alt="" className="h-9 w-9 rounded-lg object-contain bg-card shadow-sm p-0.5" onError={() => setLogoError(true)} />
+              <img src={logo} alt="" className="h-9 max-w-[140px] rounded-lg object-contain shrink-0" onError={() => setLogoError(true)} />
             ) : (
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary shadow-sm">
                 <Shield className="h-5 w-5" />

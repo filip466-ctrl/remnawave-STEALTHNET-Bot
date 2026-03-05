@@ -122,9 +122,7 @@ export function ClientLoginPage() {
       >
         <div className="flex items-center justify-center gap-2 mb-6 min-h-[2.5rem]">
           {brand.logo ? (
-            <span className="flex h-10 items-center justify-center rounded-xl bg-card px-2 shadow-sm border border-border/30">
-              <img src={brand.logo} alt="" className="h-9 w-auto object-contain" />
-            </span>
+            <img src={brand.logo} alt="" className="h-10 max-w-[160px] object-contain" />
           ) : (
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shrink-0">
               <Shield className="h-6 w-6" />
