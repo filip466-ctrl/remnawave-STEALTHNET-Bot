@@ -67,14 +67,17 @@ export function ClientOnboardingPage() {
     }
   }, [step, twoFaData, token]);
 
-  // Auto-redirect on done
+  const [exitOverlay, setExitOverlay] = useState(false);
+
+  // Auto-redirect on done — сначала показываем overlay, потом переходим
   useEffect(() => {
     if (step === "done") {
-      const timer = setTimeout(() => {
+      const t1 = setTimeout(() => setExitOverlay(true), 1800);
+      const t2 = setTimeout(() => {
         clearNewTelegramUser();
         navigate("/cabinet/dashboard", { replace: true });
-      }, 2500);
-      return () => clearTimeout(timer);
+      }, 2800);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [step, navigate, clearNewTelegramUser]);
 
@@ -132,6 +135,18 @@ export function ClientOnboardingPage() {
 
   return (
     <div className="min-h-svh flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Exit overlay — белая/тёмная волна поверх всего при переходе в кабинет */}
+      <AnimatePresence>
+        {exitOverlay && (
+          <motion.div
+            key="exit-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            className="fixed inset-0 z-50 bg-background pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
       {/* Background blobs */}
       <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />

@@ -154,6 +154,18 @@ function AppRoutes() {
         <Route path="backup" element={<ForceChangePassword><BackupPage /></ForceChangePassword>} />
         <Route path="tickets" element={<ForceChangePassword><AdminTicketsPage /></ForceChangePassword>} />
       </Route>
+      {/* Онбординг — вне CabinetLayout (без навбара) */}
+      <Route
+        path="/cabinet/onboarding"
+        element={
+          <ClientAuthProvider>
+            <RequireClientAuth>
+              <ClientOnboardingPage />
+            </RequireClientAuth>
+          </ClientAuthProvider>
+        }
+      />
+
       <Route
         path="/cabinet"
         element={
@@ -165,14 +177,6 @@ function AppRoutes() {
         <Route index element={<CabinetIndexRedirect />} />
         <Route path="login" element={<ClientLoginPage />} />
         <Route path="register" element={<ClientRegisterPage />} />
-        <Route
-          path="onboarding"
-          element={
-            <RequireClientAuth>
-              <ClientOnboardingPage />
-            </RequireClientAuth>
-          }
-        />
         <Route path="verify-email" element={<ClientVerifyEmailPage />} />
         <Route path="verify-link-email" element={<ClientVerifyLinkEmailPage />} />
         <Route
