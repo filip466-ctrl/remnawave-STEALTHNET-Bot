@@ -515,11 +515,19 @@ export function ClientSingboxPage() {
             transition={{ duration: 0.2 }}
             className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500"
           >
-            <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Доступы</h1>
-              <p className="text-muted-foreground text-lg">
-                VLESS / Trojan / Hysteria2 / Shadowsocks. Купите тариф и скопируйте ссылку в приложение.
-              </p>
+            <div className="relative overflow-hidden rounded-3xl bg-card/40 backdrop-blur-2xl border border-border/50 p-8 sm:p-10 shadow-xl">
+              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground flex items-center gap-3">
+                    <KeyRound className="h-8 w-8 text-primary" />
+                    Доступы
+                  </h1>
+                  <p className="mt-3 text-[16px] text-muted-foreground max-w-xl leading-relaxed">
+                    VLESS, Trojan, Hysteria2 и Shadowsocks. Купите тариф и получите мгновенный доступ к высокоскоростной сети. Надежное шифрование и отсутствие логирования.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
