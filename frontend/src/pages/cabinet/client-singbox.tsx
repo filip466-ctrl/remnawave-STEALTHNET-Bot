@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { KeyRound, Calendar, CreditCard, Loader2, Copy, Check, ChevronDown, Wallet, Shield, Zap, ArrowLeft } from "lucide-react";
+import { KeyRound, Calendar, CreditCard, Loader2, Copy, Check, ChevronDown, Wallet, Shield, Zap, ArrowLeft, Wifi } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { openPaymentInBrowser } from "@/lib/open-payment-url";
 import { cn } from "@/lib/utils";
 
-type SingboxTariff = { id: string; name: string; slotCount: number; durationDays: number; trafficLimitBytes: string | null; price: number; currency: string };
+type SingboxTariff = { id: string; name: string; description?: string; slotCount: number; durationDays: number; trafficLimitBytes: string | null; price: number; currency: string };
 type SingboxCategory = { id: string; name: string; sortOrder: number; tariffs: SingboxTariff[] };
 type SingboxSlot = {
   id: string;
@@ -582,30 +582,37 @@ export function ClientSingboxPage() {
                               {cat.tariffs.map((t) => (
                                 <Card key={t.id} className="rounded-2xl border border-border/50 bg-background/50 backdrop-blur-md shadow-sm hover:shadow-md transition-all duration-300">
                                   <CardContent className="flex flex-row items-center gap-4 py-4 px-4 min-h-0 min-w-0">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-base font-semibold leading-tight truncate">{t.name}</p>
-                                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                                        <span className="flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-0.5 rounded-md font-medium">
-                                          <KeyRound className="h-3.5 w-3.5 shrink-0" />
-                                          {t.slotCount} шт.
-                                        </span>
-                                        <span className="flex items-center gap-1.5 bg-muted px-2 py-0.5 rounded-md font-medium">
-                                          <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                      <p className="text-[15px] font-bold leading-tight truncate text-foreground">{t.name}</p>
+                                      {t.description?.trim() ? (
+                                        <p className="text-xs text-muted-foreground font-medium line-clamp-2">{t.description}</p>
+                                      ) : null}
+                                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                        <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                          <Calendar className="h-3 w-3 text-primary" />
                                           {t.durationDays} дн.
+                                        </span>
+                                        <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                          <Wifi className="h-3 w-3 text-primary" />
+                                          {t.trafficLimitBytes != null && Number(t.trafficLimitBytes) > 0 ? `${(Number(t.trafficLimitBytes) / 1024 / 1024 / 1024).toFixed(1)} ГБ` : "∞"}
+                                        </span>
+                                        <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                                          <KeyRound className="h-3 w-3 text-primary" />
+                                          {t.slotCount} шт.
                                         </span>
                                       </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-2 shrink-0">
-                                      <span className="text-lg font-bold tabular-nums whitespace-nowrap text-primary">
+                                    <div className="flex flex-col items-center justify-center gap-2.5 shrink-0 min-w-[90px]">
+                                      <span className="text-lg font-bold tabular-nums whitespace-nowrap text-foreground" title={formatMoney(t.price, t.currency)}>
                                         {formatMoney(t.price, t.currency)}
                                       </span>
                                       {token ? (
                                         <Button
                                           size="sm"
-                                          className="h-8 px-4 rounded-xl shadow-md hover:scale-105 transition-transform"
+                                          className="w-full h-9 rounded-xl shadow-md text-xs font-semibold gap-1.5 hover:scale-105 transition-transform"
                                           onClick={() => setPayModal(t)}
                                         >
-                                          <CreditCard className="h-4 w-4 shrink-0 mr-1.5" />
+                                          <CreditCard className="h-3.5 w-3.5 shrink-0" />
                                           Оплатить
                                         </Button>
                                       ) : null}
@@ -636,26 +643,49 @@ export function ClientSingboxPage() {
                           {cat.tariffs.map((t) => (
                             <Card key={t.id} className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col group hover:-translate-y-1">
                               <CardContent className="flex-1 flex flex-col p-5 min-h-0 min-w-0">
-                                <div className="flex items-start justify-between gap-4 mb-4">
-                                  <p className="text-lg font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">{t.name}</p>
-                                  <div className="p-2.5 bg-primary/10 rounded-2xl shrink-0 group-hover:scale-110 transition-transform">
-                                    <KeyRound className="h-5 w-5 text-primary" />
+                                <div className="mb-4">
+                                  <p className="text-lg font-bold leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">{t.name}</p>
+                                  {t.description?.trim() ? (
+                                    <p className="text-sm text-muted-foreground font-medium mt-1.5 line-clamp-2">{t.description}</p>
+                                  ) : null}
+                                </div>
+
+                                <div className="flex flex-col gap-2.5 mt-auto mb-5 text-sm font-semibold text-muted-foreground">
+                                  <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                                    <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                                      <Calendar className="h-4 w-4 shrink-0" />
+                                    </div>
+                                    <span>{t.durationDays} дней</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                                    <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                                      <Wifi className="h-4 w-4 shrink-0" />
+                                    </div>
+                                    <span>
+                                      {t.trafficLimitBytes != null && Number(t.trafficLimitBytes) > 0
+                                        ? `${(Number(t.trafficLimitBytes) / 1024 / 1024 / 1024).toFixed(1)} ГБ`
+                                        : "Безлимитный трафик"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
+                                    <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+                                      <KeyRound className="h-4 w-4 shrink-0" />
+                                    </div>
+                                    <span>{t.slotCount} слотов</span>
                                   </div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2 text-sm font-medium mt-auto mb-6">
-                                  <span className="bg-primary/10 text-primary px-2.5 py-1 rounded-lg">
-                                    {t.slotCount} слотов
-                                  </span>
-                                  <span className="bg-muted px-2.5 py-1 rounded-lg">
-                                    {t.durationDays} дн.
-                                  </span>
-                                </div>
-                                <div className="pt-4 border-t border-border/50 flex items-center justify-between gap-2">
-                                  <span className="text-xl font-bold tabular-nums truncate text-foreground">
+
+                                <div className="pt-4 border-t border-border/50 mt-auto flex flex-col gap-3 min-w-0">
+                                  <span className="text-2xl font-black tabular-nums truncate min-w-0 text-foreground text-center" title={formatMoney(t.price, t.currency)}>
                                     {formatMoney(t.price, t.currency)}
                                   </span>
                                   {token ? (
-                                    <Button size="sm" className="h-10 px-5 rounded-xl shadow-md hover:scale-105 transition-transform shrink-0" onClick={() => setPayModal(t)}>
+                                    <Button
+                                      size="lg"
+                                      className="w-full h-12 rounded-xl shadow-md text-[15px] font-bold gap-2 hover:scale-[1.02] transition-transform"
+                                      onClick={() => setPayModal(t)}
+                                    >
+                                      <CreditCard className="h-5 w-5 shrink-0" />
                                       Оплатить
                                     </Button>
                                   ) : null}
@@ -689,8 +719,8 @@ export function ClientSingboxPage() {
                         <CardContent className="p-5 space-y-4">
                           <div className="flex items-start justify-between gap-2 border-b border-border/50 pb-4">
                             <div className="flex items-center gap-3">
-                              <div className="p-2 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform">
-                                <KeyRound className="h-5 w-5 text-primary" />
+                              <div className="p-2 bg-primary/20 rounded-xl text-primary group-hover:scale-110 transition-transform">
+                                <KeyRound className="h-5 w-5" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-foreground">{slot.protocol} · {slot.id.slice(-8)}</h3>
