@@ -683,7 +683,7 @@ export function ClientProfilePage() {
                 </Button>
               </div>
 
-              <div className="rounded-2xl bg-muted/40 border border-border/50 overflow-hidden dark:bg-white/5 dark:border-white/5">
+              <div className="flex-1 flex flex-col rounded-2xl bg-muted/40 border border-border/50 overflow-hidden dark:bg-white/5 dark:border-white/5">
                 <div className="p-4 border-b border-border/50 dark:border-white/5">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
@@ -695,7 +695,7 @@ export function ClientProfilePage() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4 space-y-3">
+                <div className="flex-1 p-4 space-y-3 flex flex-col justify-center">
                   {devicesLoading ? (
                     <div className="flex items-center justify-center py-8 text-primary/60">
                       <Loader2 className="h-8 w-8 animate-spin" />
@@ -725,9 +725,9 @@ export function ClientProfilePage() {
                       <p className="text-xs text-muted-foreground mt-1 text-center max-w-[280px]">Подключитесь к VPN через приложение, и ваше устройство появится здесь.</p>
                     </div>
                   ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground">Отключите устройство, чтобы освободить слот для другого:</p>
-                      <div className="grid grid-cols-1 gap-2 mt-2">
+                    <div className="flex flex-col h-full">
+                      <p className="text-xs text-muted-foreground mb-3">Отключите устройство, чтобы освободить слот для другого:</p>
+                      <div className="grid grid-cols-1 gap-2">
                         {devices.map((d) => {
                           const label = [d.platform, d.deviceModel].filter(Boolean).join(" · ") || (d.hwid.slice(0, 12) + (d.hwid.length > 12 ? "…" : ""));
                           const isDeleting = deletingHwid === d.hwid;
@@ -750,7 +750,7 @@ export function ClientProfilePage() {
                           );
                         })}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
