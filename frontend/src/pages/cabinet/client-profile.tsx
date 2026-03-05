@@ -450,14 +450,14 @@ export function ClientProfilePage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className={`grid gap-6 ${isMiniapp ? "grid-cols-1" : "lg:grid-cols-2"} min-w-0`}
+        className={`grid gap-6 items-stretch ${isMiniapp ? "grid-cols-1" : "lg:grid-cols-2"} min-w-0`}
       >
-        <div className={cn("relative flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]", cardClass)}>
+        <div className={cn("relative flex flex-col h-full rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]", cardClass)}>
           <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
             <div className="absolute -top-32 -right-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
           </div>
 
-          <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
+          <div className="relative p-6 sm:p-8 flex flex-col flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
                 <User className="h-5 w-5" />
@@ -629,12 +629,12 @@ export function ClientProfilePage() {
           </div>
         </div>
 
-        <div className={cn("relative flex flex-col rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]", cardClass)}>
+        <div className={cn("relative flex flex-col h-full rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.3)]", cardClass)}>
           <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/40 backdrop-blur-2xl">
             <div className="absolute -bottom-32 -left-32 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
           </div>
 
-          <div className="relative p-6 sm:p-8 flex flex-col h-full min-w-0">
+          <div className="relative p-6 sm:p-8 flex flex-col flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500 shrink-0">
                 <Shield className="h-5 w-5" />
@@ -645,7 +645,7 @@ export function ClientProfilePage() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-4 min-w-0">
+            <div className="flex-1 flex flex-col gap-4 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
