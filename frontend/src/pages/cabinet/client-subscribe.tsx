@@ -262,7 +262,7 @@ export function ClientSubscribePage() {
           <div className="absolute inset-0 rounded-full blur-xl bg-primary/20 animate-pulse" />
           <Loader2 className="h-10 w-10 animate-spin text-primary relative z-10" />
         </div>
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">Подготовка конфигурации…</p>
+        <p className="text-sm font-medium text-slate-600 dark:text-muted-foreground animate-pulse">Подготовка конфигурации…</p>
       </div>
     );
   }
@@ -270,7 +270,7 @@ export function ClientSubscribePage() {
   if (!subscriptionUrl) {
     return (
       <div className="space-y-6 max-w-xl mx-auto">
-        <Button variant="ghost" size="sm" className="gap-2 -ml-2 hover:bg-white/5" asChild>
+        <Button variant="ghost" size="sm" className="gap-2 -ml-2 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground transition-colors" asChild>
           <Link to="/cabinet/dashboard">
             <ArrowLeft className="h-4 w-4" />
             Назад
@@ -281,10 +281,10 @@ export function ClientSubscribePage() {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <Card className="border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl overflow-hidden relative">
+          <Card className="border-slate-200/50 dark:border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-2xl shadow-2xl overflow-hidden relative">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
             <CardHeader className="relative z-10">
-              <CardTitle className="flex items-center gap-3 text-xl">
+              <CardTitle className="flex items-center gap-3 text-xl text-slate-900 dark:text-white">
                 <div className="p-2.5 rounded-xl bg-primary/20 text-primary ring-1 ring-primary/30">
                   <Wifi className="h-5 w-5" />
                 </div>
@@ -292,7 +292,7 @@ export function ClientSubscribePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5 relative z-10">
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-slate-600 dark:text-muted-foreground leading-relaxed">
                 Ссылка на подписку появится после оплаты тарифа. Выберите тариф и оплатите — затем здесь можно будет скачать приложение и добавить подписку.
               </p>
               <Button asChild className="w-full gap-2 h-12 text-base font-medium shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] hover:shadow-primary/30">
@@ -312,17 +312,17 @@ export function ClientSubscribePage() {
 
   const appsBlock = apps.length === 0 ? (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.2, duration: 0.4, ease: "easeOut" }}
     >
-      <Card className="border-white/10 bg-black/20 backdrop-blur-xl">
+      <Card className="border-slate-200/50 dark:border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-xl">
         <CardContent className="py-8">
           <div className="flex flex-col items-center text-center gap-3">
-            <div className="p-3 rounded-full bg-white/5 ring-1 ring-white/10 mb-2">
+            <div className="p-3 rounded-full bg-slate-100/50 dark:bg-white/5 ring-1 ring-slate-200/50 dark:ring-white/10 mb-2">
               <Info className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm text-muted-foreground max-w-sm">
+            <p className="text-sm text-slate-600 dark:text-muted-foreground max-w-sm">
               {isMiniapp ? "Список приложений пуст. Скопируйте ссылку ниже и вставьте её в любое приложение VPN (Happ, Stash, v2rayNG и др.)" : "Список приложений пуст. Скопируйте ссылку выше и вставьте её в любое приложение VPN (Happ, Stash, v2rayNG и др.)"} или настройте страницу подписки в админке (Настройки → Страница подписки).
             </p>
           </div>
@@ -337,7 +337,7 @@ export function ClientSubscribePage() {
         className="flex items-center gap-3 px-1"
       >
         <div className="h-8 w-1 rounded-full bg-primary" />
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
           Приложения для {platformData?.displayName ? getText(platformData.displayName, locale) : platformLabel}
         </h2>
       </motion.div>
@@ -346,15 +346,15 @@ export function ClientSubscribePage() {
         {apps.map((app, appIndex) => (
           <motion.div
             key={app.name}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: appIndex * 0.1 + 0.2, type: "spring", stiffness: 300, damping: 24 }}
           >
-            <Card className="border-white/10 bg-black/20 backdrop-blur-xl overflow-hidden group hover:bg-black/30 transition-colors duration-300">
+            <Card className="border-slate-200/50 dark:border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-xl overflow-hidden group hover:bg-white/60 dark:hover:bg-black/30 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardHeader className="pb-3 relative z-10">
-                <CardTitle className="text-lg flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 group-hover:ring-primary/30 group-hover:text-primary transition-all duration-300">
+                <CardTitle className="text-lg flex items-center gap-3 text-slate-900 dark:text-white">
+                  <div className="p-2 rounded-lg bg-slate-100/50 dark:bg-white/5 ring-1 ring-slate-200/50 dark:ring-white/10 group-hover:ring-primary/30 group-hover:text-primary transition-all duration-300">
                     <Smartphone className="h-5 w-5" />
                   </div>
                   {app.name}
@@ -364,14 +364,14 @@ export function ClientSubscribePage() {
                 {app.blocks?.map((block, blockIndex) => (
                   <div key={blockIndex} className="space-y-3">
                     <div className="space-y-1.5">
-                      <h3 className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-slate-800 dark:text-foreground/90 flex items-center gap-2">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
                           {blockIndex + 1}
                         </span>
                         {getText(block.title, locale)}
                       </h3>
                       {block.description && (
-                        <p className="text-sm text-muted-foreground pl-7 leading-relaxed">
+                        <p className="text-sm text-slate-600 dark:text-muted-foreground pl-7 leading-relaxed">
                           {getText(block.description, locale)}
                         </p>
                       )}
@@ -418,7 +418,7 @@ export function ClientSubscribePage() {
                               <Button 
                                 variant="default" 
                                 size="sm" 
-                                className="gap-2 min-h-[40px] shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all" 
+                                className="gap-2 min-h-[40px] shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.02]" 
                                 asChild
                               >
                                 <a href={deeplinkUrl} target="_blank" rel="noopener noreferrer" onClick={handleClick}>
@@ -430,7 +430,7 @@ export function ClientSubscribePage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="gap-1.5 min-h-[40px] shrink-0 border-white/10 bg-white/5 hover:bg-white/10"
+                                  className="gap-1.5 min-h-[40px] shrink-0 border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
                                   onClick={() => setQrModalOpen(true)}
                                   type="button"
                                 >
@@ -446,7 +446,7 @@ export function ClientSubscribePage() {
                             key={btnIndex} 
                             variant="outline" 
                             size="sm" 
-                            className="gap-2 min-h-[40px] border-white/10 bg-white/5 hover:bg-white/10 transition-colors" 
+                            className="gap-2 min-h-[40px] border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors" 
                             asChild
                           >
                             <a href={href} target="_blank" rel="noopener noreferrer">
@@ -475,7 +475,7 @@ export function ClientSubscribePage() {
       className="relative group"
     >
       <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-primary/10 rounded-2xl blur opacity-50 group-hover:opacity-75 transition duration-500" />
-      <div className="relative rounded-2xl border border-white/10 bg-black/40 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl overflow-hidden">
+      <div className="relative rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-primary/5">
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
         <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl" />
@@ -483,20 +483,20 @@ export function ClientSubscribePage() {
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
             <div>
-              <h1 className="text-xl font-bold flex items-center gap-2.5 mb-1.5 text-white">
+              <h1 className="text-xl font-bold flex items-center gap-2.5 mb-1.5 text-slate-900 dark:text-white">
                 <div className="p-1.5 rounded-md bg-primary/20 text-primary">
                   <Zap className="h-5 w-5" />
                 </div>
                 Ваша подписка
               </h1>
               {!isMiniapp && (
-                <p className="text-sm text-muted-foreground/80">
+                <p className="text-sm text-slate-600 dark:text-muted-foreground/80">
                   Единая ссылка для всех ваших устройств
                 </p>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/5 px-3 py-1.5 text-xs font-medium text-white/90 shadow-inner">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100/80 dark:bg-white/10 border border-slate-200/50 dark:border-white/5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-white/90 shadow-inner">
                 <Monitor className="h-3.5 w-3.5 text-primary" />
                 {platformLabel}
               </span>
@@ -505,62 +505,64 @@ export function ClientSubscribePage() {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-white/80">Ссылка конфигурации</h2>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              <h2 className="text-sm font-medium text-slate-700 dark:text-white/80">Ссылка конфигурации</h2>
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-muted-foreground font-semibold">
                 Auto-update
               </p>
             </div>
             
             <div className="relative flex items-center">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Globe className="h-4 w-4 text-muted-foreground/50" />
+                <Globe className="h-4 w-4 text-slate-400 dark:text-muted-foreground/50" />
               </div>
-              <code className="flex-1 block w-full truncate rounded-xl border border-white/10 bg-black/50 py-3 pl-10 pr-4 text-sm font-mono text-white/90 shadow-inner" title={subscriptionUrl || ""}>
+              <code className="flex-1 block w-full truncate rounded-xl border border-slate-200/50 dark:border-white/10 bg-slate-50/50 dark:bg-black/50 py-3 pl-10 pr-4 text-sm font-mono text-slate-800 dark:text-white/90 shadow-inner" title={subscriptionUrl || ""}>
                 {subscriptionUrl}
               </code>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              <Button 
-                variant="default" 
-                onClick={copyLink} 
-                className={cn(
-                  "flex-1 gap-2 h-11 text-sm font-medium transition-all duration-300",
-                  copied ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "shadow-lg shadow-primary/20 hover:shadow-primary/30"
-                )}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {copied ? (
-                    <motion.div
-                      key="check"
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.5 }}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="h-4 w-4" />
-                      Скопировано
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="copy"
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.5 }}
-                      className="flex items-center gap-2"
-                    >
-                      <Copy className="h-4 w-4" />
-                      Копировать ссылку
-                    </motion.div>
+              <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+                <Button 
+                  variant="default" 
+                  onClick={copyLink} 
+                  className={cn(
+                    "w-full gap-2 h-11 text-sm font-medium transition-all duration-300",
+                    copied ? "bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/30" : "shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02]"
                   )}
-                </AnimatePresence>
-              </Button>
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    {copied ? (
+                      <motion.div
+                        key="check"
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="h-4 w-4" />
+                        Скопировано
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="copy"
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        className="flex items-center gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Копировать ссылку
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Button>
+              </motion.div>
               
               {!showQrNextToAddButton && (
                 <Button 
                   variant="outline" 
                   onClick={() => setQrModalOpen(true)} 
-                  className="sm:w-auto w-full gap-2 h-11 border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                  className="sm:w-auto w-full gap-2 h-11 border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
                 >
                   <QrCode className="h-4 w-4" />
                   Показать QR
@@ -568,7 +570,7 @@ export function ClientSubscribePage() {
               )}
             </div>
             
-            <p className="text-xs text-muted-foreground/70 text-center sm:text-left pt-2">
+            <p className="text-xs text-slate-500 dark:text-muted-foreground/70 text-center sm:text-left pt-2">
               {isMiniapp ? linkCardRefMiniapp : linkCardRef}
             </p>
           </div>
@@ -579,19 +581,19 @@ export function ClientSubscribePage() {
 
   const instructionSection = !isMiniapp && (
     <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="rounded-xl border border-white/5 bg-white/5 p-4 flex gap-4 items-start"
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.1, duration: 0.4, ease: "easeOut" }}
+      className="rounded-xl border border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-white/5 p-4 flex gap-4 items-start backdrop-blur-sm"
     >
       <div className="p-2 rounded-full bg-primary/10 text-primary shrink-0 mt-0.5">
         <ShieldCheck className="h-5 w-5" />
       </div>
       <div className="space-y-1">
-        <h2 className="text-sm font-semibold text-white/90">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white/90">
           Как подключиться?
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm text-slate-600 dark:text-muted-foreground leading-relaxed">
           Ниже представлены приложения для вашей платформы ({platformLabel}). Сначала скачайте приложение по ссылке, затем нажмите «Добавить подписку» — откроется диплинк с вашей ссылкой подписки.
         </p>
       </div>
@@ -604,7 +606,7 @@ export function ClientSubscribePage() {
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
       >
-        <Button variant="ghost" size="sm" className="gap-2 -ml-2 hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors" asChild>
+        <Button variant="ghost" size="sm" className="gap-2 -ml-2 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground transition-colors" asChild>
           <Link to="/cabinet/dashboard">
             <ArrowLeft className="h-4 w-4" />
             Назад в кабинет
@@ -626,7 +628,7 @@ export function ClientSubscribePage() {
       )}
 
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
-        <DialogContent className="sm:max-w-sm border-white/10 bg-black/60 backdrop-blur-2xl shadow-2xl">
+        <DialogContent className="sm:max-w-sm border-slate-200/50 dark:border-white/10 bg-white/80 dark:bg-black/60 backdrop-blur-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="p-1.5 rounded-md bg-primary/20 text-primary">
@@ -634,18 +636,18 @@ export function ClientSubscribePage() {
               </div>
               QR-код подписки
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground/80">
+            <DialogDescription className="text-slate-600 dark:text-muted-foreground/80">
               Отсканируйте камерой телефона — в вашем приложении VPN. Например (Happ, Stash, v2rayNG и др.).
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-5 py-4">
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-blue-500/50 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500" />
-              <div className="relative rounded-2xl border border-white/20 bg-white p-5 shadow-xl">
+              <div className="relative rounded-2xl border border-slate-200 dark:border-white/20 bg-white p-5 shadow-xl">
                 <QRCodeSVG value={subscriptionUrl || ""} size={220} level="M" includeMargin={false} />
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground bg-slate-100/80 dark:bg-white/5 px-3 py-1.5 rounded-full border border-slate-200/50 dark:border-white/5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
               Ссылка ведёт на конфигурацию VPN
             </div>
