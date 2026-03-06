@@ -24,45 +24,52 @@ const INITIAL_AI: Message[] = [
   },
 ];
 
-const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread }: any) => (
-  <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
-    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-    <div className="relative flex items-center justify-between mb-3 sm:mb-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner">
-          {activeChat === "ai" ? <Sparkles className="h-5 w-5" /> : <Headset className="h-5 w-5" />}
+const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread, stickySwitcher }: any) => (
+  <>
+    <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary shadow-inner">
+            {activeChat === "ai" ? <Sparkles className="h-5 w-5" /> : <Headset className="h-5 w-5" />}
+          </div>
+          <div>
+            <p className="text-base font-bold text-foreground leading-tight">
+              {activeChat === "ai" ? "AI Ассистент" : "Поддержка"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              {activeChat === "ai" ? "Бот онлайн" : "Операторы онлайн"}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-base font-bold text-foreground leading-tight">
-            {activeChat === "ai" ? "AI Ассистент" : "Поддержка"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            {activeChat === "ai" ? "Бот онлайн" : "Операторы онлайн"}
-          </p>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="hidden sm:flex rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-6 w-6 sm:h-5 sm:w-5" />
+          </button>
         </div>
-      </div>
-      <div className="flex items-center gap-1 sm:gap-2">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="hidden sm:flex rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-        >
-          {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="rounded-full p-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-6 w-6 sm:h-5 sm:w-5" />
-        </button>
       </div>
     </div>
 
     {/* Chat Switcher */}
-    <div className="flex sm:justify-center">
+    <div className={cn(
+      "flex sm:justify-center px-4 py-3 sm:py-4 shrink-0",
+      stickySwitcher 
+        ? "sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-white/5 shadow-sm" 
+        : "bg-black/5 dark:bg-white/5 border-b border-white/5"
+    )}>
       <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5 w-full sm:w-auto sm:min-w-[320px]">
         <button
           onClick={() => setActiveChat("ai")}
@@ -102,7 +109,7 @@ const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setI
         />
       </div>
     </div>
-  </div>
+  </>
 );
 
 function SupportTab({ headerProps, onRefreshUnread }: { headerProps: any, onRefreshUnread?: () => void }) {
@@ -552,7 +559,7 @@ export function FloatingChat() {
                 <div className="flex flex-col flex-1 min-h-0 w-full">
                   {/* AI Messages */}
                   <div className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar flex flex-col">
-                    <ChatHeader {...headerProps} />
+                    <ChatHeader {...headerProps} stickySwitcher={true} />
                     <div className="p-4 space-y-4 flex-1">
                       <AnimatePresence mode="popLayout">
                         {aiChats.map((msg) => {
