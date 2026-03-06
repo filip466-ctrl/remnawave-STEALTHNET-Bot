@@ -2689,6 +2689,19 @@ clientRouter.post("/tickets", async (req, res) => {
   });
 });
 
+clientRouter.get("/tickets/unread-count", async (req, res) => {
+  if (!(await ensureTicketsEnabled(res))) return;
+  const clientId = (req as unknown as { client: { id: string } }).client.id;
+  const count = await prisma.ticketMessage.count({
+    where: {
+      ticket: { clientId },
+      authorType: "support",
+      isRead: false,
+    },
+  });
+  return res.json({ count });
+});
+
 clientRouter.get("/tickets", async (req, res) => {
   if (!(await ensureTicketsEnabled(res))) return;
   const clientId = (req as unknown as { client: { id: string } }).client.id;
@@ -2710,13 +2723,20 @@ clientRouter.get("/tickets/:id", async (req, res) => {
     include: { messages: { orderBy: { createdAt: "asc" } } },
   });
   if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+
+  // Mark support messages as read
+  await prisma.ticketMessage.updateMany({
+    where: { ticketId: ticket.id, authorType: "support", isRead: false },
+    data: { isRead: true },
+  });
+
   return res.json({
     id: ticket.id,
     subject: ticket.subject,
     status: ticket.status,
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
-    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString(), isRead: m.isRead })),
   });
 });
 

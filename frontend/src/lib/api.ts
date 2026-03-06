@@ -924,6 +924,10 @@ export const api = {
   async getTickets(token: string): Promise<{ items: { id: string; subject: string; status: string; createdAt: string; updatedAt: string }[] }> {
     return request("/client/tickets", { token });
   },
+  /** Количество непрочитанных сообщений от поддержки */
+  async getUnreadTicketsCount(token: string): Promise<{ count: number }> {
+    return request("/client/tickets/unread-count", { token });
+  },
   /** Один тикет с сообщениями */
   async getTicket(token: string, id: string): Promise<{
     id: string;

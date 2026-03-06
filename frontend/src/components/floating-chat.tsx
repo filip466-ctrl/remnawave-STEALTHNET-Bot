@@ -24,7 +24,7 @@ const INITIAL_AI: Message[] = [
   },
 ];
 
-const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen }: any) => (
+const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread }: any) => (
   <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
     <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
     <div className="relative flex items-center justify-between mb-3 sm:mb-4">
@@ -72,6 +72,11 @@ const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setI
           )}
         >
           <Sparkles className="w-4 h-4" /> AI Чат
+          {aiUnread > 0 && activeChat !== "ai" && (
+            <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              {aiUnread}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveChat("support")}
@@ -81,6 +86,11 @@ const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setI
           )}
         >
           <Headset className="w-4 h-4" /> Поддержка
+          {supportUnread > 0 && activeChat !== "support" && (
+            <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+              {supportUnread}
+            </span>
+          )}
         </button>
         {/* Sliding Background */}
         <div
@@ -95,7 +105,7 @@ const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setI
   </div>
 );
 
-function SupportTab({ headerProps }: { headerProps: any }) {
+function SupportTab({ headerProps, onRefreshUnread }: { headerProps: any, onRefreshUnread?: () => void }) {
   const { state } = useClientAuth();
   const token = state.token ?? null;
 
@@ -143,6 +153,7 @@ function SupportTab({ headerProps }: { headerProps: any }) {
         .finally(() => setDetailLoading(false));
     };
     loadDetail();
+    if (onRefreshUnread) onRefreshUnread();
     const intervalId = window.setInterval(loadDetail, 10000);
     return () => window.clearInterval(intervalId);
   }, [detailId, token]);
@@ -400,10 +411,25 @@ export function FloatingChat() {
   const [aiChats, setAiChats] = useState<Message[]>(INITIAL_AI);
   const [aiInput, setAiInput] = useState("");
 
-  const [unread, setUnread] = useState(1);
+  const [aiUnread, setAiUnread] = useState(0);
+  const [supportUnread, setSupportUnread] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Poll for support unread count
+  const refreshUnread = () => {
+    if (!token) return;
+    api.getUnreadTicketsCount(token).then((r) => {
+      setSupportUnread(r.count);
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshUnread();
+    const intervalId = window.setInterval(refreshUnread, 15000); // Poll every 15s
+    return () => window.clearInterval(intervalId);
+  }, [token]);
 
   // Скрываем кнопку чата когда открыт любой Dialog (Radix)
   useEffect(() => {
@@ -433,7 +459,9 @@ export function FloatingChat() {
 
   useEffect(() => {
     if (isOpen) {
-      setUnread(0);
+      if (activeChat === "ai") {
+        setAiUnread(0);
+      }
       scrollToBottom();
     }
   }, [isOpen, activeChat, aiChats]);
@@ -480,7 +508,7 @@ export function FloatingChat() {
       };
 
       setAiChats((prev) => [...prev, replyMsg]);
-      if (!isOpen) setUnread((n) => n + 1);
+      if (!isOpen || activeChat !== "ai") setAiUnread((n) => n + 1);
     } catch (e) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -489,13 +517,13 @@ export function FloatingChat() {
         time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       };
       setAiChats((prev) => [...prev, errorMsg]);
-      if (!isOpen) setUnread((n) => n + 1);
+      if (!isOpen || activeChat !== "ai") setAiUnread((n) => n + 1);
     } finally {
       setAiLoading(false);
     }
   };
 
-  const headerProps = { activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen };
+  const headerProps = { activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread };
 
   return (
     <>
@@ -603,7 +631,7 @@ export function FloatingChat() {
                   </div>
                 </div>
               ) : (
-                <SupportTab headerProps={headerProps} />
+                <SupportTab headerProps={headerProps} onRefreshUnread={refreshUnread} />
               )}
             </motion.div>
           )}
@@ -647,14 +675,14 @@ export function FloatingChat() {
 
             {/* Unread badge */}
             <AnimatePresence>
-              {unread > 0 && !isOpen && (
+              {(aiUnread + supportUnread) > 0 && !isOpen && (
                 <motion.span
                   initial={{ scale: 0, y: 10 }}
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0, opacity: 0 }}
                   className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-destructive text-[11px] font-bold text-white shadow-md"
                 >
-                  {unread}
+                  {aiUnread + supportUnread}
                 </motion.span>
               )}
             </AnimatePresence>
