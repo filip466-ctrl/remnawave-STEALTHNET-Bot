@@ -24,7 +24,53 @@ const INITIAL_AI: Message[] = [
   },
 ];
 
-const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread, stickySwitcher }: any) => (
+const ChatSwitcher = ({ activeChat, setActiveChat, aiUnread, supportUnread, isFloating = false }: any) => (
+  <div className={cn(
+    "relative flex p-1 w-full sm:w-auto sm:min-w-[320px]",
+    isFloating 
+      ? "bg-black/20 dark:bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg pointer-events-auto" 
+      : "bg-black/20 backdrop-blur-sm border border-white/5 rounded-xl"
+  )}>
+    <button
+      onClick={() => setActiveChat("ai")}
+      className={cn(
+        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+        activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+      )}
+    >
+      <Sparkles className="w-4 h-4" /> AI Чат
+      {aiUnread > 0 && activeChat !== "ai" && (
+        <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+          {aiUnread}
+        </span>
+      )}
+    </button>
+    <button
+      onClick={() => setActiveChat("support")}
+      className={cn(
+        "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
+        activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+      )}
+    >
+      <Headset className="w-4 h-4" /> Поддержка
+      {supportUnread > 0 && activeChat !== "support" && (
+        <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+          {supportUnread}
+        </span>
+      )}
+    </button>
+    {/* Sliding Background */}
+    <div
+      className="absolute top-1 bottom-1 bg-primary shadow-md rounded-lg transition-all duration-300 ease-out z-0 w-[calc(50%-4px)] sm:w-[160px]"
+      style={{
+        transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
+        left: "4px",
+      }}
+    />
+  </div>
+);
+
+const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setIsOpen, aiUnread, supportUnread }: any) => (
   <>
     <div className="px-4 py-3 sm:py-4 border-b border-white/5 bg-black/5 dark:bg-white/5 shrink-0 relative overflow-hidden pt-[max(env(safe-area-inset-top),16px)] sm:pt-4">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
@@ -64,50 +110,8 @@ const ChatHeader = ({ activeChat, setActiveChat, isExpanded, setIsExpanded, setI
     </div>
 
     {/* Chat Switcher */}
-    <div className={cn(
-      "flex sm:justify-center px-4 py-3 sm:py-4 shrink-0",
-      stickySwitcher 
-        ? "sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-white/5 shadow-sm" 
-        : "bg-black/5 dark:bg-white/5 border-b border-white/5"
-    )}>
-      <div className="relative flex p-1 bg-black/20 rounded-xl backdrop-blur-sm border border-white/5 w-full sm:w-auto sm:min-w-[320px]">
-        <button
-          onClick={() => setActiveChat("ai")}
-          className={cn(
-            "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-            activeChat === "ai" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-          )}
-        >
-          <Sparkles className="w-4 h-4" /> AI Чат
-          {aiUnread > 0 && activeChat !== "ai" && (
-            <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-              {aiUnread}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveChat("support")}
-          className={cn(
-            "flex-1 sm:flex-none sm:w-[160px] flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10",
-            activeChat === "support" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-          )}
-        >
-          <Headset className="w-4 h-4" /> Поддержка
-          {supportUnread > 0 && activeChat !== "support" && (
-            <span className="ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
-              {supportUnread}
-            </span>
-          )}
-        </button>
-        {/* Sliding Background */}
-        <div
-          className="absolute top-1 bottom-1 bg-primary shadow-md rounded-lg transition-all duration-300 ease-out z-0 w-[calc(50%-4px)] sm:w-[160px]"
-          style={{
-            transform: activeChat === "ai" ? "translateX(0)" : "translateX(100%)",
-            left: "4px",
-          }}
-        />
-      </div>
+    <div className="flex sm:justify-center px-4 py-3 sm:py-4 shrink-0 bg-black/5 dark:bg-white/5 border-b border-white/5">
+      <ChatSwitcher activeChat={activeChat} setActiveChat={setActiveChat} aiUnread={aiUnread} supportUnread={supportUnread} />
     </div>
   </>
 );
@@ -423,6 +427,11 @@ export function FloatingChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setIsScrolled(e.currentTarget.scrollTop > 100);
+  };
 
   // Poll for support unread count
   const refreshUnread = () => {
@@ -469,6 +478,7 @@ export function FloatingChat() {
       if (activeChat === "ai") {
         setAiUnread(0);
       }
+      setIsScrolled(false);
       scrollToBottom();
     }
   }, [isOpen, activeChat, aiChats]);
@@ -558,8 +568,29 @@ export function FloatingChat() {
               {activeChat === "ai" ? (
                 <div className="flex flex-col flex-1 min-h-0 w-full">
                   {/* AI Messages */}
-                  <div className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar flex flex-col">
-                    <ChatHeader {...headerProps} stickySwitcher={true} />
+                  <div 
+                    className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-transparent to-black/5 scroll-smooth custom-scrollbar flex flex-col relative"
+                    onScroll={handleScroll}
+                  >
+                    <ChatHeader {...headerProps} />
+                    
+                    {/* Floating Switcher */}
+                    <div className="sticky top-4 z-30 flex justify-center pointer-events-none px-4 w-full h-0 overflow-visible">
+                      <AnimatePresence>
+                        {isScrolled && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.2 }}
+                            className="pointer-events-auto w-full sm:w-auto"
+                          >
+                            <ChatSwitcher {...headerProps} isFloating={true} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
                     <div className="p-4 space-y-4 flex-1">
                       <AnimatePresence mode="popLayout">
                         {aiChats.map((msg) => {
