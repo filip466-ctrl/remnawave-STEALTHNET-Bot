@@ -2937,3 +2937,39 @@ publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
     return res.status(500).json({ message: "Ошибка загрузки тарифов Sing-box" });
   }
 });
+
+// POST /api/public/happ-crypto-link — шифрует ссылку подписки для Happ через crypto.happ.su API
+publicConfigRouter.post("/happ-crypto-link", async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ message: "Missing or invalid url parameter" });
+    }
+
+    const response = await fetch("https://crypto.happ.su/api-v2.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      console.error("Happ crypto API error:", response.status, response.statusText);
+      return res.status(502).json({ message: "Failed to encrypt link with Happ API" });
+    }
+
+    const data = (await response.json()) as { link?: string };
+    // API возвращает { "link": "happ://crypt5/..." }
+    const encryptedLink = data?.link;
+    if (!encryptedLink) {
+      console.error("Happ crypto API response missing link:", data);
+      return res.status(502).json({ message: "Invalid response from Happ crypto API" });
+    }
+
+    return res.json({ link: encryptedLink });
+  } catch (e) {
+    console.error("POST /api/public/happ-crypto-link error:", e);
+    return res.status(500).json({ message: "Error encrypting link" });
+  }
+});

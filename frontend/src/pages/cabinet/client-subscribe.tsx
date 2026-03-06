@@ -202,6 +202,8 @@ export function ClientSubscribePage() {
   const [copied, setCopied] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [happCryptoLink, setHappCryptoLink] = useState<string | null>(null);
+  const [loadingHappCrypto, setLoadingHappCrypto] = useState(false);
 
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 640px)");
@@ -213,6 +215,17 @@ export function ClientSubscribePage() {
 
   const subscriptionUrl = getSubscriptionUrl(subscription);
   const platform = detectPlatform();
+
+  // Загружаем crypto link для Happ при наличии subscription URL
+  useEffect(() => {
+    if (subscriptionUrl) {
+      setLoadingHappCrypto(true);
+      api.getHappCryptoLink(subscriptionUrl)
+        .then((res) => setHappCryptoLink(res.link))
+        .catch(() => setHappCryptoLink(null))
+        .finally(() => setLoadingHappCrypto(false));
+    }
+  }, [subscriptionUrl]);
 
   useEffect(() => {
     if (!token) return;
@@ -336,12 +349,12 @@ export function ClientSubscribePage() {
                       {getText(block.description, locale)}
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="flex flex-wrap gap-2 pt-1">
                     {block.buttons?.map((btn, btnIndex) => {
                       const isSubscription = btn.type === "subscriptionLink";
                       const href = isSubscription
                         ? btn.link
-                            .replace(/\{\{SUBSCRIPTION_LINK\}\}/g, encodeURIComponent(subscriptionUrl))
+                            .replace(/\{\{SUBSCRIPTION_LINK\}\}/g, subscriptionUrl)
                             .replace(/\{\{USERNAME\}\}/g, "")
                         : btn.link;
                       const label = getText(btn.text, locale);
@@ -360,8 +373,18 @@ export function ClientSubscribePage() {
                               ? `${window.location.protocol}//${window.location.host}`
                               : "";
                         const skipAuto = isMiniapp ? "&skip_auto=1" : "";
+                        
+                        // Для Happ используем crypto link (happ://crypt5/...) вместо обычного deep link
+                        // Это работает лучше на Windows/Android
+                        const isHappButton = href.startsWith("happ://");
+                        
+                        // Используем crypto link если доступен, иначе обычный href
+                        const finalHref = isHappButton && happCryptoLink && !loadingHappCrypto
+                          ? happCryptoLink 
+                          : href;
+                        
                         const deeplinkUrl = baseUrl
-                          ? `${baseUrl}/api/public/deeplink?url=${encodeURIComponent(href)}${skipAuto}`
+                          ? `${baseUrl}/api/public/deeplink?url=${encodeURIComponent(finalHref)}${skipAuto}`
                           : "#";
                         const handleClick = (e: React.MouseEvent) => {
                           try {
@@ -378,7 +401,13 @@ export function ClientSubscribePage() {
                         };
                         return (
                           <span key={btnIndex} className="inline-flex flex-wrap gap-2 items-center">
-                            <Button variant="default" size="sm" className="gap-2 min-h-[44px]" asChild>
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              className="gap-2 min-h-[44px]" 
+                              asChild
+                              disabled={isHappButton && loadingHappCrypto}
+                            >
                               <a href={deeplinkUrl} target="_blank" rel="noopener noreferrer" onClick={handleClick}>
                                 <Plus className="h-4 w-4 shrink-0" />
                                 {label}

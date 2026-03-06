@@ -818,6 +818,11 @@ export const api = {
     return request("/public/subscription-page");
   },
 
+  /** Шифрует ссылку подписки для Happ через crypto.happ.su API */
+  async getHappCryptoLink(url: string): Promise<{ link: string }> {
+    return request("/public/happ-crypto-link", { method: "POST", body: JSON.stringify({ url }) });
+  },
+
   async clientPayByBalance(
     token: string,
     data: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
