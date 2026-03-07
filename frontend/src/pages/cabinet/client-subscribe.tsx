@@ -295,8 +295,9 @@ export function ClientSubscribePage() {
               <p className="text-slate-600 dark:text-muted-foreground leading-relaxed">
                 Ссылка на подписку появится после оплаты тарифа. Выберите тариф и оплатите — затем здесь можно будет скачать приложение и добавить подписку.
               </p>
-              <Button asChild className="w-full gap-2 h-12 text-base font-medium shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] hover:shadow-primary/30">
+              <Button asChild className="w-full gap-2 h-12 text-base font-medium shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] hover:shadow-primary/50 relative overflow-hidden group">
                 <Link to="/cabinet/tariffs">
+                  <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full -translate-x-full transition-transform duration-700 ease-in-out skew-x-12" />
                   Выбрать тариф
                 </Link>
               </Button>
@@ -418,12 +419,13 @@ export function ClientSubscribePage() {
                               <Button 
                                 variant="default" 
                                 size="sm" 
-                                className="gap-2 min-h-[40px] shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.02]" 
+                                className="gap-2 min-h-[40px] shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-[1.02] relative overflow-hidden group" 
                                 asChild
                               >
                                 <a href={deeplinkUrl} target="_blank" rel="noopener noreferrer" onClick={handleClick}>
-                                  <Plus className="h-4 w-4 shrink-0" />
-                                  {label}
+                                  <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full -translate-x-full transition-transform duration-700 ease-in-out skew-x-12" />
+                                  <Plus className="h-4 w-4 shrink-0 relative z-10" />
+                                  <span className="relative z-10">{label}</span>
                                 </a>
                               </Button>
                               {showQrNextToAddButton && (
@@ -521,13 +523,18 @@ export function ClientSubscribePage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+              <motion.div 
+                whileTap={{ scale: 0.95 }} 
+                animate={copied ? { scale: [1, 1.05, 1] } : {}} 
+                transition={{ duration: 0.3 }}
+                className="flex-1"
+              >
                 <Button 
                   variant="default" 
                   onClick={copyLink} 
                   className={cn(
-                    "w-full gap-2 h-11 text-sm font-medium transition-all duration-300",
-                    copied ? "bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/30" : "shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02]"
+                    "w-full gap-2 h-11 text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                    copied ? "bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/30 ring-1 ring-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)]" : "shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02]"
                   )}
                 >
                   <AnimatePresence mode="wait" initial={false}>
