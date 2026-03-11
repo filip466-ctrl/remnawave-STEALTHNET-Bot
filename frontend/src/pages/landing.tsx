@@ -97,17 +97,17 @@ const JOURNEY_STEPS = [
   {
     icon: Sparkles,
     title: "Выбираешь сценарий",
-    desc: "Лендинг показывает живой контент из админки: тексты, тарифы, способы оплаты и оффер без ручных костылей.",
+    desc: "Доступны гибкие тарифы: выбери то, что подходит именно тебе, без переплат.",
   },
   {
     icon: CreditCard,
     title: "Оплачиваешь как удобно",
-    desc: "Карта, СБП, кошелёк, крипта — клиент видит только актуальные доступные методы и сразу попадает в нормальный поток оплаты.",
+    desc: "Карта, СБП, крипта — выбирай любой удобный и безопасный метод оплаты.",
   },
   {
     icon: Rocket,
     title: "Подключаешься без боли",
-    desc: "После оплаты всё продолжает жить в продукте: кабинет, инструкции, deep link-и, бот и поддержка уже ждут внутри.",
+    desc: "После оплаты бот или личный кабинет сразу выдадут все инструкции. Настройка за 1 минуту.",
   },
 ];
 
@@ -135,25 +135,25 @@ const SIGNAL_CARDS = [
 const EXPERIENCE_PANELS = [
   {
     icon: Sparkles,
-    title: "Ощущение премиума",
-    desc: "Контент, визуал и продукт говорят одним тоном — без дешёвых скачков между лендингом и кабинетом.",
+    title: "Никаких зависаний",
+    desc: "Смотри видео в 4K, играй в игры и работай без задержек.",
   },
   {
     icon: Zap,
-    title: "Живой ритм",
-    desc: "Секции не повторяют друг друга: где-то spotlight, где-то editorial-блок, где-то timeline и быстрые action-card'ы.",
+    title: "Мгновенное подключение",
+    desc: "Достаточно нажать одну кнопку, чтобы оказаться в защищенной сети.",
   },
   {
     icon: LayoutDashboard,
-    title: "Админка управляет лицом продукта",
-    desc: "Тексты, тарифы, платежи и контакты тянутся из системы, так что красота остаётся рабочей, а не фейковой.",
+    title: "Удобный кабинет",
+    desc: "Управляй подпиской, устройствами и получай поддержку в пару кликов.",
   },
 ];
 
 const TRUST_POINTS = [
-  "Плавные анимации без цирка и перегруза",
-  "Glassmorphism, который выглядит богато, а не мутно",
-  "CTA и ключевые выгоды всегда в фокусе",
+  "Современные протоколы шифрования",
+  "Строгая политика Zero-Log: мы не храним данные",
+  "Высокая пропускная способность без ограничений",
 ];
 
 const fadeUp = {
@@ -320,11 +320,6 @@ export function LandingPage({ config }: { config: PublicConfig }) {
     { value: `${DEVICES.length}+`, label: "платформ" },
     { value: lc?.showTariffs ? `${totalTariffs || "∞"}` : "24/7", label: lc?.showTariffs ? "тарифов онлайн" : "доступ" },
     { value: paymentLabels.length ? `${paymentLabels.length}+` : "4", label: "способа оплаты" },
-  ];
-  const floatingBadges = [
-    paymentLabels[0] || "Карта / СБП",
-    lc?.showTariffs ? `${totalTariffs || "∞"} тарифов` : "24/7 доступ",
-    "zero-log core",
   ];
   const navItems = [
     { label: "Преимущества", href: "#benefits" },
@@ -519,25 +514,16 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               <div className="absolute -left-6 top-10 h-40 w-40 rounded-full blur-3xl" style={{ backgroundColor: primarySoft }} />
               <div className="absolute -right-8 bottom-8 h-44 w-44 rounded-full blur-3xl" style={{ backgroundColor: secondarySoft }} />
 
-              {floatingBadges.map((badge, index) => (
-                <motion.div
-                  key={badge}
-                  className={`absolute z-20 hidden rounded-full border border-white/20 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-700 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:bg-slate-950/55 dark:text-slate-200 lg:flex ${index === 0 ? "-left-4 top-8" : index === 1 ? "right-2 top-16" : "-left-8 bottom-10"}`}
-                  animate={{ y: [0, index % 2 === 0 ? -10 : 10, 0], rotate: [0, index % 2 === 0 ? -2 : 2, 0] }}
-                  transition={{ duration: 6 + index, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  {badge}
-                </motion.div>
-              ))}
+              {/* Floating badges removed */}
 
               <div className="relative overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/7 md:p-7">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-emerald-300/70" />
 
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">signal board</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">инфраструктура</p>
                     <h2 className="mt-3 text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white md:text-3xl">
-                      Лендинг теперь должен продавать ощущение сервиса, а не только список функций
+                      Мощная сеть и стабильное подключение без сложных настроек
                     </h2>
                   </div>
                   <motion.div
@@ -589,13 +575,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                       ))}
                     </div>
 
-                    <motion.div
-                      className="absolute bottom-5 right-5 rounded-full border border-white/12 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-100 backdrop-blur-xl"
-                      animate={{ y: [0, -8, 0] }}
-                      transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      smart routing
-                    </motion.div>
+                    {/* Smart routing removed */}
                   </div>
 
                   <div className="space-y-4">
@@ -626,9 +606,9 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                     <div className="rounded-[30px] border border-slate-200/80 dark:border-white/12 p-5 backdrop-blur-xl dark:border-white/10" style={accentGlowStyle}>
                       <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">быстрый старт</p>
                       <ul className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Регистрация и вход без лишней бюрократии</li>
-                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Тарифы, оплата и инструкции приходят в одной связной цепочке</li>
-                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Контакты и юридические ссылки не потеряны в подвале жизни</li>
+                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Мгновенный доступ после оплаты</li>
+                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Подробные инструкции и техподдержка</li>
+                        <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Удобный личный кабинет в Telegram</li>
                       </ul>
                     </div>
 
@@ -656,21 +636,21 @@ export function LandingPage({ config }: { config: PublicConfig }) {
             <div className="overflow-hidden rounded-[34px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6 md:p-8">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="max-w-2xl">
-                  <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">experience architecture</p>
+                  <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">премиальный доступ</p>
                   <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
-                    Больше визуального ритма, меньше ощущения “ещё одна одинаковая карточка”
+                    Всё для твоего комфорта и безопасности в сети
                   </h2>
                 </div>
                 <div className="rounded-full border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-white/8 px-4 py-2 text-sm text-slate-600 backdrop-blur-xl dark:text-slate-300">
-                  premium motion · glass depth · clear CTA
+                  стабильность · скорость · безопасность
                 </div>
               </div>
 
               <div className="mt-7 grid gap-4 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="rounded-[30px] border border-slate-200/80 dark:border-white/12 bg-slate-950 p-5 text-white shadow-xl shadow-slate-950/15 dark:border-white/12 dark:bg-slate-900/90">
-                  <p className="text-xs uppercase tracking-[0.28em]" style={{ color: withAlpha(accentTheme.tertiary, 0.78) }}>editorial block</p>
+                  <p className="text-xs uppercase tracking-[0.28em]" style={{ color: withAlpha(accentTheme.tertiary, 0.78) }}>главные принципы</p>
                   <p className="mt-4 text-2xl font-black leading-tight tracking-[-0.04em]">
-                    Лендинг должен не перечислять факты, а строить настроение доверия и скорости.
+                    Мы строим сервис, которому доверяют. Без компромиссов в скорости.
                   </p>
                   <div className="mt-6 space-y-4">
                     {TRUST_POINTS.map((point) => (
@@ -749,12 +729,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               className="overflow-hidden rounded-[34px] border border-slate-200/60 dark:border-white/10 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8"
               style={resolvedMode === "dark" ? darkPanelStyle : accentGlowStyle}
             >
-              <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-300">spotlight</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-300">технологии</p>
               <h3 className="mt-4 max-w-md text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white md:text-4xl">
-                Вместо скучной витрины — сцена, где выгоды чувствуются на уровне интерфейса.
+                Продуманная инфраструктура для твоей свободы.
               </h3>
               <p className="mt-5 max-w-lg text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
-                Тут важен не только список преимуществ, но и то, как они подаются: через глубину, свет, ритм, акцентные панели и чёткие переходы между секциями.
+                Мы используем только современные протоколы и мощные серверы, чтобы обеспечить максимальную скорость и стабильность соединения в любых условиях.
               </p>
 
               <div className="mt-8 space-y-4">
@@ -963,25 +943,25 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 </div>
 
                 <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/95 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">one motion</p>
+                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">универсальность</p>
                   <p className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">Одинаково приятный опыт на десктопе, телефоне и планшете</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Кабинет, инструкции, deep-link'и и поддержка не разваливаются на разные миры — весь сценарий ощущается цельным.</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Один аккаунт для всех твоих устройств. Подключай что угодно и когда угодно.</p>
                 </div>
 
                 <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 p-5 backdrop-blur-xl dark:border-white/10" style={accentGlowStyle}>
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">ready fast</p>
-                  <p className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">Подключение не ломает настроение — оно поддерживает его</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Нажал, оплатил, получил доступ и инструкции там, где и ожидаешь их увидеть.</p>
+                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">быстрая настройка</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">Установка займет меньше минуты</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Нажал, оплатил, получил доступ. Подробные инструкции помогут сделать всё быстро.</p>
                 </div>
               </div>
             </motion.div>
 
             <motion.div {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 }} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:p-8 dark:border-white/10" style={darkPanelStyle}>
-              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>how it feels</p>
-              <h3 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-4xl">Нормальный премиум-опыт без технической боли</h3>
+              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>быстрый старт</p>
+              <h3 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-4xl">Премиальный сервис без технической боли</h3>
               <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300 md:text-base">
-                <p>Один вход, одна подписка и понятные шаги: зарегистрировался, оплатил, подключил нужное устройство и забыл про хаос.</p>
-                <p>Лендинг не врёт и не живёт отдельно от продукта — он показывает то, что реально настроено в админке прямо сейчас.</p>
+                <p>Один вход, одна подписка и понятные шаги: зарегистрировался, оплатил, подключил нужное устройство и забыл про блокировки.</p>
+                <p>Наша цель — предоставить инструмент, который просто работает. Всегда, везде и на любом устройстве.</p>
               </div>
 
               <div className="mt-8 space-y-4">
@@ -1023,12 +1003,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           >
             <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div>
-                <p className="text-xs uppercase tracking-[0.32em] text-slate-500" style={resolvedMode === "dark" ? { color: withAlpha(accentTheme.tertiary, 0.75) } : undefined}>flow</p>
+                <p className="text-xs uppercase tracking-[0.32em] text-slate-500" style={resolvedMode === "dark" ? { color: withAlpha(accentTheme.tertiary, 0.75) } : undefined}>как это работает</p>
                 <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
-                  От первого касания до подключения — один цельный сценарий
+                  От первого визита до безопасного интернета — всего пара шагов
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
-                  Это больше не просто красивая обложка. Лендинг ведёт в кабинет, кабинет ведёт к тарифам, тарифы ведут к подключению — и вся цепочка ощущается цельной.
+                  Мы сделали всё, чтобы процесс подключения был максимально простым и понятным. Никаких сложных инструкций и лишних действий.
                 </p>
               </div>
 
@@ -1068,12 +1048,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                   ))}
 
                   <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 sm:col-span-2" style={accentGlowStyle}>
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">conversion feeling</p>
-                    <p className="mt-3 text-xl font-semibold text-slate-950 dark:text-white">Лендинг подталкивает мягко: не шумом, а уверенностью в каждом следующем шаге.</p>
-                    <div className="mt-5 flex flex-wrap gap-3">
+                    <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">прозрачность</p>
+                    <p className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">Честные условия без скрытых платежей и ограничений скорости.</p>
+                    <div className="mt-6 flex flex-wrap gap-4">
                       {heroStats.map((item) => (
-                        <div key={item.label} className="rounded-full border border-slate-200/80 dark:border-white/12 bg-white/80 dark:bg-white/8 px-4 py-2 text-sm text-slate-700 backdrop-blur-xl dark:text-slate-200">
-                          <span className="font-semibold text-slate-950 dark:text-white">{item.value}</span> {item.label}
+                        <div key={item.label} className="rounded-full border border-slate-200/80 dark:border-white/12 bg-white/80 dark:bg-white/8 px-6 py-3 text-base text-slate-700 backdrop-blur-xl dark:text-slate-200 shadow-sm">
+                          <span className="font-bold text-xl text-slate-950 dark:text-white mr-1.5">{item.value}</span> {item.label}
                         </div>
                       ))}
                     </div>
