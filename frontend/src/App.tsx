@@ -45,6 +45,7 @@ import { ClientExtraOptionsPage } from "@/pages/cabinet/client-extra-options";
 import { ClientProxyPage } from "@/pages/cabinet/client-proxy";
 import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
 import { ClientTicketsPage } from "@/pages/cabinet/client-tickets";
+import { LandingPageWrapper } from "@/pages/landing";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
@@ -109,8 +110,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Открытие домена → кабинет клиента */}
-      <Route path="/" element={<Navigate to="/cabinet" replace />} />
+      {/* Открытие домена → показываем лендинг */}
+      <Route path="/" element={<LandingPageWrapper />} />
 
       {/* Админка */}
       <Route path="/admin/login" element={state.accessToken ? <Navigate to="/admin" replace /> : <LoginPage />} />
