@@ -88,6 +88,35 @@ const SYSTEM_CONFIG_KEYS = [
   "sell_options_servers_enabled", "sell_options_servers_products",
   "google_analytics_id", "yandex_metrika_id", // Маркетинг: счётчики для кабинета
   "auto_broadcast_cron", // Расписание авто-рассылки (cron, например "0 9 * * *" = 9:00 каждый день)
+  "skip_email_verification", // Регистрация без подтверждения почты: true/false
+  "use_remna_subscription_page", // Кнопка VPN в боте ведёт на страницу подписки Remna вместо кабинета: true/false
+  "ai_chat_enabled", // AI-чат в кабинете включён: true/false
+  // Гибкий тариф (собери сам): цена за день, устройство, трафик или безлимит, сквад
+  "custom_build_enabled",
+  "custom_build_price_per_day",
+  "custom_build_price_per_device",
+  "custom_build_traffic_mode", // "unlimited" | "per_gb"
+  "custom_build_price_per_gb",
+  "custom_build_squad_uuid",
+  "custom_build_currency",
+  "custom_build_max_days",
+  "custom_build_max_devices",
+  "google_login_enabled", "google_client_id", "google_client_secret",
+  "apple_login_enabled", "apple_client_id", "apple_team_id", "apple_key_id", "apple_private_key",
+  "landing_enabled",
+  "landing_hero_title", "landing_hero_subtitle", "landing_hero_cta_text",
+  "landing_hero_badge", "landing_hero_hint",
+  "landing_show_tariffs", "landing_contacts", "landing_offer_link", "landing_privacy_link", "landing_footer_text",
+  "landing_feature_1_label", "landing_feature_1_sub", "landing_feature_2_label", "landing_feature_2_sub",
+  "landing_feature_3_label", "landing_feature_3_sub", "landing_feature_4_label", "landing_feature_4_sub",
+  "landing_feature_5_label", "landing_feature_5_sub",
+  "landing_benefits_title", "landing_benefits_subtitle",
+  "landing_benefit_1_title", "landing_benefit_1_desc", "landing_benefit_2_title", "landing_benefit_2_desc",
+  "landing_benefit_3_title", "landing_benefit_3_desc", "landing_benefit_4_title", "landing_benefit_4_desc",
+  "landing_benefit_5_title", "landing_benefit_5_desc", "landing_benefit_6_title", "landing_benefit_6_desc",
+  "landing_tariffs_title", "landing_tariffs_subtitle",
+  "landing_devices_title", "landing_devices_subtitle",
+  "landing_faq_title", "landing_faq_json",
 ];
 
 /** Продукт «Доп. трафик»: объём в ГБ, цена, валюта */
@@ -411,6 +440,26 @@ export async function getSystemConfig() {
     groqFallback2: (map.groq_fallback_2 ?? "").trim() || null,
     groqFallback3: (map.groq_fallback_3 ?? "").trim() || null,
     aiSystemPrompt: map.ai_system_prompt || "Ты — лучший менеджер техподдержки VPN-сервиса. Твоя цель — вежливо, быстро и точно помогать пользователям с настройкой VPN, тарифами и решением технических проблем. Отвечай кратко и по делу.",
+    skipEmailVerification: map.skip_email_verification === "true" || map.skip_email_verification === "1",
+    useRemnaSubscriptionPage: map.use_remna_subscription_page === "true" || map.use_remna_subscription_page === "1",
+    aiChatEnabled: map.ai_chat_enabled !== "false" && map.ai_chat_enabled !== "0",
+    customBuildEnabled: map.custom_build_enabled === "true" || map.custom_build_enabled === "1",
+    customBuildPricePerDay: parseFloat(map.custom_build_price_per_day || "0") || 0,
+    customBuildPricePerDevice: parseFloat(map.custom_build_price_per_device || "0") || 0,
+    customBuildTrafficMode: (map.custom_build_traffic_mode || "unlimited").trim() === "per_gb" ? "per_gb" : "unlimited",
+    customBuildPricePerGb: parseFloat(map.custom_build_price_per_gb || "0") || 0,
+    customBuildSquadUuid: (map.custom_build_squad_uuid || "").trim() || null,
+    customBuildCurrency: (map.custom_build_currency || "rub").trim().toLowerCase() || "rub",
+    customBuildMaxDays: Math.min(360, Math.max(1, parseInt(map.custom_build_max_days || "360", 10) || 360)),
+    customBuildMaxDevices: Math.min(20, Math.max(1, parseInt(map.custom_build_max_devices || "10", 10) || 10)),
+    googleLoginEnabled: map.google_login_enabled === "true" || map.google_login_enabled === "1",
+    googleClientId: (map.google_client_id ?? "").trim() || null,
+    googleClientSecret: (map.google_client_secret ?? "").trim() || null,
+    appleLoginEnabled: map.apple_login_enabled === "true" || map.apple_login_enabled === "1",
+    appleClientId: (map.apple_client_id ?? "").trim() || null,
+    appleTeamId: (map.apple_team_id ?? "").trim() || null,
+    appleKeyId: (map.apple_key_id ?? "").trim() || null,
+    applePrivateKey: (map.apple_private_key ?? "").trim() || null,
     botButtons: parseBotButtons(map.bot_buttons),
     botButtonsPerRow: map.bot_buttons_per_row === "2" ? 2 : 1,
     botEmojis: parseBotEmojis(map.bot_emojis),
@@ -444,6 +493,47 @@ export async function getSystemConfig() {
     yandexMetrikaId: (map.yandex_metrika_id ?? "").trim() || null,
     autoBroadcastCron: (map.auto_broadcast_cron ?? "").trim() || null,
     adminFrontNotificationsEnabled: map.admin_front_notifications_enabled === "true" || map.admin_front_notifications_enabled === "1",
+    landingEnabled: map.landing_enabled === "true" || map.landing_enabled === "1",
+    landingHeroTitle: (map.landing_hero_title ?? "").trim() || null,
+    landingHeroSubtitle: (map.landing_hero_subtitle ?? "").trim() || null,
+    landingHeroCtaText: (map.landing_hero_cta_text ?? "").trim() || "В кабинет",
+    landingHeroBadge: (map.landing_hero_badge ?? "").trim() || null,
+    landingHeroHint: (map.landing_hero_hint ?? "").trim() || null,
+    landingShowTariffs: map.landing_show_tariffs !== "false" && map.landing_show_tariffs !== "0",
+    landingContacts: (map.landing_contacts ?? "").trim() || null,
+    landingFeature1Label: (map.landing_feature_1_label ?? "").trim() || null,
+    landingFeature1Sub: (map.landing_feature_1_sub ?? "").trim() || null,
+    landingFeature2Label: (map.landing_feature_2_label ?? "").trim() || null,
+    landingFeature2Sub: (map.landing_feature_2_sub ?? "").trim() || null,
+    landingFeature3Label: (map.landing_feature_3_label ?? "").trim() || null,
+    landingFeature3Sub: (map.landing_feature_3_sub ?? "").trim() || null,
+    landingFeature4Label: (map.landing_feature_4_label ?? "").trim() || null,
+    landingFeature4Sub: (map.landing_feature_4_sub ?? "").trim() || null,
+    landingFeature5Label: (map.landing_feature_5_label ?? "").trim() || null,
+    landingFeature5Sub: (map.landing_feature_5_sub ?? "").trim() || null,
+    landingBenefitsTitle: (map.landing_benefits_title ?? "").trim() || null,
+    landingBenefitsSubtitle: (map.landing_benefits_subtitle ?? "").trim() || null,
+    landingBenefit1Title: (map.landing_benefit_1_title ?? "").trim() || null,
+    landingBenefit1Desc: (map.landing_benefit_1_desc ?? "").trim() || null,
+    landingBenefit2Title: (map.landing_benefit_2_title ?? "").trim() || null,
+    landingBenefit2Desc: (map.landing_benefit_2_desc ?? "").trim() || null,
+    landingBenefit3Title: (map.landing_benefit_3_title ?? "").trim() || null,
+    landingBenefit3Desc: (map.landing_benefit_3_desc ?? "").trim() || null,
+    landingBenefit4Title: (map.landing_benefit_4_title ?? "").trim() || null,
+    landingBenefit4Desc: (map.landing_benefit_4_desc ?? "").trim() || null,
+    landingBenefit5Title: (map.landing_benefit_5_title ?? "").trim() || null,
+    landingBenefit5Desc: (map.landing_benefit_5_desc ?? "").trim() || null,
+    landingBenefit6Title: (map.landing_benefit_6_title ?? "").trim() || null,
+    landingBenefit6Desc: (map.landing_benefit_6_desc ?? "").trim() || null,
+    landingTariffsTitle: (map.landing_tariffs_title ?? "").trim() || null,
+    landingTariffsSubtitle: (map.landing_tariffs_subtitle ?? "").trim() || null,
+    landingDevicesTitle: (map.landing_devices_title ?? "").trim() || null,
+    landingDevicesSubtitle: (map.landing_devices_subtitle ?? "").trim() || null,
+    landingFaqTitle: (map.landing_faq_title ?? "").trim() || null,
+    landingFaqJson: (map.landing_faq_json ?? "").trim() || null,
+    landingOfferLink: (map.landing_offer_link ?? "").trim() || null,
+    landingPrivacyLink: (map.landing_privacy_link ?? "").trim() || null,
+    landingFooterText: (map.landing_footer_text ?? "").trim() || null,
   };
 }
 
@@ -688,6 +778,9 @@ export async function getPublicConfig() {
     yookassaEnabled: Boolean(full.yookassaShopId?.trim() && full.yookassaSecretKey?.trim()),
     cryptopayEnabled: Boolean((full as { cryptopayApiToken?: string | null }).cryptopayApiToken?.trim()),
     heleketEnabled: Boolean((full as { heleketMerchantId?: string | null }).heleketMerchantId?.trim() && (full as { heleketApiKey?: string | null }).heleketApiKey?.trim()),
+    skipEmailVerification: full.skipEmailVerification ?? false,
+    useRemnaSubscriptionPage: full.useRemnaSubscriptionPage ?? false,
+    aiChatEnabled: full.aiChatEnabled ?? true,
     trialEnabled,
     trialDays,
     botButtons: resolvedButtons,
@@ -760,6 +853,145 @@ export async function getPublicConfig() {
         }
       }
       return out;
+    })(),
+    googleLoginEnabled: full.googleLoginEnabled && Boolean(full.googleClientId),
+    googleClientId: full.googleLoginEnabled && full.googleClientId ? full.googleClientId : null,
+    appleLoginEnabled: full.appleLoginEnabled && Boolean(full.appleClientId),
+    appleClientId: full.appleLoginEnabled && full.appleClientId ? full.appleClientId : null,
+    customBuildConfig: (() => {
+      const cb = full as {
+        customBuildEnabled?: boolean;
+        customBuildPricePerDay?: number;
+        customBuildPricePerDevice?: number;
+        customBuildTrafficMode?: string;
+        customBuildPricePerGb?: number;
+        customBuildSquadUuid?: string | null;
+        customBuildCurrency?: string;
+        customBuildMaxDays?: number;
+        customBuildMaxDevices?: number;
+      };
+      if (!cb.customBuildEnabled || !cb.customBuildSquadUuid?.trim()) return null;
+      return {
+        enabled: true,
+        pricePerDay: cb.customBuildPricePerDay ?? 0,
+        pricePerDevice: cb.customBuildPricePerDevice ?? 0,
+        trafficMode: cb.customBuildTrafficMode === "per_gb" ? "per_gb" as const : "unlimited" as const,
+        pricePerGb: cb.customBuildPricePerGb ?? 0,
+        squadUuid: cb.customBuildSquadUuid.trim(),
+        currency: (cb.customBuildCurrency || "rub").toLowerCase(),
+        maxDays: Math.min(360, Math.max(1, cb.customBuildMaxDays ?? 360)),
+        maxDevices: Math.min(20, Math.max(1, cb.customBuildMaxDevices ?? 10)),
+      };
+    })(),
+    landingEnabled: (full as { landingEnabled?: boolean }).landingEnabled ?? false,
+    landingConfig: (() => {
+      const l = full as {
+        landingEnabled?: boolean;
+        landingHeroTitle?: string | null;
+        landingHeroSubtitle?: string | null;
+        landingHeroCtaText?: string | null;
+        landingHeroBadge?: string | null;
+        landingHeroHint?: string | null;
+        landingShowTariffs?: boolean;
+        landingContacts?: string | null;
+        landingOfferLink?: string | null;
+        landingPrivacyLink?: string | null;
+        landingFooterText?: string | null;
+        landingFeature1Label?: string | null;
+        landingFeature1Sub?: string | null;
+        landingFeature2Label?: string | null;
+        landingFeature2Sub?: string | null;
+        landingFeature3Label?: string | null;
+        landingFeature3Sub?: string | null;
+        landingFeature4Label?: string | null;
+        landingFeature4Sub?: string | null;
+        landingFeature5Label?: string | null;
+        landingFeature5Sub?: string | null;
+        landingBenefitsTitle?: string | null;
+        landingBenefitsSubtitle?: string | null;
+        landingBenefit1Title?: string | null;
+        landingBenefit1Desc?: string | null;
+        landingBenefit2Title?: string | null;
+        landingBenefit2Desc?: string | null;
+        landingBenefit3Title?: string | null;
+        landingBenefit3Desc?: string | null;
+        landingBenefit4Title?: string | null;
+        landingBenefit4Desc?: string | null;
+        landingBenefit5Title?: string | null;
+        landingBenefit5Desc?: string | null;
+        landingBenefit6Title?: string | null;
+        landingBenefit6Desc?: string | null;
+        landingTariffsTitle?: string | null;
+        landingTariffsSubtitle?: string | null;
+        landingDevicesTitle?: string | null;
+        landingDevicesSubtitle?: string | null;
+        landingFaqTitle?: string | null;
+        landingFaqJson?: string | null;
+      };
+      if (!l.landingEnabled) return null;
+      const buildFeatures = (): { label: string; sub: string }[] => {
+        const items: { label: string; sub: string }[] = [];
+        const pairs: [string | null | undefined, string | null | undefined][] = [
+          [l.landingFeature1Label, l.landingFeature1Sub],
+          [l.landingFeature2Label, l.landingFeature2Sub],
+          [l.landingFeature3Label, l.landingFeature3Sub],
+          [l.landingFeature4Label, l.landingFeature4Sub],
+          [l.landingFeature5Label, l.landingFeature5Sub],
+        ];
+        for (const [label, sub] of pairs) {
+          const lb = (label ?? "").trim();
+          const sb = (sub ?? "").trim();
+          if (lb || sb) items.push({ label: lb || "—", sub: sb });
+        }
+        return items;
+      };
+      const buildBenefits = (): { title: string; desc: string }[] => {
+        const items: { title: string; desc: string }[] = [];
+        const pairs: [string | null | undefined, string | null | undefined][] = [
+          [l.landingBenefit1Title, l.landingBenefit1Desc],
+          [l.landingBenefit2Title, l.landingBenefit2Desc],
+          [l.landingBenefit3Title, l.landingBenefit3Desc],
+          [l.landingBenefit4Title, l.landingBenefit4Desc],
+          [l.landingBenefit5Title, l.landingBenefit5Desc],
+          [l.landingBenefit6Title, l.landingBenefit6Desc],
+        ];
+        for (const [t, d] of pairs) {
+          const title = (t ?? "").trim();
+          const desc = (d ?? "").trim();
+          if (title || desc) items.push({ title: title || "—", desc: desc || "" });
+        }
+        return items;
+      };
+      const parseFaq = (): { q: string; a: string }[] | null => {
+        if (!l.landingFaqJson) return null;
+        try {
+          const a = JSON.parse(l.landingFaqJson) as unknown;
+          if (!Array.isArray(a)) return null;
+          return a.filter((x): x is { q: string; a: string } => typeof x === "object" && x !== null && typeof (x as { q?: unknown }).q === "string" && typeof (x as { a?: unknown }).a === "string").map((x) => ({ q: String(x.q), a: String(x.a) }));
+        } catch { return null; }
+      };
+      return {
+        heroTitle: l.landingHeroTitle?.trim() || full.serviceName || "VPN",
+        heroSubtitle: l.landingHeroSubtitle?.trim() || null,
+        heroCtaText: (l.landingHeroCtaText ?? "").trim() || "В кабинет",
+        heroBadge: (l.landingHeroBadge ?? "").trim() || null,
+        heroHint: (l.landingHeroHint ?? "").trim() || null,
+        showTariffs: l.landingShowTariffs !== false,
+        contacts: ((l.landingContacts ?? "").trim()) || null,
+        offerLink: ((l.landingOfferLink ?? "").trim()) || (full.offerLink ?? null),
+        privacyLink: ((l.landingPrivacyLink ?? "").trim()) || (full.agreementLink ?? null),
+        footerText: (l.landingFooterText ?? "").trim() || null,
+        features: buildFeatures(),
+        benefitsTitle: (l.landingBenefitsTitle ?? "").trim() || null,
+        benefitsSubtitle: (l.landingBenefitsSubtitle ?? "").trim() || null,
+        benefits: buildBenefits(),
+        tariffsTitle: (l.landingTariffsTitle ?? "").trim() || null,
+        tariffsSubtitle: (l.landingTariffsSubtitle ?? "").trim() || null,
+        devicesTitle: (l.landingDevicesTitle ?? "").trim() || null,
+        devicesSubtitle: (l.landingDevicesSubtitle ?? "").trim() || null,
+        faqTitle: (l.landingFaqTitle ?? "").trim() || null,
+        faq: parseFaq(),
+      };
     })(),
   };
 }

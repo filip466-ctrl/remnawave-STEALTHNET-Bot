@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
@@ -211,6 +211,7 @@ export function SettingsPage() {
         offerLink: (data as AdminSettings).offerLink ?? "",
         instructionsLink: (data as AdminSettings).instructionsLink ?? "",
         ticketsEnabled: (data as AdminSettings).ticketsEnabled ?? false,
+        aiChatEnabled: (data as AdminSettings).aiChatEnabled !== false,
         sellOptionsEnabled: (data as AdminSettings).sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: (data as AdminSettings).sellOptionsTrafficEnabled ?? false,
         sellOptionsTrafficProducts: (data as AdminSettings).sellOptionsTrafficProducts ?? [],
@@ -413,6 +414,8 @@ export function SettingsPage() {
         smtpPassword: settings.smtpPassword && settings.smtpPassword !== "********" ? settings.smtpPassword : undefined,
         smtpFromEmail: settings.smtpFromEmail ?? null,
         smtpFromName: settings.smtpFromName ?? null,
+        skipEmailVerification: settings.skipEmailVerification ?? false,
+        useRemnaSubscriptionPage: settings.useRemnaSubscriptionPage ?? false,
         publicAppUrl: settings.publicAppUrl ?? null,
         telegramBotToken: settings.telegramBotToken ?? null,
         telegramBotUsername: settings.telegramBotUsername ?? null,
@@ -457,6 +460,7 @@ export function SettingsPage() {
         instructionsLink: settings.instructionsLink ?? undefined,
         ticketsEnabled: settings.ticketsEnabled ?? false,
         adminFrontNotificationsEnabled: settings.adminFrontNotificationsEnabled ?? true,
+        aiChatEnabled: settings.aiChatEnabled !== false,
         themeAccent: settings.themeAccent ?? "default",
         forceSubscribeEnabled: settings.forceSubscribeEnabled ?? false,
         forceSubscribeChannelId: settings.forceSubscribeChannelId ?? null,
@@ -469,6 +473,64 @@ export function SettingsPage() {
         sellOptionsDevicesProducts: settings.sellOptionsDevicesProducts?.length ? JSON.stringify(settings.sellOptionsDevicesProducts) : null,
         sellOptionsServersEnabled: settings.sellOptionsServersEnabled ?? false,
         sellOptionsServersProducts: settings.sellOptionsServersProducts?.length ? JSON.stringify(settings.sellOptionsServersProducts) : null,
+        customBuildEnabled: settings.customBuildEnabled ?? false,
+        customBuildPricePerDay: settings.customBuildPricePerDay ?? 0,
+        customBuildPricePerDevice: settings.customBuildPricePerDevice ?? 0,
+        customBuildTrafficMode: settings.customBuildTrafficMode ?? "unlimited",
+        customBuildPricePerGb: settings.customBuildPricePerGb ?? 0,
+        customBuildSquadUuid: settings.customBuildSquadUuid ?? null,
+        customBuildCurrency: settings.customBuildCurrency ?? "rub",
+        customBuildMaxDays: settings.customBuildMaxDays ?? 360,
+        customBuildMaxDevices: settings.customBuildMaxDevices ?? 10,
+        googleLoginEnabled: settings.googleLoginEnabled ?? false,
+        googleClientId: settings.googleClientId ?? null,
+        googleClientSecret: settings.googleClientSecret && settings.googleClientSecret !== "********" ? settings.googleClientSecret : undefined,
+        appleLoginEnabled: settings.appleLoginEnabled ?? false,
+        appleClientId: settings.appleClientId ?? null,
+        appleTeamId: settings.appleTeamId ?? null,
+        appleKeyId: settings.appleKeyId ?? null,
+        applePrivateKey: settings.applePrivateKey && settings.applePrivateKey !== "********" ? settings.applePrivateKey : undefined,
+        landingEnabled: settings.landingEnabled ?? false,
+        landingHeroTitle: settings.landingHeroTitle ?? null,
+        landingHeroSubtitle: settings.landingHeroSubtitle ?? null,
+        landingHeroCtaText: settings.landingHeroCtaText ?? null,
+        landingShowTariffs: settings.landingShowTariffs !== false,
+        landingContacts: settings.landingContacts ?? null,
+        landingOfferLink: settings.landingOfferLink ?? null,
+        landingPrivacyLink: settings.landingPrivacyLink ?? null,
+        landingFooterText: settings.landingFooterText ?? null,
+        landingHeroBadge: settings.landingHeroBadge ?? null,
+        landingHeroHint: settings.landingHeroHint ?? null,
+        landingFeature1Label: settings.landingFeature1Label ?? null,
+        landingFeature1Sub: settings.landingFeature1Sub ?? null,
+        landingFeature2Label: settings.landingFeature2Label ?? null,
+        landingFeature2Sub: settings.landingFeature2Sub ?? null,
+        landingFeature3Label: settings.landingFeature3Label ?? null,
+        landingFeature3Sub: settings.landingFeature3Sub ?? null,
+        landingFeature4Label: settings.landingFeature4Label ?? null,
+        landingFeature4Sub: settings.landingFeature4Sub ?? null,
+        landingFeature5Label: settings.landingFeature5Label ?? null,
+        landingFeature5Sub: settings.landingFeature5Sub ?? null,
+        landingBenefitsTitle: settings.landingBenefitsTitle ?? null,
+        landingBenefitsSubtitle: settings.landingBenefitsSubtitle ?? null,
+        landingBenefit1Title: settings.landingBenefit1Title ?? null,
+        landingBenefit1Desc: settings.landingBenefit1Desc ?? null,
+        landingBenefit2Title: settings.landingBenefit2Title ?? null,
+        landingBenefit2Desc: settings.landingBenefit2Desc ?? null,
+        landingBenefit3Title: settings.landingBenefit3Title ?? null,
+        landingBenefit3Desc: settings.landingBenefit3Desc ?? null,
+        landingBenefit4Title: settings.landingBenefit4Title ?? null,
+        landingBenefit4Desc: settings.landingBenefit4Desc ?? null,
+        landingBenefit5Title: settings.landingBenefit5Title ?? null,
+        landingBenefit5Desc: settings.landingBenefit5Desc ?? null,
+        landingBenefit6Title: settings.landingBenefit6Title ?? null,
+        landingBenefit6Desc: settings.landingBenefit6Desc ?? null,
+        landingTariffsTitle: settings.landingTariffsTitle ?? null,
+        landingTariffsSubtitle: settings.landingTariffsSubtitle ?? null,
+        landingDevicesTitle: settings.landingDevicesTitle ?? null,
+        landingDevicesSubtitle: settings.landingDevicesSubtitle ?? null,
+        landingFaqTitle: settings.landingFaqTitle ?? null,
+        landingFaqJson: settings.landingFaqJson ?? null,
       })
       .then((updated) => {
         const u = updated as AdminSettings;
@@ -537,6 +599,18 @@ export function SettingsPage() {
             <Package className="h-4 w-4 shrink-0" />
             Опции
           </TabsTrigger>
+          <TabsTrigger value="custom-build" className="gap-2 py-3 px-4 rounded-xl">
+            <Layers className="h-4 w-4 shrink-0" />
+            Гибкий тариф
+          </TabsTrigger>
+          <TabsTrigger value="oauth" className="gap-2 py-3 px-4 rounded-xl">
+            <KeyRound className="h-4 w-4 shrink-0" />
+            OAuth
+          </TabsTrigger>
+          <TabsTrigger value="landing" className="gap-2 py-3 px-4 rounded-xl">
+            <Globe className="h-4 w-4 shrink-0" />
+            Лендинг
+          </TabsTrigger>
           <TabsTrigger value="sync" className="gap-2 py-3 px-4 rounded-xl">
             <ArrowLeftRight className="h-4 w-4 shrink-0" />
             Синхронизация
@@ -585,6 +659,23 @@ export function SettingsPage() {
                       </Label>
                       <p className="text-xs text-muted-foreground mt-1">
                         Короткие уведомления о новых регистрациях, пополнениях, оплатах и тикетах в панели администратора.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="ai-chat-enabled"
+                      checked={settings.aiChatEnabled !== false}
+                      onCheckedChange={(checked: boolean) =>
+                        setSettings((s) => (s ? { ...s, aiChatEnabled: checked === true } : s))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="ai-chat-enabled" className="text-base font-medium cursor-pointer">AI-чат в кабинете</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Включить встроенный AI-ассистент в кабинете (иконка чата). Если выключить — чат полностью скрыт.
                       </p>
                     </div>
                   </div>
@@ -700,7 +791,7 @@ export function SettingsPage() {
                       </Label>
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">Фото или GIF в приветственном сообщении Telegram-бота. Если не задан — используется логотип сайта</p>
+                  <p className="text-xs text-muted-foreground">Фото или GIF в приветственном сообщении Telegram-бота. Используется только это изображение; логотип сайта в боте не подставляется</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Favicon</Label>
@@ -1483,6 +1574,44 @@ export function SettingsPage() {
                 </p>
               </CardHeader>
               <CardContent>
+                <div className="p-4 rounded-lg border bg-muted/40 mb-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="useRemnaSubscriptionPage"
+                      checked={settings.useRemnaSubscriptionPage ?? false}
+                      onChange={(e) => setSettings((s) => (s ? { ...s, useRemnaSubscriptionPage: e.target.checked } : s))}
+                      className="rounded border"
+                    />
+                    <Label htmlFor="useRemnaSubscriptionPage" className="cursor-pointer">
+                      Использовать страницу подписки Remna
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Если включено — кнопка «Подключиться к VPN» в боте ведёт на страницу подписки из Remna, а не на кабинет.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      disabled={saving}
+                      onClick={async () => {
+                        setSaving(true);
+                        setMessage("");
+                        try {
+                          await api.updateSettings(token, { useRemnaSubscriptionPage: settings.useRemnaSubscriptionPage ?? false });
+                          setMessage("Сохранено");
+                        } catch {
+                          setMessage("Ошибка сохранения");
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {saving ? "Сохранение…" : "Сохранить"}
+                    </Button>
+                    {message && <span className="text-sm text-muted-foreground">{message}</span>}
+                  </div>
+                </div>
                 <SubscriptionPageEditor
                   currentConfigJson={settings?.subscriptionPageConfig ?? null}
                   defaultConfig={defaultSubpageConfig}
@@ -2177,6 +2306,21 @@ export function SettingsPage() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/40">
+                  <input
+                    type="checkbox"
+                    id="skipEmailVerification"
+                    checked={settings.skipEmailVerification ?? false}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, skipEmailVerification: e.target.checked } : s))}
+                    className="rounded border"
+                  />
+                  <Label htmlFor="skipEmailVerification" className="cursor-pointer">
+                    Регистрация без подтверждения почты
+                  </Label>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (если включено — пользователь регистрируется сразу, письмо не отправляется)
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Хост SMTP</Label>
@@ -2597,6 +2741,502 @@ export function SettingsPage() {
               <div className="pt-4 border-t">
                 {message && <p className="text-sm text-muted-foreground mb-2">{message}</p>}
                 <Button type="button" onClick={saveOptionsOnly} disabled={saving}>{saving ? "Сохранение…" : "Сохранить настройки опций"}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="custom-build">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Гибкий тариф («Собери сам»)
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Клиент выбирает количество дней (1–360), устройств и опционально трафик. Цена считается по формуле. Выдаётся доступ к выбранному скваду.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <Switch
+                  id="custom-build-enabled"
+                  checked={!!settings.customBuildEnabled}
+                  onCheckedChange={(c: boolean) => setSettings((s) => (s ? { ...s, customBuildEnabled: !!c } : s))}
+                />
+                <Label htmlFor="custom-build-enabled" className="cursor-pointer font-medium">Включить гибкий тариф в кабинете</Label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Цена за 1 день</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={settings.customBuildPricePerDay ?? 0}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, customBuildPricePerDay: parseFloat(e.target.value) || 0 } : s))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Цена за устройство</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={settings.customBuildPricePerDevice ?? 0}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, customBuildPricePerDevice: parseFloat(e.target.value) || 0 } : s))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Трафик</Label>
+                <div className="flex gap-4 items-center">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customBuildTrafficMode"
+                      checked={(settings.customBuildTrafficMode ?? "unlimited") === "unlimited"}
+                      onChange={() => setSettings((s) => (s ? { ...s, customBuildTrafficMode: "unlimited" as const } : s))}
+                      className="rounded-full"
+                    />
+                    Безлимит
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="customBuildTrafficMode"
+                      checked={(settings.customBuildTrafficMode ?? "unlimited") === "per_gb"}
+                      onChange={() => setSettings((s) => (s ? { ...s, customBuildTrafficMode: "per_gb" as const } : s))}
+                      className="rounded-full"
+                    />
+                    За ГБ
+                  </label>
+                  {(settings.customBuildTrafficMode ?? "unlimited") === "per_gb" && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="w-24"
+                        value={settings.customBuildPricePerGb ?? 0}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, customBuildPricePerGb: parseFloat(e.target.value) || 0 } : s))}
+                      />
+                      <span className="text-sm text-muted-foreground">за 1 ГБ</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Сквад (доступ для клиента)</Label>
+                <select
+                  className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={settings.customBuildSquadUuid ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, customBuildSquadUuid: e.target.value || null } : s))}
+                >
+                  <option value="">— выберите сквад —</option>
+                  {squads.map((s) => (
+                    <option key={s.uuid} value={s.uuid}>{s.name || s.uuid}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Валюта</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={settings.customBuildCurrency ?? "rub"}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, customBuildCurrency: e.target.value } : s))}
+                  >
+                    {ALLOWED_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>{c.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Макс. дней (1–360)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={360}
+                    value={settings.customBuildMaxDays ?? 360}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, customBuildMaxDays: Math.min(360, Math.max(1, parseInt(e.target.value, 10) || 360)) } : s))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Макс. устройств (1–20)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={settings.customBuildMaxDevices ?? 10}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, customBuildMaxDevices: Math.min(20, Math.max(1, parseInt(e.target.value, 10) || 10)) } : s))}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Гибкий тариф появится в меню кабинета клиента только если он включён и выбран сквад.
+              </p>
+              <div className="pt-2 flex items-center gap-2">
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSubmit(e as unknown as React.FormEvent);
+                  }}
+                >
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </Button>
+                {message && <span className="text-sm text-muted-foreground">{message}</span>}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="oauth">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                OAuth — Вход через Google и Apple
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Настройте авторизацию клиентов через Google и Apple. Кнопки появятся на страницах входа и регистрации.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Google Sign In</h3>
+                    <p className="text-xs text-muted-foreground">Нужен Google Cloud Console проект с OAuth 2.0 Client ID</p>
+                  </div>
+                  <Switch
+                    checked={settings?.googleLoginEnabled ?? false}
+                    onCheckedChange={(v) => setSettings((s) => (s ? { ...s, googleLoginEnabled: v } : s))}
+                  />
+                </div>
+                {settings?.googleLoginEnabled && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Client ID</Label>
+                      <Input
+                        placeholder="xxxx.apps.googleusercontent.com"
+                        value={settings.googleClientId ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, googleClientId: e.target.value || null } : s))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Client Secret (необязательно)</Label>
+                      <Input
+                        type="password"
+                        placeholder="GOCSPX-..."
+                        value={settings.googleClientSecret ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, googleClientSecret: e.target.value || null } : s))}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        В Google Cloud Console → Credentials → ваш OAuth 2.0 Client ID → в блоке «Client secret» нажмите «Show» или создайте секрет заново. Для кнопки «Войти через Google» на сайте секрет не обязателен.
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      В Authorized JavaScript origins добавьте домен приложения (например https://ваш-сайт.ru). Redirect URI для id_token не нужен.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Apple Sign In</h3>
+                    <p className="text-xs text-muted-foreground">Нужен Apple Developer аккаунт и Services ID</p>
+                  </div>
+                  <Switch
+                    checked={settings?.appleLoginEnabled ?? false}
+                    onCheckedChange={(v) => setSettings((s) => (s ? { ...s, appleLoginEnabled: v } : s))}
+                  />
+                </div>
+                {settings?.appleLoginEnabled && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Services ID (Client ID)</Label>
+                      <Input
+                        placeholder="com.example.service"
+                        value={settings.appleClientId ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, appleClientId: e.target.value || null } : s))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Team ID</Label>
+                      <Input
+                        placeholder="XXXXXXXXXX"
+                        value={settings.appleTeamId ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, appleTeamId: e.target.value || null } : s))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Key ID</Label>
+                      <Input
+                        placeholder="YYYYYYYYYY"
+                        value={settings.appleKeyId ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, appleKeyId: e.target.value || null } : s))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Private Key (.p8)</Label>
+                      <Textarea
+                        rows={4}
+                        placeholder="-----BEGIN PRIVATE KEY-----&#10;..."
+                        value={settings.applePrivateKey ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, applePrivateKey: e.target.value || null } : s))}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      В Apple Developer: создайте Services ID (указать домен и return URL). Зарегистрируйте ключ Sign In with Apple и скачайте .p8 файл. Return URL: <code>{`${window.location.origin}/cabinet/login`}</code>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSubmit(e as unknown as React.FormEvent);
+                  }}
+                >
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </Button>
+                {message && <span className="text-sm text-muted-foreground">{message}</span>}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="landing">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Лендинг на главной
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Если включено, по адресу <code>/</code> показывается лендинг (информация, тарифы, контакты). Регистрация ведёт в кабинет. Иначе главная перенаправляет в кабинет/логин.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">Включить лендинг</p>
+                  <p className="text-sm text-muted-foreground">Показывать лендинг на https://panel.stealthnet.app/</p>
+                </div>
+                <Switch
+                  checked={settings.landingEnabled ?? false}
+                  onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingEnabled: v } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Заголовок (hero)</Label>
+                <Input
+                  placeholder="Например: STEALTHNET — быстрый VPN"
+                  value={settings.landingHeroTitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroTitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Подзаголовок (hero) — основной текст под заголовком</Label>
+                <Textarea
+                  rows={3}
+                  placeholder="Telegram, YouTube, видеозвонки и доступ к любым сервисам в одной подписке. Без ограничений и скрытых платежей."
+                  value={settings.landingHeroSubtitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroSubtitle: e.target.value || null } : s))}
+                />
+                <p className="text-xs text-muted-foreground">Если пусто — на лендинге показывается текст из плейсхолдера выше.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Текст кнопки призыва (например: Регистрация / В кабинет)</Label>
+                <Input
+                  placeholder="Регистрация"
+                  value={settings.landingHeroCtaText ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroCtaText: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Подпись над заголовком (hero)</Label>
+                <Input
+                  placeholder="Анонимность и доступ"
+                  value={settings.landingHeroBadge ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroBadge: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Подпись под кнопками (hero)</Label>
+                <Input
+                  placeholder="Регистрация за минуту · Оплата картой, СБП или криптой"
+                  value={settings.landingHeroHint ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroHint: e.target.value || null } : s))}
+                />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Полоска фич (5 плашек)</p>
+              {([1, 2, 3, 4, 5] as const).map((n) => (
+                <div key={n} className="rounded-lg border p-4 space-y-2">
+                  <Label>Фича {n} — заголовок</Label>
+                  <Input
+                    placeholder={n === 1 ? "Защита" : ""}
+                    value={(settings as unknown as Record<string, string | null | undefined>)[`landingFeature${n}Label`] ?? ""}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, [`landingFeature${n}Label`]: e.target.value || null } : s))}
+                  />
+                  <Label>Фича {n} — подпись</Label>
+                  <Input
+                    placeholder={n === 1 ? "AES-256 шифрование" : ""}
+                    value={(settings as unknown as Record<string, string | null | undefined>)[`landingFeature${n}Sub`] ?? ""}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, [`landingFeature${n}Sub`]: e.target.value || null } : s))}
+                  />
+                </div>
+              ))}
+              <div className="grid gap-2">
+                <Label>Блок «Почему мы» — заголовок</Label>
+                <Input
+                  placeholder="Почему мы"
+                  value={settings.landingBenefitsTitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingBenefitsTitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок «Почему мы» — подзаголовок</Label>
+                <Input
+                  placeholder="Всё необходимое для приватного и стабильного доступа в одном сервисе."
+                  value={settings.landingBenefitsSubtitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingBenefitsSubtitle: e.target.value || null } : s))}
+                />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Карточки (6 штук)</p>
+              {([1, 2, 3, 4, 5, 6] as const).map((n) => (
+                <div key={n} className="rounded-lg border p-4 space-y-2">
+                  <Label>Карточка {n} — заголовок</Label>
+                  <Input
+                    placeholder={n === 1 ? "Всегда онлайн" : ""}
+                    value={(settings as unknown as Record<string, string | null | undefined>)[`landingBenefit${n}Title`] ?? ""}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, [`landingBenefit${n}Title`]: e.target.value || null } : s))}
+                  />
+                  <Label>Карточка {n} — описание</Label>
+                  <Textarea
+                    rows={2}
+                    placeholder={n === 1 ? "Работает даже когда кажется, что интернета нет..." : ""}
+                    value={(settings as unknown as Record<string, string | null | undefined>)[`landingBenefit${n}Desc`] ?? ""}
+                    onChange={(e) => setSettings((s) => (s ? { ...s, [`landingBenefit${n}Desc`]: e.target.value || null } : s))}
+                  />
+                </div>
+              ))}
+              <div className="grid gap-2">
+                <Label>Блок «Тарифы» — заголовок</Label>
+                <Input
+                  placeholder="Выберите тариф"
+                  value={settings.landingTariffsTitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffsTitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок «Тарифы» — подзаголовок</Label>
+                <Input
+                  placeholder="Прозрачные условия без скрытых платежей."
+                  value={settings.landingTariffsSubtitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffsSubtitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок «Устройства» — заголовок</Label>
+                <Input
+                  placeholder="На всех ваших устройствах"
+                  value={settings.landingDevicesTitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingDevicesTitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок «Устройства» — подзаголовок</Label>
+                <Input
+                  placeholder="Один аккаунт. Одинаковый опыт на каждой платформе."
+                  value={settings.landingDevicesSubtitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingDevicesSubtitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок FAQ — заголовок</Label>
+                <Input
+                  placeholder="Частые вопросы"
+                  value={settings.landingFaqTitle ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingFaqTitle: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Блок FAQ — вопросы (JSON: массив объектов с полями q и a)</Label>
+                <Textarea
+                  rows={10}
+                  className="font-mono text-sm"
+                  placeholder='[{"q":"Что такое VPN?","a":"VPN шифрует..."}]'
+                  value={settings.landingFaqJson ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingFaqJson: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">Показывать блок тарифов</p>
+                </div>
+                <Switch
+                  checked={settings.landingShowTariffs !== false}
+                  onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowTariffs: v } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Контакты (текст или HTML)</Label>
+                <Textarea
+                  rows={3}
+                  placeholder="Telegram: @support&#10;Email: support@example.com"
+                  value={settings.landingContacts ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingContacts: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Ссылка на оферту</Label>
+                <Input
+                  placeholder="https://..."
+                  value={settings.landingOfferLink ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingOfferLink: e.target.value || null } : s))}
+                />
+                <p className="text-xs text-muted-foreground">Если пусто — используется общая настройка «Оферта» из раздела Поддержка.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Ссылка на политику конфиденциальности</Label>
+                <Input
+                  placeholder="https://..."
+                  value={settings.landingPrivacyLink ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingPrivacyLink: e.target.value || null } : s))}
+                />
+                <p className="text-xs text-muted-foreground">Если пусто — используется «Соглашение» из раздела Поддержка.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Текст в подвале (опционально)</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="© 2025 Сервис. Все права защищены."
+                  value={settings.landingFooterText ?? ""}
+                  onChange={(e) => setSettings((s) => (s ? { ...s, landingFooterText: e.target.value || null } : s))}
+                />
+              </div>
+              <div className="pt-2 flex items-center gap-2">
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSubmit(e as unknown as React.FormEvent);
+                  }}
+                >
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </Button>
+                {message && <span className="text-sm text-muted-foreground">{message}</span>}
               </div>
             </CardContent>
           </Card>

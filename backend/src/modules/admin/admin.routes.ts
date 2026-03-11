@@ -977,6 +977,67 @@ const updateSettingsSchema = z.object({
   yandexMetrikaId: z.string().max(100).nullable().optional(),
   autoBroadcastCron: z.string().max(100).nullable().optional(),
   adminFrontNotificationsEnabled: z.boolean().optional(),
+  skipEmailVerification: z.boolean().optional(),
+  useRemnaSubscriptionPage: z.boolean().optional(),
+  aiChatEnabled: z.boolean().optional(),
+  customBuildEnabled: z.boolean().optional(),
+  customBuildPricePerDay: z.number().min(0).optional(),
+  customBuildPricePerDevice: z.number().min(0).optional(),
+  customBuildTrafficMode: z.enum(["unlimited", "per_gb"]).optional(),
+  customBuildPricePerGb: z.number().min(0).optional(),
+  customBuildSquadUuid: z.string().uuid().nullable().optional(),
+  customBuildCurrency: z.string().max(10).optional(),
+  customBuildMaxDays: z.number().int().min(1).max(360).optional(),
+  customBuildMaxDevices: z.number().int().min(1).max(20).optional(),
+  googleLoginEnabled: z.boolean().optional(),
+  googleClientId: z.string().max(500).nullable().optional(),
+  googleClientSecret: z.string().max(500).nullable().optional(),
+  appleLoginEnabled: z.boolean().optional(),
+  appleClientId: z.string().max(500).nullable().optional(),
+  appleTeamId: z.string().max(100).nullable().optional(),
+  appleKeyId: z.string().max(100).nullable().optional(),
+  applePrivateKey: z.string().max(5000).nullable().optional(),
+  landingEnabled: z.boolean().optional(),
+  landingHeroTitle: z.string().max(500).nullable().optional(),
+  landingHeroSubtitle: z.string().max(2000).nullable().optional(),
+  landingHeroCtaText: z.string().max(100).nullable().optional(),
+  landingShowTariffs: z.boolean().optional(),
+  landingContacts: z.string().max(5000).nullable().optional(),
+  landingOfferLink: z.string().max(2000).nullable().optional(),
+  landingPrivacyLink: z.string().max(2000).nullable().optional(),
+  landingFooterText: z.string().max(2000).nullable().optional(),
+  landingHeroBadge: z.string().max(200).nullable().optional(),
+  landingHeroHint: z.string().max(500).nullable().optional(),
+  landingFeature1Label: z.string().max(200).nullable().optional(),
+  landingFeature1Sub: z.string().max(200).nullable().optional(),
+  landingFeature2Label: z.string().max(200).nullable().optional(),
+  landingFeature2Sub: z.string().max(200).nullable().optional(),
+  landingFeature3Label: z.string().max(200).nullable().optional(),
+  landingFeature3Sub: z.string().max(200).nullable().optional(),
+  landingFeature4Label: z.string().max(200).nullable().optional(),
+  landingFeature4Sub: z.string().max(200).nullable().optional(),
+  landingFeature5Label: z.string().max(200).nullable().optional(),
+  landingFeature5Sub: z.string().max(200).nullable().optional(),
+  landingBenefitsTitle: z.string().max(200).nullable().optional(),
+  landingBenefitsSubtitle: z.string().max(1000).nullable().optional(),
+  landingBenefit1Title: z.string().max(200).nullable().optional(),
+  landingBenefit1Desc: z.string().max(1000).nullable().optional(),
+  landingBenefit2Title: z.string().max(200).nullable().optional(),
+  landingBenefit2Desc: z.string().max(1000).nullable().optional(),
+  landingBenefit3Title: z.string().max(200).nullable().optional(),
+  landingBenefit3Desc: z.string().max(1000).nullable().optional(),
+  landingBenefit4Title: z.string().max(200).nullable().optional(),
+  landingBenefit4Desc: z.string().max(1000).nullable().optional(),
+  landingBenefit5Title: z.string().max(200).nullable().optional(),
+  landingBenefit5Desc: z.string().max(1000).nullable().optional(),
+  landingBenefit6Title: z.string().max(200).nullable().optional(),
+  landingBenefit6Desc: z.string().max(1000).nullable().optional(),
+  landingTariffsTitle: z.string().max(200).nullable().optional(),
+  landingTariffsSubtitle: z.string().max(500).nullable().optional(),
+  landingDevicesTitle: z.string().max(200).nullable().optional(),
+  landingDevicesSubtitle: z.string().max(500).nullable().optional(),
+  landingFaqTitle: z.string().max(200).nullable().optional(),
+  landingFaqJson: z.string().max(20000).nullable().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -1429,6 +1490,124 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "admin_front_notifications_enabled" },
       create: { key: "admin_front_notifications_enabled", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.skipEmailVerification !== undefined) {
+    const val = updates.skipEmailVerification ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "skip_email_verification" },
+      create: { key: "skip_email_verification", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.useRemnaSubscriptionPage !== undefined) {
+    const val = updates.useRemnaSubscriptionPage ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "use_remna_subscription_page" },
+      create: { key: "use_remna_subscription_page", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.aiChatEnabled !== undefined) {
+    const val = updates.aiChatEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "ai_chat_enabled" },
+      create: { key: "ai_chat_enabled", value: val },
+      update: { value: val },
+    });
+  }
+  const cbKeys: [keyof typeof updates, string][] = [
+    ["customBuildEnabled", "custom_build_enabled"],
+    ["customBuildPricePerDay", "custom_build_price_per_day"],
+    ["customBuildPricePerDevice", "custom_build_price_per_device"],
+    ["customBuildTrafficMode", "custom_build_traffic_mode"],
+    ["customBuildPricePerGb", "custom_build_price_per_gb"],
+    ["customBuildSquadUuid", "custom_build_squad_uuid"],
+    ["customBuildCurrency", "custom_build_currency"],
+    ["customBuildMaxDays", "custom_build_max_days"],
+    ["customBuildMaxDevices", "custom_build_max_devices"],
+  ];
+  for (const [key, dbKey] of cbKeys) {
+    const v = updates[key];
+    if (v === undefined) continue;
+    const val = typeof v === "boolean" ? (v ? "true" : "false") : (v === null ? "" : String(v));
+    await prisma.systemSetting.upsert({
+      where: { key: dbKey },
+      create: { key: dbKey, value: val },
+      update: { value: val },
+    });
+  }
+  const oauthKeys: [keyof typeof updates, string][] = [
+    ["googleLoginEnabled", "google_login_enabled"],
+    ["googleClientId", "google_client_id"],
+    ["googleClientSecret", "google_client_secret"],
+    ["appleLoginEnabled", "apple_login_enabled"],
+    ["appleClientId", "apple_client_id"],
+    ["appleTeamId", "apple_team_id"],
+    ["appleKeyId", "apple_key_id"],
+    ["applePrivateKey", "apple_private_key"],
+  ];
+  for (const [key, dbKey] of oauthKeys) {
+    const v = updates[key];
+    if (v === undefined) continue;
+    const val = typeof v === "boolean" ? (v ? "true" : "false") : (v === null ? "" : String(v));
+    await prisma.systemSetting.upsert({
+      where: { key: dbKey },
+      create: { key: dbKey, value: val },
+      update: { value: val },
+    });
+  }
+  const landingKeys: [keyof typeof updates, string][] = [
+    ["landingEnabled", "landing_enabled"],
+    ["landingHeroTitle", "landing_hero_title"],
+    ["landingHeroSubtitle", "landing_hero_subtitle"],
+    ["landingHeroCtaText", "landing_hero_cta_text"],
+    ["landingShowTariffs", "landing_show_tariffs"],
+    ["landingContacts", "landing_contacts"],
+    ["landingOfferLink", "landing_offer_link"],
+    ["landingPrivacyLink", "landing_privacy_link"],
+    ["landingFooterText", "landing_footer_text"],
+    ["landingHeroBadge", "landing_hero_badge"],
+    ["landingHeroHint", "landing_hero_hint"],
+    ["landingFeature1Label", "landing_feature_1_label"],
+    ["landingFeature1Sub", "landing_feature_1_sub"],
+    ["landingFeature2Label", "landing_feature_2_label"],
+    ["landingFeature2Sub", "landing_feature_2_sub"],
+    ["landingFeature3Label", "landing_feature_3_label"],
+    ["landingFeature3Sub", "landing_feature_3_sub"],
+    ["landingFeature4Label", "landing_feature_4_label"],
+    ["landingFeature4Sub", "landing_feature_4_sub"],
+    ["landingFeature5Label", "landing_feature_5_label"],
+    ["landingFeature5Sub", "landing_feature_5_sub"],
+    ["landingBenefitsTitle", "landing_benefits_title"],
+    ["landingBenefitsSubtitle", "landing_benefits_subtitle"],
+    ["landingBenefit1Title", "landing_benefit_1_title"],
+    ["landingBenefit1Desc", "landing_benefit_1_desc"],
+    ["landingBenefit2Title", "landing_benefit_2_title"],
+    ["landingBenefit2Desc", "landing_benefit_2_desc"],
+    ["landingBenefit3Title", "landing_benefit_3_title"],
+    ["landingBenefit3Desc", "landing_benefit_3_desc"],
+    ["landingBenefit4Title", "landing_benefit_4_title"],
+    ["landingBenefit4Desc", "landing_benefit_4_desc"],
+    ["landingBenefit5Title", "landing_benefit_5_title"],
+    ["landingBenefit5Desc", "landing_benefit_5_desc"],
+    ["landingBenefit6Title", "landing_benefit_6_title"],
+    ["landingBenefit6Desc", "landing_benefit_6_desc"],
+    ["landingTariffsTitle", "landing_tariffs_title"],
+    ["landingTariffsSubtitle", "landing_tariffs_subtitle"],
+    ["landingDevicesTitle", "landing_devices_title"],
+    ["landingDevicesSubtitle", "landing_devices_subtitle"],
+    ["landingFaqTitle", "landing_faq_title"],
+    ["landingFaqJson", "landing_faq_json"],
+  ];
+  for (const [key, dbKey] of landingKeys) {
+    const v = updates[key];
+    if (v === undefined) continue;
+    const val = typeof v === "boolean" ? (v ? "true" : "false") : (v === null ? "" : String(v));
+    await prisma.systemSetting.upsert({
+      where: { key: dbKey },
+      create: { key: dbKey, value: val },
       update: { value: val },
     });
   }

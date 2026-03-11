@@ -17,6 +17,8 @@ import { yookassaWebhooksRouter } from "./modules/webhooks/yookassa.webhooks.rou
 import { cryptopayWebhooksRouter } from "./modules/webhooks/cryptopay.webhooks.routes.js";
 import { heleketWebhooksRouter } from "./modules/webhooks/heleket.webhooks.routes.js";
 import { botAdminRouter } from "./modules/bot-admin/bot-admin.routes.js";
+import { contestAdminRouter } from "./modules/contest/contest.admin.routes.js";
+import { contestPublicRouter } from "./modules/contest/contest.public.routes.js";
 
 const app = express();
 
@@ -48,7 +50,7 @@ const dev = process.env.NODE_ENV === "development";
 // Админка: логин и 2FA — жёсткий лимит по IP
 const authStrictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: dev ? 100 : 20,
+  max: dev ? 1000 : 2000,
   message: { message: "Too many login attempts" },
   standardHeaders: true,
   legacyHeaders: false,
@@ -59,7 +61,7 @@ app.use("/api/auth/2fa-login", authStrictLimiter);
 // Клиент: регистрация — сильно ограничить с одного IP
 const clientRegisterLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: dev ? 50 : 5,
+  max: dev ? 500 : 500,
   message: { message: "Too many registration attempts. Try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -69,17 +71,28 @@ app.use("/api/client/auth/register", clientRegisterLimiter);
 // Клиент: вход через Telegram Mini App (создание аккаунта или логин)
 const clientTelegramMiniappLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: dev ? 100 : 15,
+  max: dev ? 1000 : 1500,
   message: { message: "Too many attempts. Try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use("/api/client/auth/telegram-miniapp", clientTelegramMiniappLimiter);
 
+// Клиент: OAuth (Google, Apple) — ограничение от перебора
+const clientOAuthLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: dev ? 1000 : 300,
+  message: { message: "Too many OAuth attempts. Try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/client/auth/google", clientOAuthLimiter);
+app.use("/api/client/auth/apple", clientOAuthLimiter);
+
 // Клиент: все auth-эндпоинты (логин, verify-email, 2fa и т.д.) — общий лимит
 const clientAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: dev ? 200 : 60,
+  max: dev ? 2000 : 600,
   message: { message: "Too many requests" },
   standardHeaders: true,
   legacyHeaders: false,
@@ -97,17 +110,19 @@ const limiter = rateLimit({
 app.use("/api/", limiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.1.13" });
+  res.json({ status: "ok", version: "3.2.1" });
 });
 
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin/contests", contestAdminRouter);
 app.use("/api/admin/proxy", proxyAdminRouter);
 app.use("/api/admin/singbox", singboxAdminRouter);
 app.use("/api/proxy-nodes", proxyAgentRouter);
 app.use("/api/singbox-nodes", singboxAgentRouter);
 app.use("/api/client", clientRouter);
 app.use("/api/public", publicConfigRouter);
+app.use("/api/public", contestPublicRouter);
 app.use("/api/bot-admin", botAdminRouter);
 app.use("/api/webhooks", remnaWebhooksRouter);
 app.use("/api/webhooks", plategaWebhooksRouter);

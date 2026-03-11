@@ -46,6 +46,28 @@ export async function linkTelegramFromBot(code: string, telegramId: number, tele
   return data as { message: string };
 }
 
+/** Активный конкурс (для меню и ежедневной рассылки) */
+export async function getActiveContest(): Promise<{
+  active: boolean;
+  contest: null | {
+    id: string;
+    name: string;
+    startAt: string;
+    endAt: string;
+    dailyMessage: string | null;
+    prize1Type: string;
+    prize1Value: string;
+    prize2Type: string;
+    prize2Value: string;
+    prize3Type: string;
+    prize3Value: string;
+    conditionsJson: string | null;
+    drawType: string;
+  };
+}> {
+  return fetchJson("/api/public/contests/active");
+}
+
 /** Публичный конфиг (тарифы, кнопки, способы оплаты, trial и т.д.) */
 export async function getPublicConfig(): Promise<{
   serviceName?: string | null;
@@ -96,6 +118,7 @@ export async function getPublicConfig(): Promise<{
     | { kind: "devices"; id: string; name: string; deviceCount: number; price: number; currency: string }
     | { kind: "servers"; id: string; name: string; squadUuid: string; trafficGb?: number; price: number; currency: string }
   >;
+  useRemnaSubscriptionPage?: boolean;
 } | null> {
   return fetchJson("/api/public/config");
 }
@@ -217,7 +240,7 @@ export async function createPlategaPayment(
 /** Создать платёж ЮMoney (оплата картой). Для тарифа — tariffId, для прокси — proxyTariffId, для опции — extraOption. */
 export async function createYoomoneyPayment(
   token: string,
-  body: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  body: { amount?: number; paymentType: "PC" | "AC"; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; paymentUrl: string }> {
   return fetchJson("/api/client/yoomoney/create-form-payment", { method: "POST", body, token });
 }
@@ -225,7 +248,7 @@ export async function createYoomoneyPayment(
 /** Создать платёж ЮKassa (карта, СБП). Только RUB. Для тарифа — tariffId, для прокси — proxyTariffId, для опции — extraOption. */
 export async function createYookassaPayment(
   token: string,
-  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; confirmationUrl: string }> {
   return fetchJson("/api/client/yookassa/create-payment", { method: "POST", body, token });
 }
@@ -233,7 +256,7 @@ export async function createYookassaPayment(
 /** Crypto Pay (Crypto Bot) — создать инвойс, вернуть ссылку на оплату */
 export async function createCryptopayPayment(
   token: string,
-  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+  body: { amount?: number; currency?: string; tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
 ): Promise<{ paymentId: string; payUrl: string }> {
   const res = await fetchJson<{ paymentId: string; payUrl: string }>("/api/client/cryptopay/create-payment", { method: "POST", body, token });
   return { paymentId: res.paymentId, payUrl: res.payUrl };
@@ -255,7 +278,7 @@ export async function activateTrial(token: string): Promise<{ message: string }>
 /** Оплата тарифа или прокси-тарифа балансом */
 export async function payByBalance(
   token: string,
-  opts: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string }
+  opts: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
 ): Promise<{ message: string; paymentId?: string; newBalance?: number }> {
   return fetchJson("/api/client/payments/balance", { method: "POST", body: opts, token });
 }
