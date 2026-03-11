@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api, type PublicConfig, type PublicTariffCategory } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { type ThemeAccent, useTheme } from "@/contexts/theme";
 import {
   Apple,
   ArrowRight,
@@ -117,6 +118,52 @@ const fadeUp = {
   transition: { duration: 0.55, ease: "easeOut" },
 };
 
+type LandingAccentTheme = {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+};
+
+const LANDING_ACCENT_THEMES: Record<ThemeAccent, LandingAccentTheme> = {
+  default: { primary: "#10b981", secondary: "#06b6d4", tertiary: "#38bdf8" },
+  blue: { primary: "#3b82f6", secondary: "#06b6d4", tertiary: "#60a5fa" },
+  violet: { primary: "#8b5cf6", secondary: "#6366f1", tertiary: "#a78bfa" },
+  rose: { primary: "#f43f5e", secondary: "#fb7185", tertiary: "#fda4af" },
+  orange: { primary: "#f97316", secondary: "#fb923c", tertiary: "#fdba74" },
+  green: { primary: "#22c55e", secondary: "#10b981", tertiary: "#4ade80" },
+  emerald: { primary: "#10b981", secondary: "#14b8a6", tertiary: "#2dd4bf" },
+  cyan: { primary: "#06b6d4", secondary: "#0ea5e9", tertiary: "#67e8f9" },
+  amber: { primary: "#f59e0b", secondary: "#f97316", tertiary: "#fcd34d" },
+  red: { primary: "#ef4444", secondary: "#f97316", tertiary: "#fca5a5" },
+  pink: { primary: "#ec4899", secondary: "#f43f5e", tertiary: "#f9a8d4" },
+  indigo: { primary: "#6366f1", secondary: "#8b5cf6", tertiary: "#a5b4fc" },
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => char + char).join("")
+    : normalized;
+
+  const r = Number.parseInt(value.slice(0, 2), 16);
+  const g = Number.parseInt(value.slice(2, 4), 16);
+  const b = Number.parseInt(value.slice(4, 6), 16);
+  return [r, g, b];
+}
+
+function withAlpha(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getLandingAccentTheme(themeAccent?: string): LandingAccentTheme {
+  if (!themeAccent) return LANDING_ACCENT_THEMES.default;
+  const isKnownAccent = themeAccent in LANDING_ACCENT_THEMES;
+  return isKnownAccent
+    ? LANDING_ACCENT_THEMES[themeAccent as ThemeAccent]
+    : LANDING_ACCENT_THEMES.default;
+}
+
 function formatMonthlyPrice(price: number, durationDays: number): string | null {
   if (durationDays < 30) return null;
   return (price / (durationDays / 30)).toFixed(0);
@@ -140,7 +187,8 @@ function getPaymentLabels(config: PublicConfig): string[] {
 }
 
 export function LandingPage({ config }: { config: PublicConfig }) {
-  const lc = config.landingConfig;
+  const { resolvedMode } = useTheme();
+  const lc = (config as any).landingConfig;
   const [tariffs, setTariffs] = useState<{ items: PublicTariffCategory[] } | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
 
@@ -164,7 +212,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
   const heroBadge = lc?.heroBadge ?? "Приватность, скорость и доступ";
   const heroHint = lc?.heroHint ?? "Регистрация за минуту · Оплата картой, СБП, кошельком и криптой";
   const featuresList = lc?.features?.length
-    ? lc.features.map((feature, index) => ({
+    ? lc.features.map((feature: any, index: number) => ({
       icon: FEATURES_STRIP[index]?.icon ?? Shield,
       label: feature.label,
       sub: feature.sub,
@@ -175,7 +223,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
     lc?.benefitsSubtitle ??
     "Всё, что нужно для спокойного доступа, нормальной скорости и уверенного пользовательского опыта, уже собрано в одном месте.";
   const benefitsList = lc?.benefits?.length
-    ? lc.benefits.map((benefit, index) => ({
+    ? lc.benefits.map((benefit: any, index: number) => ({
       icon: BENEFITS[index]?.icon ?? Sparkles,
       title: benefit.title,
       desc: benefit.desc,
@@ -215,23 +263,50 @@ export function LandingPage({ config }: { config: PublicConfig }) {
     { label: "FAQ", href: "#faq" },
   ];
 
+  const accentTheme = getLandingAccentTheme(config.themeAccent);
+  const primarySoft = withAlpha(accentTheme.primary, resolvedMode === "dark" ? 0.24 : 0.18);
+  const secondarySoft = withAlpha(accentTheme.secondary, resolvedMode === "dark" ? 0.18 : 0.14);
+  const tertiarySoft = withAlpha(accentTheme.tertiary, resolvedMode === "dark" ? 0.16 : 0.1);
+  const buttonShadow = withAlpha(accentTheme.primary, 0.28);
+  const landingSurfaceStyle: CSSProperties = {
+    backgroundImage:
+      resolvedMode === "dark"
+        ? `radial-gradient(circle at top, ${withAlpha(accentTheme.primary, 0.22)}, transparent 24%), radial-gradient(circle at 85% 20%, ${withAlpha(accentTheme.secondary, 0.18)}, transparent 22%), linear-gradient(180deg, rgba(2,6,23,1) 0%, rgba(4,14,33,0.98) 45%, rgba(3,7,18,1) 100%)`
+        : `radial-gradient(circle at top, ${withAlpha(accentTheme.primary, 0.18)}, transparent 28%), radial-gradient(circle at 85% 20%, ${withAlpha(accentTheme.secondary, 0.14)}, transparent 24%), linear-gradient(180deg, rgba(248,250,252,0.98) 0%, ${withAlpha(accentTheme.primary, 0.05)} 35%, rgba(255,255,255,1) 100%)`,
+  };
+  const accentTextStyle: CSSProperties = {
+    backgroundImage: `linear-gradient(90deg, ${accentTheme.primary}, ${accentTheme.secondary}, ${accentTheme.tertiary})`,
+  };
+  const primaryButtonStyle: CSSProperties = {
+    backgroundImage: `linear-gradient(90deg, ${accentTheme.primary}, ${accentTheme.secondary})`,
+    boxShadow: `0 18px 50px ${buttonShadow}`,
+    borderColor: withAlpha(accentTheme.primary, 0.4),
+  };
+  const accentGlowStyle: CSSProperties = {
+    backgroundImage: `linear-gradient(135deg, ${withAlpha(accentTheme.primary, 0.12)}, ${withAlpha(accentTheme.secondary, 0.1)}, ${withAlpha(accentTheme.tertiary, 0.12)})`,
+  };
+  const darkPanelStyle: CSSProperties = {
+    backgroundColor: '#0f172a',
+    backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.98), ${withAlpha(accentTheme.primary, 0.2)} 70%, ${withAlpha(accentTheme.secondary, 0.15)} 100%)`,
+  };
+
   if (!lc) return null;
 
   return (
-    <div className="relative min-h-svh overflow-x-clip bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_28%),radial-gradient(circle_at_85%_20%,_rgba(59,130,246,0.14),_transparent_24%),linear-gradient(180deg,_rgba(248,250,252,0.98)_0%,_rgba(240,253,250,0.95)_35%,_rgba(255,255,255,1)_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.22),_transparent_24%),radial-gradient(circle_at_85%_20%,_rgba(59,130,246,0.18),_transparent_22%),linear-gradient(180deg,_rgba(2,6,23,1)_0%,_rgba(4,14,33,0.98)_45%,_rgba(3,7,18,1)_100%)] dark:text-white">
+    <div className="relative min-h-svh overflow-x-clip text-slate-950 dark:text-white" style={landingSurfaceStyle}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-12rem] top-20 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/20" />
-        <div className="absolute right-[-10rem] top-40 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl dark:bg-cyan-500/15" />
-        <div className="absolute bottom-20 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-sky-400/10 blur-3xl dark:bg-sky-500/10" />
+        <div className="absolute left-[-12rem] top-20 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: primarySoft }} />
+        <div className="absolute right-[-10rem] top-40 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: secondarySoft }} />
+        <div className="absolute bottom-20 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full blur-3xl" style={{ backgroundColor: tertiarySoft }} />
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-white/20 bg-white/50 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/45">
+      <header className="sticky top-0 z-50 border-b border-white/20 bg-white/80 dark:bg-white/5 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/45">
         <div className="container mx-auto flex h-18 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3">
             {config.logo ? (
               <img src={config.logo} alt={config.serviceName || title} className="h-10 w-10 rounded-2xl object-cover shadow-lg ring-1 ring-white/30" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white shadow-lg shadow-emerald-500/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg" style={primaryButtonStyle}>
                 <Shield className="h-5 w-5" />
               </div>
             )}
@@ -241,7 +316,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 rounded-full border border-white/30 bg-white/45 px-2 py-1 backdrop-blur-xl lg:flex dark:border-white/10 dark:bg-white/6">
+          <nav className="hidden items-center gap-1 rounded-full border border-white/30 bg-white/80 dark:bg-white/5 px-2 py-1 backdrop-blur-xl lg:flex dark:border-white/10 dark:bg-white/6">
             {navItems.map((item) => (
               <a
                 key={item.label}
@@ -254,11 +329,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </nav>
 
           <nav className="flex items-center gap-2 sm:gap-3">
-            <Button variant="ghost" className="rounded-full px-4 text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-white/10" asChild>
+            <Button variant="ghost" className="rounded-full px-4 text-slate-700 hover:bg-white/80 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" asChild>
               <Link to="/cabinet/login">Вход</Link>
             </Button>
             <Button
-              className="rounded-full border border-emerald-300/60 bg-gradient-to-r from-emerald-500 to-teal-500 px-5 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400"
+              className="rounded-full border px-5 text-white shadow-lg"
+              style={primaryButtonStyle}
               asChild
             >
               <Link to="/cabinet/register">{ctaText}</Link>
@@ -271,14 +347,14 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         <section className="container mx-auto px-4 pb-10 pt-10 md:pb-16 md:pt-14 lg:pb-24 lg:pt-18">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <motion.div {...fadeUp} className="max-w-3xl">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/65 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-slate-600 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/12 dark:bg-white/8 dark:text-slate-300">
-                <Sparkles className="h-4 w-4 text-emerald-500" />
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-slate-600 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/12 dark:bg-white/8 dark:text-slate-300">
+                <Sparkles className="h-4 w-4" style={{ color: accentTheme.primary }} />
                 {heroBadge}
               </div>
 
               <h1 className="max-w-5xl text-5xl font-black leading-[0.9] tracking-[-0.06em] text-slate-950 md:text-6xl lg:text-[5.4rem] dark:text-white">
                 Тихий доступ,
-                <span className="block bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300 bg-clip-text text-transparent">
+                <span className="block bg-clip-text text-transparent" style={accentTextStyle}>
                   который выглядит дорого.
                 </span>
               </h1>
@@ -292,7 +368,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button
                   size="lg"
-                  className="group h-14 rounded-full border border-emerald-300/60 bg-gradient-to-r from-emerald-500 to-teal-500 px-7 text-base font-semibold text-white shadow-[0_18px_50px_rgba(16,185,129,0.28)] hover:from-emerald-400 hover:to-teal-400"
+                  className="group h-14 rounded-full border px-7 text-base font-semibold text-white"
+                  style={primaryButtonStyle}
                   asChild
                 >
                   <Link to="/cabinet/register">
@@ -303,7 +380,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-14 rounded-full border-white/40 bg-white/70 px-7 text-base text-slate-900 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl hover:bg-white dark:border-white/15 dark:bg-white/8 dark:text-white dark:hover:bg-white/12"
+                  className="h-14 rounded-full border-slate-200/80 dark:border-white/12 bg-white/70 px-7 text-base text-slate-900 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl hover:bg-white dark:border-white/15 dark:bg-white/8 dark:text-white dark:hover:bg-white/12"
                   asChild
                 >
                   <Link to="/cabinet/login">Войти в кабинет</Link>
@@ -317,13 +394,13 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                   paymentLabels.map((label) => (
                     <div
                       key={label}
-                      className="rounded-full border border-white/35 bg-white/65 px-4 py-2 text-sm text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-200"
+                      className="rounded-full border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 px-4 py-2 text-sm text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-200"
                     >
                       {label}
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-full border border-white/35 bg-white/65 px-4 py-2 text-sm text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-200">
+                  <div className="rounded-full border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 px-4 py-2 text-sm text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-200">
                     Карта, СБП, крипта и быстрый старт
                   </div>
                 )}
@@ -337,9 +414,9 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.35, delay: index * 0.08 }}
-                    className="rounded-[24px] border border-white/35 bg-white/55 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
+                    className="rounded-[24px] border border-slate-200/60 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 text-emerald-600 dark:text-emerald-300">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">0{index + 1}. {stepTitle}</p>
@@ -355,7 +432,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.45, delay: 0.08 * index }}
-                    className="rounded-[28px] border border-white/40 bg-white/60 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6"
+                    className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/80 dark:bg-white/5 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6"
                   >
                     <div className="text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">{item.value}</div>
                     <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.label}</div>
@@ -365,10 +442,10 @@ export function LandingPage({ config }: { config: PublicConfig }) {
             </motion.div>
 
             <motion.div {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.08 }} className="relative">
-              <div className="absolute -left-6 top-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/25" />
-              <div className="absolute -right-8 bottom-8 h-44 w-44 rounded-full bg-cyan-400/15 blur-3xl dark:bg-cyan-500/20" />
+              <div className="absolute -left-6 top-10 h-40 w-40 rounded-full blur-3xl" style={{ backgroundColor: primarySoft }} />
+              <div className="absolute -right-8 bottom-8 h-44 w-44 rounded-full blur-3xl" style={{ backgroundColor: secondarySoft }} />
 
-              <div className="relative overflow-hidden rounded-[32px] border border-white/35 bg-white/62 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/7 md:p-7">
+              <div className="relative overflow-hidden rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/7 md:p-7">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-emerald-300/70" />
 
                 <div className="flex items-start justify-between gap-4">
@@ -378,22 +455,22 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                       Один доступ — все нужные сервисы под рукой
                     </h2>
                   </div>
-                  <div className="rounded-2xl border border-emerald-300/40 bg-emerald-500/12 p-3 text-emerald-600 dark:border-emerald-400/25 dark:bg-emerald-400/12 dark:text-emerald-300">
+                  <div className="rounded-2xl border p-3" style={{ borderColor: withAlpha(accentTheme.primary, 0.28), backgroundColor: withAlpha(accentTheme.primary, 0.12), color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                     <Shield className="h-6 w-6" />
                   </div>
                 </div>
 
                 <div className="mt-6 grid gap-3">
-                  {featuresList.slice(0, 4).map(({ icon: Icon, label, sub }, index) => (
+                  {featuresList.slice(0, 4).map(({ icon: Icon, label, sub }: any, index: number) => (
                     <motion.div
                       key={label}
                       initial={{ opacity: 0, x: 18 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.4, delay: 0.08 * index }}
-                      className="flex items-center gap-4 rounded-3xl border border-white/45 bg-white/68 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/35"
+                      className="flex items-center gap-4 rounded-3xl border border-slate-200 dark:border-white/15 bg-white/85 dark:bg-white/5 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/35"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-cyan-400/25 text-emerald-600 dark:text-emerald-300">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
@@ -405,8 +482,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[28px] border border-white/40 bg-slate-950 px-5 py-5 text-white shadow-xl shadow-slate-950/15 dark:border-white/12 dark:bg-slate-900/90">
-                    <p className="text-xs uppercase tracking-[0.28em] text-emerald-300/80">от</p>
+                  <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-slate-950 px-5 py-5 text-white shadow-xl shadow-slate-950/15 dark:border-white/12 dark:bg-slate-900/90">
+                    <p className="text-xs uppercase tracking-[0.28em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>от</p>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-4xl font-black tracking-[-0.05em]">
                         {lowestTariff ? lowestTariff.tariff.price : "∞"}
@@ -422,23 +499,23 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                     </p>
                   </div>
 
-                  <div className="rounded-[28px] border border-white/40 bg-white/72 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
+                  <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/95 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
                     <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">быстрый старт</p>
                     <ul className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4 text-emerald-500" />Регистрация и вход через кабинет без лишней бюрократии</li>
-                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4 text-emerald-500" />Моментальное получение тарифов, способов оплаты и инструкций</li>
-                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4 text-emerald-500" />Поддержка, оферта и контакты доступны прямо на лендинге</li>
+                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Регистрация и вход через кабинет без лишней бюрократии</li>
+                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Моментальное получение тарифов, способов оплаты и инструкций</li>
+                      <li className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4" style={{ color: accentTheme.primary }} />Поддержка, оферта и контакты доступны прямо на лендинге</li>
                     </ul>
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-[28px] border border-white/40 bg-gradient-to-r from-emerald-500/12 via-cyan-500/10 to-sky-500/12 p-5 backdrop-blur-xl dark:border-white/10">
+                <div className="mt-4 rounded-[28px] border border-slate-200/80 dark:border-white/12 p-5 backdrop-blur-xl dark:border-white/10" style={accentGlowStyle}>
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">ощущение продукта</p>
                       <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Не просто VPN, а аккуратно собранный сервис с человеческим UX</p>
                     </div>
-                    <Button className="h-12 rounded-full bg-slate-950 px-5 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100" asChild>
+                    <Button className="h-12 rounded-full px-5 text-white" style={primaryButtonStyle} asChild>
                       <Link to={lc.showTariffs ? "#tariffs" : "/cabinet/register"}>{lc.showTariffs ? "Смотреть тарифы" : "Начать"}</Link>
                     </Button>
                   </div>
@@ -450,14 +527,14 @@ export function LandingPage({ config }: { config: PublicConfig }) {
 
         <section className="container mx-auto px-4 pb-8 md:pb-12">
           <motion.div {...fadeUp} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {featuresList.map(({ icon: Icon, label, sub }, index) => (
+            {featuresList.map(({ icon: Icon, label, sub }: any, index: number) => (
               <div
                 key={label}
-                className="group rounded-[30px] border border-white/35 bg-white/60 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-transform duration-300 hover:-translate-y-1 dark:border-white/10 dark:bg-white/6"
+                className="group rounded-[30px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-transform duration-300 hover:-translate-y-1 dark:border-white/10 dark:bg-white/6"
                 style={{ transitionDelay: `${index * 40}ms` }}
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-cyan-400/25 text-emerald-600 dark:text-emerald-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
@@ -472,8 +549,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
 
         <section id="benefits" className="container mx-auto px-4 py-14 md:py-20">
           <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-300">
-              <Sparkles className="h-4 w-4 text-emerald-500" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-300">
+              <Sparkles className="h-4 w-4" style={{ color: accentTheme.primary }} />
               Почему мы
             </div>
             <h2 className="mt-5 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-5xl dark:text-white">
@@ -485,7 +562,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </motion.div>
 
           <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {benefitsList.map(({ icon: Icon, title: itemTitle, desc }, index) => (
+            {benefitsList.map(({ icon: Icon, title: itemTitle, desc }: any, index: number) => (
               <motion.div
                 key={itemTitle}
                 initial={{ opacity: 0, y: 22 }}
@@ -493,13 +570,13 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 viewport={{ once: true, amount: 0.15 }}
                 transition={{ duration: 0.45, delay: index * 0.06 }}
               >
-                <Card className="h-full rounded-[30px] border-white/35 bg-white/62 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
+                <Card className="h-full rounded-[30px] border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-cyan-400/25 text-emerald-600 dark:text-emerald-300">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div className="rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-xs uppercase tracking-[0.25em] text-emerald-700 dark:border-emerald-400/20 dark:text-emerald-300">
+                      <div className="rounded-full border px-3 py-1 text-xs uppercase tracking-[0.25em]" style={{ borderColor: withAlpha(accentTheme.primary, 0.28), backgroundColor: withAlpha(accentTheme.primary, 0.1), color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                         0{index + 1}
                       </div>
                     </div>
@@ -518,15 +595,16 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           <section id="tariffs" className="container mx-auto px-4 py-14 md:py-20">
             <motion.div
               {...fadeUp}
-              className="overflow-hidden rounded-[36px] border border-white/35 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(6,78,59,0.90))] px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-8 md:py-10"
+              className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-8 md:py-10"
+              style={darkPanelStyle}
             >
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div className="max-w-2xl">
-                  <p className="text-xs uppercase tracking-[0.32em] text-emerald-200/75">pricing</p>
+                  <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.75) }}>pricing</p>
                   <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] md:text-5xl">{tariffsTitle}</h2>
                   <p className="mt-4 text-sm leading-7 text-slate-200 md:text-base">{tariffsSubtitle}</p>
                 </div>
-                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-emerald-100 backdrop-blur-xl">
+                <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm backdrop-blur-xl" style={{ color: withAlpha(accentTheme.tertiary, 0.95) }}>
                   {tariffs === null ? "Загружаем тарифы…" : `${tariffs.items.length} категорий · ${totalTariffs} вариантов`}
                 </div>
               </div>
@@ -578,7 +656,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                                     <p className="mt-2 text-sm leading-6 text-slate-400">Чистый доступ без лишних ограничений и путаницы.</p>
                                   )}
                                 </div>
-                                <div className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-xs uppercase tracking-[0.24em] text-emerald-200">
+                                <div className="rounded-full border px-3 py-1 text-xs uppercase tracking-[0.24em]" style={{ borderColor: withAlpha(accentTheme.primary, 0.3), backgroundColor: withAlpha(accentTheme.primary, 0.12), color: withAlpha(accentTheme.tertiary, 0.95) }}>
                                   {tariff.durationDays} дн.
                                 </div>
                               </div>
@@ -589,17 +667,17 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                                   <span className="pb-1 text-sm uppercase text-slate-300">{tariff.currency}</span>
                                 </div>
                                 {monthlyPrice && (
-                                  <p className="mt-2 text-sm text-emerald-200/90">≈ {monthlyPrice} {tariff.currency.toUpperCase()}/мес</p>
+                                  <p className="mt-2 text-sm" style={{ color: withAlpha(accentTheme.tertiary, 0.9) }}>≈ {monthlyPrice} {tariff.currency.toUpperCase()}/мес</p>
                                 )}
                               </div>
 
                               <div className="mt-6 space-y-3 text-sm text-slate-300">
-                                <div className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald-300" />Подключение через личный кабинет</div>
-                                <div className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald-300" />Поддержка и инструкции внутри сервиса</div>
-                                <div className="flex items-center gap-3"><Check className="h-4 w-4 text-emerald-300" />Автоматическая активация после оплаты</div>
+                                <div className="flex items-center gap-3"><Check className="h-4 w-4" style={{ color: accentTheme.tertiary }} />Подключение через личный кабинет</div>
+                                <div className="flex items-center gap-3"><Check className="h-4 w-4" style={{ color: accentTheme.tertiary }} />Поддержка и инструкции внутри сервиса</div>
+                                <div className="flex items-center gap-3"><Check className="h-4 w-4" style={{ color: accentTheme.tertiary }} />Автоматическая активация после оплаты</div>
                               </div>
 
-                              <Button className="mt-6 h-12 rounded-full bg-white text-slate-950 hover:bg-emerald-50" asChild>
+                              <Button className="mt-6 h-12 rounded-full text-white" style={primaryButtonStyle} asChild>
                                 <Link to="/cabinet/register">Выбрать тариф</Link>
                               </Button>
                             </div>
@@ -620,7 +698,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
 
         <section id="devices" className="container mx-auto px-4 py-14 md:py-20">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-            <motion.div {...fadeUp} className="rounded-[32px] border border-white/35 bg-white/60 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
+            <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
               <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">devices</p>
               <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">{devicesTitle}</h2>
               <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-400 md:text-base">{devicesSubtitle}</p>
@@ -629,9 +707,9 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 {DEVICES.map(({ name, icon: Icon }) => (
                   <div
                     key={name}
-                    className="rounded-[24px] border border-white/35 bg-white/72 p-4 text-center shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30"
+                    className="rounded-[24px] border border-slate-200/60 dark:border-white/10 bg-white/95 dark:bg-white/5 p-4 text-center shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30"
                   >
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-cyan-400/25 text-emerald-600 dark:text-emerald-300">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">{name}</p>
@@ -640,8 +718,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 }} className="rounded-[32px] border border-white/35 bg-slate-950/95 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:p-8 dark:border-white/10">
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-300/80">how it feels</p>
+            <motion.div {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 }} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:p-8 dark:border-white/10" style={darkPanelStyle}>
+              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>how it feels</p>
               <h3 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-4xl">Нормальный премиум-опыт без технической боли</h3>
               <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300 md:text-base">
                 <p>Один вход, одна подписка и понятные шаги: зарегистрировался, оплатил, подключил нужное устройство и забыл про хаос.</p>
@@ -659,7 +737,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 </div>
               </div>
 
-              <Button className="mt-8 h-13 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 text-white hover:from-emerald-400 hover:to-teal-400" asChild>
+              <Button className="mt-8 h-13 rounded-full px-6 text-white" style={primaryButtonStyle} asChild>
                 <Link to="/cabinet/register">Открыть кабинет и подключиться</Link>
               </Button>
             </motion.div>
@@ -669,11 +747,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         <section className="container mx-auto px-4 py-6 md:py-10">
           <motion.div
             {...fadeUp}
-            className="overflow-hidden rounded-[36px] border border-white/35 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(240,253,250,0.78),rgba(236,254,255,0.82))] p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(5,46,37,0.84),rgba(8,47,73,0.86))] md:p-8"
-          >
+              className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 md:p-8"
+              style={resolvedMode === "dark" ? darkPanelStyle : accentGlowStyle}
+            >
             <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div>
-                <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-emerald-200/75">flow</p>
+                <p className="text-xs uppercase tracking-[0.32em] text-slate-500" style={resolvedMode === "dark" ? { color: withAlpha(accentTheme.tertiary, 0.75) } : undefined}>flow</p>
                 <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
                   От первого касания до подключения — один цельный сценарий
                 </h2>
@@ -686,10 +765,10 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                 {JOURNEY_STEPS.map(({ icon: Icon, title: stepTitle, desc }, index) => (
                   <div
                     key={stepTitle}
-                    className="rounded-[28px] border border-white/40 bg-white/62 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
+                    className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/85 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-cyan-400/25 text-emerald-600 dark:text-emerald-300">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                         <Icon className="h-5 w-5" />
                       </div>
                       <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">0{index + 1}</span>
@@ -704,25 +783,26 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         </section>
 
         <section id="faq" className="container mx-auto grid gap-8 px-4 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <motion.div {...fadeUp} className="rounded-[32px] border border-white/35 bg-white/60 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
+          <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
             <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">faq</p>
             <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">{faqTitle}</h2>
 
             <div className="mt-8 space-y-3">
-              {faqList.map(({ q, a }) => (
+              {faqList.map(({ q, a }: any) => (
                 <Collapsible key={q} open={openFaq === q} onOpenChange={(open) => setOpenFaq(open ? q : null)}>
-                  <Card className="overflow-hidden rounded-[26px] border-white/35 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30">
+                  <Card className="overflow-hidden rounded-[26px] border-slate-200/60 dark:border-white/10 bg-white/95 dark:bg-white/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30">
                     <CollapsibleTrigger asChild>
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left text-base font-semibold text-slate-900 transition-colors hover:bg-emerald-50/60 dark:text-white dark:hover:bg-white/6"
+                        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left text-base font-semibold text-slate-900 transition-colors dark:text-white dark:hover:bg-white/6"
+                        style={openFaq === q ? accentGlowStyle : undefined}
                       >
                         <span>{q}</span>
                         <ChevronDown className={`h-5 w-5 shrink-0 text-slate-500 transition-transform dark:text-slate-400 ${openFaq === q ? "rotate-180" : ""}`} />
                       </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="border-t border-white/40 px-5 pb-5 pt-4 text-sm leading-7 text-slate-600 dark:border-white/10 dark:text-slate-400">
+                      <div className="border-t border-slate-200/80 dark:border-white/12 px-5 pb-5 pt-4 text-sm leading-7 text-slate-600 dark:border-white/10 dark:text-slate-400">
                         {a}
                       </div>
                     </CollapsibleContent>
@@ -733,7 +813,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </motion.div>
 
           <motion.aside {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 }} className="space-y-5">
-            <div className="rounded-[32px] border border-white/35 bg-white/60 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
+            <div className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
               <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">контакты</p>
               <h3 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">Нужна помощь или детали?</h3>
               <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-400">
@@ -750,8 +830,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               )}
             </div>
 
-            <div className="rounded-[32px] border border-white/35 bg-slate-950/95 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:border-white/10">
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-300/80">legal</p>
+            <div className="rounded-[32px] border border-slate-200/60 dark:border-white/10 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:border-white/10" style={darkPanelStyle}>
+              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>legal</p>
               <h3 className="mt-4 text-2xl font-black tracking-[-0.04em]">Документы и прозрачность</h3>
 
               <div className="mt-6 flex flex-col gap-3">
@@ -786,14 +866,15 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         <section className="container mx-auto px-4 pb-16 pt-2 md:pb-24">
           <motion.div
             {...fadeUp}
-            className="relative overflow-hidden rounded-[38px] border border-white/35 bg-[linear-gradient(135deg,rgba(2,6,23,0.98),rgba(6,78,59,0.92),rgba(8,47,73,0.94))] px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-10 md:py-10"
+            className="relative overflow-hidden rounded-[38px] border border-slate-200/60 dark:border-white/10 px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-10 md:py-10"
+            style={darkPanelStyle}
           >
-            <div className="absolute -right-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-emerald-400/20 blur-3xl" />
-            <div className="absolute left-10 top-0 h-28 w-28 rounded-full bg-cyan-400/12 blur-3xl" />
+            <div className="absolute -right-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full blur-3xl" style={{ backgroundColor: primarySoft }} />
+            <div className="absolute left-10 top-0 h-28 w-28 rounded-full blur-3xl" style={{ backgroundColor: secondarySoft }} />
 
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-3xl">
-                <p className="text-xs uppercase tracking-[0.34em] text-emerald-200/75">ready to connect</p>
+                <p className="text-xs uppercase tracking-[0.34em]" style={{ color: withAlpha(accentTheme.tertiary, 0.75) }}>ready to connect</p>
                 <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-5xl">
                   Если честно — теперь это уже не “лендинг”, а витрина продукта.
                 </h2>
@@ -803,7 +884,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-                <Button className="h-13 rounded-full bg-white px-6 text-slate-950 hover:bg-emerald-50" asChild>
+                <Button className="h-13 rounded-full px-6 text-white" style={primaryButtonStyle} asChild>
                   <Link to="/cabinet/register">{ctaText}</Link>
                 </Button>
                 <Button variant="outline" className="h-13 rounded-full border-white/20 bg-white/8 px-6 text-white hover:bg-white/12" asChild>
@@ -815,7 +896,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         </section>
       </main>
 
-      <footer className="relative z-10 border-t border-white/25 bg-white/40 px-4 py-8 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/35">
+      <footer className="relative z-10 border-t border-slate-200/50 dark:border-white/10 bg-white/40 px-4 py-8 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/35">
         <div className="container mx-auto flex flex-col gap-4 text-center md:flex-row md:items-center md:justify-between md:text-left">
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">{config.serviceName || title}</p>
@@ -829,10 +910,10 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 md:justify-end">
-            <Button variant="ghost" className="rounded-full text-slate-700 hover:bg-white/60 dark:text-slate-200 dark:hover:bg-white/10" asChild>
+            <Button variant="ghost" className="rounded-full text-slate-700 hover:bg-white/80 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10" asChild>
               <Link to="/cabinet/login">Вход</Link>
             </Button>
-            <Button className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400" asChild>
+            <Button className="rounded-full text-white" style={primaryButtonStyle} asChild>
               <Link to="/cabinet/register">{ctaText}</Link>
             </Button>
           </div>
@@ -840,4 +921,38 @@ export function LandingPage({ config }: { config: PublicConfig }) {
       </footer>
     </div>
   );
+}
+
+export function LandingPageWrapper() {
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .getPublicConfig()
+      .then((cfg) => setConfig(cfg))
+      .catch((err) => {
+        console.error("Failed to load public config:", err);
+        setConfig(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="text-slate-400">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="text-slate-400">Ошибка загрузки конфигурации</div>
+      </div>
+    );
+  }
+
+  return <LandingPage config={config} />;
 }
