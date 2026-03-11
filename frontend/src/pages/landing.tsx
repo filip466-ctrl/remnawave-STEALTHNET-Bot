@@ -156,6 +156,26 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Конвертирует HEX в строку HSL для CSS-переменных shadcn ("h s% l%") */
+function hexToHsl(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
 function getLandingAccentTheme(themeAccent?: string): LandingAccentTheme {
   if (!themeAccent) return LANDING_ACCENT_THEMES.default;
   const isKnownAccent = themeAccent in LANDING_ACCENT_THEMES;
@@ -273,6 +293,10 @@ export function LandingPage({ config }: { config: PublicConfig }) {
       resolvedMode === "dark"
         ? `radial-gradient(circle at top, ${withAlpha(accentTheme.primary, 0.22)}, transparent 24%), radial-gradient(circle at 85% 20%, ${withAlpha(accentTheme.secondary, 0.18)}, transparent 22%), linear-gradient(180deg, rgba(2,6,23,1) 0%, rgba(4,14,33,0.98) 45%, rgba(3,7,18,1) 100%)`
         : `radial-gradient(circle at top, ${withAlpha(accentTheme.primary, 0.18)}, transparent 28%), radial-gradient(circle at 85% 20%, ${withAlpha(accentTheme.secondary, 0.14)}, transparent 24%), linear-gradient(180deg, rgba(248,250,252,0.98) 0%, ${withAlpha(accentTheme.primary, 0.05)} 35%, rgba(255,255,255,1) 100%)`,
+    // Перебиваем CSS-переменные shadcn, чтобы кнопки брали цвет из глобальной темы, а не из темы кабинета
+    ["--primary" as string]: hexToHsl(accentTheme.primary),
+    ["--primary-foreground" as string]: "0 0% 100%",
+    ["--ring" as string]: hexToHsl(accentTheme.primary),
   };
   const accentTextStyle: CSSProperties = {
     backgroundImage: `linear-gradient(90deg, ${accentTheme.primary}, ${accentTheme.secondary}, ${accentTheme.tertiary})`,
