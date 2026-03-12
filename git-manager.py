@@ -13,7 +13,11 @@ import subprocess
 import platform
 import shutil
 import signal
+import json
+import tempfile
+import stat
 from datetime import datetime
+from pathlib import Path
 
 # ══════════════════════════════════════════════════════════════
 #   КРОССПЛАТФОРМЕННЫЙ ВВОД (Windows msvcrt / Unix termios)
@@ -106,9 +110,118 @@ def enable_ansi_windows():
 #   GIT-ОБЁРТКА
 # ══════════════════════════════════════════════════════════════
 
-def git(*args, capture=True, check=False):
-    """Запускает git-команду. Возвращает (returncode, stdout)."""
+CONFIG_PATH = Path.home() / ".git-manager.json"
+
+
+def load_config():
+    """Загружает конфиг из ~/.git-manager.json."""
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def save_config(cfg):
+    """Сохраняет конфиг в ~/.git-manager.json."""
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def get_active_account(cfg):
+    """Возвращает (имя, данные) активного аккаунта или (None, None)."""
+    name = cfg.get("active_account")
+    if name and name in cfg.get("accounts", {}):
+        return name, cfg["accounts"][name]
+    return None, None
+
+
+def get_active_repo(cfg):
+    """Возвращает (label, url) активного репо из активного аккаунта или (None, None)."""
+    _, acc = get_active_account(cfg)
+    if not acc:
+        return None, None
+    repo_name = acc.get("active_repo")
+    repos = acc.get("repos", {})
+    if repo_name and repo_name in repos:
+        return repo_name, repos[repo_name]
+    return None, None
+
+
+def get_auth_env(cfg):
+    """Возвращает dict переменных окружения для авторизации git."""
+    _, acc = get_active_account(cfg)
+    if not acc:
+        return {}
+
+    auth_type = acc.get("auth_type", "")
+
+    if auth_type == "ssh_key":
+        key_path = acc.get("ssh_key", "")
+        if key_path and os.path.isfile(key_path):
+            return {
+                "GIT_SSH_COMMAND": f'ssh -i "{key_path}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no'
+            }
+
+    elif auth_type == "token":
+        token = acc.get("token", "")
+        if token:
+            # Создаём временный askpass-скрипт
+            if IS_WINDOWS:
+                script = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".bat", delete=False, encoding="utf-8"
+                )
+                script.write(f"@echo {token}\n")
+                script.close()
+            else:
+                script = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".sh", delete=False, encoding="utf-8"
+                )
+                script.write(f"#!/bin/sh\necho '{token}'\n")
+                script.close()
+                os.chmod(script.name, stat.S_IRWXU)
+            return {"GIT_ASKPASS": script.name, "_ASKPASS_TEMP": script.name}
+
+    return {}
+
+
+def cleanup_auth_env(env_extra):
+    """Удаляет временный askpass-скрипт, если создавался."""
+    tmp = env_extra.get("_ASKPASS_TEMP")
+    if tmp and os.path.isfile(tmp):
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def apply_account_git_config(acc):
+    """Устанавливает git user.name и user.email из аккаунта (локально для репо)."""
+    username = acc.get("username", "")
+    email = acc.get("email", "")
+    if username:
+        git("config", "user.name", username)
+    if email:
+        git("config", "user.email", email)
+
+
+def apply_repo_remote(repo_url):
+    """Устанавливает origin на указанный URL."""
+    remotes = git_remote_names()
+    if "origin" in remotes:
+        git("remote", "set-url", "origin", repo_url)
+    else:
+        git("remote", "add", "origin", repo_url)
+
+def git(*args, capture=True, check=False, env=None):
+    """Запускает git-команду. Возвращает (returncode, stdout).
+    env — дополнительные переменные окружения (для авторизации)."""
     cmd = ["git"] + list(args)
+    run_env = None
+    if env:
+        run_env = {**os.environ, **env}
+        # Убираем внутренний маркер
+        run_env.pop("_ASKPASS_TEMP", None)
     try:
         result = subprocess.run(
             cmd,
@@ -117,6 +230,7 @@ def git(*args, capture=True, check=False):
             encoding="utf-8",
             errors="replace",
             cwd=REPO_ROOT,
+            env=run_env,
         )
         stdout = (result.stdout or "").strip()
         if check and result.returncode != 0:
@@ -184,6 +298,14 @@ def draw_header():
     commit = git_last_commit()
     remotes = ", ".join(git_remote_names()) or "нет"
 
+    # Аккаунт и репозиторий из конфига
+    cfg = load_config()
+    acc_name, acc_data = get_active_account(cfg)
+    repo_label, _ = get_active_repo(cfg)
+
+    acc_display = acc_name if acc_name else "не задан"
+    repo_display = repo_label if repo_label else "не задан"
+
     status_text = "есть изменения" if status else "чисто"
 
     if branch == "main":
@@ -194,6 +316,8 @@ def draw_header():
         bc = C.YELLOW
 
     sc = C.GREEN if not status else C.YELLOW
+    ac = C.GREEN if acc_name else C.GRAY
+    rc = C.GREEN if repo_label else C.GRAY
 
     if len(commit) > 40:
         commit = commit[:37] + "..."
@@ -208,6 +332,8 @@ def draw_header():
     print(f"  {C.GRAY}  Статус  : {sc}{status_text}{C.RESET}")
     print(f"  {C.GRAY}  Коммит  : {C.WHITE}{commit}{C.RESET}")
     print(f"  {C.GRAY}  Remote  : {C.WHITE}{remotes}{C.RESET}")
+    print(f"  {C.GRAY}  Аккаунт : {ac}{acc_display}{C.RESET}")
+    print(f"  {C.GRAY}  Репо    : {rc}{repo_display}{C.RESET}")
     print(f"  {C.CYAN}{'-' * w}{C.RESET}")
     print()
 
@@ -359,18 +485,23 @@ def do_push():
             git("commit", "-m", msg)
 
     print(f"\n  {C.GRAY}Пушу ветку '{branch}' в {remote}...{C.RESET}")
-    rc, out = git("push", remote, branch)
+
+    cfg = load_config()
+    auth_env = get_auth_env(cfg)
+    rc, out = git("push", remote, branch, env=auth_env)
 
     if rc == 0:
         success(f"Запушено в {remote}/{branch}!")
     else:
         error(f"Ошибка при push.")
         if confirm("Попробовать force push?"):
-            rc2, _ = git("push", remote, branch, "--force")
+            rc2, _ = git("push", remote, branch, "--force", env=auth_env)
             if rc2 == 0:
                 success("Force push выполнен!")
             else:
                 error("Force push тоже не удался.")
+
+    cleanup_auth_env(auth_env)
     pause()
 
 
@@ -401,7 +532,10 @@ def do_pull():
     draw_header()
     print(f"  {C.CYAN}{C.BOLD}PULL ИЗ REMOTE{C.RESET}\n")
     print(f"  {C.GRAY}Тяну {remote}/{branch}...{C.RESET}")
-    rc, out = git("pull", remote, branch)
+
+    cfg = load_config()
+    auth_env = get_auth_env(cfg)
+    rc, out = git("pull", remote, branch, env=auth_env)
 
     if rc == 0:
         success("Pull выполнен!")
@@ -409,6 +543,8 @@ def do_pull():
             print(f"  {C.GRAY}{out}{C.RESET}")
     else:
         error("Ошибка при pull.")
+
+    cleanup_auth_env(auth_env)
     pause()
 
 
@@ -645,6 +781,330 @@ def do_diff():
 
 
 # ══════════════════════════════════════════════════════════════
+#   АККАУНТЫ / РЕПОЗИТОРИИ
+# ══════════════════════════════════════════════════════════════
+
+def do_add_account():
+    """Добавить новый аккаунт (SSH key или HTTPS token)."""
+    draw_header()
+    print(f"  {C.CYAN}{C.BOLD}ДОБАВИТЬ АККАУНТ{C.RESET}\n")
+
+    name = ask("Название аккаунта (латиница): ")
+    if not name:
+        return
+
+    cfg = load_config()
+    accounts = cfg.setdefault("accounts", {})
+
+    if name in accounts:
+        error(f"Аккаунт '{name}' уже существует!")
+        pause()
+        return
+
+    username = ask("Имя пользователя (git user.name): ")
+    email = ask("Email (git user.email): ")
+
+    # Выбор типа авторизации
+    auth_items = ["HTTPS токен (ghp_...)", "SSH ключ", "[ Назад ]"]
+    auth_idx = interactive_menu("Тип авторизации", auth_items)
+    if auth_idx == -1 or auth_idx == 2:
+        return
+
+    acc = {
+        "username": username,
+        "email": email,
+        "repos": {},
+        "active_repo": None,
+    }
+
+    if auth_idx == 0:
+        # Токен
+        draw_header()
+        print(f"  {C.CYAN}{C.BOLD}ДОБАВИТЬ АККАУНТ — ТОКЕН{C.RESET}\n")
+        token = ask("GitHub Token: ")
+        if not token:
+            return
+        acc["auth_type"] = "token"
+        acc["token"] = token
+    else:
+        # SSH ключ
+        draw_header()
+        print(f"  {C.CYAN}{C.BOLD}ДОБАВИТЬ АККАУНТ — SSH{C.RESET}\n")
+        key_path = ask("Путь к SSH ключу: ")
+        if not key_path:
+            return
+        key_path = os.path.expanduser(key_path)
+        if not os.path.isfile(key_path):
+            error(f"Файл не найден: {key_path}")
+            pause()
+            return
+        acc["auth_type"] = "ssh_key"
+        acc["ssh_key"] = key_path
+
+    accounts[name] = acc
+
+    # Если это первый аккаунт — сделать активным
+    if not cfg.get("active_account"):
+        cfg["active_account"] = name
+        apply_account_git_config(acc)
+
+    save_config(cfg)
+    success(f"Аккаунт '{name}' добавлен!")
+
+    if confirm("Добавить репозиторий к этому аккаунту?"):
+        _add_repo_to_account(cfg, name)
+    else:
+        pause()
+
+
+def do_switch_account():
+    """Переключить активный аккаунт. Предлагает сменить репо."""
+    cfg = load_config()
+    accounts = cfg.get("accounts", {})
+    if not accounts:
+        draw_header()
+        warning("Нет добавленных аккаунтов.")
+        pause()
+        return
+
+    names = list(accounts.keys())
+    active = cfg.get("active_account")
+
+    display = []
+    for n in names:
+        marker = " ← активный" if n == active else ""
+        display.append(f"{n} ({accounts[n].get('username', '?')}){marker}")
+    display.append("[ Назад ]")
+
+    idx = interactive_menu("ПЕРЕКЛЮЧИТЬ АККАУНТ", display)
+    if idx == -1 or idx == len(display) - 1:
+        return
+
+    chosen = names[idx]
+    cfg["active_account"] = chosen
+    acc = accounts[chosen]
+    apply_account_git_config(acc)
+    save_config(cfg)
+    success(f"Активный аккаунт: {chosen}")
+
+    # Предложить сменить репозиторий
+    repos = acc.get("repos", {})
+    if repos:
+        print()
+        warning("Сменить активный репозиторий?")
+        repo_names = list(repos.keys())
+        repo_items = [f"{rn}  ({repos[rn][:50]})" for rn in repo_names]
+        repo_items.append("Оставить текущий")
+        repo_idx = interactive_menu("ВЫБЕРИ РЕПОЗИТОРИЙ", repo_items)
+
+        if repo_idx != -1 and repo_idx < len(repo_names):
+            repo_label = repo_names[repo_idx]
+            acc["active_repo"] = repo_label
+            save_config(cfg)
+            apply_repo_remote(repos[repo_label])
+            success(f"Активный репо: {repo_label}")
+    pause()
+
+
+def do_delete_account():
+    """Удалить аккаунт."""
+    cfg = load_config()
+    accounts = cfg.get("accounts", {})
+    if not accounts:
+        draw_header()
+        warning("Нет добавленных аккаунтов.")
+        pause()
+        return
+
+    names = list(accounts.keys())
+    display = [f"{n} ({accounts[n].get('username', '?')})" for n in names]
+    display.append("[ Назад ]")
+
+    idx = interactive_menu("УДАЛИТЬ АККАУНТ", display)
+    if idx == -1 or idx == len(display) - 1:
+        return
+
+    chosen = names[idx]
+    draw_header()
+    if not confirm_danger(f"Удалить аккаунт '{chosen}' со всеми репозиториями?"):
+        print(f"  {C.GRAY}Отмена.{C.RESET}")
+        pause()
+        return
+
+    del accounts[chosen]
+    if cfg.get("active_account") == chosen:
+        # Переключить на первый оставшийся или очистить
+        if accounts:
+            first = next(iter(accounts))
+            cfg["active_account"] = first
+            apply_account_git_config(accounts[first])
+        else:
+            cfg["active_account"] = None
+
+    save_config(cfg)
+    success(f"Аккаунт '{chosen}' удалён!")
+    pause()
+
+
+def do_add_repo():
+    """Добавить репозиторий к активному аккаунту."""
+    cfg = load_config()
+    acc_name, acc = get_active_account(cfg)
+    if not acc:
+        draw_header()
+        warning("Сначала добавь аккаунт!")
+        pause()
+        return
+
+    _add_repo_to_account(cfg, acc_name)
+
+
+def _add_repo_to_account(cfg, acc_name):
+    """Внутренняя: добавить репо к указанному аккаунту."""
+    acc = cfg["accounts"][acc_name]
+    draw_header()
+    print(f"  {C.CYAN}{C.BOLD}ДОБАВИТЬ РЕПОЗИТОРИЙ к '{acc_name}'{C.RESET}\n")
+
+    label = ask("Название репозитория (label): ")
+    if not label:
+        return
+
+    repos = acc.setdefault("repos", {})
+    if label in repos:
+        error(f"Репозиторий '{label}' уже существует!")
+        pause()
+        return
+
+    url = ask("Git URL (https://... или git@...): ")
+    if not url:
+        return
+
+    repos[label] = url
+
+    # Если у аккаунта нет активного репо — сделать этот активным
+    if not acc.get("active_repo"):
+        acc["active_repo"] = label
+        apply_repo_remote(url)
+
+    save_config(cfg)
+    success(f"Репозиторий '{label}' добавлен!")
+    pause()
+
+
+def do_switch_repo():
+    """Переключить активный репозиторий (из текущего аккаунта)."""
+    cfg = load_config()
+    acc_name, acc = get_active_account(cfg)
+    if not acc:
+        draw_header()
+        warning("Сначала добавь аккаунт!")
+        pause()
+        return
+
+    repos = acc.get("repos", {})
+    if not repos:
+        draw_header()
+        warning("У аккаунта нет репозиториев. Добавь сначала.")
+        pause()
+        return
+
+    repo_names = list(repos.keys())
+    active_repo = acc.get("active_repo")
+
+    display = []
+    for rn in repo_names:
+        marker = " ← активный" if rn == active_repo else ""
+        display.append(f"{rn}  ({repos[rn][:50]}){marker}")
+    display.append("[ Назад ]")
+
+    idx = interactive_menu("ПЕРЕКЛЮЧИТЬ РЕПОЗИТОРИЙ", display)
+    if idx == -1 or idx == len(display) - 1:
+        return
+
+    chosen = repo_names[idx]
+    acc["active_repo"] = chosen
+    save_config(cfg)
+    apply_repo_remote(repos[chosen])
+    success(f"Активный репо: {chosen}")
+    pause()
+
+
+def do_delete_repo():
+    """Удалить репозиторий из активного аккаунта."""
+    cfg = load_config()
+    acc_name, acc = get_active_account(cfg)
+    if not acc:
+        draw_header()
+        warning("Сначала добавь аккаунт!")
+        pause()
+        return
+
+    repos = acc.get("repos", {})
+    if not repos:
+        draw_header()
+        warning("У аккаунта нет репозиториев.")
+        pause()
+        return
+
+    repo_names = list(repos.keys())
+    display = [f"{rn}  ({repos[rn][:50]})" for rn in repo_names]
+    display.append("[ Назад ]")
+
+    idx = interactive_menu("УДАЛИТЬ РЕПОЗИТОРИЙ", display)
+    if idx == -1 or idx == len(display) - 1:
+        return
+
+    chosen = repo_names[idx]
+    draw_header()
+    if not confirm_danger(f"Удалить репозиторий '{chosen}'?"):
+        print(f"  {C.GRAY}Отмена.{C.RESET}")
+        pause()
+        return
+
+    del repos[chosen]
+    if acc.get("active_repo") == chosen:
+        if repos:
+            first = next(iter(repos))
+            acc["active_repo"] = first
+            apply_repo_remote(repos[first])
+        else:
+            acc["active_repo"] = None
+
+    save_config(cfg)
+    success(f"Репозиторий '{chosen}' удалён!")
+    pause()
+
+
+def do_accounts_menu():
+    """Подменю: Аккаунты / Репозитории."""
+    ACCOUNT_MENU = [
+        "Переключить аккаунт",
+        "Добавить аккаунт",
+        "Удалить аккаунт",
+        "Переключить репозиторий",
+        "Добавить репозиторий",
+        "Удалить репозиторий",
+        "[ Назад ]",
+    ]
+    while True:
+        idx = interactive_menu("АККАУНТЫ / РЕПОЗИТОРИИ", ACCOUNT_MENU)
+        if idx == -1 or idx == 6:
+            return
+
+        account_actions = {
+            0: do_switch_account,
+            1: do_add_account,
+            2: do_delete_account,
+            3: do_switch_repo,
+            4: do_add_repo,
+            5: do_delete_repo,
+        }
+        fn = account_actions.get(idx)
+        if fn:
+            fn()
+
+
+# ══════════════════════════════════════════════════════════════
 #   ГЛАВНОЕ МЕНЮ
 # ══════════════════════════════════════════════════════════════
 
@@ -658,6 +1118,7 @@ MAIN_MENU = [
     "Stash (спрятать/достать)",
     "Лог коммитов",
     "Diff (изменения)",
+    "Аккаунты / Репозитории",
     "Выход",
 ]
 
@@ -686,7 +1147,8 @@ def main():
                 6: do_stash,
                 7: do_log,
                 8: do_diff,
-                9: lambda: sys.exit(0),
+                9: do_accounts_menu,
+                10: lambda: sys.exit(0),
             }
 
             fn = actions.get(idx)
