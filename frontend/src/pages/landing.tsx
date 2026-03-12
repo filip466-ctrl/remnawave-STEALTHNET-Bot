@@ -23,14 +23,53 @@ import {
   Star,
   Terminal,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
-const FEATURES_STRIP = [
-  { icon: Shield, label: "Защита", sub: "AES-256 шифрование" },
-  { icon: Lock, label: "Zero-Log", sub: "История не сохраняется" },
-  { icon: Star, label: "Оплата", sub: "Анонимно и безопасно" },
-  { icon: Zap, label: "Серверы", sub: "Собственная инфраструктура" },
-  { icon: Smartphone, label: "Установка", sub: "За 30 секунд" },
+type LandingFeatureItem = {
+  icon: LucideIcon;
+  label: string;
+  sub: string;
+  desc: string;
+  chips: string[];
+};
+
+const FEATURES_STRIP: LandingFeatureItem[] = [
+  {
+    icon: Shield,
+    label: "Защита",
+    sub: "AES-256 шифрование",
+    desc: "Современные протоколы и аккуратная защита трафика без ощущения технарского конструктора.",
+    chips: ["Шифрование", "Стабильность"],
+  },
+  {
+    icon: Lock,
+    label: "Zero-Log",
+    sub: "История не сохраняется",
+    desc: "Доступ строится вокруг приватности: без лишних следов, без визуального мусора и без тревоги за данные.",
+    chips: ["Zero-Log", "Приватность"],
+  },
+  {
+    icon: Star,
+    label: "Оплата",
+    sub: "Анонимно и безопасно",
+    desc: "Карта, СБП, кошелёк и крипта собираются в один понятный сценарий оплаты без сюрпризов.",
+    chips: ["Карта / СБП", "Крипта"],
+  },
+  {
+    icon: Zap,
+    label: "Серверы",
+    sub: "Собственная инфраструктура",
+    desc: "Свои мощности и продуманная маршрутизация дают нормальную скорость и предсказуемую работу сервиса.",
+    chips: ["Скорость", "Своя сеть"],
+  },
+  {
+    icon: Smartphone,
+    label: "Установка",
+    sub: "За 30 секунд",
+    desc: "Минимум кликов до подключения: зарегистрировался, оплатил и сразу получил инструкции внутри кабинета.",
+    chips: ["Быстрый старт", "Все устройства"],
+  },
 ];
 
 const BENEFITS = [
@@ -156,6 +195,8 @@ const TRUST_POINTS = [
   "Высокая пропускная способность без ограничений",
 ];
 
+const SECTION_SCROLL_OFFSET = "scroll-mt-24 md:scroll-mt-28";
+
 const fadeUp = {
   initial: { opacity: 0, y: 22 },
   whileInView: { opacity: 1, y: 0 },
@@ -277,11 +318,17 @@ export function LandingPage({ config }: { config: PublicConfig }) {
   const heroBadge = lc?.heroBadge ?? "Приватность, скорость и доступ";
   const heroHint = lc?.heroHint ?? "Регистрация за минуту · Оплата картой, СБП, кошельком и криптой";
   const featuresList = lc?.features?.length
-    ? lc.features.map((feature: any, index: number) => ({
-      icon: FEATURES_STRIP[index]?.icon ?? Shield,
-      label: feature.label,
-      sub: feature.sub,
-    }))
+    ? lc.features.map((feature: { label?: string | null; sub?: string | null }, index: number) => {
+      const fallback = FEATURES_STRIP[index] ?? FEATURES_STRIP[0];
+
+      return {
+        icon: fallback.icon,
+        label: feature.label?.trim() || fallback.label,
+        sub: feature.sub?.trim() || fallback.sub,
+        desc: fallback.desc,
+        chips: fallback.chips,
+      };
+    })
     : FEATURES_STRIP;
   const benefitsTitle = lc?.benefitsTitle ?? "Почему STEALTHNET ощущается как продукт, а не костыль";
   const benefitsSubtitle =
@@ -413,7 +460,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
       </header>
 
       <main className="relative z-10">
-        <section className="container mx-auto px-4 pb-10 pt-10 md:pb-16 md:pt-14 lg:pb-24 lg:pt-18">
+        <section id="home" className={`container mx-auto px-4 pb-10 pt-10 md:pb-16 md:pt-14 lg:pb-24 lg:pt-18 ${SECTION_SCROLL_OFFSET}`}>
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <motion.div {...fadeUp} className="max-w-3xl">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-slate-600 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/12 dark:bg-white/8 dark:text-slate-300">
@@ -683,8 +730,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {featuresList.slice(0, 4).map(({ icon: Icon, label, sub }: any, index: number) => (
+            <div className="grid content-start gap-4 self-start sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              {featuresList.slice(0, 4).map(({ icon: Icon, label, sub, desc, chips }: LandingFeatureItem, index: number) => (
                 <motion.div
                   key={label}
                   initial={{ opacity: 0, y: 16 }}
@@ -694,13 +741,40 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                   whileHover={{ y: -6, scale: 1.01 }}
                   className="group rounded-[30px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                      <Icon className="h-5 w-5" />
-                    </div>
+                  <div className="flex min-h-[220px] flex-col justify-between">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{label}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{sub}</p>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div
+                          className="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.24em]"
+                          style={{
+                            borderColor: withAlpha(accentTheme.primary, 0.22),
+                            backgroundColor: withAlpha(accentTheme.primary, 0.08),
+                            color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary,
+                          }}
+                        >
+                          0{index + 1}
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <p className="font-semibold text-slate-900 dark:text-white">{label}</p>
+                        <p className="mt-1 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{sub}</p>
+                        <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{desc}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {chips.map((chip: string) => (
+                        <span
+                          key={`${label}-${chip}`}
+                          className="rounded-full border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-white/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 backdrop-blur-xl dark:text-slate-300"
+                        >
+                          {chip}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </motion.div>
@@ -709,7 +783,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </motion.div>
         </section>
 
-        <section id="benefits" className="container mx-auto px-4 py-14 md:py-20">
+        <section id="benefits" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
           <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-300">
               <Sparkles className="h-4 w-4" style={{ color: accentTheme.primary }} />
@@ -794,7 +868,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         </section>
 
         {lc.showTariffs && (
-          <section id="tariffs" className="container mx-auto px-4 py-14 md:py-20">
+          <section id="tariffs" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
             <motion.div
               {...fadeUp}
               className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-8 md:py-10"
@@ -898,7 +972,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </section>
         )}
 
-        <section id="devices" className="container mx-auto px-4 py-14 md:py-20">
+        <section id="devices" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
             <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
               <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">devices</p>
@@ -1033,8 +1107,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {featuresList.slice(0, 2).map(({ icon: Icon, label, sub }: any) => (
+                <div className="grid content-start gap-4 sm:grid-cols-2">
+                  {featuresList.slice(0, 2).map(({ icon: Icon, label, sub, desc }: LandingFeatureItem) => (
                     <div
                       key={label}
                       className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/85 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
@@ -1043,7 +1117,8 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                         <Icon className="h-5 w-5" />
                       </div>
                       <h3 className="mt-4 text-lg font-semibold text-slate-950 dark:text-white">{label}</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{sub}</p>
+                      <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{sub}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{desc}</p>
                     </div>
                   ))}
 
@@ -1064,7 +1139,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </motion.div>
         </section>
 
-        <section id="faq" className="container mx-auto grid gap-8 px-4 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section id="faq" className={`container mx-auto grid gap-8 px-4 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px] ${SECTION_SCROLL_OFFSET}`}>
           <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
             <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">faq</p>
             <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">{faqTitle}</h2>
