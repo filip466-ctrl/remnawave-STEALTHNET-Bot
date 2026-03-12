@@ -7,11 +7,20 @@ import { useIsMiniapp } from "@/hooks/use-is-miniapp";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { GlassSelect } from "@/components/ui/glass-select";
-import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check, Loader2, Settings, Layers, MoreHorizontal, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Package, User, LogOut, Shield, Users, Sun, Moon, PlusCircle, Globe, KeyRound, MessageSquare, Palette, Monitor, Check, Loader2, Settings, Layers, MoreHorizontal, ChevronDown, Wallet } from "lucide-react";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { cn } from "@/lib/utils";
 import { FloatingChat } from "@/components/floating-chat";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+function formatMoney(amount: number, currency: string) {
+  return new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency: currency.toUpperCase() === "USD" ? "USD" : currency.toUpperCase() === "RUB" ? "RUB" : "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 function AnalyticsScripts() {
   useEffect(() => {
@@ -534,6 +543,7 @@ function CabinetShell() {
   }, [state.token, refreshProfile]);
   const serviceName = config?.serviceName ?? "";
   const logo = config?.logo && !logoError ? config.logo : null;
+  const headerBalance = state.client ? formatMoney(state.client.balance, state.client.preferredCurrency) : null;
 
   if (isMiniapp || isMobile) {
     return <MobileCabinetShell />;
@@ -614,16 +624,27 @@ function CabinetShell() {
               </div>
             )}
           </nav>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {headerBalance ? (
+              <div className="hidden xl:flex items-center gap-3 rounded-2xl border border-border/60 bg-background/40 px-3 py-2 shadow-sm backdrop-blur-xl">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Wallet className="h-4 w-4 shrink-0" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] leading-none text-muted-foreground/80">Баланс</p>
+                  <p className="mt-1 text-sm font-semibold leading-none text-foreground">{headerBalance}</p>
+                </div>
+              </div>
+            ) : null}
             <ThemePopover />
             <SettingsPopover />
             <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
               {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
             </span>
-            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
+            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center [&_span]:leading-none" asChild>
               <Link to="/cabinet/login" onClick={() => logout()}>
                 <LogOut className="h-4 w-4 shrink-0" />
-                Выйти
+                <span className="inline-flex items-center leading-none">Выйти</span>
               </Link>
             </Button>
           </div>
