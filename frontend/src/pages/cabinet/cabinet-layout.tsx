@@ -627,25 +627,20 @@ function CabinetShell() {
           <div className="flex items-center gap-2 shrink-0">
             <ThemePopover />
             <SettingsPopover />
-            <div
-              className="hidden lg:flex items-center gap-3 rounded-2xl border border-border/60 bg-background/35 pl-2.5 pr-3 py-2 shadow-sm backdrop-blur-xl"
-              title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary shrink-0">
-                <Wallet className="h-4 w-4 shrink-0" />
-              </div>
-              <div className="min-w-0 max-w-[170px]">
-                <p className="truncate text-sm font-medium leading-none text-foreground/90">
-                  {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
-                </p>
-                <p className="mt-1 text-xs font-medium leading-none text-muted-foreground">
-                  Баланс: <span className="text-foreground/90">{headerBalance ?? "—"}</span>
-                </p>
+            <div className="hidden lg:flex items-center gap-3 rounded-full border border-border/60 bg-background/35 px-3 py-1.5 shadow-sm backdrop-blur-xl transition-all hover:bg-background/50">
+              <span className="max-w-[120px] xl:max-w-[160px] truncate text-sm font-medium text-muted-foreground" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
+                {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
+              </span>
+              <div className="w-[1px] h-4 bg-border/80" />
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground/90">
+                <Wallet className="h-4 w-4 text-primary" />
+                <span>{headerBalance ?? "—"}</span>
               </div>
             </div>
-            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 rounded-xl bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center" asChild>
-              <Link to="/cabinet/login" onClick={() => logout()} className="inline-flex h-full w-full items-center justify-center" title="Выйти" aria-label="Выйти">
+            <Button variant="outline" size="sm" className="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
+              <Link to="/cabinet/login" onClick={() => logout()}>
                 <LogOut className="h-4 w-4 shrink-0" />
+                Выйти
               </Link>
             </Button>
           </div>
