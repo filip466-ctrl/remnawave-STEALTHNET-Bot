@@ -64,3 +64,9 @@ __pycache__/
 
 # Windows NUL artifact
 nul
+
+# Ignore git-manager.py — он может содержать локальные изменения, которые не должны попадать в коммиты
+git-manager.py
+git-manager.bat
+git-manager.sh
+
