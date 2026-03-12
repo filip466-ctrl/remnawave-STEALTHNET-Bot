@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+proxysteal-extension/
 
 # Env (конфигурация — не коммитить!)
 .env
