@@ -742,10 +742,23 @@ def do_create_backup():
     print(f"\n  {C.GRAY}Переключаюсь на ветку backups...{C.RESET}")
 
     local_branches = git_local_branches()
+    remote_branches = git_remote_branches()
+    remote_has_backups = any(rb.endswith("/backups") for rb in remote_branches)
+
     if "backups" not in local_branches:
-        git("checkout", "-b", "backups")
+        if remote_has_backups:
+            # Есть на remote — создаём локальную с tracking
+            git("checkout", "-b", "backups", "--track", "origin/backups")
+        else:
+            git("checkout", "-b", "backups")
     else:
         git("checkout", "backups")
+        if remote_has_backups:
+            # Подтянем последние изменения с remote
+            cfg_pull = load_config()
+            auth_env_pull = get_auth_env(cfg_pull)
+            git("pull", "origin", "backups", "--rebase", env=auth_env_pull)
+            cleanup_auth_env(auth_env_pull)
 
     git("add", "-A")
     git("commit", "-m", f"backup: {now} - {desc}")
@@ -768,6 +781,13 @@ def do_create_backup():
 
 
 def do_list_backups():
+    # Подтянем теги с remote, чтобы видеть все бэкапы
+    cfg = load_config()
+    auth_env = get_auth_env(cfg)
+    for remote in git_remote_names():
+        git("fetch", remote, "--tags", env=auth_env)
+    cleanup_auth_env(auth_env)
+
     tags = git_all_tags("backup-")
     if not tags:
         draw_header()
