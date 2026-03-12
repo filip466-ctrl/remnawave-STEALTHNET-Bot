@@ -641,10 +641,10 @@ function CabinetShell() {
             <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
               {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
             </span>
-            <Button variant="outline" size="sm" className="inline-flex items-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center [&_span]:leading-none" asChild>
-              <Link to="/cabinet/login" onClick={() => logout()}>
+            <Button variant="outline" size="sm" className="min-w-[110px] px-3 inline-flex items-center justify-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center [&_span]:leading-none" asChild>
+              <Link to="/cabinet/login" onClick={() => logout()} className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap leading-none">
                 <LogOut className="h-4 w-4 shrink-0" />
-                <span className="inline-flex items-center leading-none">Выйти</span>
+                <span className="inline-flex items-center whitespace-nowrap leading-none">Выйти</span>
               </Link>
             </Button>
           </div>
