@@ -567,7 +567,10 @@ def do_switch_branch():
         if rc == 0:
             success(f"Ветка '{name}' создана!")
             if confirm("Запушить в origin?"):
-                git("push", "origin", name)
+                cfg = load_config()
+                auth_env = get_auth_env(cfg)
+                git("push", "origin", name, env=auth_env)
+                cleanup_auth_env(auth_env)
                 success(f"Запушено в origin/{name}!")
         else:
             error(out)
@@ -620,7 +623,10 @@ def do_create_backup():
     git("tag", "-a", tag_name, "-m", desc)
 
     print(f"  {C.GRAY}Пушу в origin...{C.RESET}")
-    rc_push, _ = git("push", "origin", "backups", "--tags")
+    cfg = load_config()
+    auth_env = get_auth_env(cfg)
+    rc_push, _ = git("push", "origin", "backups", "--tags", env=auth_env)
+    cleanup_auth_env(auth_env)
 
     git("checkout", branch)
 
@@ -689,9 +695,12 @@ def do_backup_actions(tag):
         print(f"  {C.RED}{C.BOLD}  !!! ТОЧКА НЕВОЗВРАТА !!!{C.RESET}")
         warning("main будет перезаписан и отправлен force push!")
         if confirm_danger("Ты АБСОЛЮТНО уверен?"):
+            cfg = load_config()
+            auth_env = get_auth_env(cfg)
             git("checkout", "main")
             git("reset", "--hard", tag)
-            git("push", "origin", "main", "--force")
+            git("push", "origin", "main", "--force", env=auth_env)
+            cleanup_auth_env(auth_env)
             success(f"main восстановлен из {tag} и запушен!")
         else:
             print(f"  {C.GRAY}Отмена.{C.RESET}")
@@ -700,8 +709,11 @@ def do_backup_actions(tag):
     elif idx == 3:
         warning(f"Удалить тег {tag} локально и из remote?")
         if confirm_danger("Продолжить?"):
+            cfg = load_config()
+            auth_env = get_auth_env(cfg)
             git("tag", "-d", tag)
-            git("push", "origin", ":refs/tags/" + tag)
+            git("push", "origin", ":refs/tags/" + tag, env=auth_env)
+            cleanup_auth_env(auth_env)
             success(f"Бэкап {tag} удалён!")
         else:
             print(f"  {C.GRAY}Отмена.{C.RESET}")
