@@ -57,3 +57,10 @@ AGENTS.md
 
 # Docker Compose local overrides (server-specific)
 docker-compose.override.yml
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Windows NUL artifact
+nul
