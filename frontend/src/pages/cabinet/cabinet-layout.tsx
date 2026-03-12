@@ -627,7 +627,7 @@ function CabinetShell() {
           <div className="flex items-center gap-2 shrink-0">
             <ThemePopover />
             <SettingsPopover />
-            <div className="hidden lg:flex items-center gap-3 rounded-full border border-border/60 bg-background/35 px-3 py-1.5 shadow-sm backdrop-blur-xl transition-all hover:bg-background/50">
+            <div className="hidden lg:flex h-9 items-center gap-3 rounded-full border border-border/60 bg-background/35 px-4 shadow-sm backdrop-blur-xl transition-all hover:bg-background/50">
               <span className="max-w-[120px] xl:max-w-[160px] truncate text-sm font-medium text-muted-foreground" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
                 {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
               </span>
@@ -637,10 +637,20 @@ function CabinetShell() {
                 <span>{headerBalance ?? "—"}</span>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105" asChild>
-              <Link to="/cabinet/login" onClick={() => logout()}>
-                <LogOut className="h-4 w-4 shrink-0" />
-                Выйти
+            <Button
+              variant="outline"
+              className="group h-9 rounded-full border-border/60 bg-background/35 p-0 shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive"
+              asChild
+            >
+              <Link to="/cabinet/login" onClick={() => logout()} className="flex h-full items-center">
+                <div className="flex h-full w-9 shrink-0 items-center justify-center">
+                  <LogOut className="h-[18px] w-[18px]" />
+                </div>
+                <div className="grid grid-cols-[0fr] opacity-0 transition-all duration-300 group-hover:grid-cols-[1fr] group-hover:opacity-100">
+                  <span className="overflow-hidden whitespace-nowrap text-sm font-medium">
+                    <span className="pr-4">Выйти</span>
+                  </span>
+                </div>
               </Link>
             </Button>
           </div>
