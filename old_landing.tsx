@@ -23,53 +23,14 @@ import {
   Star,
   Terminal,
   Zap,
-  type LucideIcon,
 } from "lucide-react";
 
-type LandingFeatureItem = {
-  icon: LucideIcon;
-  label: string;
-  sub: string;
-  desc: string;
-  chips: string[];
-};
-
-const FEATURES_STRIP: LandingFeatureItem[] = [
-  {
-    icon: Shield,
-    label: "Защита",
-    sub: "AES-256 шифрование",
-    desc: "Современные протоколы и аккуратная защита трафика без ощущения технарского конструктора.",
-    chips: ["Шифрование", "Стабильность"],
-  },
-  {
-    icon: Lock,
-    label: "Zero-Log",
-    sub: "История не сохраняется",
-    desc: "Доступ строится вокруг приватности: без лишних следов, без визуального мусора и без тревоги за данные.",
-    chips: ["Zero-Log", "Приватность"],
-  },
-  {
-    icon: Star,
-    label: "Оплата",
-    sub: "Анонимно и безопасно",
-    desc: "Карта, СБП, кошелёк и крипта собираются в один понятный сценарий оплаты без сюрпризов.",
-    chips: ["Карта / СБП", "Крипта"],
-  },
-  {
-    icon: Zap,
-    label: "Серверы",
-    sub: "Собственная инфраструктура",
-    desc: "Свои мощности и продуманная маршрутизация дают нормальную скорость и предсказуемую работу сервиса.",
-    chips: ["Скорость", "Своя сеть"],
-  },
-  {
-    icon: Smartphone,
-    label: "Установка",
-    sub: "За 30 секунд",
-    desc: "Минимум кликов до подключения: зарегистрировался, оплатил и сразу получил инструкции внутри кабинета.",
-    chips: ["Быстрый старт", "Все устройства"],
-  },
+const FEATURES_STRIP = [
+  { icon: Shield, label: "Защита", sub: "AES-256 шифрование" },
+  { icon: Lock, label: "Zero-Log", sub: "История не сохраняется" },
+  { icon: Star, label: "Оплата", sub: "Анонимно и безопасно" },
+  { icon: Zap, label: "Серверы", sub: "Собственная инфраструктура" },
+  { icon: Smartphone, label: "Установка", sub: "За 30 секунд" },
 ];
 
 const BENEFITS = [
@@ -136,46 +97,19 @@ const JOURNEY_STEPS = [
   {
     icon: Sparkles,
     title: "Выбираешь сценарий",
-    desc: "Доступны гибкие тарифы: выбери то, что подходит именно тебе, без переплат.",
+    desc: "Лендинг показывает живой контент из админки: тексты, тарифы, способы оплаты и оффер без ручных костылей.",
   },
   {
     icon: CreditCard,
     title: "Оплачиваешь как удобно",
-    desc: "Карта, СБП, крипта — выбирай любой удобный и безопасный метод оплаты.",
+    desc: "Карта, СБП, кошелёк, крипта — клиент видит только актуальные доступные методы и сразу попадает в нормальный поток оплаты.",
   },
   {
     icon: Rocket,
     title: "Подключаешься без боли",
-    desc: "После оплаты бот или личный кабинет сразу выдадут все инструкции. Настройка за 1 минуту.",
+    desc: "После оплаты всё продолжает жить в продукте: кабинет, инструкции, deep link-и, бот и поддержка уже ждут внутри.",
   },
 ];
-
-
-const EXPERIENCE_PANELS = [
-  {
-    icon: Sparkles,
-    title: "Никаких зависаний",
-    desc: "Смотри видео в 4K, играй в игры и работай без задержек.",
-  },
-  {
-    icon: Zap,
-    title: "Мгновенное подключение",
-    desc: "Достаточно нажать одну кнопку, чтобы оказаться в защищенной сети.",
-  },
-  {
-    icon: LayoutDashboard,
-    title: "Удобный кабинет",
-    desc: "Управляй подпиской, устройствами и получай поддержку в пару кликов.",
-  },
-];
-
-const TRUST_POINTS = [
-  "Современные протоколы шифрования",
-  "Строгая политика Zero-Log: мы не храним данные",
-  "Высокая пропускная способность без ограничений",
-];
-
-const SECTION_SCROLL_OFFSET = "scroll-mt-24 md:scroll-mt-28";
 
 const fadeUp = {
   initial: { opacity: 0, y: 22 },
@@ -298,17 +232,11 @@ export function LandingPage({ config }: { config: PublicConfig }) {
   const heroBadge = lc?.heroBadge ?? "Приватность, скорость и доступ";
   const heroHint = lc?.heroHint ?? "Регистрация за минуту · Оплата картой, СБП, кошельком и криптой";
   const featuresList = lc?.features?.length
-    ? lc.features.map((feature: { label?: string | null; sub?: string | null }, index: number) => {
-      const fallback = FEATURES_STRIP[index] ?? FEATURES_STRIP[0];
-
-      return {
-        icon: fallback.icon,
-        label: feature.label?.trim() || fallback.label,
-        sub: feature.sub?.trim() || fallback.sub,
-        desc: fallback.desc,
-        chips: fallback.chips,
-      };
-    })
+    ? lc.features.map((feature: any, index: number) => ({
+      icon: FEATURES_STRIP[index]?.icon ?? Shield,
+      label: feature.label,
+      sub: feature.sub,
+    }))
     : FEATURES_STRIP;
   const benefitsTitle = lc?.benefitsTitle ?? "Почему STEALTHNET ощущается как продукт, а не костыль";
   const benefitsSubtitle =
@@ -440,7 +368,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
       </header>
 
       <main className="relative z-10">
-        <section id="home" className={`container mx-auto px-4 pb-10 pt-10 md:pb-16 md:pt-14 lg:pb-24 lg:pt-18 ${SECTION_SCROLL_OFFSET}`}>
+        <section className="container mx-auto px-4 pb-10 pt-10 md:pb-16 md:pt-14 lg:pb-24 lg:pt-18">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <motion.div {...fadeUp} className="max-w-3xl">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.32em] text-slate-600 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/12 dark:bg-white/8 dark:text-slate-300">
@@ -468,9 +396,9 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                   style={primaryButtonStyle}
                   asChild
                 >
-                  <Link to="/cabinet/register" className="flex flex-row items-center justify-center gap-2">
+                  <Link to="/cabinet/register">
                     {ctaText}
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
                 <Button
@@ -541,9 +469,7 @@ export function LandingPage({ config }: { config: PublicConfig }) {
               <div className="absolute -left-6 top-10 h-40 w-40 rounded-full blur-3xl" style={{ backgroundColor: primarySoft }} />
               <div className="absolute -right-8 bottom-8 h-44 w-44 rounded-full blur-3xl" style={{ backgroundColor: secondarySoft }} />
 
-              {/* Floating badges removed */}
-
-                            <div className="relative overflow-hidden rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/7 md:p-7">
+              <div className="relative overflow-hidden rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/7 md:p-7">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-emerald-300/70" />
 
                 <div className="flex items-start justify-between gap-4">
@@ -624,111 +550,28 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         </section>
 
         <section className="container mx-auto px-4 pb-8 md:pb-12">
-          <motion.div {...fadeUp} className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-            <div className="overflow-hidden rounded-[34px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6 md:p-8">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">премиальный доступ</p>
-                  <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
-                    Всё для твоего комфорта и безопасности в сети
-                  </h2>
-                </div>
-                <div className="rounded-full border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-white/8 px-4 py-2 text-sm text-slate-600 backdrop-blur-xl dark:text-slate-300">
-                  стабильность · скорость · безопасность
-                </div>
-              </div>
-
-              <div className="mt-7 grid gap-4 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-                <div className="rounded-[30px] border border-slate-200/80 dark:border-white/12 bg-slate-950 p-5 text-white shadow-xl shadow-slate-950/15 dark:border-white/12 dark:bg-slate-900/90">
-                  <p className="text-xs uppercase tracking-[0.28em]" style={{ color: withAlpha(accentTheme.tertiary, 0.78) }}>главные принципы</p>
-                  <p className="mt-4 text-2xl font-black leading-tight tracking-[-0.04em]">
-                    Мы строим сервис, которому доверяют. Без компромиссов в скорости.
-                  </p>
-                  <div className="mt-6 space-y-4">
-                    {TRUST_POINTS.map((point) => (
-                      <div key={point} className="flex items-start gap-3 rounded-[22px] border border-white/10 bg-white/7 px-4 py-3">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accentTheme.tertiary }} />
-                        <span className="text-sm leading-6 text-slate-200">{point}</span>
-                      </div>
-                    ))}
+          <motion.div {...fadeUp} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {featuresList.map(({ icon: Icon, label, sub }: any, index: number) => (
+              <div
+                key={label}
+                className="group rounded-[30px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-transform duration-300 hover:-translate-y-1 dark:border-white/10 dark:bg-white/6"
+                style={{ transitionDelay: `${index * 40}ms` }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-white">{label}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{sub}</p>
                   </div>
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {EXPERIENCE_PANELS.map(({ icon: Icon, title: itemTitle, desc }, index) => (
-                    <motion.div
-                      key={itemTitle}
-                      initial={{ opacity: 0, y: 18 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: index * 0.08 }}
-                      className={`rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/95 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6 ${index === 2 ? "sm:col-span-2" : ""}`}
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <h3 className="mt-4 text-lg font-semibold text-slate-950 dark:text-white">{itemTitle}</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{desc}</p>
-                    </motion.div>
-                  ))}
-                </div>
               </div>
-            </div>
-
-            <div className="grid content-start gap-4 self-start sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {featuresList.slice(0, 4).map(({ icon: Icon, label, sub, desc, chips }: LandingFeatureItem, index: number) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.35, delay: index * 0.06 }}
-                  whileHover={{ y: -6, scale: 1.01 }}
-                  className="group rounded-[30px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6"
-                >
-                  <div className="flex min-h-[220px] flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div
-                          className="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.24em]"
-                          style={{
-                            borderColor: withAlpha(accentTheme.primary, 0.22),
-                            backgroundColor: withAlpha(accentTheme.primary, 0.08),
-                            color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary,
-                          }}
-                        >
-                          0{index + 1}
-                        </div>
-                      </div>
-
-                      <div className="mt-5">
-                        <p className="font-semibold text-slate-900 dark:text-white">{label}</p>
-                        <p className="mt-1 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{sub}</p>
-                        <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{desc}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {chips.map((chip: string) => (
-                        <span
-                          key={`${label}-${chip}`}
-                          className="rounded-full border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-white/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 backdrop-blur-xl dark:text-slate-300"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            ))}
           </motion.div>
         </section>
 
-        <section id="benefits" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
+        <section id="benefits" className="container mx-auto px-4 py-14 md:py-20">
           <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 backdrop-blur-xl dark:border-white/10 dark:bg-white/7 dark:text-slate-300">
               <Sparkles className="h-4 w-4" style={{ color: accentTheme.primary }} />
@@ -742,78 +585,38 @@ export function LandingPage({ config }: { config: PublicConfig }) {
             </p>
           </motion.div>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <motion.div
-              {...fadeUp}
-              className="overflow-hidden rounded-[34px] border border-slate-200/60 dark:border-white/10 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8"
-              style={resolvedMode === "dark" ? darkPanelStyle : accentGlowStyle}
-            >
-              <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-300">технологии</p>
-              <h3 className="mt-4 max-w-md text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white md:text-4xl">
-                Продуманная инфраструктура для твоей свободы.
-              </h3>
-              <p className="mt-5 max-w-lg text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
-                Мы используем только современные протоколы и мощные серверы, чтобы обеспечить максимальную скорость и стабильность соединения в любых условиях.
-              </p>
-
-              <div className="mt-8 space-y-4">
-                {benefitsList.slice(0, 3).map(({ icon: Icon, title: itemTitle, desc }: any, index: number) => (
-                  <motion.div
-                    key={itemTitle}
-                    initial={{ opacity: 0, x: 18 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, amount: 0.15 }}
-                    transition={{ duration: 0.45, delay: index * 0.08 }}
-                    className="rounded-[26px] border border-white/20 bg-white/70 px-4 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/7"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                        <Icon className="h-5 w-5" />
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {benefitsList.map(({ icon: Icon, title: itemTitle, desc }: any, index: number) => (
+              <motion.div
+                key={itemTitle}
+                initial={{ opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={{ duration: 0.45, delay: index * 0.06 }}
+              >
+                <Card className="h-full rounded-[30px] border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
+                        <Icon className="h-6 w-6" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-950 dark:text-white">{itemTitle}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{desc}</p>
+                      <div className="rounded-full border px-3 py-1 text-xs uppercase tracking-[0.25em]" style={{ borderColor: withAlpha(accentTheme.primary, 0.28), backgroundColor: withAlpha(accentTheme.primary, 0.1), color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
+                        0{index + 1}
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              {benefitsList.map(({ icon: Icon, title: itemTitle, desc }: any, index: number) => (
-                <motion.div
-                  key={itemTitle}
-                  initial={{ opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.15 }}
-                  transition={{ duration: 0.45, delay: index * 0.06 }}
-                  className={index === 0 ? "md:col-span-2" : ""}
-                >
-                  <Card className="h-full rounded-[30px] border-slate-200/60 dark:border-white/10 bg-white/85 dark:bg-white/5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/6">
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                          <Icon className="h-6 w-6" />
-                        </div>
-                        <div className="rounded-full border px-3 py-1 text-xs uppercase tracking-[0.25em]" style={{ borderColor: withAlpha(accentTheme.primary, 0.28), backgroundColor: withAlpha(accentTheme.primary, 0.1), color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
-                          0{index + 1}
-                        </div>
-                      </div>
-                      <CardTitle className="pt-4 text-xl text-slate-950 dark:text-white">{itemTitle}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm leading-7 text-slate-600 dark:text-slate-400">{desc}</p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+                    <CardTitle className="pt-4 text-xl text-slate-950 dark:text-white">{itemTitle}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-7 text-slate-600 dark:text-slate-400">{desc}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </section>
 
         {lc.showTariffs && (
-          <section id="tariffs" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
+          <section id="tariffs" className="container mx-auto px-4 py-14 md:py-20">
             <motion.div
               {...fadeUp}
               className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 px-6 py-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.22)] md:px-8 md:py-10"
@@ -917,94 +720,45 @@ export function LandingPage({ config }: { config: PublicConfig }) {
           </section>
         )}
 
-        <section id="devices" className={`container mx-auto px-4 py-14 md:py-20 ${SECTION_SCROLL_OFFSET}`}>
+        <section id="devices" className="container mx-auto px-4 py-14 md:py-20">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
             <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
               <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">devices</p>
               <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">{devicesTitle}</h2>
               <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-400 md:text-base">{devicesSubtitle}</p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="relative overflow-hidden rounded-[30px] border border-slate-200/80 dark:border-white/12 bg-slate-950 p-5 text-white shadow-xl shadow-slate-950/15 dark:border-white/12 dark:bg-slate-900/90 sm:col-span-2">
-                  <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl" style={{ backgroundColor: withAlpha(accentTheme.primary, 0.25) }} />
-                  <div className="relative flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">device cockpit</p>
-                      <p className="mt-2 text-lg font-semibold">Один аккаунт, много устройств, ноль ощущения хаоса</p>
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {DEVICES.map(({ name, icon: Icon }) => (
+                  <div
+                    key={name}
+                    className="rounded-[24px] border border-slate-200/60 dark:border-white/10 bg-white/95 dark:bg-white/5 p-4 text-center shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30"
+                  >
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <div className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-200">
-                      synced
-                    </div>
+                    <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">{name}</p>
                   </div>
-
-                  <div className="relative mt-6 grid gap-3 sm:grid-cols-2">
-                    {DEVICES.map(({ name, icon: Icon }, index) => (
-                      <motion.div
-                        key={name}
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.35, delay: index * 0.05 }}
-                        className="rounded-[24px] border border-white/12 bg-white/8 p-4 backdrop-blur-xl"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ backgroundColor: withAlpha(accentTheme.primary, 0.16), color: accentTheme.tertiary }}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-white">{name}</p>
-                            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">native flow</p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/95 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">универсальность</p>
-                  <p className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">Одинаково приятный опыт на десктопе, телефоне и планшете</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Один аккаунт для всех твоих устройств. Подключай что угодно и когда угодно.</p>
-                </div>
-
-                <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 p-5 backdrop-blur-xl dark:border-white/10" style={accentGlowStyle}>
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">быстрая настройка</p>
-                  <p className="mt-3 text-lg font-semibold text-slate-950 dark:text-white">Установка займет меньше минуты</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">Нажал, оплатил, получил доступ. Подробные инструкции помогут сделать всё быстро.</p>
-                </div>
+                ))}
               </div>
             </motion.div>
 
             <motion.div {...fadeUp} transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 }} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] md:p-8 dark:border-white/10" style={darkPanelStyle}>
-              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>быстрый старт</p>
-              <h3 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-4xl">Премиальный сервис без технической боли</h3>
+              <p className="text-xs uppercase tracking-[0.32em]" style={{ color: withAlpha(accentTheme.tertiary, 0.8) }}>how it feels</p>
+              <h3 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-4xl">Нормальный премиум-опыт без технической боли</h3>
               <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300 md:text-base">
-                <p>Один вход, одна подписка и понятные шаги: зарегистрировался, оплатил, подключил нужное устройство и забыл про блокировки.</p>
-                <p>Наша цель — предоставить инструмент, который просто работает. Всегда, везде и на любом устройстве.</p>
+                <p>Один вход, одна подписка и понятные шаги: зарегистрировался, оплатил, подключил нужное устройство и забыл про хаос.</p>
+                <p>Лендинг не врёт и не живёт отдельно от продукта — он показывает то, что реально настроено в админке прямо сейчас.</p>
               </div>
 
-              <div className="mt-8 space-y-4">
-                {JOURNEY_STEPS.map(({ icon: Icon, title: stepTitle, desc }, index) => (
-                  <motion.div
-                    key={stepTitle}
-                    initial={{ opacity: 0, x: 18 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: index * 0.08 }}
-                    className="rounded-[26px] border border-white/10 bg-white/7 p-5"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: withAlpha(accentTheme.primary, 0.16), color: accentTheme.tertiary }}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.22em] text-slate-400">0{index + 1}</p>
-                        <p className="mt-2 text-xl font-semibold text-white">{stepTitle}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">{desc}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[26px] border border-white/10 bg-white/7 p-5">
+                  <p className="text-sm text-slate-400">Telegram / кабинет</p>
+                  <p className="mt-2 text-xl font-semibold text-white">Один сценарий покупки и подключения</p>
+                </div>
+                <div className="rounded-[26px] border border-white/10 bg-white/7 p-5">
+                  <p className="text-sm text-slate-400">Поддержка / инструкции</p>
+                  <p className="mt-2 text-xl font-semibold text-white">Всё под рукой, без поиска по чатам</p>
+                </div>
               </div>
 
               <Button className="mt-8 h-13 rounded-full px-6 text-white" style={primaryButtonStyle} asChild>
@@ -1017,74 +771,42 @@ export function LandingPage({ config }: { config: PublicConfig }) {
         <section className="container mx-auto px-4 py-6 md:py-10">
           <motion.div
             {...fadeUp}
-            className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 md:p-8"
-            style={resolvedMode === "dark" ? darkPanelStyle : accentGlowStyle}
-          >
+              className="overflow-hidden rounded-[36px] border border-slate-200/60 dark:border-white/10 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 md:p-8"
+              style={resolvedMode === "dark" ? darkPanelStyle : accentGlowStyle}
+            >
             <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div>
-                <p className="text-xs uppercase tracking-[0.32em] text-slate-500" style={resolvedMode === "dark" ? { color: withAlpha(accentTheme.tertiary, 0.75) } : undefined}>как это работает</p>
+                <p className="text-xs uppercase tracking-[0.32em] text-slate-500" style={resolvedMode === "dark" ? { color: withAlpha(accentTheme.tertiary, 0.75) } : undefined}>flow</p>
                 <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
-                  От первого визита до безопасного интернета — всего пара шагов
+                  От первого касания до подключения — один цельный сценарий
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
-                  Мы сделали всё, чтобы процесс подключения был максимально простым и понятным. Никаких сложных инструкций и лишних действий.
+                  Это больше не просто красивая обложка. Лендинг ведёт в кабинет, кабинет ведёт к тарифам, тарифы ведут к подключению — и вся цепочка ощущается цельной.
                 </p>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/85 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">narrative</p>
-                  <div className="mt-5 space-y-5">
-                    {JOURNEY_STEPS.map(({ title: stepTitle }, index) => (
-                      <div key={stepTitle} className="flex gap-4">
-                        <div className="flex flex-col items-center">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundImage: `linear-gradient(135deg, ${accentTheme.primary}, ${accentTheme.secondary})` }}>
-                            0{index + 1}
-                          </div>
-                          {index < JOURNEY_STEPS.length - 1 && <div className="mt-2 h-full w-px bg-slate-200 dark:bg-white/12" />}
-                        </div>
-                        <div className="pb-5 pt-1">
-                          <p className="font-semibold text-slate-950 dark:text-white">{stepTitle}</p>
-                          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{JOURNEY_STEPS[index]?.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid content-start gap-4 sm:grid-cols-2">
-                  {featuresList.slice(0, 2).map(({ icon: Icon, label, sub, desc }: LandingFeatureItem) => (
-                    <div
-                      key={label}
-                      className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/85 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
-                    >
+              <div className="grid gap-4 md:grid-cols-3">
+                {JOURNEY_STEPS.map(({ icon: Icon, title: stepTitle, desc }, index) => (
+                  <div
+                    key={stepTitle}
+                    className="rounded-[28px] border border-slate-200/80 dark:border-white/12 bg-white/85 dark:bg-white/5 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
+                  >
+                    <div className="flex items-center justify-between">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ ...accentGlowStyle, color: resolvedMode === "dark" ? accentTheme.tertiary : accentTheme.primary }}>
                         <Icon className="h-5 w-5" />
                       </div>
-                      <h3 className="mt-4 text-lg font-semibold text-slate-950 dark:text-white">{label}</h3>
-                      <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{sub}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{desc}</p>
+                      <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">0{index + 1}</span>
                     </div>
-                  ))}
-
-                  <div className="rounded-[28px] border border-slate-200/80 dark:border-white/12 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 sm:col-span-2" style={accentGlowStyle}>
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">прозрачность</p>
-                    <p className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">Честные условия без скрытых платежей и ограничений скорости.</p>
-                    <div className="mt-6 flex flex-wrap gap-4">
-                      {heroStats.map((item) => (
-                        <div key={item.label} className="rounded-full border border-slate-200/80 dark:border-white/12 bg-white/80 dark:bg-white/8 px-6 py-3 text-base text-slate-700 backdrop-blur-xl dark:text-slate-200 shadow-sm">
-                          <span className="font-bold text-xl text-slate-950 dark:text-white mr-1.5">{item.value}</span> {item.label}
-                        </div>
-                      ))}
-                    </div>
+                    <h3 className="mt-4 text-lg font-semibold text-slate-950 dark:text-white">{stepTitle}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{desc}</p>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           </motion.div>
         </section>
 
-        <section id="faq" className={`container mx-auto grid gap-8 px-4 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px] ${SECTION_SCROLL_OFFSET}`}>
+        <section id="faq" className="container mx-auto grid gap-8 px-4 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px]">
           <motion.div {...fadeUp} className="rounded-[32px] border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8 dark:border-white/10 dark:bg-white/6">
             <p className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">faq</p>
             <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">{faqTitle}</h2>
