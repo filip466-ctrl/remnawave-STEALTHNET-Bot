@@ -171,6 +171,30 @@ export function SettingsPage() {
   const [cryptopayWebhookCopied, setCryptopayWebhookCopied] = useState(false);
   const [heleketWebhookCopied, setHeleketWebhookCopied] = useState(false);
   const [defaultSubpageConfig, setDefaultSubpageConfig] = useState<SubscriptionPageConfig | null>(null);
+  const defaultJourneySteps = [
+    { title: "Выбираешь сценарий", desc: "Доступны гибкие тарифы: выбери то, что подходит именно тебе, без переплат." },
+    { title: "Оплачиваешь как удобно", desc: "Карта, СБП, крипта — выбирай любой удобный и безопасный метод оплаты." },
+    { title: "Подключаешься без боли", desc: "После оплаты бот или личный кабинет сразу выдадут все инструкции. Настройка за 1 минуту." },
+  ];
+  const defaultSignalCards = [
+    { eyebrow: "privacy core", title: "Zero-log и аккуратная защита", desc: "Не ощущается как странный хак: нормальный продуктовый слой, чистый доступ и понятный контроль." },
+    { eyebrow: "global access", title: "Нужные сервисы открываются без драмы", desc: "Маршруты и сценарии уже собраны под реальные поездки, работу и привычные повседневные задачи." },
+    { eyebrow: "payments sync", title: "Оплата встроена в общий сценарий", desc: "Не отдельная форма из девяностых, а часть единого опыта: выбрал, оплатил, сразу подключился." },
+  ];
+  const defaultTrustPoints = ["Современные протоколы шифрования", "Строгая политика Zero-Log: мы не храним данные", "Высокая пропускная способность без ограничений"];
+  const defaultExperiencePanels = [
+    { title: "Никаких зависаний", desc: "Смотри видео в 4K, играй в игры и работай без задержек." },
+    { title: "Мгновенное подключение", desc: "Достаточно нажать одну кнопку, чтобы оказаться в защищенной сети." },
+    { title: "Удобный кабинет", desc: "Управляй подпиской, устройствами и получай поддержку в пару кликов." },
+  ];
+  const defaultDevicesList = ["Windows", "macOS", "iPhone / iPad", "Android", "Linux"];
+  const defaultQuickStartList = ["Мгновенный доступ после оплаты", "Подробные инструкции и техподдержка", "Удобный личный кабинет в Telegram"];
+  const [landingJourneySteps, setLandingJourneySteps] = useState<{ title: string; desc: string }[]>(defaultJourneySteps);
+  const [landingSignalCards, setLandingSignalCards] = useState<{ eyebrow: string; title: string; desc: string }[]>(defaultSignalCards);
+  const [landingTrustPoints, setLandingTrustPoints] = useState<string[]>(defaultTrustPoints);
+  const [landingExperiencePanels, setLandingExperiencePanels] = useState<{ title: string; desc: string }[]>(defaultExperiencePanels);
+  const [landingDevicesList, setLandingDevicesList] = useState<string[]>(defaultDevicesList);
+  const [landingQuickStartList, setLandingQuickStartList] = useState<string[]>(defaultQuickStartList);
   const token = state.accessToken!;
 
   useEffect(() => {
@@ -222,6 +246,68 @@ export function SettingsPage() {
       });
     }).finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!settings) return;
+    try {
+      const raw = (settings as { landingJourneyStepsJson?: string | null }).landingJourneyStepsJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a) && a.length >= 1) {
+          setLandingJourneySteps(a.slice(0, 3).map((x: unknown) => ({
+            title: typeof (x as { title?: string }).title === "string" ? (x as { title: string }).title : "",
+            desc: typeof (x as { desc?: string }).desc === "string" ? (x as { desc: string }).desc : "",
+          })));
+        }
+      }
+    } catch { /* keep default */ }
+    try {
+      const raw = (settings as { landingSignalCardsJson?: string | null }).landingSignalCardsJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a) && a.length >= 1) {
+          setLandingSignalCards(a.slice(0, 3).map((x: unknown) => ({
+            eyebrow: typeof (x as { eyebrow?: string }).eyebrow === "string" ? (x as { eyebrow: string }).eyebrow : "",
+            title: typeof (x as { title?: string }).title === "string" ? (x as { title: string }).title : "",
+            desc: typeof (x as { desc?: string }).desc === "string" ? (x as { desc: string }).desc : "",
+          })));
+        }
+      }
+    } catch { /* keep default */ }
+    try {
+      const raw = (settings as { landingTrustPointsJson?: string | null }).landingTrustPointsJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a)) setLandingTrustPoints(a.slice(0, 5).map((x) => String(x)));
+      }
+    } catch { /* keep default */ }
+    try {
+      const raw = (settings as { landingExperiencePanelsJson?: string | null }).landingExperiencePanelsJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a) && a.length >= 1) {
+          setLandingExperiencePanels(a.slice(0, 3).map((x: unknown) => ({
+            title: typeof (x as { title?: string }).title === "string" ? (x as { title: string }).title : "",
+            desc: typeof (x as { desc?: string }).desc === "string" ? (x as { desc: string }).desc : "",
+          })));
+        }
+      }
+    } catch { /* keep default */ }
+    try {
+      const raw = (settings as { landingDevicesListJson?: string | null }).landingDevicesListJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a)) setLandingDevicesList(a.slice(0, 8).map((x: unknown) => (typeof (x as { name?: string }).name === "string" ? (x as { name: string }).name : String(x))));
+      }
+    } catch { /* keep default */ }
+    try {
+      const raw = (settings as { landingQuickStartJson?: string | null }).landingQuickStartJson;
+      if (raw?.trim()) {
+        const a = JSON.parse(raw) as unknown;
+        if (Array.isArray(a)) setLandingQuickStartList(a.slice(0, 5).map((x) => String(x)));
+      }
+    } catch { /* keep default */ }
+  }, [settings?.landingJourneyStepsJson, settings?.landingSignalCardsJson, settings?.landingTrustPointsJson, settings?.landingExperiencePanelsJson, settings?.landingDevicesListJson, settings?.landingQuickStartJson]);
 
   useEffect(() => {
     if (activeTab === "subpage") {
@@ -531,6 +617,56 @@ export function SettingsPage() {
         landingDevicesSubtitle: settings.landingDevicesSubtitle ?? null,
         landingFaqTitle: settings.landingFaqTitle ?? null,
         landingFaqJson: settings.landingFaqJson ?? null,
+        landingHeroHeadline1: settings.landingHeroHeadline1 ?? null,
+        landingHeroHeadline2: settings.landingHeroHeadline2 ?? null,
+        landingHeaderBadge: settings.landingHeaderBadge ?? null,
+        landingButtonLogin: settings.landingButtonLogin ?? null,
+        landingButtonLoginCabinet: settings.landingButtonLoginCabinet ?? null,
+        landingNavBenefits: settings.landingNavBenefits ?? null,
+        landingNavTariffs: settings.landingNavTariffs ?? null,
+        landingNavDevices: settings.landingNavDevices ?? null,
+        landingNavFaq: settings.landingNavFaq ?? null,
+        landingBenefitsBadge: settings.landingBenefitsBadge ?? null,
+        landingDefaultPaymentText: settings.landingDefaultPaymentText ?? null,
+        landingButtonChooseTariff: settings.landingButtonChooseTariff ?? null,
+        landingNoTariffsMessage: settings.landingNoTariffsMessage ?? null,
+        landingButtonWatchTariffs: settings.landingButtonWatchTariffs ?? null,
+        landingButtonStart: settings.landingButtonStart ?? null,
+        landingButtonOpenCabinet: settings.landingButtonOpenCabinet ?? null,
+        landingJourneyStepsJson: landingJourneySteps.length ? JSON.stringify(landingJourneySteps) : null,
+        landingSignalCardsJson: landingSignalCards.length ? JSON.stringify(landingSignalCards) : null,
+        landingTrustPointsJson: landingTrustPoints.some(Boolean) ? JSON.stringify(landingTrustPoints) : null,
+        landingExperiencePanelsJson: landingExperiencePanels.length ? JSON.stringify(landingExperiencePanels) : null,
+        landingDevicesListJson: landingDevicesList.filter(Boolean).length ? JSON.stringify(landingDevicesList.filter(Boolean).map((name) => ({ name }))) : null,
+        landingQuickStartJson: landingQuickStartList.some(Boolean) ? JSON.stringify(landingQuickStartList) : null,
+        landingInfraTitle: settings.landingInfraTitle ?? null,
+        landingNetworkCockpitText: settings.landingNetworkCockpitText ?? null,
+        landingPulseTitle: settings.landingPulseTitle ?? null,
+        landingComfortTitle: settings.landingComfortTitle ?? null,
+        landingComfortBadge: settings.landingComfortBadge ?? null,
+        landingPrinciplesTitle: settings.landingPrinciplesTitle ?? null,
+        landingTechTitle: settings.landingTechTitle ?? null,
+        landingTechDesc: settings.landingTechDesc ?? null,
+        landingCategorySubtitle: settings.landingCategorySubtitle ?? null,
+        landingTariffDefaultDesc: settings.landingTariffDefaultDesc ?? null,
+        landingTariffBullet1: settings.landingTariffBullet1 ?? null,
+        landingTariffBullet2: settings.landingTariffBullet2 ?? null,
+        landingTariffBullet3: settings.landingTariffBullet3 ?? null,
+        landingLowestTariffDesc: settings.landingLowestTariffDesc ?? null,
+        landingDevicesCockpitText: settings.landingDevicesCockpitText ?? null,
+        landingUniversalityTitle: settings.landingUniversalityTitle ?? null,
+        landingUniversalityDesc: settings.landingUniversalityDesc ?? null,
+        landingQuickSetupTitle: settings.landingQuickSetupTitle ?? null,
+        landingQuickSetupDesc: settings.landingQuickSetupDesc ?? null,
+        landingPremiumServiceTitle: settings.landingPremiumServiceTitle ?? null,
+        landingPremiumServicePara1: settings.landingPremiumServicePara1 ?? null,
+        landingPremiumServicePara2: settings.landingPremiumServicePara2 ?? null,
+        landingHowItWorksTitle: settings.landingHowItWorksTitle ?? null,
+        landingHowItWorksDesc: settings.landingHowItWorksDesc ?? null,
+        landingStatsPlatforms: settings.landingStatsPlatforms ?? null,
+        landingStatsTariffsLabel: settings.landingStatsTariffsLabel ?? null,
+        landingStatsAccessLabel: settings.landingStatsAccessLabel ?? null,
+        landingStatsPaymentMethods: settings.landingStatsPaymentMethods ?? null,
       })
       .then((updated) => {
         const u = updated as AdminSettings;
@@ -3025,6 +3161,30 @@ export function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 Если включено, по адресу <code>/</code> показывается лендинг (информация, тарифы, контакты). Регистрация ведёт в кабинет. Иначе главная перенаправляет в кабинет/логин.
               </p>
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    setMessage("");
+                    try {
+                      const updated = await api.resetLandingText(token);
+                      setSettings((prev) => (prev ? { ...prev, ...updated } : prev));
+                      setMessage("Тексты лендинга сброшены на исходные.");
+                    } catch {
+                      setMessage("Ошибка сброса текстов лендинга");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Вернуть исходные тексты лендинга
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border p-4">
@@ -3225,6 +3385,195 @@ export function SettingsPage() {
                   onChange={(e) => setSettings((s) => (s ? { ...s, landingFooterText: e.target.value || null } : s))}
                 />
               </div>
+
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 rounded-lg border p-4 hover:bg-muted/50 w-full text-left font-medium">
+                  <ChevronDown className="h-4 w-4" />
+                  Доп. тексты лендинга (заголовки, кнопки, блоки)
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  <div className="grid gap-2">
+                    <Label>Главный заголовок hero — строка 1</Label>
+                    <Input placeholder="Тихий доступ," value={settings.landingHeroHeadline1 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroHeadline1: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Главный заголовок hero — строка 2</Label>
+                    <Input placeholder="который выглядит дорого." value={settings.landingHeroHeadline2 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingHeroHeadline2: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Подпись в шапке (над названием)</Label>
+                    <Input placeholder="premium access" value={settings.landingHeaderBadge ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingHeaderBadge: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label>Кнопка «Вход»</Label><Input placeholder="Вход" value={settings.landingButtonLogin ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonLogin: e.target.value || null } : s))} /></div>
+                    <div><Label>Кнопка «Войти в кабинет»</Label><Input placeholder="Войти в кабинет" value={settings.landingButtonLoginCabinet ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonLoginCabinet: e.target.value || null } : s))} /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label>Пункт навигации «Преимущества»</Label><Input placeholder="Преимущества" value={settings.landingNavBenefits ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNavBenefits: e.target.value || null } : s))} /></div>
+                    <div><Label>Пункт навигации «Тарифы»</Label><Input placeholder="Тарифы" value={settings.landingNavTariffs ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNavTariffs: e.target.value || null } : s))} /></div>
+                    <div><Label>Пункт навигации «Устройства»</Label><Input placeholder="Устройства" value={settings.landingNavDevices ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNavDevices: e.target.value || null } : s))} /></div>
+                    <div><Label>Пункт навигации «FAQ»</Label><Input placeholder="FAQ" value={settings.landingNavFaq ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNavFaq: e.target.value || null } : s))} /></div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Бейдж над блоком преимуществ</Label>
+                    <Input placeholder="Почему мы" value={settings.landingBenefitsBadge ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingBenefitsBadge: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Текст плашки способов оплаты (если не заданы)</Label>
+                    <Input placeholder="Карта, СБП, крипта и быстрый старт" value={settings.landingDefaultPaymentText ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingDefaultPaymentText: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label>Кнопка «Выбрать тариф»</Label><Input placeholder="Выбрать тариф" value={settings.landingButtonChooseTariff ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonChooseTariff: e.target.value || null } : s))} /></div>
+                    <div><Label>Кнопка «Смотреть тарифы» / «Начать»</Label><Input placeholder="Смотреть тарифы" value={settings.landingButtonWatchTariffs ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonWatchTariffs: e.target.value || null } : s))} /></div>
+                    <div><Label>Кнопка «Начать» (без тарифов)</Label><Input placeholder="Начать" value={settings.landingButtonStart ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonStart: e.target.value || null } : s))} /></div>
+                    <div><Label>Кнопка «Открыть кабинет»</Label><Input placeholder="Открыть кабинет и подключиться" value={settings.landingButtonOpenCabinet ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingButtonOpenCabinet: e.target.value || null } : s))} /></div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Сообщение «тарифы не опубликованы»</Label>
+                    <Input placeholder="Тарифы пока не опубликованы…" value={settings.landingNoTariffsMessage ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNoTariffsMessage: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Статистика: платформ / тарифов / доступ / способов оплаты</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="платформ" value={settings.landingStatsPlatforms ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsPlatforms: e.target.value || null } : s))} />
+                      <Input placeholder="тарифов онлайн" value={settings.landingStatsTariffsLabel ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsTariffsLabel: e.target.value || null } : s))} />
+                      <Input placeholder="доступ" value={settings.landingStatsAccessLabel ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsAccessLabel: e.target.value || null } : s))} />
+                      <Input placeholder="способа оплаты" value={settings.landingStatsPaymentMethods ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsPaymentMethods: e.target.value || null } : s))} />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок инфраструктуры — заголовок</Label>
+                    <Input placeholder="Мощная сеть и стабильное подключение…" value={settings.landingInfraTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingInfraTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Текст «network cockpit»</Label>
+                    <Input placeholder="Спокойный доступ без ощущения технарского конструктора" value={settings.landingNetworkCockpitText ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingNetworkCockpitText: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Секция «Всё для комфорта» — заголовок</Label>
+                    <Input placeholder="Всё для твоего комфорта и безопасности в сети" value={settings.landingComfortTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingComfortTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Секция «Всё для комфорта» — бейдж</Label>
+                    <Input placeholder="стабильность · скорость · безопасность" value={settings.landingComfortBadge ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingComfortBadge: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>«Главные принципы» — заголовок</Label>
+                    <Input placeholder="Мы строим сервис, которому доверяют…" value={settings.landingPrinciplesTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingPrinciplesTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Пульс продукта» — заголовок</Label>
+                    <Input placeholder="Не просто VPN, а аккуратно собранный сервис…" value={settings.landingPulseTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingPulseTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Технологии» — заголовок</Label>
+                    <Input placeholder="Продуманная инфраструктура для твоей свободы." value={settings.landingTechTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTechTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Технологии» — описание</Label>
+                    <Textarea rows={2} placeholder="Мы используем только современные протоколы…" value={settings.landingTechDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTechDesc: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Подзаголовок категории тарифов</Label>
+                    <Input placeholder="Подбирай вариант под свой сценарий…" value={settings.landingCategorySubtitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingCategorySubtitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Описание тарифа по умолчанию</Label>
+                    <Input placeholder="Чистый доступ без лишних ограничений" value={settings.landingTariffDefaultDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffDefaultDesc: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Три пункта в карточке тарифа</Label>
+                    <Input placeholder="Подключение через личный кабинет" value={settings.landingTariffBullet1 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffBullet1: e.target.value || null } : s))} />
+                    <Input placeholder="Поддержка и инструкции внутри сервиса" value={settings.landingTariffBullet2 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffBullet2: e.target.value || null } : s))} />
+                    <Input placeholder="Автоматическая активация после оплаты" value={settings.landingTariffBullet3 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingTariffBullet3: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Описание минимального тарифа (правая колонка)</Label>
+                    <Input placeholder="первый мягкий вход в сервис…" value={settings.landingLowestTariffDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingLowestTariffDesc: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок устройств — текст «device cockpit»</Label>
+                    <Input placeholder="Один аккаунт, много устройств, ноль ощущения хаоса" value={settings.landingDevicesCockpitText ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingDevicesCockpitText: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Универсальность» — заголовок и описание</Label>
+                    <Input placeholder="Одинаково приятный опыт на десктопе…" value={settings.landingUniversalityTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingUniversalityTitle: e.target.value || null } : s))} />
+                    <Textarea rows={2} placeholder="Один аккаунт для всех твоих устройств…" value={settings.landingUniversalityDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingUniversalityDesc: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Быстрая настройка» — заголовок и описание</Label>
+                    <Input placeholder="Установка займет меньше минуты" value={settings.landingQuickSetupTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingQuickSetupTitle: e.target.value || null } : s))} />
+                    <Textarea rows={2} placeholder="Нажал, оплатил, получил доступ…" value={settings.landingQuickSetupDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingQuickSetupDesc: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Премиальный сервис» — заголовок</Label>
+                    <Input placeholder="Премиальный сервис без технической боли" value={settings.landingPremiumServiceTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingPremiumServiceTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Премиальный сервис» — абзацы 1 и 2</Label>
+                    <Textarea rows={2} placeholder="Один вход, одна подписка…" value={settings.landingPremiumServicePara1 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingPremiumServicePara1: e.target.value || null } : s))} />
+                    <Textarea rows={2} placeholder="Наша цель — предоставить инструмент…" value={settings.landingPremiumServicePara2 ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingPremiumServicePara2: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Как это работает» — заголовок и описание</Label>
+                    <Input placeholder="От первого визита до безопасного интернета…" value={settings.landingHowItWorksTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingHowItWorksTitle: e.target.value || null } : s))} />
+                    <Textarea rows={2} placeholder="Мы сделали всё, чтобы процесс подключения…" value={settings.landingHowItWorksDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingHowItWorksDesc: e.target.value || null } : s))} />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">Шаги (3 шт)</p>
+                  {([0, 1, 2] as const).map((i) => (
+                    <div key={i} className="rounded-lg border p-4 space-y-2">
+                      <Label>Шаг {i + 1} — заголовок</Label>
+                      <Input value={landingJourneySteps[i]?.title ?? ""} onChange={(e) => setLandingJourneySteps((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { title: "", desc: "" }), title: e.target.value }; return n; })} placeholder="Выбираешь сценарий" />
+                      <Label>Шаг {i + 1} — описание</Label>
+                      <Textarea rows={2} value={landingJourneySteps[i]?.desc ?? ""} onChange={(e) => setLandingJourneySteps((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { title: "", desc: "" }), desc: e.target.value }; return n; })} placeholder="Доступны гибкие тарифы…" />
+                    </div>
+                  ))}
+                  <p className="text-sm font-medium text-muted-foreground">Карточки сигналов (3 шт)</p>
+                  {([0, 1, 2] as const).map((i) => (
+                    <div key={i} className="rounded-lg border p-4 space-y-2">
+                      <Label>Карточка {i + 1} — подпись (eyebrow)</Label>
+                      <Input value={landingSignalCards[i]?.eyebrow ?? ""} onChange={(e) => setLandingSignalCards((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { eyebrow: "", title: "", desc: "" }), eyebrow: e.target.value }; return n; })} placeholder="privacy core" />
+                      <Label>Карточка {i + 1} — заголовок</Label>
+                      <Input value={landingSignalCards[i]?.title ?? ""} onChange={(e) => setLandingSignalCards((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { eyebrow: "", title: "", desc: "" }), title: e.target.value }; return n; })} placeholder="Zero-log и аккуратная защита" />
+                      <Label>Карточка {i + 1} — описание</Label>
+                      <Textarea rows={2} value={landingSignalCards[i]?.desc ?? ""} onChange={(e) => setLandingSignalCards((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { eyebrow: "", title: "", desc: "" }), desc: e.target.value }; return n; })} placeholder="Не ощущается как странный хак…" />
+                    </div>
+                  ))}
+                  <p className="text-sm font-medium text-muted-foreground">Принципы доверия (3 пункта)</p>
+                  {([0, 1, 2] as const).map((i) => (
+                    <div key={i} className="grid gap-2">
+                      <Label>Пункт {i + 1}</Label>
+                      <Input value={landingTrustPoints[i] ?? ""} onChange={(e) => setLandingTrustPoints((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })} placeholder="Современные протоколы шифрования" />
+                    </div>
+                  ))}
+                  <p className="text-sm font-medium text-muted-foreground">Панели опыта (3 шт)</p>
+                  {([0, 1, 2] as const).map((i) => (
+                    <div key={i} className="rounded-lg border p-4 space-y-2">
+                      <Label>Панель {i + 1} — заголовок</Label>
+                      <Input value={landingExperiencePanels[i]?.title ?? ""} onChange={(e) => setLandingExperiencePanels((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { title: "", desc: "" }), title: e.target.value }; return n; })} placeholder="Никаких зависаний" />
+                      <Label>Панель {i + 1} — описание</Label>
+                      <Textarea rows={2} value={landingExperiencePanels[i]?.desc ?? ""} onChange={(e) => setLandingExperiencePanels((prev) => { const n = [...prev]; n[i] = { ...(n[i] ?? { title: "", desc: "" }), desc: e.target.value }; return n; })} placeholder="Смотри видео в 4K…" />
+                    </div>
+                  ))}
+                  <p className="text-sm font-medium text-muted-foreground">Список устройств (до 8 названий)</p>
+                  <div className="grid gap-2">
+                    {([0, 1, 2, 3, 4, 5, 6, 7] as const).map((i) => (
+                      <div key={i}>
+                        <Label>Устройство {i + 1}</Label>
+                        <Input value={landingDevicesList[i] ?? ""} onChange={(e) => setLandingDevicesList((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })} placeholder={i === 0 ? "Windows" : i === 1 ? "macOS" : i === 2 ? "iPhone / iPad" : i === 3 ? "Android" : "Linux"} />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">Быстрый старт (3 пункта)</p>
+                  {([0, 1, 2] as const).map((i) => (
+                    <div key={i} className="grid gap-2">
+                      <Label>Пункт {i + 1}</Label>
+                      <Input value={landingQuickStartList[i] ?? ""} onChange={(e) => setLandingQuickStartList((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })} placeholder="Мгновенный доступ после оплаты" />
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+
               <div className="pt-2 flex items-center gap-2">
                 <Button
                   type="button"

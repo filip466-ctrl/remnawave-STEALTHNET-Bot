@@ -536,6 +536,11 @@ export const api = {
     return request("/admin/settings", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
+  /** Админ: сброс текстов лендинга на исходные (из кода). Возвращает обновлённые настройки. */
+  async resetLandingText(token: string): Promise<AdminSettings> {
+    return request("/admin/settings/reset-landing-text", { method: "POST", token });
+  },
+
   /** Админ: список тикетов (опционально ?status=open|closed) */
   async getAdminTickets(token: string, status?: "open" | "closed"): Promise<{
     items: { id: string; subject: string; status: string; createdAt: string; updatedAt: string; client: { id: string; email: string | null; telegramUsername: string | null } }[];
@@ -1391,6 +1396,56 @@ export type UpdateSettingsPayload = {
   landingDevicesSubtitle?: string | null;
   landingFaqTitle?: string | null;
   landingFaqJson?: string | null;
+  landingHeroHeadline1?: string | null;
+  landingHeroHeadline2?: string | null;
+  landingHeaderBadge?: string | null;
+  landingButtonLogin?: string | null;
+  landingButtonLoginCabinet?: string | null;
+  landingNavBenefits?: string | null;
+  landingNavTariffs?: string | null;
+  landingNavDevices?: string | null;
+  landingNavFaq?: string | null;
+  landingBenefitsBadge?: string | null;
+  landingDefaultPaymentText?: string | null;
+  landingButtonChooseTariff?: string | null;
+  landingNoTariffsMessage?: string | null;
+  landingButtonWatchTariffs?: string | null;
+  landingButtonStart?: string | null;
+  landingButtonOpenCabinet?: string | null;
+  landingJourneyStepsJson?: string | null;
+  landingSignalCardsJson?: string | null;
+  landingTrustPointsJson?: string | null;
+  landingExperiencePanelsJson?: string | null;
+  landingDevicesListJson?: string | null;
+  landingQuickStartJson?: string | null;
+  landingInfraTitle?: string | null;
+  landingNetworkCockpitText?: string | null;
+  landingPulseTitle?: string | null;
+  landingComfortTitle?: string | null;
+  landingComfortBadge?: string | null;
+  landingPrinciplesTitle?: string | null;
+  landingTechTitle?: string | null;
+  landingTechDesc?: string | null;
+  landingCategorySubtitle?: string | null;
+  landingTariffDefaultDesc?: string | null;
+  landingTariffBullet1?: string | null;
+  landingTariffBullet2?: string | null;
+  landingTariffBullet3?: string | null;
+  landingLowestTariffDesc?: string | null;
+  landingDevicesCockpitText?: string | null;
+  landingUniversalityTitle?: string | null;
+  landingUniversalityDesc?: string | null;
+  landingQuickSetupTitle?: string | null;
+  landingQuickSetupDesc?: string | null;
+  landingPremiumServiceTitle?: string | null;
+  landingPremiumServicePara1?: string | null;
+  landingPremiumServicePara2?: string | null;
+  landingHowItWorksTitle?: string | null;
+  landingHowItWorksDesc?: string | null;
+  landingStatsPlatforms?: string | null;
+  landingStatsTariffsLabel?: string | null;
+  landingStatsAccessLabel?: string | null;
+  landingStatsPaymentMethods?: string | null;
 };
 
 export interface ClientRecord {
@@ -1602,6 +1657,56 @@ export interface AdminSettings {
   landingDevicesSubtitle?: string | null;
   landingFaqTitle?: string | null;
   landingFaqJson?: string | null;
+  landingHeroHeadline1?: string | null;
+  landingHeroHeadline2?: string | null;
+  landingHeaderBadge?: string | null;
+  landingButtonLogin?: string | null;
+  landingButtonLoginCabinet?: string | null;
+  landingNavBenefits?: string | null;
+  landingNavTariffs?: string | null;
+  landingNavDevices?: string | null;
+  landingNavFaq?: string | null;
+  landingBenefitsBadge?: string | null;
+  landingDefaultPaymentText?: string | null;
+  landingButtonChooseTariff?: string | null;
+  landingNoTariffsMessage?: string | null;
+  landingButtonWatchTariffs?: string | null;
+  landingButtonStart?: string | null;
+  landingButtonOpenCabinet?: string | null;
+  landingJourneyStepsJson?: string | null;
+  landingSignalCardsJson?: string | null;
+  landingTrustPointsJson?: string | null;
+  landingExperiencePanelsJson?: string | null;
+  landingDevicesListJson?: string | null;
+  landingQuickStartJson?: string | null;
+  landingInfraTitle?: string | null;
+  landingNetworkCockpitText?: string | null;
+  landingPulseTitle?: string | null;
+  landingComfortTitle?: string | null;
+  landingComfortBadge?: string | null;
+  landingPrinciplesTitle?: string | null;
+  landingTechTitle?: string | null;
+  landingTechDesc?: string | null;
+  landingCategorySubtitle?: string | null;
+  landingTariffDefaultDesc?: string | null;
+  landingTariffBullet1?: string | null;
+  landingTariffBullet2?: string | null;
+  landingTariffBullet3?: string | null;
+  landingLowestTariffDesc?: string | null;
+  landingDevicesCockpitText?: string | null;
+  landingUniversalityTitle?: string | null;
+  landingUniversalityDesc?: string | null;
+  landingQuickSetupTitle?: string | null;
+  landingQuickSetupDesc?: string | null;
+  landingPremiumServiceTitle?: string | null;
+  landingPremiumServicePara1?: string | null;
+  landingPremiumServicePara2?: string | null;
+  landingHowItWorksTitle?: string | null;
+  landingHowItWorksDesc?: string | null;
+  landingStatsPlatforms?: string | null;
+  landingStatsTariffsLabel?: string | null;
+  landingStatsAccessLabel?: string | null;
+  landingStatsPaymentMethods?: string | null;
 }
 
 /** Конфиг страницы подписки (формат как sub.stealthnet.app) */

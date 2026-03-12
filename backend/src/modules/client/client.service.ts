@@ -117,6 +117,22 @@ const SYSTEM_CONFIG_KEYS = [
   "landing_tariffs_title", "landing_tariffs_subtitle",
   "landing_devices_title", "landing_devices_subtitle",
   "landing_faq_title", "landing_faq_json",
+  "landing_hero_headline_1", "landing_hero_headline_2",
+  "landing_header_badge", "landing_button_login", "landing_button_login_cabinet",
+  "landing_nav_benefits", "landing_nav_tariffs", "landing_nav_devices", "landing_nav_faq",
+  "landing_benefits_badge", "landing_default_payment_text", "landing_button_choose_tariff",
+  "landing_no_tariffs_message", "landing_button_watch_tariffs", "landing_button_start", "landing_button_open_cabinet",
+  "landing_journey_steps_json", "landing_signal_cards_json", "landing_trust_points_json",
+  "landing_experience_panels_json", "landing_devices_list_json", "landing_quick_start_json",
+  "landing_infra_title", "landing_network_cockpit_text", "landing_pulse_title",
+  "landing_comfort_title", "landing_comfort_badge", "landing_principles_title",
+  "landing_tech_title", "landing_tech_desc", "landing_category_subtitle",
+  "landing_tariff_default_desc", "landing_tariff_bullet_1", "landing_tariff_bullet_2", "landing_tariff_bullet_3",
+  "landing_lowest_tariff_desc", "landing_devices_cockpit_text", "landing_universality_title", "landing_universality_desc",
+  "landing_quick_setup_title", "landing_quick_setup_desc",
+  "landing_premium_service_title", "landing_premium_service_para1", "landing_premium_service_para2",
+  "landing_how_it_works_title", "landing_how_it_works_desc",
+  "landing_stats_platforms", "landing_stats_tariffs_label", "landing_stats_access_label", "landing_stats_payment_methods",
 ];
 
 /** Продукт «Доп. трафик»: объём в ГБ, цена, валюта */
@@ -534,6 +550,56 @@ export async function getSystemConfig() {
     landingOfferLink: (map.landing_offer_link ?? "").trim() || null,
     landingPrivacyLink: (map.landing_privacy_link ?? "").trim() || null,
     landingFooterText: (map.landing_footer_text ?? "").trim() || null,
+    landingHeroHeadline1: (map.landing_hero_headline_1 ?? "").trim() || null,
+    landingHeroHeadline2: (map.landing_hero_headline_2 ?? "").trim() || null,
+    landingHeaderBadge: (map.landing_header_badge ?? "").trim() || null,
+    landingButtonLogin: (map.landing_button_login ?? "").trim() || null,
+    landingButtonLoginCabinet: (map.landing_button_login_cabinet ?? "").trim() || null,
+    landingNavBenefits: (map.landing_nav_benefits ?? "").trim() || null,
+    landingNavTariffs: (map.landing_nav_tariffs ?? "").trim() || null,
+    landingNavDevices: (map.landing_nav_devices ?? "").trim() || null,
+    landingNavFaq: (map.landing_nav_faq ?? "").trim() || null,
+    landingBenefitsBadge: (map.landing_benefits_badge ?? "").trim() || null,
+    landingDefaultPaymentText: (map.landing_default_payment_text ?? "").trim() || null,
+    landingButtonChooseTariff: (map.landing_button_choose_tariff ?? "").trim() || null,
+    landingNoTariffsMessage: (map.landing_no_tariffs_message ?? "").trim() || null,
+    landingButtonWatchTariffs: (map.landing_button_watch_tariffs ?? "").trim() || null,
+    landingButtonStart: (map.landing_button_start ?? "").trim() || null,
+    landingButtonOpenCabinet: (map.landing_button_open_cabinet ?? "").trim() || null,
+    landingJourneyStepsJson: (map.landing_journey_steps_json ?? "").trim() || null,
+    landingSignalCardsJson: (map.landing_signal_cards_json ?? "").trim() || null,
+    landingTrustPointsJson: (map.landing_trust_points_json ?? "").trim() || null,
+    landingExperiencePanelsJson: (map.landing_experience_panels_json ?? "").trim() || null,
+    landingDevicesListJson: (map.landing_devices_list_json ?? "").trim() || null,
+    landingQuickStartJson: (map.landing_quick_start_json ?? "").trim() || null,
+    landingInfraTitle: (map.landing_infra_title ?? "").trim() || null,
+    landingNetworkCockpitText: (map.landing_network_cockpit_text ?? "").trim() || null,
+    landingPulseTitle: (map.landing_pulse_title ?? "").trim() || null,
+    landingComfortTitle: (map.landing_comfort_title ?? "").trim() || null,
+    landingComfortBadge: (map.landing_comfort_badge ?? "").trim() || null,
+    landingPrinciplesTitle: (map.landing_principles_title ?? "").trim() || null,
+    landingTechTitle: (map.landing_tech_title ?? "").trim() || null,
+    landingTechDesc: (map.landing_tech_desc ?? "").trim() || null,
+    landingCategorySubtitle: (map.landing_category_subtitle ?? "").trim() || null,
+    landingTariffDefaultDesc: (map.landing_tariff_default_desc ?? "").trim() || null,
+    landingTariffBullet1: (map.landing_tariff_bullet_1 ?? "").trim() || null,
+    landingTariffBullet2: (map.landing_tariff_bullet_2 ?? "").trim() || null,
+    landingTariffBullet3: (map.landing_tariff_bullet_3 ?? "").trim() || null,
+    landingLowestTariffDesc: (map.landing_lowest_tariff_desc ?? "").trim() || null,
+    landingDevicesCockpitText: (map.landing_devices_cockpit_text ?? "").trim() || null,
+    landingUniversalityTitle: (map.landing_universality_title ?? "").trim() || null,
+    landingUniversalityDesc: (map.landing_universality_desc ?? "").trim() || null,
+    landingQuickSetupTitle: (map.landing_quick_setup_title ?? "").trim() || null,
+    landingQuickSetupDesc: (map.landing_quick_setup_desc ?? "").trim() || null,
+    landingPremiumServiceTitle: (map.landing_premium_service_title ?? "").trim() || null,
+    landingPremiumServicePara1: (map.landing_premium_service_para1 ?? "").trim() || null,
+    landingPremiumServicePara2: (map.landing_premium_service_para2 ?? "").trim() || null,
+    landingHowItWorksTitle: (map.landing_how_it_works_title ?? "").trim() || null,
+    landingHowItWorksDesc: (map.landing_how_it_works_desc ?? "").trim() || null,
+    landingStatsPlatforms: (map.landing_stats_platforms ?? "").trim() || null,
+    landingStatsTariffsLabel: (map.landing_stats_tariffs_label ?? "").trim() || null,
+    landingStatsAccessLabel: (map.landing_stats_access_label ?? "").trim() || null,
+    landingStatsPaymentMethods: (map.landing_stats_payment_methods ?? "").trim() || null,
   };
 }
 
@@ -927,8 +993,71 @@ export async function getPublicConfig() {
         landingDevicesSubtitle?: string | null;
         landingFaqTitle?: string | null;
         landingFaqJson?: string | null;
+        landingHeroHeadline1?: string | null;
+        landingHeroHeadline2?: string | null;
+        landingHeaderBadge?: string | null;
+        landingButtonLogin?: string | null;
+        landingButtonLoginCabinet?: string | null;
+        landingNavBenefits?: string | null;
+        landingNavTariffs?: string | null;
+        landingNavDevices?: string | null;
+        landingNavFaq?: string | null;
+        landingBenefitsBadge?: string | null;
+        landingDefaultPaymentText?: string | null;
+        landingButtonChooseTariff?: string | null;
+        landingNoTariffsMessage?: string | null;
+        landingButtonWatchTariffs?: string | null;
+        landingButtonStart?: string | null;
+        landingButtonOpenCabinet?: string | null;
+        landingJourneyStepsJson?: string | null;
+        landingSignalCardsJson?: string | null;
+        landingTrustPointsJson?: string | null;
+        landingExperiencePanelsJson?: string | null;
+        landingDevicesListJson?: string | null;
+        landingQuickStartJson?: string | null;
+        landingInfraTitle?: string | null;
+        landingNetworkCockpitText?: string | null;
+        landingPulseTitle?: string | null;
+        landingComfortTitle?: string | null;
+        landingComfortBadge?: string | null;
+        landingPrinciplesTitle?: string | null;
+        landingTechTitle?: string | null;
+        landingTechDesc?: string | null;
+        landingCategorySubtitle?: string | null;
+        landingTariffDefaultDesc?: string | null;
+        landingTariffBullet1?: string | null;
+        landingTariffBullet2?: string | null;
+        landingTariffBullet3?: string | null;
+        landingLowestTariffDesc?: string | null;
+        landingDevicesCockpitText?: string | null;
+        landingUniversalityTitle?: string | null;
+        landingUniversalityDesc?: string | null;
+        landingQuickSetupTitle?: string | null;
+        landingQuickSetupDesc?: string | null;
+        landingPremiumServiceTitle?: string | null;
+        landingPremiumServicePara1?: string | null;
+        landingPremiumServicePara2?: string | null;
+        landingHowItWorksTitle?: string | null;
+        landingHowItWorksDesc?: string | null;
+        landingStatsPlatforms?: string | null;
+        landingStatsTariffsLabel?: string | null;
+        landingStatsAccessLabel?: string | null;
+        landingStatsPaymentMethods?: string | null;
       };
       if (!l.landingEnabled) return null;
+      const parseJsonArray = <T>(raw: string | null | undefined, guard: (x: unknown) => x is T): T[] => {
+        if (!raw?.trim()) return [];
+        try {
+          const a = JSON.parse(raw) as unknown;
+          return Array.isArray(a) ? a.filter(guard) : [];
+        } catch { return []; }
+      };
+      const journeySteps = parseJsonArray<{ title: string; desc: string }>(l.landingJourneyStepsJson, (x): x is { title: string; desc: string } => typeof x === "object" && x !== null && typeof (x as { title?: unknown }).title === "string" && typeof (x as { desc?: unknown }).desc === "string");
+      const signalCards = parseJsonArray<{ eyebrow: string; title: string; desc: string }>(l.landingSignalCardsJson, (x): x is { eyebrow: string; title: string; desc: string } => typeof x === "object" && x !== null && typeof (x as { title?: unknown }).title === "string" && typeof (x as { desc?: unknown }).desc === "string");
+      const trustPoints = parseJsonArray<string>(l.landingTrustPointsJson, (x): x is string => typeof x === "string");
+      const experiencePanels = parseJsonArray<{ title: string; desc: string }>(l.landingExperiencePanelsJson, (x): x is { title: string; desc: string } => typeof x === "object" && x !== null && typeof (x as { title?: unknown }).title === "string" && typeof (x as { desc?: unknown }).desc === "string");
+      const devicesList = parseJsonArray<{ name: string }>(l.landingDevicesListJson, (x): x is { name: string } => typeof x === "object" && x !== null && typeof (x as { name?: unknown }).name === "string").map((d) => d.name);
+      const quickStartList = parseJsonArray<string>(l.landingQuickStartJson, (x): x is string => typeof x === "string");
       const buildFeatures = (): { label: string; sub: string }[] => {
         const items: { label: string; sub: string }[] = [];
         const pairs: [string | null | undefined, string | null | undefined][] = [
@@ -991,6 +1120,56 @@ export async function getPublicConfig() {
         devicesSubtitle: (l.landingDevicesSubtitle ?? "").trim() || null,
         faqTitle: (l.landingFaqTitle ?? "").trim() || null,
         faq: parseFaq(),
+        heroHeadline1: (l.landingHeroHeadline1 ?? "").trim() || null,
+        heroHeadline2: (l.landingHeroHeadline2 ?? "").trim() || null,
+        headerBadge: (l.landingHeaderBadge ?? "").trim() || null,
+        buttonLogin: (l.landingButtonLogin ?? "").trim() || null,
+        buttonLoginCabinet: (l.landingButtonLoginCabinet ?? "").trim() || null,
+        navBenefits: (l.landingNavBenefits ?? "").trim() || null,
+        navTariffs: (l.landingNavTariffs ?? "").trim() || null,
+        navDevices: (l.landingNavDevices ?? "").trim() || null,
+        navFaq: (l.landingNavFaq ?? "").trim() || null,
+        benefitsBadge: (l.landingBenefitsBadge ?? "").trim() || null,
+        defaultPaymentText: (l.landingDefaultPaymentText ?? "").trim() || null,
+        buttonChooseTariff: (l.landingButtonChooseTariff ?? "").trim() || null,
+        noTariffsMessage: (l.landingNoTariffsMessage ?? "").trim() || null,
+        buttonWatchTariffs: (l.landingButtonWatchTariffs ?? "").trim() || null,
+        buttonStart: (l.landingButtonStart ?? "").trim() || null,
+        buttonOpenCabinet: (l.landingButtonOpenCabinet ?? "").trim() || null,
+        journeySteps: journeySteps.length > 0 ? journeySteps : null,
+        signalCards: signalCards.length > 0 ? signalCards : null,
+        trustPoints: trustPoints.length > 0 ? trustPoints : null,
+        experiencePanels: experiencePanels.length > 0 ? experiencePanels : null,
+        devicesList: devicesList.length > 0 ? devicesList : null,
+        quickStartList: quickStartList.length > 0 ? quickStartList : null,
+        infraTitle: (l.landingInfraTitle ?? "").trim() || null,
+        networkCockpitText: (l.landingNetworkCockpitText ?? "").trim() || null,
+        pulseTitle: (l.landingPulseTitle ?? "").trim() || null,
+        comfortTitle: (l.landingComfortTitle ?? "").trim() || null,
+        comfortBadge: (l.landingComfortBadge ?? "").trim() || null,
+        principlesTitle: (l.landingPrinciplesTitle ?? "").trim() || null,
+        techTitle: (l.landingTechTitle ?? "").trim() || null,
+        techDesc: (l.landingTechDesc ?? "").trim() || null,
+        categorySubtitle: (l.landingCategorySubtitle ?? "").trim() || null,
+        tariffDefaultDesc: (l.landingTariffDefaultDesc ?? "").trim() || null,
+        tariffBullet1: (l.landingTariffBullet1 ?? "").trim() || null,
+        tariffBullet2: (l.landingTariffBullet2 ?? "").trim() || null,
+        tariffBullet3: (l.landingTariffBullet3 ?? "").trim() || null,
+        lowestTariffDesc: (l.landingLowestTariffDesc ?? "").trim() || null,
+        devicesCockpitText: (l.landingDevicesCockpitText ?? "").trim() || null,
+        universalityTitle: (l.landingUniversalityTitle ?? "").trim() || null,
+        universalityDesc: (l.landingUniversalityDesc ?? "").trim() || null,
+        quickSetupTitle: (l.landingQuickSetupTitle ?? "").trim() || null,
+        quickSetupDesc: (l.landingQuickSetupDesc ?? "").trim() || null,
+        premiumServiceTitle: (l.landingPremiumServiceTitle ?? "").trim() || null,
+        premiumServicePara1: (l.landingPremiumServicePara1 ?? "").trim() || null,
+        premiumServicePara2: (l.landingPremiumServicePara2 ?? "").trim() || null,
+        howItWorksTitle: (l.landingHowItWorksTitle ?? "").trim() || null,
+        howItWorksDesc: (l.landingHowItWorksDesc ?? "").trim() || null,
+        statsPlatforms: (l.landingStatsPlatforms ?? "").trim() || null,
+        statsTariffsLabel: (l.landingStatsTariffsLabel ?? "").trim() || null,
+        statsAccessLabel: (l.landingStatsAccessLabel ?? "").trim() || null,
+        statsPaymentMethods: (l.landingStatsPaymentMethods ?? "").trim() || null,
       };
     })(),
   };
