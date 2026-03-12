@@ -6,6 +6,8 @@ dist/
 build/
 *.tsbuildinfo
 proxysteal-extension/
+backup.bat
+backup.ps1
 
 # Env (конфигурация — не коммитить!)
 .env
