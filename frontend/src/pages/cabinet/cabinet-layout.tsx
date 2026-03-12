@@ -625,26 +625,27 @@ function CabinetShell() {
             )}
           </nav>
           <div className="flex items-center gap-2 shrink-0">
-            {headerBalance ? (
-              <div className="hidden xl:flex items-center gap-3 rounded-2xl border border-border/60 bg-background/40 px-3 py-2 shadow-sm backdrop-blur-xl">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Wallet className="h-4 w-4 shrink-0" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] leading-none text-muted-foreground/80">Баланс</p>
-                  <p className="mt-1 text-sm font-semibold leading-none text-foreground">{headerBalance}</p>
-                </div>
-              </div>
-            ) : null}
             <ThemePopover />
             <SettingsPopover />
-            <span className="max-w-[160px] truncate text-sm text-muted-foreground bg-background/30 px-3 py-1.5 rounded-full border border-border" title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}>
-              {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
-            </span>
-            <Button variant="outline" size="sm" className="min-w-[110px] px-3 inline-flex items-center justify-center gap-2 whitespace-nowrap bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center [&_span]:leading-none" asChild>
-              <Link to="/cabinet/login" onClick={() => logout()} className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap leading-none">
+            <div
+              className="hidden lg:flex items-center gap-3 rounded-2xl border border-border/60 bg-background/35 pl-2.5 pr-3 py-2 shadow-sm backdrop-blur-xl"
+              title={state.client?.email?.trim() || (state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "")}
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary shrink-0">
+                <Wallet className="h-4 w-4 shrink-0" />
+              </div>
+              <div className="min-w-0 max-w-[170px]">
+                <p className="truncate text-sm font-medium leading-none text-foreground/90">
+                  {state.client?.email?.trim() ? state.client.email : state.client?.telegramUsername ? `@${state.client.telegramUsername}` : "—"}
+                </p>
+                <p className="mt-1 text-xs font-medium leading-none text-muted-foreground">
+                  Баланс: <span className="text-foreground/90">{headerBalance ?? "—"}</span>
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 rounded-xl bg-background/50 hover:bg-background/80 transition-all hover:scale-105 [&_svg]:self-center" asChild>
+              <Link to="/cabinet/login" onClick={() => logout()} className="inline-flex h-full w-full items-center justify-center" title="Выйти" aria-label="Выйти">
                 <LogOut className="h-4 w-4 shrink-0" />
-                <span className="inline-flex items-center whitespace-nowrap leading-none">Выйти</span>
               </Link>
             </Button>
           </div>
