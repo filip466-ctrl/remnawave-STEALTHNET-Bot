@@ -233,9 +233,12 @@ def git(*args, capture=True, check=False, env=None):
             env=run_env,
         )
         stdout = (result.stdout or "").strip()
+        stderr = (result.stderr or "").strip()
         if check and result.returncode != 0:
-            stderr = (result.stderr or "").strip()
             raise RuntimeError(f"git {' '.join(args)} failed:\n{stderr}")
+        # При ошибке возвращаем stderr, чтобы caller видел сообщение
+        if result.returncode != 0 and stderr and not stdout:
+            return result.returncode, stderr
         return result.returncode, stdout
     except FileNotFoundError:
         print(f"\n{Colors.RED}  Ошибка: git не найден! Установи Git и добавь в PATH.{Colors.RESET}")
@@ -265,7 +268,48 @@ def git_last_commit():
 
 def git_local_branches():
     _, out = git("branch", "--format=%(refname:short)")
-    return [b for b in out.splitlines() if b.strip()]
+    result = []
+    for b in out.splitlines():
+        b = b.strip()
+        if not b:
+            continue
+        # Фильтруем мусор вроде "heads/origin"
+        if b.startswith("heads/"):
+            continue
+        result.append(b)
+    return result
+
+
+def git_remote_branches():
+    """Возвращает список remote-веток (без HEAD, без мусора)."""
+    _, out = git("branch", "-r", "--format=%(refname:short)")
+    result = []
+    for b in out.splitlines():
+        b = b.strip()
+        if not b or b.endswith("/HEAD"):
+            continue
+        # Фильтруем мусор вроде "heads/origin"
+        if b.startswith("heads/"):
+            continue
+        # Фильтруем голые имена remote без ветки (например "server")
+        if "/" not in b:
+            continue
+        result.append(b)
+    return result
+
+
+def git_branch_tracking():
+    """Возвращает dict: локальная ветка → remote tracking ветка (или None)."""
+    _, out = git("for-each-ref", "--format=%(refname:short) %(upstream:short)",
+                 "refs/heads/")
+    tracking = {}
+    for line in out.splitlines():
+        parts = line.strip().split(" ", 1)
+        if len(parts) == 2 and parts[1]:
+            tracking[parts[0]] = parts[1]
+        elif len(parts) >= 1:
+            tracking[parts[0]] = None
+    return tracking
 
 
 def git_all_tags(prefix="backup-"):
@@ -298,6 +342,17 @@ def draw_header():
     commit = git_last_commit()
     remotes = ", ".join(git_remote_names()) or "нет"
 
+    # Tracking info для текущей ветки
+    tracking = git_branch_tracking()
+    track_remote = tracking.get(branch)
+
+    if branch.startswith("detached"):
+        branch_display = branch
+    elif track_remote:
+        branch_display = f"{branch} → {track_remote}"
+    else:
+        branch_display = f"{branch} (локальная)"
+
     # Аккаунт и репозиторий из конфига
     cfg = load_config()
     acc_name, acc_data = get_active_account(cfg)
@@ -328,7 +383,7 @@ def draw_header():
     print(f"  {C.CYAN}{'=' * w}{C.RESET}")
     print(f"  {C.CYAN}{C.BOLD}  GIT MANAGER{C.RESET}")
     print(f"  {C.CYAN}{'=' * w}{C.RESET}")
-    print(f"  {C.GRAY}  Ветка   : {bc}{branch}{C.RESET}")
+    print(f"  {C.GRAY}  Ветка   : {bc}{branch_display}{C.RESET}")
     print(f"  {C.GRAY}  Статус  : {sc}{status_text}{C.RESET}")
     print(f"  {C.GRAY}  Коммит  : {C.WHITE}{commit}{C.RESET}")
     print(f"  {C.GRAY}  Remote  : {C.WHITE}{remotes}{C.RESET}")
@@ -549,15 +604,74 @@ def do_pull():
 
 
 def do_switch_branch():
-    branches = git_local_branches()
-    items = branches + ["[ + Создать новую ветку ]", "[ Назад ]"]
+    draw_header()
+    print(f"  {C.GRAY}Обновляю список веток...{C.RESET}")
+
+    # Fetch с авторизацией
+    cfg = load_config()
+    auth_env = get_auth_env(cfg)
+    for remote in git_remote_names():
+        git("fetch", remote, "--prune", env=auth_env)
+    cleanup_auth_env(auth_env)
+
+    local = git_local_branches()
+    remote_all = git_remote_branches()
+    current = git_branch()
+
+    # Определяем, какие локальные ветки есть на remote
+    remote_short_names = set()
+    for rb in remote_all:
+        short = rb.split("/", 1)[1] if "/" in rb else rb
+        remote_short_names.add(short)
+    local_set = set(local)
+
+    # Локальные = те, которых НЕТ на remote вообще
+    local_only = [b for b in local if b not in remote_short_names]
+
+    # Собираем список
+    items = []
+    branch_map = []  # (тип, значение)
+
+    # ── Локальные (только на ПК) ──
+    if local_only:
+        items.append(f"{C.CYAN}── Локальные ──{C.RESET}")
+        branch_map.append(("header", None))
+        for b in local_only:
+            marker = f"  {C.GREEN}★{C.RESET}" if b == current else ""
+            items.append(f"  {b}{marker}")
+            branch_map.append(("local", b))
+
+    # ── Remote ──
+    if remote_all:
+        items.append(f"{C.CYAN}── Remote ──{C.RESET}")
+        branch_map.append(("header", None))
+        for rb in remote_all:
+            short = rb.split("/", 1)[1] if "/" in rb else rb
+            has_local = short in local_set
+            is_current = short == current
+            suffix = ""
+            if has_local:
+                suffix = f"  {C.BLUE}[Л]{C.RESET}"
+            if is_current:
+                suffix += f"  {C.GREEN}★{C.RESET}"
+            items.append(f"  {rb}{suffix}")
+            branch_map.append(("remote", rb))
+
+    items.append("[ + Создать новую ветку ]")
+    branch_map.append(("create", None))
+    items.append("[ Назад ]")
+    branch_map.append(("back", None))
 
     idx = interactive_menu("ПЕРЕКЛЮЧЕНИЕ ВЕТКИ", items)
-    if idx == -1 or idx == len(items) - 1:
+    if idx == -1:
         return
 
-    if idx == len(items) - 2:
-        # Создать новую
+    kind, value = branch_map[idx]
+
+    if kind == "back" or kind == "header":
+        return
+
+    if kind == "create":
         draw_header()
         print(f"  {C.CYAN}{C.BOLD}НОВАЯ ВЕТКА{C.RESET}\n")
         name = ask("Название ветки: ")
@@ -577,14 +691,29 @@ def do_switch_branch():
         pause()
         return
 
-    selected = branches[idx]
-    rc, out = git("checkout", selected)
-    if rc == 0:
-        draw_header()
-        success(f"Переключился на '{selected}'")
-    else:
-        error(out)
-    pause()
+    if kind == "local":
+        rc, out = git("checkout", value)
+        if rc == 0:
+            draw_header()
+            success(f"Переключился на '{value}'")
+        else:
+            error(out)
+        pause()
+        return
+
+    if kind == "remote":
+        # origin/branch-name -> branch-name
+        short = value.split("/", 1)[1] if "/" in value else value
+        rc, out = git("checkout", "-b", short, "--track", value)
+        if rc != 0:
+            # Может уже есть локально — просто checkout
+            rc, out = git("checkout", short)
+        if rc == 0:
+            draw_header()
+            success(f"Переключился на '{short}' (из {value})")
+        else:
+            error(out)
+        pause()
 
 
 def do_create_backup():
