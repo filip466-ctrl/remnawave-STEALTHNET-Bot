@@ -667,6 +667,9 @@ export function SettingsPage() {
         landingStatsTariffsLabel: settings.landingStatsTariffsLabel ?? null,
         landingStatsAccessLabel: settings.landingStatsAccessLabel ?? null,
         landingStatsPaymentMethods: settings.landingStatsPaymentMethods ?? null,
+        landingReadyToConnectEyebrow: settings.landingReadyToConnectEyebrow ?? null,
+        landingReadyToConnectTitle: settings.landingReadyToConnectTitle ?? null,
+        landingReadyToConnectDesc: settings.landingReadyToConnectDesc ?? null,
       })
       .then((updated) => {
         const u = updated as AdminSettings;
@@ -3440,6 +3443,18 @@ export function SettingsPage() {
                       <Input placeholder="доступ" value={settings.landingStatsAccessLabel ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsAccessLabel: e.target.value || null } : s))} />
                       <Input placeholder="способа оплаты" value={settings.landingStatsPaymentMethods ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingStatsPaymentMethods: e.target.value || null } : s))} />
                     </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Ready to connect» (финальный CTA) — подпись</Label>
+                    <Input placeholder="ready to connect" value={settings.landingReadyToConnectEyebrow ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingReadyToConnectEyebrow: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Ready to connect» — заголовок</Label>
+                    <Input placeholder="Если честно — теперь это уже не «лендинг», а витрина продукта." value={settings.landingReadyToConnectTitle ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingReadyToConnectTitle: e.target.value || null } : s))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Блок «Ready to connect» — описание</Label>
+                    <Textarea rows={3} placeholder="Весь контент продолжает жить в админке, а визуально страница наконец ощущается как сервис, за который не стыдно брать деньги." value={settings.landingReadyToConnectDesc ?? ""} onChange={(e) => setSettings((s) => (s ? { ...s, landingReadyToConnectDesc: e.target.value || null } : s))} />
                   </div>
                   <div className="grid gap-2">
                     <Label>Блок инфраструктуры — заголовок</Label>

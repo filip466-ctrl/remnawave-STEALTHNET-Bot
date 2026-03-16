@@ -1176,12 +1176,12 @@ export function LandingPage({ config }: { config: PublicConfig }) {
 
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-3xl">
-                <p className="text-xs uppercase tracking-[0.34em]" style={{ color: withAlpha(accentTheme.tertiary, 0.75) }}>ready to connect</p>
+                <p className="text-xs uppercase tracking-[0.34em]" style={{ color: withAlpha(accentTheme.tertiary, 0.75) }}>{lc?.readyToConnectEyebrow ?? "ready to connect"}</p>
                 <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] md:text-5xl">
-                  Если честно — теперь это уже не “лендинг”, а витрина продукта.
+                  {lc?.readyToConnectTitle ?? "Если честно — теперь это уже не \"лендинг\", а витрина продукта."}
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 md:text-base">
-                  Весь контент продолжает жить в админке, а визуально страница наконец ощущается как сервис, за который не стыдно брать деньги.
+                  {lc?.readyToConnectDesc ?? "Весь контент продолжает жить в админке, а визуально страница наконец ощущается как сервис, за который не стыдно брать деньги."}
                 </p>
               </div>
 

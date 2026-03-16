@@ -1088,6 +1088,9 @@ const updateSettingsSchema = z.object({
   landingStatsTariffsLabel: z.string().max(50).nullable().optional(),
   landingStatsAccessLabel: z.string().max(50).nullable().optional(),
   landingStatsPaymentMethods: z.string().max(50).nullable().optional(),
+  landingReadyToConnectEyebrow: z.string().max(200).nullable().optional(),
+  landingReadyToConnectTitle: z.string().max(500).nullable().optional(),
+  landingReadyToConnectDesc: z.string().max(2000).nullable().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -1700,6 +1703,9 @@ adminRouter.patch("/settings", async (req, res) => {
     ["landingStatsTariffsLabel", "landing_stats_tariffs_label"],
     ["landingStatsAccessLabel", "landing_stats_access_label"],
     ["landingStatsPaymentMethods", "landing_stats_payment_methods"],
+    ["landingReadyToConnectEyebrow", "landing_ready_to_connect_eyebrow"],
+    ["landingReadyToConnectTitle", "landing_ready_to_connect_title"],
+    ["landingReadyToConnectDesc", "landing_ready_to_connect_desc"],
   ];
   for (const [key, dbKey] of landingKeys) {
     const v = updates[key];
@@ -1739,8 +1745,9 @@ const LANDING_TEXT_DB_KEYS = [
   "landing_tariff_bullet_3", "landing_lowest_tariff_desc", "landing_devices_cockpit_text",
   "landing_universality_title", "landing_universality_desc", "landing_quick_setup_title", "landing_quick_setup_desc",
   "landing_premium_service_title", "landing_premium_service_para1", "landing_premium_service_para2",
-  "landing_how_it_works_title", "landing_how_it_works_desc", "landing_stats_platforms",
+  "landing_how_it_works_title", "landing_how_it_works_desc",   "landing_stats_platforms",
   "landing_stats_tariffs_label", "landing_stats_access_label", "landing_stats_payment_methods",
+  "landing_ready_to_connect_eyebrow", "landing_ready_to_connect_title", "landing_ready_to_connect_desc",
 ];
 adminRouter.post("/settings/reset-landing-text", asyncRoute(async (req, res) => {
   for (const dbKey of LANDING_TEXT_DB_KEYS) {
