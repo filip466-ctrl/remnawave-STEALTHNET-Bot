@@ -239,8 +239,10 @@ export function ClientDashboardPage() {
           У вас пока нет привязанной подписки. Перейдите во вкладку Тарифы, чтобы выбрать и оплатить доступ.
         </p>
       </div>
-      <Button className="mt-2 shadow-lg h-11 px-6 rounded-xl hover:scale-105 transition-transform duration-300" asChild>
-        <Link to="/cabinet/tariffs">Выбрать тариф</Link>
+      <Button className="mt-2 shadow-lg h-11 px-6 rounded-xl hover:scale-105 transition-transform duration-300 [&_svg]:self-center [&_span]:leading-none" asChild>
+        <Link to="/cabinet/tariffs" className="inline-flex items-center justify-center gap-2">
+          <span className="inline-flex items-center leading-none">Выбрать тариф</span>
+        </Link>
       </Button>
     </div>
   );
@@ -373,10 +375,10 @@ export function ClientDashboardPage() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <Button className="w-full gap-2 shadow-lg h-12 rounded-xl text-md hover:scale-[1.02] transition-transform duration-300" asChild>
-                <Link to="/cabinet/subscribe">
+              <Button className="w-full gap-2 shadow-lg h-12 rounded-xl text-md hover:scale-[1.02] transition-transform duration-300 [&_svg]:self-center [&_span]:leading-none" asChild>
+                <Link to="/cabinet/subscribe" className="inline-flex w-full items-center justify-center gap-2">
                   <Wifi className="h-5 w-5 shrink-0" />
-                  Подключиться к VPN
+                  <span className="inline-flex items-center leading-none">Подключиться к VPN</span>
                 </Link>
               </Button>
             </div>
@@ -388,9 +390,9 @@ export function ClientDashboardPage() {
               <p className="text-[14px] text-muted-foreground">
                 Получите бесплатный доступ на {formatRuDays(trialDays)}.
               </p>
-              <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300" onClick={activateTrial} disabled={trialLoading}>
+              <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300 [&_svg]:self-center [&_span]:leading-none" onClick={activateTrial} disabled={trialLoading}>
                 {trialLoading ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" /> : <Gift className="h-5 w-5 shrink-0" />}
-                <span className="font-medium text-base">Активировать триал</span>
+                <span className="inline-flex items-center leading-none font-medium text-base">Активировать триал</span>
               </Button>
               {trialError && <p className="text-sm text-destructive break-words text-center">{trialError}</p>}
             </div>
@@ -400,8 +402,10 @@ export function ClientDashboardPage() {
                 <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">Ссылка появится после оплаты тарифа. Перейдите во вкладку «Тарифы» и оплатите.</p>
               </div>
-              <Button className="w-full shadow-md rounded-xl hover:scale-[1.02] transition-transform duration-300 h-12" variant="default" asChild>
-                <Link to="/cabinet/tariffs">Выбрать тариф</Link>
+              <Button className="w-full shadow-md rounded-xl hover:scale-[1.02] transition-transform duration-300 h-12 [&_svg]:self-center [&_span]:leading-none" variant="default" asChild>
+                <Link to="/cabinet/tariffs" className="inline-flex w-full items-center justify-center gap-2">
+                  <span className="inline-flex items-center leading-none">Выбрать тариф</span>
+                </Link>
               </Button>
             </div>
           )}
@@ -413,10 +417,10 @@ export function ClientDashboardPage() {
             <h2 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">Мой баланс</h2>
             <p className="text-3xl font-bold tracking-tight text-foreground">{formatMoney(client.balance, client.preferredCurrency)}</p>
           </div>
-          <Button className="gap-2 shadow-md hover:scale-105 transition-transform duration-300 rounded-2xl h-12 px-5" asChild>
-            <Link to="/cabinet/profile#topup">
+          <Button className="gap-2 shadow-md hover:scale-105 transition-transform duration-300 rounded-2xl h-12 px-5 [&_svg]:self-center [&_span]:leading-none" asChild>
+            <Link to="/cabinet/profile#topup" className="inline-flex w-full items-center justify-center gap-2">
               <PlusCircle className="h-5 w-5 shrink-0" />
-              Пополнить
+              <span className="inline-flex items-center leading-none">Пополнить</span>
             </Link>
           </Button>
         </section>
