@@ -377,9 +377,10 @@ model AutoBroadcastLog {
   rule   AutoBroadcastRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   client Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  @@unique([ruleId, clientId])
+  @@index([ruleId, clientId])
   @@index([ruleId])
   @@index([clientId])
+  @@index([sentAt])
   @@map("auto_broadcast_logs")
 }
 

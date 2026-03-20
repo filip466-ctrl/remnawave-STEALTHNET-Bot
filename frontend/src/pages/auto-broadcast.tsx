@@ -359,7 +359,7 @@ export function AutoBroadcastPage() {
                       triggerType: t,
                       delayDays:
                         t === "subscription_ending_soon"
-                          ? Math.max(1, Math.min(3, f.delayDays))
+                          ? Math.max(1, Math.min(30, f.delayDays))
                           : f.delayDays,
                     }));
                   }}
@@ -376,24 +376,24 @@ export function AutoBroadcastPage() {
                 <div className="space-y-2">
                   <Label>
                     {form.triggerType === "subscription_ending_soon"
-                      ? "За сколько дней до окончания (1–3)"
+                      ? "За сколько дней до окончания (1–30)"
                       : "Через сколько дней (0–365)"}
                   </Label>
                   <Input
                     type="number"
                     min={form.triggerType === "subscription_ending_soon" ? 1 : 0}
-                    max={form.triggerType === "subscription_ending_soon" ? 3 : 365}
+                    max={form.triggerType === "subscription_ending_soon" ? 30 : 365}
                     value={form.delayDays}
                     onChange={(e) => {
                       const v = Number(e.target.value) || 0;
                       const min = form.triggerType === "subscription_ending_soon" ? 1 : 0;
-                      const max = form.triggerType === "subscription_ending_soon" ? 3 : 365;
+                      const max = form.triggerType === "subscription_ending_soon" ? 30 : 365;
                       setForm((f) => ({ ...f, delayDays: Math.max(min, Math.min(max, v)) }));
                     }}
                   />
                   {form.triggerType === "subscription_ending_soon" && (
                     <p className="text-xs text-muted-foreground">
-                      Создайте 3 правила (за 3, за 2, за 1 день) — рассылка будет каждый день с нужным текстом.
+                      Создайте несколько правил (например, за 7, за 3, за 1 день) — рассылка будет с нужным текстом.
                     </p>
                   )}
                 </div>
