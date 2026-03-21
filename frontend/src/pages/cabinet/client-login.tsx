@@ -38,9 +38,12 @@ export function ClientLoginPage() {
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [appleEnabled, setAppleEnabled] = useState(false);
   const [tgAuthPending, setTgAuthPending] = useState(false);
+  const [showTgFallback, setShowTgFallback] = useState(false);
+  const [telegramBotId, setTelegramBotId] = useState<string | null>(null);
   const tgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tgFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchParams] = useSearchParams();
-  const { login, loginByGoogle, loginByApple, loginByTelegramDeepLink } = useClientAuth();
+  const { login, loginByGoogle, loginByApple, loginByTelegramDeepLink, registerByTelegram } = useClientAuth();
   const navigate = useNavigate();
 
   function validateEmail(value: string): string {
@@ -88,6 +91,7 @@ export function ClientLoginPage() {
       .then((c: PublicConfig) => {
         setBrand({ serviceName: c.serviceName ?? "", logo: c.logo ?? null });
         setTelegramBotUsername(c.telegramBotUsername ?? null);
+        setTelegramBotId(c.telegramBotId ?? null);
         setGoogleEnabled(!!c.googleLoginEnabled);
         setGoogleClientId(c.googleClientId ?? null);
         setPublicAppUrl(c.publicAppUrl ?? null);
@@ -99,6 +103,7 @@ export function ClientLoginPage() {
   useEffect(() => {
     return () => {
       if (tgPollRef.current) clearInterval(tgPollRef.current);
+      if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
     };
   }, []);
 
@@ -106,6 +111,7 @@ export function ClientLoginPage() {
     if (!telegramBotUsername || tgAuthPending) return;
     setError("");
     setTgAuthPending(true);
+    setShowTgFallback(false);
 
     try {
       const { token } = await api.clientTelegramLoginToken();
@@ -113,6 +119,10 @@ export function ClientLoginPage() {
       // Открываем Telegram через deep link (tg:// протокол — работает без VPN)
       const deepLink = `tg://resolve?domain=${telegramBotUsername}&start=auth_${token}`;
       window.open(deepLink, "_blank");
+
+      // Через 15 секунд показываем фоллбэк-кнопку (веб-версия OAuth)
+      if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
+      tgFallbackTimerRef.current = setTimeout(() => setShowTgFallback(true), 15_000);
 
       // Поллинг каждые 2 секунды
       if (tgPollRef.current) clearInterval(tgPollRef.current);
@@ -130,6 +140,7 @@ export function ClientLoginPage() {
           const res = await api.clientTelegramLoginCheck(token);
           if (res.confirmed) {
             if (tgPollRef.current) clearInterval(tgPollRef.current);
+            if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
             loginByTelegramDeepLink(res);
             setTgAuthPending(false);
             navigate("/cabinet/dashboard", { replace: true });
@@ -143,6 +154,39 @@ export function ClientLoginPage() {
       setError(err instanceof Error ? err.message : "Ошибка авторизации через Telegram");
     }
   }, [telegramBotUsername, tgAuthPending, loginByTelegramDeepLink, navigate]);
+
+  // Обработка callback от Telegram OAuth popup
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      // Telegram OAuth шлёт данные через postMessage с origin oauth.telegram.org
+      if (!event.origin.includes("telegram.org")) return;
+      const data = event.data as { id?: number; first_name?: string; username?: string; auth_date?: number; hash?: string } | undefined;
+      if (!data?.id) return;
+
+      // Успешная авторизация через OAuth — регистрируем/логинимся
+      if (tgPollRef.current) clearInterval(tgPollRef.current);
+      if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
+      setTgAuthPending(false);
+      setShowTgFallback(false);
+
+      registerByTelegram({
+        telegramId: String(data.id),
+        telegramUsername: data.username,
+      })
+        .then(() => navigate("/cabinet/dashboard", { replace: true }))
+        .catch((err: unknown) => setError(err instanceof Error ? err.message : "Ошибка авторизации через Telegram"));
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [registerByTelegram, navigate]);
+
+  const handleTelegramOAuthFallback = useCallback(() => {
+    if (!telegramBotId) return;
+    const origin = encodeURIComponent(window.location.origin);
+    const url = `https://oauth.telegram.org/auth?bot_id=${telegramBotId}&origin=${origin}&request_access=write`;
+    window.open(url, "telegram_oauth", "width=550,height=450,menubar=no,toolbar=no");
+  }, [telegramBotId]);
 
   const handleGoogleLogin = useCallback(() => {
     if (!googleEnabled || !googleClientId) return;
@@ -356,25 +400,38 @@ export function ClientLoginPage() {
                     </Button>
                   )}
                   {telegramBotUsername && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-11 gap-2"
-                      onClick={handleTelegramLogin}
-                      disabled={loading || tgAuthPending}
-                    >
-                      {tgAuthPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Ожидаем подтверждение…
-                        </>
-                      ) : (
-                        <>
-                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                          Войти через Telegram
-                        </>
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11 gap-2"
+                        onClick={handleTelegramLogin}
+                        disabled={loading || tgAuthPending}
+                      >
+                        {tgAuthPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Ожидаем подтверждение…
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                            Войти через Telegram
+                          </>
+                        )}
+                      </Button>
+                      {showTgFallback && telegramBotId && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full h-9 gap-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={handleTelegramOAuthFallback}
+                        >
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                          Не открылся Telegram? Войти через веб-версию
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   )}
                 </div>
               )}

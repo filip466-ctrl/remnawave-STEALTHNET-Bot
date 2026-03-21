@@ -842,6 +842,7 @@ export async function getPublicConfig() {
     remnaClientUrl: full.remnaClientUrl,
     publicAppUrl: full.publicAppUrl,
     telegramBotUsername: full.telegramBotUsername,
+    telegramBotId: full.telegramBotToken?.split(":")[0] || null,
     botAdminTelegramIds: full.botAdminTelegramIds ?? [],
     plategaMethods: full.plategaMethods.filter((m) => m.enabled).map((m) => ({ id: m.id, label: m.label })),
     yoomoneyEnabled: Boolean(full.yoomoneyReceiverWallet?.trim()),
