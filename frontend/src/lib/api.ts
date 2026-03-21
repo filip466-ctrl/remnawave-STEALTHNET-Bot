@@ -1533,6 +1533,7 @@ export interface AdminSettings {
   smtpFromName?: string | null;
   publicAppUrl?: string | null;
   telegramBotToken?: string | null;
+  defaultAutoRenewEnabled?: boolean;
   telegramBotUsername?: string | null;
   /** Telegram ID админов бота (видят кнопку «Панель админа» в боте) */
   botAdminTelegramIds?: string[] | null;
