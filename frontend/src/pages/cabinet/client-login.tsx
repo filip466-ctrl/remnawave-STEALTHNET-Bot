@@ -208,8 +208,8 @@ export function ClientLoginPage() {
       `&return_to=${encodeURIComponent(window.location.href)}`;
     const w = 550;
     const h = 470;
-    const left = Math.max(0, (screen.width - w) / 2) + (screen.availLeft ?? 0);
-    const top = Math.max(0, (screen.height - h) / 2) + (screen.availTop ?? 0);
+    const left = Math.max(0, (screen.width - w) / 2) + ((screen as unknown as Record<string, number>).availLeft || 0);
+    const top = Math.max(0, (screen.height - h) / 2) + ((screen as unknown as Record<string, number>).availTop || 0);
     const popup = window.open(
       popupUrl,
       "telegram_oauth_bot" + telegramBotId,
