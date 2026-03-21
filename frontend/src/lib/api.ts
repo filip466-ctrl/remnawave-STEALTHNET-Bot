@@ -1053,6 +1053,10 @@ export const api = {
     return request("/client/profile", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
+  async clientUpdateAutoRenew(token: string, data: { enabled?: boolean; tariffId?: string | null }): Promise<ClientProfile> {
+    return request("/client/auto-renew", { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
   async clientChangePassword(token: string, data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
     return request("/client/change-password", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -1357,6 +1361,7 @@ export type UpdateSettingsPayload = {
   customBuildCurrency?: string;
   customBuildMaxDays?: number;
   customBuildMaxDevices?: number;
+  defaultAutoRenewEnabled?: boolean;
   googleLoginEnabled?: boolean;
   googleClientId?: string | null;
   googleClientSecret?: string | null;
@@ -2038,6 +2043,8 @@ export interface ClientProfile {
   /** Включена ли двухфакторная аутентификация (TOTP) */
   totpEnabled?: boolean;
   createdAt?: string;
+  autoRenewEnabled?: boolean;
+  autoRenewTariffId?: string | null;
 }
 
 export interface ClientAuthResponse {

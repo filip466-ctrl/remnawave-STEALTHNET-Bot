@@ -29,6 +29,8 @@ import { formatRuDays } from "@/lib/i18n";
 import type { ClientPayment, ClientReferralStats } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 function formatDate(s: string | null) {
   if (!s) return "—";
@@ -116,6 +118,7 @@ export function ClientDashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
+  const [autoRenewLoading, setAutoRenewLoading] = useState(false);
 
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
@@ -180,6 +183,19 @@ export function ClientDashboardPage() {
     if (!token || !isMiniapp) return;
     api.getClientReferralStats(token).then(setReferralStats).catch(() => {});
   }, [token, isMiniapp]);
+
+  async function toggleAutoRenew(enabled: boolean) {
+    if (!token || !client) return;
+    setAutoRenewLoading(true);
+    try {
+      await api.clientUpdateAutoRenew(token, { enabled });
+      await refreshProfile();
+    } catch (err) {
+      console.error("Failed to toggle auto-renew", err);
+    } finally {
+      setAutoRenewLoading(false);
+    }
+  }
 
   async function activateTrial() {
     if (!token) return;
@@ -430,6 +446,19 @@ export function ClientDashboardPage() {
               <p className="text-2xl font-bold tracking-tight text-foreground leading-none mt-1">{formatMoney(client.balance, client.preferredCurrency)}</p>
             </div>
           </div>
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-background/40 border border-border/50">
+            <div className="flex flex-col">
+              <Label className="text-sm font-semibold">Автопродление</Label>
+              <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                Автоматическое списание<br/>при окончании подписки
+              </span>
+            </div>
+            <Switch
+              checked={client.autoRenewEnabled ?? false}
+              disabled={autoRenewLoading}
+              onCheckedChange={toggleAutoRenew}
+            />
+          </div>
           <Button className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform duration-300 rounded-xl h-12 [&_svg]:self-center [&_span]:leading-none" asChild>
             <Link to="/cabinet/profile#topup" className="inline-flex w-full items-center justify-center gap-2">
               <PlusCircle className="h-5 w-5 shrink-0" />
@@ -617,6 +646,21 @@ export function ClientDashboardPage() {
               </p>
               <p className="text-[15px] text-muted-foreground mt-3">На счету для продления тарифов</p>
             </div>
+            
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-background/40 border border-border/50 text-left">
+              <div className="flex flex-col">
+                <Label className="text-[15px] font-semibold">Автопродление</Label>
+                <span className="text-sm text-muted-foreground mt-0.5">
+                  Списание с баланса
+                </span>
+              </div>
+              <Switch
+                checked={client.autoRenewEnabled ?? false}
+                disabled={autoRenewLoading}
+                onCheckedChange={toggleAutoRenew}
+              />
+            </div>
+
             <Button variant="default" size="lg" className="w-full gap-2 shadow-lg h-14 rounded-xl text-[16px] hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" asChild>
               <Link to="/cabinet/profile#topup" className="inline-flex items-center justify-center gap-2 leading-none">
                 <PlusCircle className="h-5 w-5 shrink-0" />

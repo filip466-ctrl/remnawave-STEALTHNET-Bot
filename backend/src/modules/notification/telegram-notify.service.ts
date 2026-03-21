@@ -16,7 +16,7 @@ type AdminNotificationPreferenceRow = {
   notifyNewTicket: boolean;
 };
 
-async function sendTelegramToUser(telegramId: string, text: string): Promise<void> {
+export async function sendTelegramToUser(telegramId: string, text: string): Promise<void> {
   const config = await getSystemConfig();
   const token = config.telegramBotToken?.trim();
   if (!token) {
@@ -372,5 +372,24 @@ export async function notifySingboxSlotsCreated(clientId: string, slotIds: strin
   }
   text += "Скопируйте ссылку в приложение (v2rayN, Nekoray, Shadowrocket и др.).";
 
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+export async function notifyAutoRenewSuccess(clientId: string, tariffName: string, amount: number, currency: string): Promise<void> {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  if (!client?.telegramId) return;
+  const text = `🔄 <b>Автопродление успешно</b>\n\nТариф «${escapeHtml(tariffName)}» был автоматически продлен. Списано: ${formatMoney(amount, currency)}.`;
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+export async function notifyAutoRenewFailed(clientId: string, tariffName: string, reason: "balance" | "error"): Promise<void> {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  if (!client?.telegramId) return;
+  let text = `⚠️ <b>Ошибка автопродления</b>\n\nНе удалось автоматически продлить тариф «${escapeHtml(tariffName)}».\n`;
+  if (reason === "balance") {
+    text += "Причина: недостаточно средств на балансе.\n<i>Автопродление отключено. Пожалуйста, пополните баланс и включите его снова в кабинете.</i>";
+  } else {
+    text += "Причина: системная ошибка.\n<i>Автопродление отключено. Обратитесь в поддержку или попробуйте продлить тариф вручную.</i>";
+  }
   await sendTelegramToUser(client.telegramId, text);
 }

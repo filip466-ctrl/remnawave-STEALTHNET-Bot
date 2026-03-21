@@ -179,6 +179,7 @@ export async function getMe(token: string): Promise<{
   referralCode?: string | null;
   referralPercent?: number | null;
   trialUsed?: boolean;
+  autoRenewEnabled?: boolean;
 }> {
   return fetchJson("/api/client/auth/me", { token });
 }
@@ -287,6 +288,14 @@ export async function updateProfile(
   body: { preferredLang?: string; preferredCurrency?: string }
 ): Promise<unknown> {
   return fetchJson("/api/client/profile", { method: "PATCH", body, token });
+}
+
+/** Включить/выключить автопродление */
+export async function toggleAutoRenew(
+  token: string,
+  enabled: boolean
+): Promise<{ message: string }> {
+  return fetchJson("/api/client/auto-renew", { method: "PATCH", body: { enabled }, token });
 }
 
 /** Активировать триал */

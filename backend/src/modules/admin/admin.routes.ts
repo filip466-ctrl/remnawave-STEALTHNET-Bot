@@ -989,6 +989,7 @@ const updateSettingsSchema = z.object({
   customBuildCurrency: z.string().max(10).optional(),
   customBuildMaxDays: z.number().int().min(1).max(360).optional(),
   customBuildMaxDevices: z.number().int().min(1).max(20).optional(),
+  defaultAutoRenewEnabled: z.boolean().optional(),
   googleLoginEnabled: z.boolean().optional(),
   googleClientId: z.string().max(500).nullable().optional(),
   googleClientSecret: z.string().max(500).nullable().optional(),
@@ -1567,6 +1568,14 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "ai_chat_enabled" },
       create: { key: "ai_chat_enabled", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.defaultAutoRenewEnabled !== undefined) {
+    const val = updates.defaultAutoRenewEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "default_auto_renew_enabled" },
+      create: { key: "default_auto_renew_enabled", value: val },
       update: { value: val },
     });
   }

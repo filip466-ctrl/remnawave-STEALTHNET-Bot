@@ -1832,7 +1832,32 @@ export function SettingsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="payments">
+          <TabsContent value="payments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <CardTitle>Общие настройки платежей</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between gap-4 p-4 rounded-xl border bg-card/50">
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold">Автопродление подписки</Label>
+                    <p className="text-sm text-muted-foreground">Включать автопродление (списание с баланса) для новых клиентов по умолчанию. Пользователи смогут отключить это в личном кабинете.</p>
+                  </div>
+                  <Switch
+                    checked={settings.defaultAutoRenewEnabled ?? false}
+                    onCheckedChange={(checked) => setSettings(s => s ? { ...s, defaultAutoRenewEnabled: checked } : s)}
+                  />
+                </div>
+                {message && <p className="text-sm text-muted-foreground">{message}</p>}
+                <Button onClick={handleSubmit} disabled={saving}>
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <Collapsible defaultOpen={false} className="group">
                 <CollapsibleTrigger asChild>

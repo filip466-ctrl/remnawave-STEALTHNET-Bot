@@ -2262,10 +2262,10 @@ bot.on("callback_query:data", async (ctx) => {
       const currencies = config?.activeCurrencies?.length ? config.activeCurrencies : ["usd", "rub"];
       const { text, entities } = titleWithEmoji(
         "PROFILE",
-        `Профиль\n\nБаланс: ${formatMoney(client?.balance ?? 0, client?.preferredCurrency ?? "usd")}\nЯзык: ${client?.preferredLang ?? "ru"}\nВалюта: ${client?.preferredCurrency ?? "usd"}\n\nИзменить:`,
+        `Профиль\n\nБаланс: ${formatMoney(client?.balance ?? 0, client?.preferredCurrency ?? "usd")}\nЯзык: ${client?.preferredLang ?? "ru"}\nВалюта: ${client?.preferredCurrency ?? "usd"}\nАвтопродление с баланса: ${client?.autoRenewEnabled ? "Включено ✅" : "Отключено ❌"}\n\nИзменить:`,
         config?.botEmojis
       );
-      await editMessageContent(ctx, text, profileButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds), entities);
+      await editMessageContent(ctx, text, profileButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds, client?.autoRenewEnabled), entities);
       return;
     }
 
@@ -2362,6 +2362,24 @@ bot.on("callback_query:data", async (ctx) => {
       const currency = data.slice("set_currency:".length);
       await api.updateProfile(token, { preferredCurrency: currency });
       await editMessageContent(ctx, `Валюта изменена на ${currency.toUpperCase()}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      return;
+    }
+
+    if (data.startsWith("profile:autorenew:")) {
+      const enabled = data === "profile:autorenew:on";
+      try {
+        await api.toggleAutoRenew(token, enabled);
+        // Refresh the profile page
+        const client = await api.getMe(token);
+        const { text, entities } = titleWithEmoji(
+          "PROFILE",
+          `Профиль\n\nБаланс: ${formatMoney(client?.balance ?? 0, client?.preferredCurrency ?? "usd")}\nЯзык: ${client?.preferredLang ?? "ru"}\nВалюта: ${client?.preferredCurrency ?? "usd"}\nАвтопродление с баланса: ${client?.autoRenewEnabled ? "Включено ✅" : "Отключено ❌"}\n\nИзменить:`,
+          config?.botEmojis
+        );
+        await editMessageContent(ctx, text, profileButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds, client?.autoRenewEnabled), entities);
+      } catch (err: any) {
+        await ctx.answerCallbackQuery({ text: err.message || "Ошибка", show_alert: true });
+      }
       return;
     }
 
