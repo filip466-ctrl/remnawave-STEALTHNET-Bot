@@ -155,38 +155,97 @@ export function ClientLoginPage() {
     }
   }, [telegramBotUsername, tgAuthPending, loginByTelegramDeepLink, navigate]);
 
-  // Обработка callback от Telegram OAuth popup
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      // Telegram OAuth шлёт данные через postMessage с origin oauth.telegram.org
-      if (!event.origin.includes("telegram.org")) return;
-      const data = event.data as { id?: number; first_name?: string; username?: string; auth_date?: number; hash?: string } | undefined;
-      if (!data?.id) return;
+  // Обработка OAuth авторизации через Telegram (popup)
+  const tgOAuthPopupRef = useRef<Window | null>(null);
+  const tgOAuthDoneRef = useRef(false);
 
-      // Успешная авторизация через OAuth — регистрируем/логинимся
+  const handleTgOAuthResult = useCallback(
+    (authData: { id?: number; username?: string } | false | undefined) => {
+      if (!authData || !authData.id || tgOAuthDoneRef.current) return;
+      tgOAuthDoneRef.current = true;
+
       if (tgPollRef.current) clearInterval(tgPollRef.current);
       if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
       setTgAuthPending(false);
       setShowTgFallback(false);
 
       registerByTelegram({
-        telegramId: String(data.id),
-        telegramUsername: data.username,
+        telegramId: String(authData.id),
+        telegramUsername: authData.username,
       })
         .then(() => navigate("/cabinet/dashboard", { replace: true }))
         .catch((err: unknown) => setError(err instanceof Error ? err.message : "Ошибка авторизации через Telegram"));
+    },
+    [registerByTelegram, navigate],
+  );
+
+  // Слушаем postMessage от попапа (Telegram шлёт JSON-строку с event:"auth_result")
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (!event.origin.includes("telegram.org")) return;
+      if (tgOAuthPopupRef.current && event.source !== tgOAuthPopupRef.current) return;
+      try {
+        const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        if (data?.event === "auth_result") {
+          handleTgOAuthResult(data.result);
+        }
+      } catch {
+        // не JSON — игнорируем
+      }
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [registerByTelegram, navigate]);
+  }, [handleTgOAuthResult]);
 
   const handleTelegramOAuthFallback = useCallback(() => {
     if (!telegramBotId) return;
-    const origin = encodeURIComponent(window.location.origin);
-    const url = `https://oauth.telegram.org/auth?bot_id=${telegramBotId}&origin=${origin}&request_access=write`;
-    window.open(url, "telegram_oauth", "width=550,height=450,menubar=no,toolbar=no");
-  }, [telegramBotId]);
+    tgOAuthDoneRef.current = false;
+    const popupUrl =
+      `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(telegramBotId)}` +
+      `&origin=${encodeURIComponent(window.location.origin)}` +
+      `&request_access=write` +
+      `&return_to=${encodeURIComponent(window.location.href)}`;
+    const w = 550;
+    const h = 470;
+    const left = Math.max(0, (screen.width - w) / 2) + (screen.availLeft ?? 0);
+    const top = Math.max(0, (screen.height - h) / 2) + (screen.availTop ?? 0);
+    const popup = window.open(
+      popupUrl,
+      "telegram_oauth_bot" + telegramBotId,
+      `width=${w},height=${h},left=${left},top=${top},status=0,location=0,menubar=0,toolbar=0`,
+    );
+    tgOAuthPopupRef.current = popup;
+
+    // Мониторим закрытие попапа — если юзер уже залогинен, Telegram закроет окно
+    // и данные нужно получить через XHR fallback (как делает оригинальный виджет)
+    if (popup) {
+      const checkClosed = () => {
+        if (!popup || popup.closed) {
+          if (tgOAuthDoneRef.current) return;
+          // Попап закрылся без postMessage — пробуем получить данные через API
+          fetch("https://oauth.telegram.org/auth/get", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            credentials: "include",
+            body: `bot_id=${encodeURIComponent(telegramBotId)}`,
+          })
+            .then((r) => r.json())
+            .then((result: { user?: { id?: number; username?: string }; origin?: string }) => {
+              if (result.user) {
+                handleTgOAuthResult(result.user);
+              }
+            })
+            .catch(() => {
+              // XHR fallback тоже не сработал — ничего не делаем
+            });
+          return;
+        }
+        setTimeout(checkClosed, 100);
+      };
+      setTimeout(checkClosed, 100);
+    }
+  }, [telegramBotId, handleTgOAuthResult]);
 
   const handleGoogleLogin = useCallback(() => {
     if (!googleEnabled || !googleClientId) return;
