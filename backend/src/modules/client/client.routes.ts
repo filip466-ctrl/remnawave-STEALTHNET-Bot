@@ -701,7 +701,7 @@ clientAuthRouter.post("/telegram-login-token", async (_req, res) => {
       where: { expiresAt: { lt: new Date() } },
     });
 
-    const token = randomBytes(32).toString("hex");
+    const token = randomBytes(16).toString("hex"); // 32 hex chars — with "auth_" prefix = 37, well under Telegram's 64-char start param limit
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 минут
 
     const record = await prisma.telegramAuthToken.create({
