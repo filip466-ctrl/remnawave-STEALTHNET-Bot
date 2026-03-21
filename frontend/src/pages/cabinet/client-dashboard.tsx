@@ -115,6 +115,7 @@ export function ClientDashboardPage() {
   const [trialError, setTrialError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
+  const [deviceCount, setDeviceCount] = useState<number | null>(null);
 
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
@@ -156,13 +157,15 @@ export function ClientDashboardPage() {
     Promise.all([
       api.clientSubscription(token),
       api.clientPayments(token),
+      api.getClientDevices(token).catch(() => ({ total: 0 })),
     ])
-      .then(([subRes, payRes]) => {
+      .then(([subRes, payRes, devRes]) => {
         if (cancelled) return;
         setSubscription(subRes.subscription ?? null);
         setTariffDisplayName(subRes.tariffDisplayName ?? null);
         if (subRes.message) setSubscriptionError(subRes.message);
         setPayments(payRes.items ?? []);
+        setDeviceCount(devRes.total ?? null);
       })
       .catch((e) => {
         if (!cancelled) setSubscriptionError(e instanceof Error ? e.message : "Ошибка загрузки");
@@ -289,6 +292,11 @@ export function ClientDashboardPage() {
                 {daysLeft != null && (
                   <span className="text-sm font-semibold text-foreground bg-foreground/5 px-3 py-1.5 rounded-full border border-border/50">
                     Осталось {daysLeft} {daysLeft === 1 ? "день" : daysLeft < 5 ? "дня" : "дней"}
+                  </span>
+                )}
+                {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0 && deviceCount != null && (
+                  <span className="text-sm font-semibold text-foreground bg-primary/10 text-primary px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-1.5">
+                    📱 {deviceCount} / {subParsed.hwidDeviceLimit}
                   </span>
                 )}
               </div>
@@ -522,7 +530,7 @@ export function ClientDashboardPage() {
               <NoSubscriptionState />
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-wrap mb-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/20">
                     <span className="h-1.5 w-1.5 rounded-full bg-current" />
                     Активна
@@ -530,6 +538,11 @@ export function ClientDashboardPage() {
                   {daysLeft != null && (
                     <span className="text-sm font-semibold text-foreground bg-foreground/5 px-3 py-1.5 rounded-full border border-border/50 shadow-sm">
                       Осталось {daysLeft} {daysLeft === 1 ? "день" : daysLeft < 5 ? "дня" : "дней"}
+                    </span>
+                  )}
+                  {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0 && deviceCount != null && (
+                    <span className="text-sm font-semibold text-foreground bg-primary/10 text-primary px-3 py-1.5 rounded-full border border-primary/20 shadow-sm flex items-center gap-1.5">
+                      📱 {deviceCount} / {subParsed.hwidDeviceLimit}
                     </span>
                   )}
                 </div>
