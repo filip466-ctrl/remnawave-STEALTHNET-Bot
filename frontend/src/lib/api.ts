@@ -827,6 +827,16 @@ export const api = {
     });
   },
 
+  /** Генерация одноразового токена для deep-link авторизации через Telegram */
+  async clientTelegramLoginToken(): Promise<{ token: string; expiresAt: string }> {
+    return request("/client/auth/telegram-login-token", { method: "POST" });
+  },
+
+  /** Проверка статуса deep-link авторизации (поллинг) */
+  async clientTelegramLoginCheck(token: string): Promise<(ClientAuthResponse & { confirmed: true }) | (ClientAuthRequires2FA & { confirmed: true }) | { confirmed: false }> {
+    return request(`/client/auth/telegram-login-check?token=${encodeURIComponent(token)}`);
+  },
+
   /** Обмен временного токена (после пароля/Telegram) на полный токен по коду 2FA */
   async client2FALogin(tempToken: string, code: string): Promise<ClientAuthResponse> {
     return request("/client/auth/2fa-login", {

@@ -687,6 +687,30 @@ bot.command("start", async (ctx) => {
   const telegramUsername = from.username ?? undefined;
   const payload = ctx.match?.trim() || "";
 
+  // Deep-link авторизация на сайте: /start auth_TOKEN
+  if (/^auth_/i.test(payload)) {
+    const authToken = payload.replace(/^auth_/i, "");
+    if (!authToken) {
+      await ctx.reply("❌ Некорректная ссылка авторизации.");
+      return;
+    }
+    try {
+      await api.confirmTelegramAuth(authToken, from.id, telegramUsername);
+      await ctx.reply("✅ Авторизация подтверждена! Вернитесь на сайт — вход выполнится автоматически.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Неизвестная ошибка";
+      console.error("[/start auth_] confirm error:", msg);
+      if (msg.includes("expired") || msg.includes("410")) {
+        await ctx.reply("⏰ Ссылка авторизации истекла. Попробуйте снова на сайте.");
+      } else if (msg.includes("already confirmed") || msg.includes("409")) {
+        await ctx.reply("ℹ️ Эта ссылка уже была использована. Попробуйте снова на сайте.");
+      } else {
+        await ctx.reply("❌ Не удалось подтвердить авторизацию. Попробуйте снова.");
+      }
+    }
+    return;
+  }
+
   // Определяем тип deeplink
   const isPromo = /^promo_/i.test(payload);
   const promoCode = isPromo ? payload.replace(/^promo_/i, "") : undefined;

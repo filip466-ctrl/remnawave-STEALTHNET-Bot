@@ -46,6 +46,25 @@ export async function linkTelegramFromBot(code: string, telegramId: number, tele
   return data as { message: string };
 }
 
+/** Подтверждение deep-link авторизации (бот → API) */
+export async function confirmTelegramAuth(token: string, telegramId: number, telegramUsername?: string): Promise<{ ok: boolean }> {
+  const botToken = process.env.BOT_TOKEN || "";
+  const res = await fetch(`${API_URL}/api/client/auth/telegram-login-confirm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Telegram-Bot-Token": botToken,
+    },
+    body: JSON.stringify({ token: token.trim(), telegramId, telegramUsername: telegramUsername ?? "" }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+  if (!res.ok) {
+    const msg = typeof data.message === "string" ? data.message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data as { ok: boolean };
+}
+
 /** Активный конкурс (для меню и ежедневной рассылки) */
 export async function getActiveContest(): Promise<{
   active: boolean;

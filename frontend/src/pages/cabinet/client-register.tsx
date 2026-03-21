@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { UserPlus, Shield, Mail } from "lucide-react";
+import { UserPlus, Shield, Mail, Loader2 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import type { PublicConfig } from "@/lib/api";
@@ -95,11 +95,12 @@ export function ClientRegisterPage() {
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [appleEnabled, setAppleEnabled] = useState(false);
-  const telegramWidgetRef = useRef<HTMLDivElement>(null);
+  const [tgAuthPending, setTgAuthPending] = useState(false);
+  const tgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get("ref")?.trim() || undefined;
   const utm = useUtmCapture(searchParams);
-  const { register, registerByTelegram, loginByGoogle, loginByApple } = useClientAuth();
+  const { register, loginByGoogle, loginByApple, loginByTelegramDeepLink } = useClientAuth();
   const navigate = useNavigate();
 
   function validateEmail(value: string): string {
@@ -160,27 +161,50 @@ export function ClientRegisterPage() {
   }, []);
 
   useEffect(() => {
-    if (!telegramBotUsername || !telegramWidgetRef.current) return;
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", telegramBotUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-radius", "8");
-    script.setAttribute("data-onauth", "onTelegramAuth(user)");
-    script.async = true;
-    (window as unknown as { onTelegramAuth: (user: { id: number; first_name?: string; username?: string }) => void }).onTelegramAuth = (user) => {
-      registerByTelegram({
-        telegramId: String(user.id),
-        telegramUsername: user.username ?? undefined,
-        preferredLang: defaults.lang,
-        preferredCurrency: defaults.currency,
-        referralCode: refCode,
-        ...utm,
-      }).then(() => navigate("/cabinet/onboarding", { replace: true }));
+    return () => {
+      if (tgPollRef.current) clearInterval(tgPollRef.current);
     };
-    telegramWidgetRef.current.innerHTML = "";
-    telegramWidgetRef.current.appendChild(script);
-  }, [telegramBotUsername, registerByTelegram, navigate, defaults.lang, defaults.currency, refCode, utm]);
+  }, []);
+
+  const handleTelegramRegister = useCallback(async () => {
+    if (!telegramBotUsername || tgAuthPending) return;
+    setError("");
+    setTgAuthPending(true);
+
+    try {
+      const { token } = await api.clientTelegramLoginToken();
+
+      const deepLink = `tg://resolve?domain=${telegramBotUsername}&start=auth_${token}`;
+      window.open(deepLink, "_blank");
+
+      if (tgPollRef.current) clearInterval(tgPollRef.current);
+      let attempts = 0;
+      const maxAttempts = 150; // 5 минут
+      tgPollRef.current = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+          if (tgPollRef.current) clearInterval(tgPollRef.current);
+          setTgAuthPending(false);
+          setError("Время ожидания истекло. Попробуйте снова.");
+          return;
+        }
+        try {
+          const res = await api.clientTelegramLoginCheck(token);
+          if (res.confirmed) {
+            if (tgPollRef.current) clearInterval(tgPollRef.current);
+            loginByTelegramDeepLink(res);
+            setTgAuthPending(false);
+            navigate("/cabinet/dashboard", { replace: true });
+          }
+        } catch {
+          // Ошибка поллинга — продолжаем
+        }
+      }, 2000);
+    } catch (err) {
+      setTgAuthPending(false);
+      setError(err instanceof Error ? err.message : "Ошибка авторизации через Telegram");
+    }
+  }, [telegramBotUsername, tgAuthPending, loginByTelegramDeepLink, navigate]);
 
   const handleGoogleLogin = useCallback(() => {
     if (!googleEnabled || !googleClientId) return;
@@ -418,7 +442,25 @@ export function ClientRegisterPage() {
                     </Button>
                   )}
                   {telegramBotUsername && (
-                    <div ref={telegramWidgetRef} className="flex justify-center min-h-[44px]" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-11 gap-2"
+                      onClick={handleTelegramRegister}
+                      disabled={loading || tgAuthPending}
+                    >
+                      {tgAuthPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Ожидаем подтверждение…
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                          Зарегистрироваться через Telegram
+                        </>
+                      )}
+                    </Button>
                   )}
                 </div>
               )}

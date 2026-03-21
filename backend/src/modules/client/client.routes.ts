@@ -691,6 +691,177 @@ clientAuthRouter.post("/apple", async (req, res) => {
   return res.status(201).json({ token, client: toClientShape(client) });
 });
 
+// ——— Deep-link Telegram авторизация (tg:// протокол, обходит блокировки) ———
+
+// 1) Генерация одноразового токена для deep-link авторизации
+clientAuthRouter.post("/telegram-login-token", async (_req, res) => {
+  try {
+    // Чистим просроченные токены
+    await prisma.telegramAuthToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 минут
+
+    const record = await prisma.telegramAuthToken.create({
+      data: { token, expiresAt },
+    });
+
+    return res.json({ token: record.token, expiresAt: record.expiresAt.toISOString() });
+  } catch (err) {
+    console.error("[telegram-login-token] error:", err);
+    return res.status(500).json({ message: "Failed to generate auth token" });
+  }
+});
+
+// 2) Поллинг: проверяем, подтвердил ли пользователь токен через бота
+clientAuthRouter.get("/telegram-login-check", async (req, res) => {
+  const { token } = req.query;
+  if (typeof token !== "string" || !token.trim()) {
+    return res.status(400).json({ message: "Missing token" });
+  }
+
+  try {
+    const record = await prisma.telegramAuthToken.findUnique({
+      where: { token: token.trim() },
+    });
+
+    if (!record) {
+      return res.status(404).json({ message: "Token not found or expired" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
+      return res.status(410).json({ message: "Token expired" });
+    }
+
+    if (!record.confirmedTelegramId) {
+      return res.json({ confirmed: false });
+    }
+
+    // Токен подтверждён — ищем/создаём клиента
+    const telegramId = record.confirmedTelegramId;
+    const telegramUsername = record.confirmedUsername ?? null;
+
+    // Удаляем использованный токен
+    await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
+
+    const clientSelect = { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true };
+
+    const existing = await prisma.client.findUnique({
+      where: { telegramId },
+      select: clientSelect,
+    });
+
+    if (existing) {
+      if (existing.isBlocked) return res.status(403).json({ message: "Account is blocked" });
+      // Обновляем username если изменился
+      if (telegramUsername && existing.telegramUsername !== telegramUsername) {
+        await prisma.client.update({ where: { id: existing.id }, data: { telegramUsername } }).catch(() => {});
+      }
+      const auth = buildAuthResponse(existing);
+      return res.json({ confirmed: true, ...auth });
+    }
+
+    // Новый клиент — регистрируем
+    const configForDefaults = await getSystemConfig();
+    let remnawaveUuid: string | null = null;
+    if (isRemnaConfigured()) {
+      const username = remnaUsernameFromClient({
+        telegramUsername: telegramUsername ?? undefined,
+        telegramId,
+      });
+      const remnaRes = await remnaCreateUser({
+        username,
+        trafficLimitBytes: 0,
+        trafficLimitStrategy: "NO_RESET",
+        expireAt: new Date(Date.now() - 1000).toISOString(),
+        telegramId: Number(telegramId),
+      });
+      remnawaveUuid = extractRemnaUuid(remnaRes.data);
+      if (remnaRes.error || remnawaveUuid == null) {
+        console.error("[Remna] create user (telegram deeplink) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
+        return res.status(503).json({ message: "Сервис временно недоступен. Попробуйте позже." });
+      }
+    }
+
+    const referralCode = generateReferralCode();
+    const client = await prisma.client.create({
+      data: {
+        email: null,
+        passwordHash: null,
+        remnawaveUuid,
+        referralCode,
+        referrerId: null,
+        preferredLang: configForDefaults.defaultLanguage ?? "ru",
+        preferredCurrency: configForDefaults.defaultCurrency ?? "usd",
+        telegramId,
+        telegramUsername,
+      },
+    });
+
+    notifyAdminsAboutNewClient(client.id).catch(() => {});
+    const jwt = signClientToken(client.id);
+    return res.json({ confirmed: true, token: jwt, client: toClientShape(client) });
+  } catch (err) {
+    console.error("[telegram-login-check] error:", err);
+    return res.status(500).json({ message: "Internal error" });
+  }
+});
+
+// 3) Подтверждение токена ботом (бот вызывает этот эндпоинт, когда юзер отправляет /start auth_TOKEN)
+clientAuthRouter.post("/telegram-login-confirm", async (req, res) => {
+  // Проверяем что запрос от нашего бота
+  const config = await getSystemConfig();
+  const expectedBotToken = (config.telegramBotToken ?? "").trim();
+  const receivedBotToken = (req.headers["x-telegram-bot-token"] as string ?? "").trim();
+
+  if (!expectedBotToken || receivedBotToken !== expectedBotToken) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+
+  const { token, telegramId, telegramUsername } = req.body ?? {};
+  if (typeof token !== "string" || !token.trim()) {
+    return res.status(400).json({ message: "Missing token" });
+  }
+  if (telegramId == null) {
+    return res.status(400).json({ message: "Missing telegramId" });
+  }
+
+  try {
+    const record = await prisma.telegramAuthToken.findUnique({
+      where: { token: token.trim() },
+    });
+
+    if (!record) {
+      return res.status(404).json({ message: "Token not found" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
+      return res.status(410).json({ message: "Token expired" });
+    }
+
+    if (record.confirmedTelegramId) {
+      return res.status(409).json({ message: "Token already confirmed" });
+    }
+
+    await prisma.telegramAuthToken.update({
+      where: { id: record.id },
+      data: {
+        confirmedTelegramId: String(telegramId),
+        confirmedUsername: telegramUsername ? String(telegramUsername) : null,
+      },
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[telegram-login-confirm] error:", err);
+    return res.status(500).json({ message: "Internal error" });
+  }
+});
+
 // Единый роутер /api/client: /auth (логин, регистрация, me) + кабинет (подписка, платежи)
 export const clientRouter = Router();
 clientRouter.use("/auth", clientAuthRouter);

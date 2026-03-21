@@ -614,3 +614,16 @@ model ContestWinner {
   @@index([contestId])
   @@map("contest_winners")
 }
+
+model TelegramAuthToken {
+  id                  String    @id @default(cuid())
+  token               String    @unique
+  confirmedTelegramId String?   @map("confirmed_telegram_id")
+  confirmedUsername    String?   @map("confirmed_username")
+  expiresAt           DateTime  @map("expires_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("telegram_auth_tokens")
+}
