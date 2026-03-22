@@ -249,6 +249,64 @@ adminRouter.get("/dashboard/stats", async (_req, res) => {
   });
 });
 
+adminRouter.get("/auto-renew/stats", async (_req, res) => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    totalAutoRenewEnabled,
+    totalAutoRenewDisabled,
+    retriesInProgress,
+    renewalsLast30Days,
+    renewalsLast7Days,
+    renewalAmountLast30Days,
+  ] = await Promise.all([
+    // Clients with auto-renewal enabled
+    prisma.client.count({ where: { autoRenewEnabled: true, autoRenewTariffId: { not: null } } }),
+    // Clients who had it but now disabled
+    prisma.client.count({ where: { autoRenewEnabled: false, autoRenewTariffId: { not: null } } }),
+    // Clients currently in retry state
+    prisma.client.count({ where: { autoRenewEnabled: true, autoRenewRetryCount: { gt: 0 } } }),
+    // Successful auto-renewals (balance payments with tariff) in 30 days
+    prisma.payment.count({
+      where: {
+        provider: "balance",
+        status: "PAID",
+        tariffId: { not: null },
+        paidAt: { gte: thirtyDaysAgo },
+      },
+    }),
+    // Successful auto-renewals in 7 days
+    prisma.payment.count({
+      where: {
+        provider: "balance",
+        status: "PAID",
+        tariffId: { not: null },
+        paidAt: { gte: sevenDaysAgo },
+      },
+    }),
+    // Total amount of balance-tariff payments in 30 days
+    prisma.payment.aggregate({
+      where: {
+        provider: "balance",
+        status: "PAID",
+        tariffId: { not: null },
+        paidAt: { gte: thirtyDaysAgo },
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  return res.json({
+    enabled: totalAutoRenewEnabled,
+    disabled: totalAutoRenewDisabled,
+    retriesInProgress,
+    renewalsLast7Days,
+    renewalsLast30Days,
+    amountLast30Days: renewalAmountLast30Days._sum.amount ?? 0,
+  });
+});
+
 adminRouter.get("/notifications/counters", asyncRoute(async (_req, res) => {
   const [totalClients, totalTickets, totalTariffPayments, totalBalanceTopups] = await Promise.all([
     prisma.client.count(),
@@ -1007,6 +1065,10 @@ const updateSettingsSchema = z.object({
   customBuildMaxDays: z.number().int().min(1).max(360).optional(),
   customBuildMaxDevices: z.number().int().min(1).max(20).optional(),
   defaultAutoRenewEnabled: z.boolean().optional(),
+  autoRenewDaysBeforeExpiry: z.number().int().min(1).max(30).optional(),
+  autoRenewNotifyDaysBefore: z.number().int().min(1).max(30).optional(),
+  autoRenewGracePeriodDays: z.number().int().min(0).max(14).optional(),
+  autoRenewMaxRetries: z.number().int().min(1).max(10).optional(),
   googleLoginEnabled: z.boolean().optional(),
   googleClientId: z.string().max(500).nullable().optional(),
   googleClientSecret: z.string().max(500).nullable().optional(),
@@ -1593,6 +1655,23 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "default_auto_renew_enabled" },
       create: { key: "default_auto_renew_enabled", value: val },
+      update: { value: val },
+    });
+  }
+  // Auto-renewal numeric settings
+  const autoRenewNumericKeys: [keyof typeof updates, string][] = [
+    ["autoRenewDaysBeforeExpiry", "auto_renew_days_before_expiry"],
+    ["autoRenewNotifyDaysBefore", "auto_renew_notify_days_before"],
+    ["autoRenewGracePeriodDays", "auto_renew_grace_period_days"],
+    ["autoRenewMaxRetries", "auto_renew_max_retries"],
+  ];
+  for (const [key, dbKey] of autoRenewNumericKeys) {
+    const v = updates[key];
+    if (v === undefined) continue;
+    const val = String(v);
+    await prisma.systemSetting.upsert({
+      where: { key: dbKey },
+      create: { key: dbKey, value: val },
       update: { value: val },
     });
   }

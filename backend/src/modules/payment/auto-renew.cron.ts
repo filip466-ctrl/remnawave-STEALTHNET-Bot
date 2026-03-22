@@ -3,7 +3,13 @@ import { prisma } from "../../db.js";
 import { randomUUID } from "crypto";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { remnaGetUser, isRemnaConfigured } from "../remna/remna.client.js";
-import { notifyAutoRenewSuccess, notifyAutoRenewFailed } from "../notification/telegram-notify.service.js";
+import { getSystemConfig } from "../client/client.service.js";
+import {
+  notifyAutoRenewSuccess,
+  notifyAutoRenewFailed,
+  notifyAutoRenewUpcoming,
+  notifyAutoRenewRetry,
+} from "../notification/telegram-notify.service.js";
 
 // Run every hour at minute 0
 export function startAutoRenewScheduler() {
@@ -17,11 +23,24 @@ export function startAutoRenewScheduler() {
   });
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export async function processAutoRenewals() {
   if (!isRemnaConfigured()) {
     console.warn("[auto-renew] Remna is not configured. Skipping.");
     return;
   }
+
+  // Load configurable settings
+  const config = await getSystemConfig();
+  const daysBeforeExpiry = config.autoRenewDaysBeforeExpiry ?? 1;
+  const notifyDaysBefore = config.autoRenewNotifyDaysBefore ?? 3;
+  const gracePeriodDays = config.autoRenewGracePeriodDays ?? 2;
+  const maxRetries = config.autoRenewMaxRetries ?? 3;
+
+  const renewThreshold = daysBeforeExpiry * DAY_MS;
+  const notifyThreshold = notifyDaysBefore * DAY_MS;
+  const gracePeriod = gracePeriodDays * DAY_MS;
 
   // Find clients with autoRenewEnabled and an associated tariff
   const clients = await prisma.client.findMany({
@@ -35,8 +54,6 @@ export async function processAutoRenewals() {
   });
 
   const now = Date.now();
-  // 24 hours in milliseconds
-  const RENEW_THRESHOLD = 24 * 60 * 60 * 1000;
 
   for (const client of clients) {
     if (!client.remnawaveUuid || !client.autoRenewTariff) continue;
@@ -48,35 +65,61 @@ export async function processAutoRenewals() {
         console.error(`[auto-renew] Failed to fetch remna user ${client.remnawaveUuid}:`, remnaUser.error);
         continue;
       }
-      
-      const userData = (remnaUser.data as any)?.response ?? (remnaUser.data as any);
-      if (!userData || !userData.expireAt) continue;
 
-      const expireAtDate = new Date(userData.expireAt);
+      const userData = (remnaUser.data as Record<string, unknown>)?.response ?? (remnaUser.data as Record<string, unknown>);
+      if (!userData || typeof userData !== "object") continue;
+      const expireAtRaw = (userData as Record<string, unknown>).expireAt;
+      if (!expireAtRaw) continue;
+
+      const expireAtDate = new Date(expireAtRaw as string);
       if (Number.isNaN(expireAtDate.getTime())) continue;
 
       const timeLeft = expireAtDate.getTime() - now;
 
-      // Renew if less than 24 hours left, AND not expired more than 3 days ago (to prevent reviving ancient dead subs)
-      // Actually, if it's already expired, Remnawave keeps it. Let's just say if timeLeft < 24 hours and timeLeft > - (3 * 24h)
-      if (timeLeft <= RENEW_THRESHOLD && timeLeft >= -(3 * 24 * 60 * 60 * 1000)) {
-        console.log(`[auto-renew] Client ${client.id} needs renewal. Balance: ${client.balance}, Price: ${client.autoRenewTariff.price}`);
-        
-        if (client.balance >= client.autoRenewTariff.price) {
-          // Enough balance -> Renew
-          
-          // Deduct balance and create payment transaction
+      // === Phase 1: "Upcoming charge" notification ===
+      // Notify when timeLeft <= notifyThreshold AND hasn't been notified in the last 24h
+      if (timeLeft > 0 && timeLeft <= notifyThreshold) {
+        const shouldNotify =
+          !client.autoRenewNotifiedAt ||
+          now - client.autoRenewNotifiedAt.getTime() > DAY_MS;
+
+        if (shouldNotify && client.balance < client.autoRenewTariff.price) {
+          await notifyAutoRenewUpcoming(
+            client.id,
+            client.autoRenewTariff.name,
+            client.autoRenewTariff.price,
+            client.autoRenewTariff.currency,
+            Math.max(0, Math.ceil(timeLeft / DAY_MS)),
+          );
+          await prisma.client.update({
+            where: { id: client.id },
+            data: { autoRenewNotifiedAt: new Date() },
+          });
+        }
+      }
+
+      // === Phase 2: Renewal logic ===
+      // Only attempt renewal when within threshold, and not expired too long ago (3 days max)
+      if (timeLeft <= renewThreshold && timeLeft >= -(3 * DAY_MS)) {
+        const tariffPrice = client.autoRenewTariff.price;
+
+        if (client.balance >= tariffPrice) {
+          // Enough balance → RENEW
           await prisma.$transaction(async (tx) => {
             await tx.client.update({
               where: { id: client.id },
-              data: { balance: { decrement: client.autoRenewTariff!.price } },
+              data: {
+                balance: { decrement: tariffPrice },
+                autoRenewRetryCount: 0, // reset retries on success
+                autoRenewNotifiedAt: null, // reset notification flag
+              },
             });
 
             const payment = await tx.payment.create({
               data: {
                 clientId: client.id,
                 orderId: randomUUID(),
-                amount: client.autoRenewTariff!.price,
+                amount: tariffPrice,
                 currency: client.autoRenewTariff!.currency.toUpperCase(),
                 status: "PAID",
                 provider: "balance",
@@ -90,34 +133,100 @@ export async function processAutoRenewals() {
               throw new Error(`Activation failed: ${activationRes.error}`);
             }
 
-            // Distribute referrals if possible
+            // Distribute referral rewards asynchronously
             import("../referral/referral.service.js")
-              .then(m => m.distributeReferralRewards(payment.id))
-              .catch(e => console.error("[auto-renew] Referral reward error:", e));
+              .then((m) => m.distributeReferralRewards(payment.id))
+              .catch((e) => console.error("[auto-renew] Referral reward error:", e));
           });
 
-          await notifyAutoRenewSuccess(client.id, client.autoRenewTariff.name, client.autoRenewTariff.price, client.autoRenewTariff.currency);
+          await notifyAutoRenewSuccess(
+            client.id,
+            client.autoRenewTariff.name,
+            tariffPrice,
+            client.autoRenewTariff.currency,
+          );
           console.log(`[auto-renew] Client ${client.id} successfully renewed.`);
         } else {
-          // Not enough balance -> Disable auto-renew and notify
-          await prisma.client.update({
-            where: { id: client.id },
-            data: { autoRenewEnabled: false },
-          });
-          await notifyAutoRenewFailed(client.id, client.autoRenewTariff.name, "balance");
-          console.log(`[auto-renew] Client ${client.id} failed to renew due to insufficient balance.`);
+          // Insufficient balance → retry or disable
+          const currentRetryCount = client.autoRenewRetryCount ?? 0;
+
+          if (currentRetryCount < maxRetries) {
+            // Still have retries left — increment counter, notify retry
+            const newRetryCount = currentRetryCount + 1;
+            await prisma.client.update({
+              where: { id: client.id },
+              data: { autoRenewRetryCount: newRetryCount },
+            });
+
+            await notifyAutoRenewRetry(
+              client.id,
+              client.autoRenewTariff.name,
+              tariffPrice,
+              client.autoRenewTariff.currency,
+              newRetryCount,
+              maxRetries,
+            );
+            console.log(
+              `[auto-renew] Client ${client.id} insufficient balance. Retry ${newRetryCount}/${maxRetries}.`,
+            );
+          } else {
+            // All retries exhausted — check grace period
+            const expiredSince = timeLeft < 0 ? Math.abs(timeLeft) : 0;
+
+            if (expiredSince >= gracePeriod) {
+              // Grace period over → disable auto-renewal
+              await prisma.client.update({
+                where: { id: client.id },
+                data: {
+                  autoRenewEnabled: false,
+                  autoRenewRetryCount: 0,
+                  autoRenewNotifiedAt: null,
+                },
+              });
+              await notifyAutoRenewFailed(
+                client.id,
+                client.autoRenewTariff.name,
+                "balance",
+              );
+              console.log(
+                `[auto-renew] Client ${client.id} failed: all retries exhausted + grace period over. Auto-renew disabled.`,
+              );
+            } else {
+              // Still within grace period — keep trying each hour
+              console.log(
+                `[auto-renew] Client ${client.id} retries exhausted but grace period active. Will keep checking.`,
+              );
+            }
+          }
         }
       }
     } catch (e) {
       console.error(`[auto-renew] Error processing client ${client.id}:`, e);
-      // We can disable it on unexpected error to be safe, or leave it to try again next hour
-      // For safety let's disable
-      await prisma.client.update({
-        where: { id: client.id },
-        data: { autoRenewEnabled: false },
-      }).catch(err => console.error("Failed to disable auto-renew on error:", err));
-      
-      await notifyAutoRenewFailed(client.id, client.autoRenewTariff.name, "error").catch(() => {});
+
+      // On unexpected error → use retry logic instead of instant disable
+      const currentRetryCount = client.autoRenewRetryCount ?? 0;
+      if (currentRetryCount < maxRetries) {
+        await prisma.client
+          .update({
+            where: { id: client.id },
+            data: { autoRenewRetryCount: currentRetryCount + 1 },
+          })
+          .catch((err) => console.error("[auto-renew] Failed to update retry count:", err));
+      } else {
+        // Retries exhausted on errors too → disable
+        await prisma.client
+          .update({
+            where: { id: client.id },
+            data: {
+              autoRenewEnabled: false,
+              autoRenewRetryCount: 0,
+              autoRenewNotifiedAt: null,
+            },
+          })
+          .catch((err) => console.error("[auto-renew] Failed to disable auto-renew on error:", err));
+
+        await notifyAutoRenewFailed(client.id, client.autoRenewTariff.name, "error").catch(() => {});
+      }
     }
   }
 }

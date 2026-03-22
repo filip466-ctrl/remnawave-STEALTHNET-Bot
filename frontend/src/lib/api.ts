@@ -211,6 +211,10 @@ export const api = {
     return request("/admin/dashboard/stats", { token });
   },
 
+  async getAutoRenewStats(token: string): Promise<AutoRenewStats> {
+    return request("/admin/auto-renew/stats", { token });
+  },
+
   async getAdminNotificationCounters(token: string): Promise<AdminNotificationCounters> {
     return request("/admin/notifications/counters", { token });
   },
@@ -1362,6 +1366,10 @@ export type UpdateSettingsPayload = {
   customBuildMaxDays?: number;
   customBuildMaxDevices?: number;
   defaultAutoRenewEnabled?: boolean;
+  autoRenewDaysBeforeExpiry?: number;
+  autoRenewNotifyDaysBefore?: number;
+  autoRenewGracePeriodDays?: number;
+  autoRenewMaxRetries?: number;
   googleLoginEnabled?: boolean;
   googleClientId?: string | null;
   googleClientSecret?: string | null;
@@ -1534,6 +1542,10 @@ export interface AdminSettings {
   publicAppUrl?: string | null;
   telegramBotToken?: string | null;
   defaultAutoRenewEnabled?: boolean;
+  autoRenewDaysBeforeExpiry?: number;
+  autoRenewNotifyDaysBefore?: number;
+  autoRenewGracePeriodDays?: number;
+  autoRenewMaxRetries?: number;
   telegramBotUsername?: string | null;
   /** Telegram ID админов бота (видят кнопку «Панель админа» в боте) */
   botAdminTelegramIds?: string[] | null;
@@ -1776,6 +1788,15 @@ export interface DashboardStats {
     last30DaysAmount: number;
     last30DaysCount: number;
   };
+}
+
+export interface AutoRenewStats {
+  enabled: number;
+  disabled: number;
+  retriesInProgress: number;
+  renewalsLast7Days: number;
+  renewalsLast30Days: number;
+  amountLast30Days: number;
 }
 
 export interface AdminNotificationCounters {

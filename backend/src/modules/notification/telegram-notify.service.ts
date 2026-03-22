@@ -385,11 +385,71 @@ export async function notifyAutoRenewSuccess(clientId: string, tariffName: strin
 export async function notifyAutoRenewFailed(clientId: string, tariffName: string, reason: "balance" | "error"): Promise<void> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
   if (!client?.telegramId) return;
-  let text = `⚠️ <b>Ошибка автопродления</b>\n\nНе удалось автоматически продлить тариф «${escapeHtml(tariffName)}».\n`;
+  let text = `❌ <b>Автопродление отключено</b>\n\nНе удалось автоматически продлить тариф «${escapeHtml(tariffName)}».\n`;
   if (reason === "balance") {
-    text += "Причина: недостаточно средств на балансе.\n<i>Автопродление отключено. Пожалуйста, пополните баланс и включите его снова в кабинете.</i>";
+    text += "\nПричина: недостаточно средств на балансе. Все попытки исчерпаны.\n\n";
+    text += "💡 <i>Пополните баланс и включите автопродление снова в кабинете или боте.</i>";
   } else {
-    text += "Причина: системная ошибка.\n<i>Автопродление отключено. Обратитесь в поддержку или попробуйте продлить тариф вручную.</i>";
+    text += "\nПричина: системная ошибка. Все попытки исчерпаны.\n\n";
+    text += "💡 <i>Обратитесь в поддержку или попробуйте продлить тариф вручную.</i>";
   }
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+/**
+ * Уведомление о приближающемся списании (low balance warning).
+ * Отправляется за N дней до истечения, если баланс меньше стоимости тарифа.
+ */
+export async function notifyAutoRenewUpcoming(
+  clientId: string,
+  tariffName: string,
+  price: number,
+  currency: string,
+  daysLeft: number,
+): Promise<void> {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { telegramId: true, balance: true },
+  });
+  if (!client?.telegramId) return;
+
+  const deficit = price - (client.balance ?? 0);
+  const text =
+    `⏳ <b>Скоро автопродление</b>\n\n` +
+    `Тариф «${escapeHtml(tariffName)}» истекает через <b>${daysLeft} дн.</b>\n` +
+    `Стоимость продления: ${formatMoney(price, currency)}\n` +
+    `Ваш баланс: ${formatMoney(client.balance ?? 0, currency)}\n\n` +
+    `⚠️ Не хватает <b>${formatMoney(Math.max(0, deficit), currency)}</b> для автопродления.\n` +
+    `💡 <i>Пополните баланс, чтобы подписка продлилась автоматически.</i>`;
+
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+/**
+ * Уведомление о повторной попытке списания (retry attempt).
+ */
+export async function notifyAutoRenewRetry(
+  clientId: string,
+  tariffName: string,
+  price: number,
+  currency: string,
+  currentRetry: number,
+  maxRetries: number,
+): Promise<void> {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { telegramId: true, balance: true },
+  });
+  if (!client?.telegramId) return;
+
+  const retriesLeft = maxRetries - currentRetry;
+  const text =
+    `🔄 <b>Не удалось продлить подписку</b>\n\n` +
+    `Тариф «${escapeHtml(tariffName)}»: недостаточно средств.\n` +
+    `Нужно: ${formatMoney(price, currency)} | Баланс: ${formatMoney(client.balance ?? 0, currency)}\n\n` +
+    `Попытка ${currentRetry} из ${maxRetries}` +
+    (retriesLeft > 0 ? `. Осталось попыток: <b>${retriesLeft}</b>.` : `. Это была последняя попытка.`) +
+    `\n\n💡 <i>Пополните баланс, чтобы автопродление сработало при следующей проверке.</i>`;
+
   await sendTelegramToUser(client.telegramId, text);
 }

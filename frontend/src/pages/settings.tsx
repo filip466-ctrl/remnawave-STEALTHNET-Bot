@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type AdminSettings, type SyncResult, type SyncToRemnaResult, type SyncCreateRemnaForMissingResult, type SubscriptionPageConfig } from "@/lib/api";
+import { api, type AdminSettings, type AutoRenewStats, type SyncResult, type SyncToRemnaResult, type SyncCreateRemnaForMissingResult, type SubscriptionPageConfig } from "@/lib/api";
 import { SubscriptionPageEditor } from "@/components/subscription-page-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
@@ -171,6 +171,7 @@ export function SettingsPage() {
   const [cryptopayWebhookCopied, setCryptopayWebhookCopied] = useState(false);
   const [heleketWebhookCopied, setHeleketWebhookCopied] = useState(false);
   const [defaultSubpageConfig, setDefaultSubpageConfig] = useState<SubscriptionPageConfig | null>(null);
+  const [autoRenewStats, setAutoRenewStats] = useState<AutoRenewStats | null>(null);
   const defaultJourneySteps = [
     { title: "Выбираешь сценарий", desc: "Доступны гибкие тарифы: выбери то, что подходит именно тебе, без переплат." },
     { title: "Оплачиваешь как удобно", desc: "Карта, СБП, крипта — выбирай любой удобный и безопасный метод оплаты." },
@@ -245,6 +246,7 @@ export function SettingsPage() {
         sellOptionsServersProducts: (data as AdminSettings).sellOptionsServersProducts ?? [],
       });
     }).finally(() => setLoading(false));
+    api.getAutoRenewStats(token).then(setAutoRenewStats).catch(() => {});
   }, [token]);
 
   useEffect(() => {
@@ -501,6 +503,11 @@ export function SettingsPage() {
         smtpFromEmail: settings.smtpFromEmail ?? null,
         smtpFromName: settings.smtpFromName ?? null,
         skipEmailVerification: settings.skipEmailVerification ?? false,
+        defaultAutoRenewEnabled: settings.defaultAutoRenewEnabled ?? false,
+        autoRenewDaysBeforeExpiry: settings.autoRenewDaysBeforeExpiry ?? 1,
+        autoRenewNotifyDaysBefore: settings.autoRenewNotifyDaysBefore ?? 3,
+        autoRenewGracePeriodDays: settings.autoRenewGracePeriodDays ?? 2,
+        autoRenewMaxRetries: settings.autoRenewMaxRetries ?? 3,
         useRemnaSubscriptionPage: settings.useRemnaSubscriptionPage ?? false,
         publicAppUrl: settings.publicAppUrl ?? null,
         telegramBotToken: settings.telegramBotToken ?? null,
@@ -1851,12 +1858,106 @@ export function SettingsPage() {
                     onCheckedChange={(checked) => setSettings(s => s ? { ...s, defaultAutoRenewEnabled: checked } : s)}
                   />
                 </div>
+
+                {/* Настройки автопродления */}
+                <div className="space-y-4 p-4 rounded-xl border bg-card/50">
+                  <Label className="text-base font-semibold">Настройки автопродления</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Продление за N дней до истечения</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={settings.autoRenewDaysBeforeExpiry ?? 1}
+                        onChange={(e) => setSettings(s => s ? { ...s, autoRenewDaysBeforeExpiry: parseInt(e.target.value) || 1 } : s)}
+                      />
+                      <p className="text-xs text-muted-foreground">За сколько дней до истечения подписки пытаться списать средства</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Уведомление за N дней</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={settings.autoRenewNotifyDaysBefore ?? 3}
+                        onChange={(e) => setSettings(s => s ? { ...s, autoRenewNotifyDaysBefore: parseInt(e.target.value) || 3 } : s)}
+                      />
+                      <p className="text-xs text-muted-foreground">За сколько дней предупредить клиента о предстоящем списании (если баланс мал)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Грейс-период (дней)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={14}
+                        value={settings.autoRenewGracePeriodDays ?? 2}
+                        onChange={(e) => setSettings(s => s ? { ...s, autoRenewGracePeriodDays: parseInt(e.target.value) || 2 } : s)}
+                      />
+                      <p className="text-xs text-muted-foreground">Сколько дней после истечения подписки продолжать попытки списания</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Макс. попыток списания</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={settings.autoRenewMaxRetries ?? 3}
+                        onChange={(e) => setSettings(s => s ? { ...s, autoRenewMaxRetries: parseInt(e.target.value) || 3 } : s)}
+                      />
+                      <p className="text-xs text-muted-foreground">Сколько раз пытаться списать при недостатке средств, прежде чем отключить автопродление</p>
+                    </div>
+                  </div>
+                </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
                 <Button onClick={handleSubmit} disabled={saving}>
                   {saving ? "Сохранение…" : "Сохранить"}
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Auto-renewal statistics card */}
+            {autoRenewStats && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    <CardTitle>Статистика автопродления</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold text-green-500">{autoRenewStats.enabled}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Автопродление вкл.</p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold text-muted-foreground">{autoRenewStats.disabled}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Автопродление выкл.</p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold text-yellow-500">{autoRenewStats.retriesInProgress}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <RotateCw className="inline h-3 w-3 mr-1" />
+                        Повторные попытки
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold">{autoRenewStats.renewalsLast7Days}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Продлений за 7 дней</p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold">{autoRenewStats.renewalsLast30Days}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Продлений за 30 дней</p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-4 text-center">
+                      <p className="text-2xl font-bold text-primary">{autoRenewStats.amountLast30Days.toLocaleString("ru-RU")} {settings?.defaultCurrency === "rub" ? "₽" : "$"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Сумма за 30 дней</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <Collapsible defaultOpen={false} className="group">
