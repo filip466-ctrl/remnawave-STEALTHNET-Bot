@@ -48,6 +48,8 @@ export function ClientProfilePage() {
   const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
   const [heleketEnabled, setHeleketEnabled] = useState(false);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
+  const [yookassaRecurringEnabled, setYookassaRecurringEnabled] = useState(false);
+  const [unlinkingPayment, setUnlinkingPayment] = useState(false);
   const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
@@ -246,6 +248,7 @@ export function ClientProfilePage() {
       setHeleketEnabled(Boolean(c.heleketEnabled));
       setPublicAppUrl(c.publicAppUrl ?? null);
       setTelegramBotUsername(c.telegramBotUsername ?? null);
+      setYookassaRecurringEnabled(Boolean(c.yookassaRecurringEnabled));
     }).catch(() => { });
   }, []);
 
@@ -417,6 +420,19 @@ export function ClientProfilePage() {
       setLinkEmailError(err instanceof Error ? err.message : "Ошибка отправки");
     } finally {
       setLinkEmailLoading(false);
+    }
+  }
+
+  async function handleUnlinkPaymentMethod() {
+    if (!token) return;
+    setUnlinkingPayment(true);
+    try {
+      await api.yookassaUnlinkPaymentMethod(token);
+      await refreshProfile();
+    } catch (err) {
+      console.error("Ошибка отвязки способа оплаты:", err);
+    } finally {
+      setUnlinkingPayment(false);
     }
   }
 
@@ -693,6 +709,29 @@ export function ClientProfilePage() {
                   Сменить
                 </Button>
               </div>
+
+              {yookassaRecurringEnabled && client.yookassaPaymentMethodTitle && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Способ оплаты</p>
+                      <p className="font-medium text-sm truncate">{client.yookassaPaymentMethodTitle}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shadow-sm shrink-0 border-red-500/50 text-red-600 hover:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/20"
+                    disabled={unlinkingPayment}
+                    onClick={handleUnlinkPaymentMethod}
+                  >
+                    {unlinkingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Отвязать"}
+                  </Button>
+                </div>
+              )}
 
               <div className="flex-1 flex flex-col rounded-2xl bg-muted/40 border border-border/50 overflow-hidden dark:bg-white/5 dark:border-white/5">
                 <div className="p-4 border-b border-border/50 dark:border-white/5">

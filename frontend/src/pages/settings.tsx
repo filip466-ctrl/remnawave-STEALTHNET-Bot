@@ -508,6 +508,7 @@ export function SettingsPage() {
         autoRenewNotifyDaysBefore: settings.autoRenewNotifyDaysBefore ?? 3,
         autoRenewGracePeriodDays: settings.autoRenewGracePeriodDays ?? 2,
         autoRenewMaxRetries: settings.autoRenewMaxRetries ?? 3,
+        yookassaRecurringEnabled: settings.yookassaRecurringEnabled ?? false,
         useRemnaSubscriptionPage: settings.useRemnaSubscriptionPage ?? false,
         publicAppUrl: settings.publicAppUrl ?? null,
         telegramBotToken: settings.telegramBotToken ?? null,
@@ -1856,6 +1857,23 @@ export function SettingsPage() {
                   <Switch
                     checked={settings.defaultAutoRenewEnabled ?? false}
                     onCheckedChange={(checked) => setSettings(s => s ? { ...s, defaultAutoRenewEnabled: checked } : s)}
+                  />
+                </div>
+
+                <div className={`flex items-center justify-between gap-4 p-4 rounded-xl border bg-card/50${!settings.yookassaShopId || !settings.yookassaSecretKey || settings.yookassaSecretKey === "********" && !settings.yookassaShopId ? " opacity-50" : ""}`}>
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold">Рекуррентные платежи ЮKassa</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {!settings.yookassaShopId || !settings.yookassaSecretKey
+                        ? "Для включения сначала настройте ЮKassa (ID магазина и секретный ключ) во вкладке «Платежи»."
+                        : "При оплате через ЮKassa способ оплаты сохраняется. При автопродлении сначала списывается с баланса, затем — с сохранённой карты."
+                      }
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.yookassaRecurringEnabled ?? false}
+                    disabled={!settings.yookassaShopId || !settings.yookassaSecretKey}
+                    onCheckedChange={(checked) => setSettings(s => s ? { ...s, yookassaRecurringEnabled: checked } : s)}
                   />
                 </div>
 

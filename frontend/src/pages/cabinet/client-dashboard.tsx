@@ -450,7 +450,10 @@ export function ClientDashboardPage() {
             <div className="flex flex-col">
               <Label className="text-sm font-semibold">Автопродление</Label>
               <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                Автоматическое списание<br/>при окончании подписки
+                {config?.yookassaRecurringEnabled
+                  ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты (если ранее оплачивали через ЮKassa)"}</>
+                  : <>Автоматическое списание<br/>при окончании подписки</>
+                }
               </span>
             </div>
             <Switch
@@ -651,7 +654,10 @@ export function ClientDashboardPage() {
               <div className="flex flex-col">
                 <Label className="text-[15px] font-semibold">Автопродление</Label>
                 <span className="text-sm text-muted-foreground mt-0.5">
-                  Списание с баланса
+                  {config?.yookassaRecurringEnabled
+                    ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты (если ранее оплачивали через ЮKassa)"}</>
+                    : "Списание с баланса"
+                  }
                 </span>
               </div>
               <Switch
