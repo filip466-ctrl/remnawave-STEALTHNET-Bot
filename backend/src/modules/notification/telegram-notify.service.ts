@@ -397,6 +397,51 @@ export async function notifyAutoRenewFailed(clientId: string, tariffName: string
 }
 
 /**
+ * Уведомление об успешном автоплатеже через ЮKassa.
+ */
+export async function notifyAutoRenewYookassaSuccess(
+  clientId: string,
+  tariffName: string,
+  amount: number,
+  currency: string,
+  paymentMethodTitle?: string,
+): Promise<void> {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  if (!client?.telegramId) return;
+
+  let text =
+    `🔄 <b>Автопродление успешно (ЮKassa)</b>\n\n` +
+    `Тариф «${escapeHtml(tariffName)}» был автоматически продлен.\n` +
+    `Списано с карты: ${formatMoney(amount, currency)}`;
+  if (paymentMethodTitle) {
+    text += ` (${escapeHtml(paymentMethodTitle)})`;
+  }
+  text += `.`;
+
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+/**
+ * Уведомление о неудачном автоплатеже через ЮKassa.
+ */
+export async function notifyAutoRenewYookassaFailed(
+  clientId: string,
+  tariffName: string,
+  error: string,
+): Promise<void> {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  if (!client?.telegramId) return;
+
+  const text =
+    `❌ <b>Автоплатёж ЮKassa не прошёл</b>\n\n` +
+    `Не удалось списать оплату за тариф «${escapeHtml(tariffName)}».\n` +
+    `Причина: ${escapeHtml(error)}\n\n` +
+    `💡 <i>Попробуйте пополнить баланс или оплатить тариф вручную.</i>`;
+
+  await sendTelegramToUser(client.telegramId, text);
+}
+
+/**
  * Уведомление о приближающемся списании (low balance warning).
  * Отправляется за N дней до истечения, если баланс меньше стоимости тарифа.
  */

@@ -4,11 +4,14 @@ import { randomUUID } from "crypto";
 import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { remnaGetUser, isRemnaConfigured } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
+import { createYookassaAutopayment } from "../yookassa/yookassa.service.js";
 import {
   notifyAutoRenewSuccess,
   notifyAutoRenewFailed,
   notifyAutoRenewUpcoming,
   notifyAutoRenewRetry,
+  notifyAutoRenewYookassaSuccess,
+  notifyAutoRenewYookassaFailed,
 } from "../notification/telegram-notify.service.js";
 
 // Run every hour at minute 0
@@ -147,55 +150,134 @@ export async function processAutoRenewals() {
           );
           console.log(`[auto-renew] Client ${client.id} successfully renewed.`);
         } else {
-          // Insufficient balance → retry or disable
-          const currentRetryCount = client.autoRenewRetryCount ?? 0;
+          // Insufficient balance → try YooKassa autopayment if available, otherwise retry or disable
+          let yookassaPaid = false;
 
-          if (currentRetryCount < maxRetries) {
-            // Still have retries left — increment counter, notify retry
-            const newRetryCount = currentRetryCount + 1;
-            await prisma.client.update({
-              where: { id: client.id },
-              data: { autoRenewRetryCount: newRetryCount },
+          if (
+            config.yookassaRecurringEnabled &&
+            client.yookassaPaymentMethodId &&
+            config.yookassaShopId?.trim() &&
+            config.yookassaSecretKey?.trim()
+          ) {
+            // Attempt YooKassa autopayment
+            const orderId = randomUUID();
+            const serviceName = config.serviceName?.trim() || "STEALTHNET";
+            const autopayResult = await createYookassaAutopayment({
+              shopId: config.yookassaShopId.trim(),
+              secretKey: config.yookassaSecretKey.trim(),
+              amount: tariffPrice,
+              currency: client.autoRenewTariff!.currency.toUpperCase(),
+              paymentMethodId: client.yookassaPaymentMethodId,
+              description: `Автопродление ${serviceName}`,
+              metadata: { auto_renew: "true", client_id: client.id },
+              customerEmail: client.email,
             });
 
-            await notifyAutoRenewRetry(
-              client.id,
-              client.autoRenewTariff.name,
-              tariffPrice,
-              client.autoRenewTariff.currency,
-              newRetryCount,
-              maxRetries,
-            );
-            console.log(
-              `[auto-renew] Client ${client.id} insufficient balance. Retry ${newRetryCount}/${maxRetries}.`,
-            );
-          } else {
-            // All retries exhausted — check grace period
-            const expiredSince = timeLeft < 0 ? Math.abs(timeLeft) : 0;
-
-            if (expiredSince >= gracePeriod) {
-              // Grace period over → disable auto-renewal
-              await prisma.client.update({
-                where: { id: client.id },
+            if (autopayResult.ok) {
+              // Автоплатёж прошёл — создаём Payment, активируем тариф
+              const payment = await prisma.payment.create({
                 data: {
-                  autoRenewEnabled: false,
-                  autoRenewRetryCount: 0,
-                  autoRenewNotifiedAt: null,
+                  clientId: client.id,
+                  orderId,
+                  amount: tariffPrice,
+                  currency: client.autoRenewTariff!.currency.toUpperCase(),
+                  status: "PAID",
+                  provider: "yookassa",
+                  tariffId: client.autoRenewTariff!.id,
+                  paidAt: new Date(),
+                  externalId: autopayResult.paymentId,
                 },
               });
-              await notifyAutoRenewFailed(
+
+              const activationRes = await activateTariffByPaymentId(payment.id);
+              if (activationRes.ok) {
+                await prisma.client.update({
+                  where: { id: client.id },
+                  data: {
+                    autoRenewRetryCount: 0,
+                    autoRenewNotifiedAt: null,
+                  },
+                });
+
+                // Distribute referral rewards asynchronously
+                import("../referral/referral.service.js")
+                  .then((m) => m.distributeReferralRewards(payment.id))
+                  .catch((e) => console.error("[auto-renew] Referral reward error:", e));
+
+                await notifyAutoRenewYookassaSuccess(
+                  client.id,
+                  client.autoRenewTariff!.name,
+                  tariffPrice,
+                  client.autoRenewTariff!.currency,
+                  client.yookassaPaymentMethodTitle ?? undefined,
+                );
+                console.log(`[auto-renew] Client ${client.id} renewed via YooKassa autopayment.`);
+                yookassaPaid = true;
+              } else {
+                console.error(`[auto-renew] Client ${client.id} YooKassa paid but activation failed:`, activationRes.error);
+              }
+            } else {
+              // Автоплатёж не прошёл
+              await notifyAutoRenewYookassaFailed(
+                client.id,
+                client.autoRenewTariff!.name,
+                autopayResult.error,
+              );
+              console.log(`[auto-renew] Client ${client.id} YooKassa autopayment failed: ${autopayResult.error}`);
+            }
+          }
+
+          if (!yookassaPaid) {
+            // Fallback to retry/disable logic
+            const currentRetryCount = client.autoRenewRetryCount ?? 0;
+
+            if (currentRetryCount < maxRetries) {
+              // Still have retries left — increment counter, notify retry
+              const newRetryCount = currentRetryCount + 1;
+              await prisma.client.update({
+                where: { id: client.id },
+                data: { autoRenewRetryCount: newRetryCount },
+              });
+
+              await notifyAutoRenewRetry(
                 client.id,
                 client.autoRenewTariff.name,
-                "balance",
+                tariffPrice,
+                client.autoRenewTariff.currency,
+                newRetryCount,
+                maxRetries,
               );
               console.log(
-                `[auto-renew] Client ${client.id} failed: all retries exhausted + grace period over. Auto-renew disabled.`,
+                `[auto-renew] Client ${client.id} insufficient balance. Retry ${newRetryCount}/${maxRetries}.`,
               );
             } else {
-              // Still within grace period — keep trying each hour
-              console.log(
-                `[auto-renew] Client ${client.id} retries exhausted but grace period active. Will keep checking.`,
-              );
+              // All retries exhausted — check grace period
+              const expiredSince = timeLeft < 0 ? Math.abs(timeLeft) : 0;
+
+              if (expiredSince >= gracePeriod) {
+                // Grace period over → disable auto-renewal
+                await prisma.client.update({
+                  where: { id: client.id },
+                  data: {
+                    autoRenewEnabled: false,
+                    autoRenewRetryCount: 0,
+                    autoRenewNotifiedAt: null,
+                  },
+                });
+                await notifyAutoRenewFailed(
+                  client.id,
+                  client.autoRenewTariff.name,
+                  "balance",
+                );
+                console.log(
+                  `[auto-renew] Client ${client.id} failed: all retries exhausted + grace period over. Auto-renew disabled.`,
+                );
+              } else {
+                // Still within grace period — keep trying each hour
+                console.log(
+                  `[auto-renew] Client ${client.id} retries exhausted but grace period active. Will keep checking.`,
+                );
+              }
             }
           }
         }
