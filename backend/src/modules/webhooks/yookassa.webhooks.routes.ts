@@ -37,6 +37,13 @@ type YookassaNotification = {
     status?: string;
     amount?: { value?: string; currency?: string };
     metadata?: Record<string, string>;
+    payment_method?: {
+      type?: string;
+      id?: string;
+      saved?: boolean;
+      title?: string;
+      card?: { last4?: string; card_type?: string };
+    };
   };
 };
 
@@ -84,6 +91,24 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
     where: { id: payment.id },
     data: { status: "PAID", paidAt: new Date(), externalId: yookassaId },
   });
+
+  // Сохраняем способ оплаты для рекуррентных платежей
+  const pm = body.object?.payment_method;
+  if (pm?.saved && pm.id) {
+    const title = pm.title || (pm.card?.last4 ? `Карта *${pm.card.last4}` : pm.type || "Сохранённый способ");
+    await prisma.client.update({
+      where: { id: payment.clientId },
+      data: {
+        yookassaPaymentMethodId: pm.id,
+        yookassaPaymentMethodTitle: title,
+      },
+    });
+    console.log("[YooKassa Webhook] Saved payment method", {
+      clientId: payment.clientId,
+      paymentMethodId: pm.id,
+      title,
+    });
+  }
 
   const isExtraOption = hasExtraOptionInMetadata(payment.metadata);
   const isTopUp = !payment.tariffId && !payment.proxyTariffId && !payment.singboxTariffId && !isExtraOption;
