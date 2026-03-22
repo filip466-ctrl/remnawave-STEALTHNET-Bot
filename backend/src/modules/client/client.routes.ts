@@ -484,7 +484,7 @@ clientAuthRouter.get("/me", requireClientAuth, async (req, res) => {
   const client = (req as unknown as { client: { id: string } }).client;
   const full = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, yookassaPaymentMethodTitle: true },
   });
   if (!full) return res.status(401).json({ message: "Unauthorized" });
   return res.json(toClientShape(full));
@@ -508,6 +508,7 @@ function toClientShape(c: {
   createdAt?: Date;
   autoRenewEnabled?: boolean;
   autoRenewTariffId?: string | null;
+  yookassaPaymentMethodTitle?: string | null;
 }) {
   return {
     id: c.id,
@@ -527,6 +528,7 @@ function toClientShape(c: {
     createdAt: c.createdAt ? c.createdAt.toISOString() : undefined,
     autoRenewEnabled: c.autoRenewEnabled ?? false,
     autoRenewTariffId: c.autoRenewTariffId ?? null,
+    yookassaPaymentMethodTitle: c.yookassaPaymentMethodTitle ?? null,
   };
 }
 
@@ -2813,6 +2815,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       description,
       metadata: { payment_id: payment.id },
       customerEmail,
+      savePaymentMethod: config.yookassaRecurringEnabled,
     });
 
     if (!result.ok) {
@@ -2829,6 +2832,27 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[yookassa/create-payment]", message, err);
     return res.status(500).json({ message: message || "Ошибка создания платежа" });
+  }
+});
+
+// --- Отвязка сохранённого способа оплаты ЮKassa ---
+clientRouter.post("/yookassa/unlink-payment-method", async (req, res) => {
+  try {
+    const clientId = (req as unknown as { clientId: string }).clientId;
+    const cl = await prisma.client.findUnique({ where: { id: clientId }, select: { yookassaPaymentMethodId: true } });
+    if (!cl?.yookassaPaymentMethodId) {
+      return res.status(400).json({ message: "Нет привязанного способа оплаты" });
+    }
+    const updated = await prisma.client.update({
+      where: { id: clientId },
+      data: { yookassaPaymentMethodId: null, yookassaPaymentMethodTitle: null },
+      select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, yookassaPaymentMethodTitle: true },
+    });
+    return res.json({ client: toClientShape(updated as Parameters<typeof toClientShape>[0]) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[yookassa/unlink-payment-method]", message, err);
+    return res.status(500).json({ message: "Ошибка отвязки способа оплаты" });
   }
 });
 

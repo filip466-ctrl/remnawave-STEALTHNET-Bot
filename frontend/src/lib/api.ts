@@ -1015,6 +1015,11 @@ export const api = {
     return request("/client/yookassa/create-payment", { method: "POST", body: JSON.stringify(data), token });
   },
 
+  /** ЮKassa: отвязка сохранённого способа оплаты */
+  async yookassaUnlinkPaymentMethod(token: string): Promise<{ client: ClientProfile }> {
+    return request("/client/yookassa/unlink-payment-method", { method: "POST", token });
+  },
+
   /** Crypto Pay (Crypto Bot) — создание инвойса, возвращает ссылку на оплату */
   async cryptopayCreatePayment(
     token: string,
@@ -1370,6 +1375,7 @@ export type UpdateSettingsPayload = {
   autoRenewNotifyDaysBefore?: number;
   autoRenewGracePeriodDays?: number;
   autoRenewMaxRetries?: number;
+  yookassaRecurringEnabled?: boolean;
   googleLoginEnabled?: boolean;
   googleClientId?: string | null;
   googleClientSecret?: string | null;
@@ -1546,6 +1552,7 @@ export interface AdminSettings {
   autoRenewNotifyDaysBefore?: number;
   autoRenewGracePeriodDays?: number;
   autoRenewMaxRetries?: number;
+  yookassaRecurringEnabled?: boolean;
   telegramBotUsername?: string | null;
   /** Telegram ID админов бота (видят кнопку «Панель админа» в боте) */
   botAdminTelegramIds?: string[] | null;
@@ -2067,6 +2074,8 @@ export interface ClientProfile {
   createdAt?: string;
   autoRenewEnabled?: boolean;
   autoRenewTariffId?: string | null;
+  /** Название привязанного способа оплаты ЮKassa (например "Банковская карта *4444") */
+  yookassaPaymentMethodTitle?: string | null;
 }
 
 export interface ClientAuthResponse {
@@ -2265,6 +2274,7 @@ export interface PublicConfig {
     maxDays: number;
     maxDevices: number;
   } | null;
+  yookassaRecurringEnabled?: boolean;
   googleLoginEnabled?: boolean;
   googleClientId?: string | null;
   appleLoginEnabled?: boolean;
