@@ -1069,6 +1069,7 @@ const updateSettingsSchema = z.object({
   autoRenewNotifyDaysBefore: z.number().int().min(1).max(30).optional(),
   autoRenewGracePeriodDays: z.number().int().min(0).max(14).optional(),
   autoRenewMaxRetries: z.number().int().min(1).max(10).optional(),
+  yookassaRecurringEnabled: z.boolean().optional(),
   googleLoginEnabled: z.boolean().optional(),
   googleClientId: z.string().max(500).nullable().optional(),
   googleClientSecret: z.string().max(500).nullable().optional(),
@@ -1672,6 +1673,15 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: dbKey },
       create: { key: dbKey, value: val },
+      update: { value: val },
+    });
+  }
+  // YooKassa recurring payments toggle
+  if (updates.yookassaRecurringEnabled !== undefined) {
+    const val = updates.yookassaRecurringEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "yookassa_recurring_enabled" },
+      create: { key: "yookassa_recurring_enabled", value: val },
       update: { value: val },
     });
   }

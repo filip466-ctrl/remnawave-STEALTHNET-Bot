@@ -24,6 +24,7 @@ const DEFAULTS: Array<[string, string]> = [
   ["auto_renew_notify_days_before", "3"],
   ["auto_renew_grace_period_days", "2"],
   ["auto_renew_max_retries", "3"],
+  ["yookassa_recurring_enabled", "false"],
 ];
 
 export async function ensureSystemSettings() {
