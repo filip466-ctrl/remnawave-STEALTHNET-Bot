@@ -807,7 +807,7 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
 
     notifyAdminsAboutNewClient(client.id).catch(() => {});
     const jwt = signClientToken(client.id);
-    return res.json({ confirmed: true, token: jwt, client: toClientShape(client) });
+    return res.json({ confirmed: true, token: jwt, client: toClientShape(client), justCreated: true });
   } catch (err) {
     console.error("[telegram-login-check] error:", err);
     return res.status(500).json({ message: "Internal error" });

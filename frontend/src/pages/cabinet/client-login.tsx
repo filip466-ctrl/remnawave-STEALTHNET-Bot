@@ -143,7 +143,7 @@ export function ClientLoginPage() {
             if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
             loginByTelegramDeepLink(res);
             setTgAuthPending(false);
-            navigate("/cabinet/dashboard", { replace: true });
+            navigate("/cabinet", { replace: true });
           }
         } catch {
           // Ошибка поллинга — продолжаем
@@ -173,7 +173,7 @@ export function ClientLoginPage() {
         telegramId: String(authData.id),
         telegramUsername: authData.username,
       })
-        .then(() => navigate("/cabinet/dashboard", { replace: true }))
+        .then(() => navigate("/cabinet", { replace: true }))
         .catch((err: unknown) => setError(err instanceof Error ? err.message : "Ошибка авторизации через Telegram"));
     },
     [registerByTelegram, navigate],
@@ -288,7 +288,7 @@ export function ClientLoginPage() {
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setLoading(true);
     loginByGoogle(idToken)
-      .then(() => navigate("/cabinet/dashboard", { replace: true }))
+      .then(() => navigate("/cabinet", { replace: true }))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Ошибка Google"))
       .finally(() => setLoading(false));
   }, [loginByGoogle, navigate]);
@@ -328,7 +328,7 @@ export function ClientLoginPage() {
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setLoading(true);
     loginByApple(idToken)
-      .then(() => navigate("/cabinet/dashboard", { replace: true }))
+      .then(() => navigate("/cabinet", { replace: true }))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Ошибка Apple"))
       .finally(() => setLoading(false));
   }, [loginByApple, navigate]);
@@ -344,7 +344,7 @@ export function ClientLoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/cabinet/dashboard", { replace: true });
+      navigate("/cabinet", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка входа");
     } finally {

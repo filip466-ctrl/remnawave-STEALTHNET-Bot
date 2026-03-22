@@ -200,13 +200,13 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  const loginByTelegramDeepLink = useCallback((res: { token?: string; client?: ClientProfile; requires2FA?: boolean; tempToken?: string }) => {
+  const loginByTelegramDeepLink = useCallback((res: { token?: string; client?: ClientProfile; requires2FA?: boolean; tempToken?: string; justCreated?: boolean }) => {
     if (res.requires2FA && res.tempToken) {
       setState((prev) => ({ ...prev, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: res.tempToken! }));
       return;
     }
     if (res.token && res.client) {
-      setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null, isNewTelegramUser: false });
+      setState({ token: res.token, client: res.client, miniappAuthLoading: false, miniappAuthAttempted: true, pending2FAToken: null, isNewTelegramUser: !!res.justCreated });
       saveState(res.token, res.client);
     }
   }, []);
