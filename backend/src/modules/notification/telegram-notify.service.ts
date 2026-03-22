@@ -405,14 +405,23 @@ export async function notifyAutoRenewYookassaSuccess(
   amount: number,
   currency: string,
   paymentMethodTitle?: string,
+  balancePortion?: number,
+  cardPortion?: number,
 ): Promise<void> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
   if (!client?.telegramId) return;
 
   let text =
     `🔄 <b>Автопродление успешно (ЮKassa)</b>\n\n` +
-    `Тариф «${escapeHtml(tariffName)}» был автоматически продлен.\n` +
-    `Списано с карты: ${formatMoney(amount, currency)}`;
+    `Тариф «${escapeHtml(tariffName)}» был автоматически продлен.\n`;
+
+  if (balancePortion && balancePortion > 0 && cardPortion) {
+    text += `Списано с баланса: ${formatMoney(balancePortion, currency)}\n`;
+    text += `Списано с карты: ${formatMoney(cardPortion, currency)}`;
+  } else {
+    text += `Списано с карты: ${formatMoney(amount, currency)}`;
+  }
+
   if (paymentMethodTitle) {
     text += ` (${escapeHtml(paymentMethodTitle)})`;
   }
