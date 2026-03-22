@@ -1123,11 +1123,7 @@ clientRouter.post("/link-telegram", async (req, res) => {
   const telegramUsername = tgUser.username?.trim() ?? null;
   const other = await prisma.client.findUnique({ where: { telegramId } });
   if (other && other.id !== client.id) {
-    // Перепривязка: снимаем Telegram с другого аккаунта (часто пустой аккаунт из бота) и привязываем к текущему (с подпиской/почтой)
-    await prisma.client.update({
-      where: { id: other.id },
-      data: { telegramId: null, telegramUsername: null },
-    });
+    return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Сначала войдите в тот аккаунт и отвяжите Telegram, либо обратитесь в поддержку." });
   }
   const updated = await prisma.client.update({
     where: { id: client.id },
@@ -3520,11 +3516,8 @@ publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
   }
   const other = await prisma.client.findUnique({ where: { telegramId: tid } });
   if (other && other.id !== pending.clientId) {
-    // Перепривязка: снимаем Telegram с другого аккаунта (часто пустой из бота), затем привязываем к аккаунту с кодом
-    await prisma.client.update({
-      where: { id: other.id },
-      data: { telegramId: null, telegramUsername: null },
-    });
+    await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Отвяжите его сначала или обратитесь в поддержку." });
   }
   await prisma.client.update({
     where: { id: pending.clientId },

@@ -55,6 +55,7 @@ export function ClientProfilePage() {
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [linkTelegramCode, setLinkTelegramCode] = useState<string | null>(null);
   const [linkTelegramLoading, setLinkTelegramLoading] = useState(false);
+  const [linkTelegramError, setLinkTelegramError] = useState<string | null>(null);
   const [linkEmailValue, setLinkEmailValue] = useState("");
   const [linkEmailLoading, setLinkEmailLoading] = useState(false);
   const [linkEmailSent, setLinkEmailSent] = useState(false);
@@ -371,11 +372,13 @@ export function ClientProfilePage() {
     if (!token) return;
     setLinkTelegramLoading(true);
     setLinkTelegramCode(null);
+    setLinkTelegramError(null);
     try {
       const res = await api.clientLinkTelegramRequest(token);
       setLinkTelegramCode(res.code);
-    } catch {
+    } catch (err) {
       setLinkTelegramCode(null);
+      setLinkTelegramError(err instanceof Error ? err.message : "Ошибка получения кода привязки");
     } finally {
       setLinkTelegramLoading(false);
     }
@@ -386,12 +389,15 @@ export function ClientProfilePage() {
     const initData = (window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData;
     if (!initData?.trim()) return;
     setLinkTelegramLoading(true);
+    setLinkTelegramError(null);
     try {
       const res = await api.clientLinkTelegram(token, { initData });
       if (res.client) {
         refreshProfile();
         setLinkTelegramCode(null);
       }
+    } catch (err) {
+      setLinkTelegramError(err instanceof Error ? err.message : "Ошибка привязки Telegram");
     } finally {
       setLinkTelegramLoading(false);
     }
@@ -565,6 +571,11 @@ export function ClientProfilePage() {
                     Отправьте боту <code className="bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded">/link {linkTelegramCode}</code><br />Код действует 10 минут.
                   </p>
                 </motion.div>
+              )}
+              {linkTelegramError && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-medium text-destructive px-1">
+                  {linkTelegramError}
+                </motion.p>
               )}
 
               <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
