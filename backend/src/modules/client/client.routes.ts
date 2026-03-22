@@ -126,6 +126,7 @@ clientAuthRouter.post("/register", async (req, res) => {
           utmCampaign: data.utm_campaign ?? null,
           utmContent: data.utm_content ?? null,
           utmTerm: data.utm_term ?? null,
+          autoRenewEnabled: config.defaultAutoRenewEnabled ?? false,
         },
       });
       notifyAdminsAboutNewClient(client.id).catch(() => {});
@@ -216,6 +217,7 @@ clientAuthRouter.post("/register", async (req, res) => {
   }
 
   const passwordHash = data.password ? await hashPassword(data.password) : null;
+  const configForAutoRenew = await getSystemConfig();
   const client = await prisma.client.create({
     data: {
       email: data.email ?? null,
@@ -232,6 +234,7 @@ clientAuthRouter.post("/register", async (req, res) => {
       utmCampaign: data.utm_campaign ?? null,
       utmContent: data.utm_content ?? null,
       utmTerm: data.utm_term ?? null,
+      autoRenewEnabled: configForAutoRenew.defaultAutoRenewEnabled ?? false,
     },
   });
   notifyAdminsAboutNewClient(client.id).catch(() => {});
@@ -298,6 +301,7 @@ clientAuthRouter.post("/verify-email", async (req, res) => {
     if (referrer) referrerId = referrer.id;
   }
 
+  const configForAutoRenew = await getSystemConfig();
   const client = await prisma.client.create({
     data: {
       email: pending.email,
@@ -314,6 +318,7 @@ clientAuthRouter.post("/verify-email", async (req, res) => {
       utmCampaign: pending.utmCampaign,
       utmContent: pending.utmContent,
       utmTerm: pending.utmTerm,
+      autoRenewEnabled: configForAutoRenew.defaultAutoRenewEnabled ?? false,
     },
   });
 
@@ -451,6 +456,7 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
       preferredCurrency: configForDefaults.defaultCurrency ?? "usd",
       telegramId,
       telegramUsername,
+      autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
     },
   });
   const token = signClientToken(client.id);
@@ -610,6 +616,7 @@ clientAuthRouter.post("/google", async (req, res) => {
       telegramId: null,
       telegramUsername: null,
       googleId,
+      autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
     },
   });
   const token = signClientToken(client.id);
@@ -695,6 +702,7 @@ clientAuthRouter.post("/apple", async (req, res) => {
       telegramId: null,
       telegramUsername: null,
       appleId: appleSub,
+      autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
     },
   });
   const token = signClientToken(client.id);
@@ -814,6 +822,7 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
         preferredCurrency: configForDefaults.defaultCurrency ?? "usd",
         telegramId,
         telegramUsername,
+        autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
       },
     });
 
