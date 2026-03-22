@@ -415,22 +415,28 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
   const configForDefaults = await getSystemConfig();
   let remnawaveUuid: string | null = null;
   if (isRemnaConfigured()) {
-    const username = remnaUsernameFromClient({
-      telegramUsername: telegramUsername ?? undefined,
-      telegramId,
-    });
-    // Без активной подписки — как при регистрации по email; доступ после триала или оплаты
-    const remnaRes = await remnaCreateUser({
-      username,
-      trafficLimitBytes: 0,
-      trafficLimitStrategy: "NO_RESET",
-      expireAt: new Date(Date.now() - 1000).toISOString(),
-      telegramId: tgUser.id,
-    });
-    remnawaveUuid = extractRemnaUuid(remnaRes.data);
-    if (remnaRes.error || remnawaveUuid == null) {
-      console.error("[Remna] create user (telegram initData) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
-      return res.status(503).json({ message: "Сервис временно недоступен. Не удалось создать учётную запись VPN. Попробуйте позже." });
+    // Сначала проверяем — может юзер уже есть в Remna (создан ботом или предыдущей попыткой)
+    const byTgRes = await remnaGetUserByTelegramId(telegramId);
+    remnawaveUuid = extractRemnaUuid(byTgRes.data);
+
+    if (!remnawaveUuid) {
+      const username = remnaUsernameFromClient({
+        telegramUsername: telegramUsername ?? undefined,
+        telegramId,
+      });
+      // Без активной подписки — как при регистрации по email; доступ после триала или оплаты
+      const remnaRes = await remnaCreateUser({
+        username,
+        trafficLimitBytes: 0,
+        trafficLimitStrategy: "NO_RESET",
+        expireAt: new Date(Date.now() - 1000).toISOString(),
+        telegramId: tgUser.id,
+      });
+      remnawaveUuid = extractRemnaUuid(remnaRes.data);
+      if (remnaRes.error || remnawaveUuid == null) {
+        console.error("[Remna] create user (telegram initData) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
+        return res.status(503).json({ message: "Сервис временно недоступен. Не удалось создать учётную запись VPN. Попробуйте позже." });
+      }
     }
   }
   const referralCode = generateReferralCode();
@@ -772,21 +778,27 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
     const configForDefaults = await getSystemConfig();
     let remnawaveUuid: string | null = null;
     if (isRemnaConfigured()) {
-      const username = remnaUsernameFromClient({
-        telegramUsername: telegramUsername ?? undefined,
-        telegramId,
-      });
-      const remnaRes = await remnaCreateUser({
-        username,
-        trafficLimitBytes: 0,
-        trafficLimitStrategy: "NO_RESET",
-        expireAt: new Date(Date.now() - 1000).toISOString(),
-        telegramId: Number(telegramId),
-      });
-      remnawaveUuid = extractRemnaUuid(remnaRes.data);
-      if (remnaRes.error || remnawaveUuid == null) {
-        console.error("[Remna] create user (telegram deeplink) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
-        return res.status(503).json({ message: "Сервис временно недоступен. Попробуйте позже." });
+      // Сначала проверяем — может юзер уже есть в Remna (создан ботом или предыдущей попыткой)
+      const byTgRes = await remnaGetUserByTelegramId(telegramId);
+      remnawaveUuid = extractRemnaUuid(byTgRes.data);
+
+      if (!remnawaveUuid) {
+        const username = remnaUsernameFromClient({
+          telegramUsername: telegramUsername ?? undefined,
+          telegramId,
+        });
+        const remnaRes = await remnaCreateUser({
+          username,
+          trafficLimitBytes: 0,
+          trafficLimitStrategy: "NO_RESET",
+          expireAt: new Date(Date.now() - 1000).toISOString(),
+          telegramId: Number(telegramId),
+        });
+        remnawaveUuid = extractRemnaUuid(remnaRes.data);
+        if (remnaRes.error || remnawaveUuid == null) {
+          console.error("[Remna] create user (telegram deeplink) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
+          return res.status(503).json({ message: "Сервис временно недоступен. Попробуйте позже." });
+        }
       }
     }
 

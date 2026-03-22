@@ -32,6 +32,9 @@ import {
   remnaDeleteUser,
   remnaEnableUser,
   remnaResetUserTraffic,
+  remnaGetUserByTelegramId,
+  remnaGetUserByEmail,
+  extractRemnaUuid,
   isRemnaConfigured,
 } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
@@ -697,12 +700,26 @@ adminRouter.patch("/clients/:id/password", async (req, res) => {
 adminRouter.delete("/clients/:id", async (req, res) => {
   const parsed = clientIdParam.safeParse(req.params);
   if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
-  const client = await prisma.client.findUnique({ where: { id: parsed.data.id }, select: { id: true, remnawaveUuid: true } });
+  const client = await prisma.client.findUnique({ where: { id: parsed.data.id }, select: { id: true, remnawaveUuid: true, telegramId: true, email: true } });
   if (!client) return res.status(404).json({ message: "Клиент не найден" });
-  if (client.remnawaveUuid && isRemnaConfigured()) {
-    const remnaRes = await remnaDeleteUser(client.remnawaveUuid);
-    if (remnaRes.error) {
-      console.warn(`[admin delete client] Remna delete failed for ${client.remnawaveUuid}:`, remnaRes.error);
+  if (isRemnaConfigured()) {
+    let remnaUuid = client.remnawaveUuid;
+
+    // Если remnawaveUuid нет — ищем юзера в Remna по telegramId / email
+    if (!remnaUuid && client.telegramId?.trim()) {
+      const byTg = await remnaGetUserByTelegramId(client.telegramId.trim());
+      remnaUuid = extractRemnaUuid(byTg.data);
+    }
+    if (!remnaUuid && client.email?.trim()) {
+      const byEmail = await remnaGetUserByEmail(client.email.trim());
+      remnaUuid = extractRemnaUuid(byEmail.data);
+    }
+
+    if (remnaUuid) {
+      const remnaRes = await remnaDeleteUser(remnaUuid);
+      if (remnaRes.error) {
+        console.warn(`[admin delete client] Remna delete failed for ${remnaUuid}:`, remnaRes.error);
+      }
     }
   }
   await prisma.client.delete({ where: { id: parsed.data.id } });
