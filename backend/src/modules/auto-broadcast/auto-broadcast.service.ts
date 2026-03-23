@@ -13,6 +13,8 @@
 import { prisma } from "../../db.js";
 import { getSystemConfig } from "../client/client.service.js";
 import { sendEmail } from "../mail/mail.service.js";
+import { proxyFetch } from "../proxy-util/proxy-fetch.js";
+import { getProxyUrl } from "../proxy-util/get-proxy-url.js";
 
 /** Задержка между Telegram-сообщениями (мс). Telegram rate limit ~30 msg/sec, берём с запасом. */
 const TELEGRAM_DELAY_MS = 50;
@@ -53,28 +55,58 @@ function delay(ms: number): Promise<void> {
 
 // ─── Telegram send ────────────────────────────────────────────────
 
-async function sendTelegram(botToken: string, chatId: string, text: string): Promise<boolean> {
+type InlineKeyboardButton =
+  | { text: string; callback_data: string }
+  | { text: string; web_app: { url: string } }
+  | { text: string; url: string };
+
+type InlineKeyboard = { inline_keyboard: InlineKeyboardButton[][] };
+
+function buildReplyMarkup(buttonText?: string | null, buttonAction?: string | null, publicAppUrl?: string | null): InlineKeyboard | undefined {
+  const label = buttonText?.trim();
+  const action = buttonAction?.trim();
+  if (!label || !action) return undefined;
+
+  let btn: InlineKeyboardButton;
+  if (action.startsWith("menu:")) {
+    btn = { text: label, callback_data: action };
+  } else if (action.startsWith("webapp:")) {
+    const path = action.slice(7);
+    const base = (publicAppUrl || "").replace(/\/+$/, "");
+    btn = { text: label, web_app: { url: `${base}${path}` } };
+  } else {
+    btn = { text: label, url: action };
+  }
+  return { inline_keyboard: [[btn]] };
+}
+
+async function sendTelegram(botToken: string, chatId: string, text: string, replyMarkup?: InlineKeyboard): Promise<{ ok: boolean; error?: string }> {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   try {
-    const res = await fetch(url, {
+    const payload: Record<string, unknown> = {
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+    };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
+    const proxy = await getProxyUrl("telegram");
+    const res = await proxyFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      }),
-    });
+      body: JSON.stringify(payload),
+    }, proxy);
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
     if (!res.ok || !data.ok) {
-      console.warn(`${LOG_PREFIX} Telegram send failed for chat ${chatId}: ${data.description ?? res.status}`);
-      return false;
+      const err = data.description ?? `HTTP ${res.status}`;
+      console.warn(`${LOG_PREFIX} Telegram send failed for chat ${chatId}: ${err}`);
+      return { ok: false, error: err };
     }
-    return true;
+    return { ok: true };
   } catch (err) {
-    console.error(`${LOG_PREFIX} Telegram send error for chat ${chatId}:`, err);
-    return false;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`${LOG_PREFIX} Telegram send error for chat ${chatId}:`, msg);
+    return { ok: false, error: msg };
   }
 }
 
@@ -302,6 +334,7 @@ export type RunRuleResult = {
   ruleId: string;
   ruleName: string;
   sent: number;
+  skipped: number;
   errors: string[];
 };
 
@@ -310,12 +343,12 @@ export type RunRuleResult = {
  */
 export async function runRule(ruleId: string): Promise<RunRuleResult> {
   const rule = await prisma.autoBroadcastRule.findUnique({ where: { id: ruleId } });
-  if (!rule) return { ruleId, ruleName: "", sent: 0, errors: ["Rule not found"] };
-  if (!rule.enabled) return { ruleId, ruleName: rule.name, sent: 0, errors: [] };
+  if (!rule) return { ruleId, ruleName: "", sent: 0, skipped: 0, errors: ["Rule not found"] };
+  if (!rule.enabled) return { ruleId, ruleName: rule.name, sent: 0, skipped: 0, errors: [] };
 
   const clientIds = await getEligibleClientIds(ruleId);
   if (clientIds.length === 0) {
-    return { ruleId, ruleName: rule.name, sent: 0, errors: [] };
+    return { ruleId, ruleName: rule.name, sent: 0, skipped: 0, errors: [] };
   }
 
   const config = await getSystemConfig();
@@ -352,6 +385,7 @@ export async function runRule(ruleId: string): Promise<RunRuleResult> {
   const subject = rule.subject?.trim() || `Сообщение от ${serviceName}`;
   const htmlMessage = rule.message.trim().replace(/\n/g, "<br>\n");
   const htmlBody = `<!DOCTYPE html><html><body style="font-family: sans-serif;">${htmlMessage}</body></html>`;
+  const replyMarkup = buildReplyMarkup(rule.buttonText, rule.buttonUrl, config.publicAppUrl);
 
   const clients = await prisma.client.findMany({
     where: { id: { in: clientIds } },
@@ -359,7 +393,9 @@ export async function runRule(ruleId: string): Promise<RunRuleResult> {
   });
 
   let sent = 0;
+  let skipped = 0;
   const errors: string[] = [];
+  const SKIP_PATTERNS = /blocked by the user|can't initiate conversation|send messages to bots|chat not found|user is deactivated|bot was kicked/i;
 
   console.log(`${LOG_PREFIX} Rule "${rule.name}": sending to ${clients.length} clients...`);
 
@@ -367,11 +403,19 @@ export async function runRule(ruleId: string): Promise<RunRuleResult> {
     let telegramOk = false;
     let emailOk = false;
 
+    let telegramSkipped = false;
+
     // Telegram
     if (doTelegram && botToken && c.telegramId?.trim()) {
-      telegramOk = await sendTelegram(botToken, c.telegramId.trim(), rule.message.trim());
-      if (!telegramOk && errors.length < 20) {
-        errors.push(`Telegram fail: client ${c.id}`);
+      const tgResult = await sendTelegram(botToken, c.telegramId.trim(), rule.message.trim(), replyMarkup);
+      telegramOk = tgResult.ok;
+      if (!telegramOk) {
+        if (tgResult.error && SKIP_PATTERNS.test(tgResult.error)) {
+          skipped++;
+          telegramSkipped = true;
+        } else if (errors.length < 20) {
+          errors.push(`Telegram ${c.telegramId}: ${tgResult.error ?? "unknown error"}`);
+        }
       }
       await delay(TELEGRAM_DELAY_MS);
     }
@@ -393,25 +437,25 @@ export async function runRule(ruleId: string): Promise<RunRuleResult> {
     }
 
     const anySent = telegramOk || emailOk;
-    if (anySent) {
+    const shouldLog = anySent || telegramSkipped;
+    if (shouldLog) {
       try {
         await prisma.autoBroadcastLog.create({
           data: { ruleId: rule.id, clientId: c.id },
         });
       } catch (logErr) {
-        // Если лог не записался — не прерываем рассылку
         console.error(`${LOG_PREFIX} Failed to write log for rule ${rule.id}, client ${c.id}:`, logErr);
       }
-      sent++;
+      if (anySent) sent++;
     }
   }
 
   console.log(
-    `${LOG_PREFIX} Rule "${rule.name}" done: ${sent}/${clients.length} sent` +
+    `${LOG_PREFIX} Rule "${rule.name}" done: ${sent} sent, ${skipped} skipped` +
     (errors.length > 0 ? `, ${errors.length} error(s)` : ""),
   );
 
-  return { ruleId, ruleName: rule.name, sent, errors };
+  return { ruleId, ruleName: rule.name, sent, skipped, errors };
 }
 
 // ─── Run all rules ────────────────────────────────────────────────
@@ -443,14 +487,16 @@ export async function runAllRules(): Promise<RunRuleResult[]> {
         ruleId: r.id,
         ruleName: r.name,
         sent: 0,
+        skipped: 0,
         errors: [err instanceof Error ? err.message : String(err)],
       });
     }
   }
 
   const totalSent = results.reduce((s, r) => s + r.sent, 0);
+  const totalSkipped = results.reduce((s, r) => s + r.skipped, 0);
   const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
-  console.log(`${LOG_PREFIX} All rules done: ${totalSent} sent, ${totalErrors} error(s)`);
+  console.log(`${LOG_PREFIX} All rules done: ${totalSent} sent, ${totalSkipped} skipped, ${totalErrors} error(s)`);
 
   return results;
 }

@@ -335,6 +335,7 @@ model TariffCategory {
 }
 
 // Тариф внутри категории: название, описание (опционально), срок, сквады, лимиты, цена
+// trafficResetMode: no_reset (по умолчанию), on_purchase (сброс при покупке), monthly (ежемесячный сброс через Remna MONTH-стратегию)
 model Tariff {
   id                 String   @id @default(cuid())
   categoryId         String   @map("category_id")
@@ -343,6 +344,7 @@ model Tariff {
   durationDays       Int      @map("duration_days")
   internalSquadUuids String[] @map("internal_squad_uuids")
   trafficLimitBytes  BigInt?  @map("traffic_limit_bytes")
+  trafficResetMode   String   @default("no_reset") @map("traffic_reset_mode")
   deviceLimit        Int?     @map("device_limit")
   price              Float    @default(0)
   currency           String   @default("usd") @map("currency")
@@ -367,6 +369,8 @@ model AutoBroadcastRule {
   channel     String   @map("channel") // telegram | email | both
   subject     String?  @map("subject") // Тема письма (для email)
   message     String   @db.Text // Текст (до 4096)
+  buttonText  String?  @map("button_text") // Текст кнопки под сообщением
+  buttonUrl   String?  @map("button_url") // URL кнопки
   enabled     Boolean  @default(true) @map("enabled")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

@@ -211,6 +211,22 @@ export const api = {
     return request("/admin/dashboard/stats", { token });
   },
 
+  async getServerStats(token: string): Promise<ServerStats> {
+    return request("/admin/server/stats", { token });
+  },
+
+  async getSshConfig(token: string): Promise<SshConfig | null> {
+    return request("/admin/server/ssh", { token }).then((r) => r as SshConfig).catch(() => null);
+  },
+
+  async updateSshConfig(token: string, data: Partial<SshConfig>): Promise<SshConfig> {
+    return request("/admin/server/ssh", { method: "PATCH", body: JSON.stringify(data), token });
+  },
+
+  async testNalogConnection(token: string): Promise<{ ok: boolean; error?: string; inn?: string }> {
+    return request("/admin/nalog/test", { method: "POST", token });
+  },
+
   async getAutoRenewStats(token: string): Promise<AutoRenewStats> {
     return request("/admin/auto-renew/stats", { token });
   },
@@ -597,13 +613,15 @@ export const api = {
   /** Запустить рассылку (опционально — изображение или файл вложения). */
   async broadcast(
     token: string,
-    body: { channel: "telegram" | "email" | "both"; subject?: string; message: string },
+    body: { channel: "telegram" | "email" | "both"; subject?: string; message: string; buttonText?: string; buttonUrl?: string },
     attachment?: File | null
   ): Promise<BroadcastResult> {
     const form = new FormData();
     form.append("channel", body.channel);
     form.append("message", body.message);
     if (body.subject != null && body.subject !== "") form.append("subject", body.subject);
+    if (body.buttonText?.trim()) form.append("buttonText", body.buttonText.trim());
+    if (body.buttonUrl?.trim()) form.append("buttonUrl", body.buttonUrl.trim());
     if (attachment) form.append("attachment", attachment, attachment.name);
     const headers = new Headers();
     headers.set("Authorization", `Bearer ${token}`);
@@ -1258,6 +1276,8 @@ export interface AutoBroadcastRule {
   channel: "telegram" | "email" | "both";
   subject: string | null;
   message: string;
+  buttonText: string | null;
+  buttonUrl: string | null;
   enabled: boolean;
   sentCount?: number;
 }
@@ -1269,12 +1289,15 @@ export interface AutoBroadcastRulePayload {
   channel: "telegram" | "email" | "both";
   subject?: string | null;
   message: string;
+  buttonText?: string | null;
+  buttonUrl?: string | null;
   enabled?: boolean;
 }
 
 export interface RunRuleResult {
   ruleId: string;
   sent: number;
+  skipped: number;
   errors: string[];
 }
 
@@ -1308,6 +1331,9 @@ export type UpdateSettingsPayload = {
   telegramBotUsername?: string | null;
   botAdminTelegramIds?: string[] | null;
   notificationTelegramGroupId?: string | null;
+  notificationTopicNewClients?: string | null;
+  notificationTopicPayments?: string | null;
+  notificationTopicTickets?: string | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: string | null;
@@ -1478,6 +1504,21 @@ export type UpdateSettingsPayload = {
   landingReadyToConnectEyebrow?: string | null;
   landingReadyToConnectTitle?: string | null;
   landingReadyToConnectDesc?: string | null;
+  landingShowFeatures?: boolean;
+  landingShowBenefits?: boolean;
+  landingShowDevices?: boolean;
+  landingShowFaq?: boolean;
+  landingShowHowItWorks?: boolean;
+  landingShowCta?: boolean;
+  proxyEnabled?: boolean;
+  proxyUrl?: string | null;
+  proxyTelegram?: boolean;
+  proxyPayments?: boolean;
+  nalogEnabled?: boolean;
+  nalogInn?: string | null;
+  nalogPassword?: string | null;
+  nalogDeviceId?: string | null;
+  nalogServiceName?: string | null;
 };
 
 export interface ClientRecord {
@@ -1558,6 +1599,9 @@ export interface AdminSettings {
   botAdminTelegramIds?: string[] | null;
   /** Группа для уведомлений: Chat ID (например -1001234567890). Бот должен быть в группе. */
   notificationTelegramGroupId?: string | null;
+  notificationTopicNewClients?: string | null;
+  notificationTopicPayments?: string | null;
+  notificationTopicTickets?: string | null;
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: { id: number; enabled: boolean; label: string }[];
@@ -1748,6 +1792,22 @@ export interface AdminSettings {
   landingReadyToConnectEyebrow?: string | null;
   landingReadyToConnectTitle?: string | null;
   landingReadyToConnectDesc?: string | null;
+  landingShowFeatures?: boolean;
+  landingShowBenefits?: boolean;
+  landingShowDevices?: boolean;
+  landingShowFaq?: boolean;
+  landingShowHowItWorks?: boolean;
+  landingShowCta?: boolean;
+  /** Прокси для внешних запросов */
+  proxyEnabled?: boolean;
+  proxyUrl?: string | null;
+  proxyTelegram?: boolean;
+  proxyPayments?: boolean;
+  nalogEnabled?: boolean;
+  nalogInn?: string | null;
+  nalogPassword?: string | null;
+  nalogDeviceId?: string | null;
+  nalogServiceName?: string | null;
 }
 
 /** Конфиг страницы подписки (формат как sub.stealthnet.app) */
@@ -1776,6 +1836,24 @@ export type SubscriptionPageConfig = {
   translations?: Record<string, Record<string, string>>;
   brandingSettings?: { title?: string; logoUrl?: string; supportUrl?: string };
 } | null;
+
+export interface ServerStats {
+  hostname: string;
+  platform: string;
+  arch: string;
+  uptimeSeconds: number;
+  loadAvg: [number, number, number];
+  cpu: { model: string; cores: number; usagePercent: number };
+  memory: { totalBytes: number; usedBytes: number; freeBytes: number; usagePercent: number };
+  disk: { totalBytes: number; usedBytes: number; freeBytes: number; usagePercent: number; mount: string } | null;
+}
+
+export interface SshConfig {
+  port: number;
+  permitRootLogin: string;
+  passwordAuthentication: boolean;
+  pubkeyAuthentication: boolean;
+}
 
 export interface DashboardStats {
   users: {
@@ -2021,6 +2099,7 @@ export interface TariffRecord {
   durationDays: number;
   internalSquadUuids: string[];
   trafficLimitBytes: number | null;
+  trafficResetMode: string;
   deviceLimit: number | null;
   price: number;
   currency: string;
@@ -2036,6 +2115,7 @@ export type CreateTariffPayload = {
   durationDays: number;
   internalSquadUuids: string[];
   trafficLimitBytes?: number | null;
+  trafficResetMode?: string;
   deviceLimit?: number | null;
   price?: number;
   currency?: string;
@@ -2048,6 +2128,7 @@ export type UpdateTariffPayload = {
   durationDays?: number;
   internalSquadUuids?: string[];
   trafficLimitBytes?: number | null;
+  trafficResetMode?: string;
   deviceLimit?: number | null;
   price?: number;
   currency?: string;
@@ -2119,7 +2200,7 @@ export interface PublicTariffCategory {
   name: string;
   emojiKey: string | null;
   emoji: string;
-  tariffs: { id: string; name: string; description: string | null; durationDays: number; price: number; currency: string; trafficLimitBytes: number | null; deviceLimit: number | null }[];
+  tariffs: { id: string; name: string; description: string | null; durationDays: number; price: number; currency: string; trafficLimitBytes: number | null; trafficResetMode?: string; deviceLimit: number | null }[];
 }
 
 // ——— Промо-группы ———

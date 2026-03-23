@@ -3586,13 +3586,14 @@ publicConfigRouter.get("/subscription-page", async (_req, res) => {
   }
 });
 
-function tariffToJson(t: { id: string; name: string; description: string | null; durationDays: number; internalSquadUuids: string[]; trafficLimitBytes: bigint | null; deviceLimit: number | null; price: number; currency: string }) {
+function tariffToJson(t: { id: string; name: string; description: string | null; durationDays: number; internalSquadUuids: string[]; trafficLimitBytes: bigint | null; trafficResetMode?: string; deviceLimit: number | null; price: number; currency: string }) {
   return {
     id: t.id,
     name: t.name,
     description: t.description ?? null,
     durationDays: t.durationDays,
     trafficLimitBytes: t.trafficLimitBytes != null ? Number(t.trafficLimitBytes) : null,
+    trafficResetMode: t.trafficResetMode ?? "no_reset",
     deviceLimit: t.deviceLimit,
     price: t.price,
     currency: t.currency,

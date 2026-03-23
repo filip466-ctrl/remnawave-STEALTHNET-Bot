@@ -64,7 +64,10 @@ const SYSTEM_CONFIG_KEYS = [
   "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_password",
   "smtp_from_email", "smtp_from_name", "public_app_url",
   "telegram_bot_token", "telegram_bot_username", "bot_admin_telegram_ids",
-  "notification_telegram_group_id", // Группа/чат для дублирования админских уведомлений (chat_id, например -1001234567890)
+  "notification_telegram_group_id",
+  "notification_topic_new_clients",
+  "notification_topic_payments",
+  "notification_topic_tickets",
   "platega_merchant_id", "platega_secret", "platega_methods",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key", "yookassa_recurring_enabled",
@@ -139,6 +142,11 @@ const SYSTEM_CONFIG_KEYS = [
   "landing_how_it_works_title", "landing_how_it_works_desc",
   "landing_stats_platforms", "landing_stats_tariffs_label", "landing_stats_access_label", "landing_stats_payment_methods",
   "landing_ready_to_connect_eyebrow", "landing_ready_to_connect_title", "landing_ready_to_connect_desc",
+  "landing_show_features", "landing_show_benefits", "landing_show_devices", "landing_show_faq", "landing_show_how_it_works", "landing_show_cta",
+  // Прокси
+  "proxy_enabled", "proxy_url", "proxy_telegram", "proxy_payments",
+  // Мой Налог (самозанятые)
+  "nalog_enabled", "nalog_inn", "nalog_password", "nalog_device_id", "nalog_service_name",
 ];
 
 /** Продукт «Доп. трафик»: объём в ГБ, цена, валюта */
@@ -443,6 +451,9 @@ export async function getSystemConfig() {
     telegramBotUsername: map.telegram_bot_username || null,
     botAdminTelegramIds: parseBotAdminTelegramIds(map.bot_admin_telegram_ids),
     notificationTelegramGroupId: (map.notification_telegram_group_id ?? "").trim() || null,
+    notificationTopicNewClients: (map.notification_topic_new_clients ?? "").trim() || null,
+    notificationTopicPayments: (map.notification_topic_payments ?? "").trim() || null,
+    notificationTopicTickets: (map.notification_topic_tickets ?? "").trim() || null,
     plategaMerchantId: map.platega_merchant_id || null,
     plategaSecret: map.platega_secret || null,
     plategaMethods: parsePlategaMethods(map.platega_methods),
@@ -615,6 +626,21 @@ export async function getSystemConfig() {
     landingReadyToConnectEyebrow: (map.landing_ready_to_connect_eyebrow ?? "").trim() || null,
     landingReadyToConnectTitle: (map.landing_ready_to_connect_title ?? "").trim() || null,
     landingReadyToConnectDesc: (map.landing_ready_to_connect_desc ?? "").trim() || null,
+    landingShowFeatures: map.landing_show_features !== "false" && map.landing_show_features !== "0",
+    landingShowBenefits: map.landing_show_benefits !== "false" && map.landing_show_benefits !== "0",
+    landingShowDevices: map.landing_show_devices !== "false" && map.landing_show_devices !== "0",
+    landingShowFaq: map.landing_show_faq !== "false" && map.landing_show_faq !== "0",
+    landingShowHowItWorks: map.landing_show_how_it_works !== "false" && map.landing_show_how_it_works !== "0",
+    landingShowCta: map.landing_show_cta !== "false" && map.landing_show_cta !== "0",
+    proxyEnabled: map.proxy_enabled === "true" || map.proxy_enabled === "1",
+    proxyUrl: (map.proxy_url ?? "").trim() || null,
+    proxyTelegram: map.proxy_telegram === "true" || map.proxy_telegram === "1",
+    proxyPayments: map.proxy_payments === "true" || map.proxy_payments === "1",
+    nalogEnabled: map.nalog_enabled === "true" || map.nalog_enabled === "1",
+    nalogInn: (map.nalog_inn ?? "").trim() || null,
+    nalogPassword: (map.nalog_password ?? "").trim() || null,
+    nalogDeviceId: (map.nalog_device_id ?? "").trim() || null,
+    nalogServiceName: (map.nalog_service_name ?? "").trim() || null,
   };
 }
 
@@ -1063,6 +1089,12 @@ export async function getPublicConfig() {
         landingReadyToConnectEyebrow?: string | null;
         landingReadyToConnectTitle?: string | null;
         landingReadyToConnectDesc?: string | null;
+        landingShowFeatures?: boolean;
+        landingShowBenefits?: boolean;
+        landingShowDevices?: boolean;
+        landingShowFaq?: boolean;
+        landingShowHowItWorks?: boolean;
+        landingShowCta?: boolean;
       };
       if (!l.landingEnabled) return null;
       const parseJsonArray = <T>(raw: string | null | undefined, guard: (x: unknown) => x is T): T[] => {
@@ -1193,7 +1225,17 @@ export async function getPublicConfig() {
         readyToConnectEyebrow: (l.landingReadyToConnectEyebrow ?? "").trim() || null,
         readyToConnectTitle: (l.landingReadyToConnectTitle ?? "").trim() || null,
         readyToConnectDesc: (l.landingReadyToConnectDesc ?? "").trim() || null,
+        showFeatures: l.landingShowFeatures !== false,
+        showBenefits: l.landingShowBenefits !== false,
+        showDevices: l.landingShowDevices !== false,
+        showFaq: l.landingShowFaq !== false,
+        showHowItWorks: l.landingShowHowItWorks !== false,
+        showCta: l.landingShowCta !== false,
       };
     })(),
+    proxyEnabled: full.proxyEnabled ?? false,
+    proxyUrl: full.proxyUrl ?? null,
+    proxyTelegram: full.proxyTelegram ?? false,
+    proxyPayments: full.proxyPayments ?? false,
   };
 }

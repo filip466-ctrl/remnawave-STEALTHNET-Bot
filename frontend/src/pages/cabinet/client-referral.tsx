@@ -181,31 +181,35 @@ export function ClientReferralPage() {
 
               <div className="space-y-3">
                 {referralLinkSite && (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 rounded-2xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors hover:bg-muted/60 dark:hover:bg-white/10">
+                  <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors hover:bg-muted/60 dark:hover:bg-white/10">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/5 dark:bg-white/10 shrink-0 text-muted-foreground">
                         <Globe className="w-4 h-4" />
                       </div>
-                      <div className="shrink-0 w-12 text-xs font-bold uppercase tracking-widest text-muted-foreground">Сайт</div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Сайт</div>
                     </div>
-                    <code className="flex-1 min-w-0 truncate text-xs font-mono text-primary/80 select-all bg-background/50 px-3 py-2 rounded-xl border border-border/50">{referralLinkSite}</code>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl sm:ml-auto self-end sm:self-auto" onClick={() => copyLink("site")}>
-                      {copiedRef === "site" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    </Button>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <code className="flex-1 min-w-0 truncate text-xs font-mono text-primary/80 select-all bg-background/50 px-3 py-2 rounded-xl border border-border/50">{referralLinkSite}</code>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl" onClick={() => copyLink("site")}>
+                        {copiedRef === "site" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {referralLinkBot && (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 rounded-2xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors hover:bg-muted/60 dark:hover:bg-white/10">
+                  <div className="flex flex-col gap-2 p-3 sm:p-4 rounded-2xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors hover:bg-muted/60 dark:hover:bg-white/10">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#0088cc]/10 text-[#0088cc] shrink-0">
                         <Send className="w-4 h-4 ml-[-2px] mt-[1px]" />
                       </div>
-                      <div className="shrink-0 w-12 text-xs font-bold uppercase tracking-widest text-muted-foreground">Бот</div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Бот</div>
                     </div>
-                    <code className="flex-1 min-w-0 truncate text-xs font-mono text-primary/80 select-all bg-background/50 px-3 py-2 rounded-xl border border-border/50">{referralLinkBot}</code>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl sm:ml-auto self-end sm:self-auto" onClick={() => copyLink("bot")}>
-                      {copiedRef === "bot" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    </Button>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <code className="flex-1 min-w-0 truncate text-xs font-mono text-primary/80 select-all bg-background/50 px-3 py-2 rounded-xl border border-border/50">{referralLinkBot}</code>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl" onClick={() => copyLink("bot")}>
+                        {copiedRef === "bot" ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

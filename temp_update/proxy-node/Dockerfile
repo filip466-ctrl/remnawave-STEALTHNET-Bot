@@ -12,7 +12,7 @@ RUN wget -q https://github.com/3proxy/3proxy/archive/0.9.4.tar.gz -O 3proxy.tar.
     cp bin/3proxy bin/socks bin/proxy /build/
 
 # Stage 2: node + agent + 3proxy
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 COPY --from=proxybuilder /build/3proxy /build/socks /build/proxy /usr/local/bin/

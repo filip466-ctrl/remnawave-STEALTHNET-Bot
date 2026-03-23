@@ -12,6 +12,7 @@ import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activati
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 import { distributeReferralRewards } from "../referral/referral.service.js";
 import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
+import { createNalogReceipt } from "../nalog/nalog.service.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -123,7 +124,7 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
       clientId: payment.clientId,
       amount: payment.amount,
     });
-    await notifyBalanceToppedUp(payment.clientId, payment.amount, payment.currency || "RUB").catch(() => {});
+    await notifyBalanceToppedUp(payment.clientId, payment.amount, payment.currency || "RUB", "YooKassa").catch(() => {});
   } else if (isExtraOption) {
     const result = await applyExtraOptionByPaymentId(payment.id);
     if (result.ok) {
@@ -173,6 +174,20 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
 
   await distributeReferralRewards(payment.id).catch((e) => {
     console.error("[YooKassa Webhook] Referral distribution error", { paymentId: payment.id, error: e });
+  });
+
+  const tariffForReceipt = payment.tariffId
+    ? await prisma.tariff.findUnique({ where: { id: payment.tariffId }, select: { name: true } }).catch(() => null)
+    : null;
+  const receiptDesc = tariffForReceipt?.name ? `Оплата тарифа «${tariffForReceipt.name}»` : "Пополнение баланса";
+  createNalogReceipt({
+    paymentId: payment.id,
+    amount: payment.amount,
+    currency: payment.currency || "RUB",
+    description: receiptDesc,
+    paidAt: new Date(),
+  }).catch((e) => {
+    console.warn("[YooKassa Webhook] Nalog receipt error (non-critical):", e);
   });
 
   return res.status(200).send("OK");

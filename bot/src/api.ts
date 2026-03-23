@@ -138,6 +138,10 @@ export async function getPublicConfig(): Promise<{
     | { kind: "servers"; id: string; name: string; squadUuid: string; trafficGb?: number; price: number; currency: string }
   >;
   useRemnaSubscriptionPage?: boolean;
+  proxyEnabled?: boolean;
+  proxyUrl?: string | null;
+  proxyTelegram?: boolean;
+  proxyPayments?: boolean;
 } | null> {
   return fetchJson("/api/public/config");
 }
@@ -234,7 +238,7 @@ export async function getPublicTariffs(): Promise<{
     name: string;
     emojiKey: string | null;
     emoji: string;
-    tariffs: { id: string; name: string; description?: string | null; durationDays: number; trafficLimitBytes?: number | null; deviceLimit?: number | null; price: number; currency: string }[];
+    tariffs: { id: string; name: string; description?: string | null; durationDays: number; trafficLimitBytes?: number | null; trafficResetMode?: string; deviceLimit?: number | null; price: number; currency: string }[];
   }[];
 }> {
   return fetchJson("/api/public/tariffs");

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type AdminSettings, type AutoRenewStats, type SyncResult, type SyncToRemnaResult, type SyncCreateRemnaForMissingResult, type SubscriptionPageConfig } from "@/lib/api";
+import { api, type AdminSettings, type AutoRenewStats, type SyncResult, type SyncToRemnaResult, type SyncCreateRemnaForMissingResult, type SubscriptionPageConfig, type SshConfig } from "@/lib/api";
 import { SubscriptionPageEditor } from "@/components/subscription-page-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw, Shield, Terminal, FileText } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
@@ -161,6 +161,9 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [sshConfig, setSshConfig] = useState<SshConfig | null>(null);
+  const [sshSaving, setSshSaving] = useState(false);
+  const [sshMessage, setSshMessage] = useState("");
   const [syncLoading, setSyncLoading] = useState<"from" | "to" | "missing" | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [squads, setSquads] = useState<{ uuid: string; name?: string }[]>([]);
@@ -247,6 +250,7 @@ export function SettingsPage() {
       });
     }).finally(() => setLoading(false));
     api.getAutoRenewStats(token).then(setAutoRenewStats).catch(() => {});
+    api.getSshConfig(token).then(setSshConfig).catch(() => {});
   }, [token]);
 
   useEffect(() => {
@@ -515,6 +519,9 @@ export function SettingsPage() {
         telegramBotUsername: settings.telegramBotUsername ?? null,
         botAdminTelegramIds: settings.botAdminTelegramIds ?? null,
         notificationTelegramGroupId: settings.notificationTelegramGroupId ?? null,
+        notificationTopicNewClients: settings.notificationTopicNewClients ?? null,
+        notificationTopicPayments: settings.notificationTopicPayments ?? null,
+        notificationTopicTickets: settings.notificationTopicTickets ?? null,
         plategaMerchantId: settings.plategaMerchantId ?? null,
         plategaSecret: settings.plategaSecret && settings.plategaSecret !== "********" ? settings.plategaSecret : undefined,
         plategaMethods: settings.plategaMethods != null ? JSON.stringify(settings.plategaMethods) : undefined,
@@ -678,6 +685,21 @@ export function SettingsPage() {
         landingReadyToConnectEyebrow: settings.landingReadyToConnectEyebrow ?? null,
         landingReadyToConnectTitle: settings.landingReadyToConnectTitle ?? null,
         landingReadyToConnectDesc: settings.landingReadyToConnectDesc ?? null,
+        landingShowFeatures: settings.landingShowFeatures !== false,
+        landingShowBenefits: settings.landingShowBenefits !== false,
+        landingShowDevices: settings.landingShowDevices !== false,
+        landingShowFaq: settings.landingShowFaq !== false,
+        landingShowHowItWorks: settings.landingShowHowItWorks !== false,
+        landingShowCta: settings.landingShowCta !== false,
+        proxyEnabled: settings.proxyEnabled ?? false,
+        proxyUrl: settings.proxyUrl ?? null,
+        proxyTelegram: settings.proxyTelegram ?? false,
+        proxyPayments: settings.proxyPayments ?? false,
+        nalogEnabled: settings.nalogEnabled ?? false,
+        nalogInn: settings.nalogInn ?? null,
+        nalogPassword: settings.nalogPassword ?? null,
+        nalogDeviceId: settings.nalogDeviceId ?? null,
+        nalogServiceName: settings.nalogServiceName ?? null,
       })
       .then((updated) => {
         const u = updated as AdminSettings;
@@ -758,6 +780,18 @@ export function SettingsPage() {
             <Globe className="h-4 w-4 shrink-0" />
             Лендинг
           </TabsTrigger>
+          <TabsTrigger value="server-ssh" className="gap-2 py-3 px-4 rounded-xl">
+            <Terminal className="h-4 w-4 shrink-0" />
+            SSH
+          </TabsTrigger>
+          <TabsTrigger value="proxy-settings" className="gap-2 py-3 px-4 rounded-xl">
+            <Shield className="h-4 w-4 shrink-0" />
+            Прокси
+          </TabsTrigger>
+          <TabsTrigger value="nalog-settings" className="gap-2 py-3 px-4 rounded-xl">
+            <FileText className="h-4 w-4 shrink-0" />
+            Мой Налог
+          </TabsTrigger>
           <TabsTrigger value="sync" className="gap-2 py-3 px-4 rounded-xl">
             <ArrowLeftRight className="h-4 w-4 shrink-0" />
             Синхронизация
@@ -827,16 +861,55 @@ export function SettingsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2 rounded-lg border p-4 bg-muted/20">
-                  <Label>Группа для уведомлений (Telegram Chat ID)</Label>
-                  <Input
-                    value={settings.notificationTelegramGroupId ?? ""}
-                    onChange={(e) => setSettings((s) => (s ? { ...s, notificationTelegramGroupId: e.target.value.trim() || null } : s))}
-                    placeholder="-1001234567890"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Если указать Chat ID группы или канала, туда будут дублироваться все админские уведомления (новые клиенты, оплаты, тикеты). Добавьте бота в группу. У супергрупп ID обычно начинается с -100.
-                  </p>
+                <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                  <div className="space-y-2">
+                    <Label>Группа для уведомлений (Telegram Chat ID)</Label>
+                    <Input
+                      value={settings.notificationTelegramGroupId ?? ""}
+                      onChange={(e) => setSettings((s) => (s ? { ...s, notificationTelegramGroupId: e.target.value.trim() || null } : s))}
+                      placeholder="-1001234567890"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Если указать Chat ID группы или канала, туда будут дублироваться все админские уведомления. Добавьте бота в группу. У супергрупп ID обычно начинается с -100.
+                    </p>
+                  </div>
+                  {settings.notificationTelegramGroupId?.trim() && (
+                    <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                      <p className="text-sm font-medium text-muted-foreground">Топики (для супергрупп с темами)</p>
+                      <p className="text-xs text-muted-foreground">
+                        Укажите ID топика (message_thread_id), чтобы уведомления разного типа приходили в разные темы группы. Оставьте пустым — уведомления пойдут в общий чат.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Новые клиенты</Label>
+                          <Input
+                            value={settings.notificationTopicNewClients ?? ""}
+                            onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicNewClients: e.target.value.trim() || null } : s))}
+                            placeholder="ID топика"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Платежи</Label>
+                          <Input
+                            value={settings.notificationTopicPayments ?? ""}
+                            onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicPayments: e.target.value.trim() || null } : s))}
+                            placeholder="ID топика"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Тикеты</Label>
+                          <Input
+                            value={settings.notificationTopicTickets ?? ""}
+                            onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicTickets: e.target.value.trim() || null } : s))}
+                            placeholder="ID топика"
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Название сервиса</Label>
@@ -3487,14 +3560,36 @@ export function SettingsPage() {
                   onChange={(e) => setSettings((s) => (s ? { ...s, landingFaqJson: e.target.value || null } : s))}
                 />
               </div>
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                  <p className="font-medium">Показывать блок тарифов</p>
+              <p className="text-sm font-medium text-muted-foreground pt-2">Видимость блоков лендинга</p>
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок фич (карточки под hero)</p></div>
+                  <Switch checked={settings.landingShowFeatures !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowFeatures: v } : s))} />
                 </div>
-                <Switch
-                  checked={settings.landingShowTariffs !== false}
-                  onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowTariffs: v } : s))}
-                />
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок «Почему мы» (преимущества)</p></div>
+                  <Switch checked={settings.landingShowBenefits !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowBenefits: v } : s))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок тарифов</p></div>
+                  <Switch checked={settings.landingShowTariffs !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowTariffs: v } : s))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок устройств</p></div>
+                  <Switch checked={settings.landingShowDevices !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowDevices: v } : s))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок «Как это работает»</p></div>
+                  <Switch checked={settings.landingShowHowItWorks !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowHowItWorks: v } : s))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Блок FAQ</p></div>
+                  <Switch checked={settings.landingShowFaq !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowFaq: v } : s))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-sm">Финальный CTA (Ready to connect)</p></div>
+                  <Switch checked={settings.landingShowCta !== false} onCheckedChange={(v) => setSettings((s) => (s ? { ...s, landingShowCta: v } : s))} />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label>Контакты (текст или HTML)</Label>
@@ -3745,6 +3840,302 @@ export function SettingsPage() {
                   {saving ? "Сохранение…" : "Сохранить"}
                 </Button>
                 {message && <span className="text-sm text-muted-foreground">{message}</span>}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="server-ssh">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="h-5 w-5" />
+                Настройки SSH
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Управление доступом по SSH к серверу. Изменения применяются немедленно.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!sshConfig ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  SSH-конфиг не найден. Убедитесь, что контейнер имеет доступ к <code>/etc/ssh/sshd_config</code> хоста.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Порт SSH</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={sshConfig.port}
+                      onChange={(e) => setSshConfig({ ...sshConfig, port: parseInt(e.target.value, 10) || 22 })}
+                    />
+                    <p className="text-xs text-muted-foreground">Стандартный порт — 22. Смена порта снижает количество ботов.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>PermitRootLogin</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={sshConfig.permitRootLogin}
+                      onChange={(e) => setSshConfig({ ...sshConfig, permitRootLogin: e.target.value })}
+                    >
+                      <option value="yes">yes — разрешён вход по паролю и ключу</option>
+                      <option value="prohibit-password">prohibit-password — только по ключу</option>
+                      <option value="no">no — полностью запрещён</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Вход по паролю</Label>
+                      <p className="text-sm text-muted-foreground">PasswordAuthentication — отключите, если используете только ключи</p>
+                    </div>
+                    <Switch
+                      checked={sshConfig.passwordAuthentication}
+                      onCheckedChange={(v) => setSshConfig({ ...sshConfig, passwordAuthentication: v })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Вход по ключу</Label>
+                      <p className="text-sm text-muted-foreground">PubkeyAuthentication — всегда должен быть включён, если заходите по ключу</p>
+                    </div>
+                    <Switch
+                      checked={sshConfig.pubkeyAuthentication}
+                      onCheckedChange={(v) => setSshConfig({ ...sshConfig, pubkeyAuthentication: v })}
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-300">
+                    <strong>Внимание:</strong> неправильные настройки могут заблокировать доступ к серверу.
+                    Перед изменением убедитесь, что у вас есть альтернативный способ доступа (например, консоль провайдера).
+                  </div>
+
+                  {sshMessage && (
+                    <p className={`text-sm ${sshMessage === "Сохранено" ? "text-emerald-500" : "text-destructive"}`}>
+                      {sshMessage}
+                    </p>
+                  )}
+
+                  <Button
+                    disabled={sshSaving}
+                    onClick={async () => {
+                      setSshSaving(true);
+                      setSshMessage("");
+                      try {
+                        const updated = await api.updateSshConfig(token, sshConfig);
+                        setSshConfig(updated);
+                        setSshMessage("Сохранено");
+                      } catch (e) {
+                        setSshMessage(e instanceof Error ? e.message : "Ошибка");
+                      } finally {
+                        setSshSaving(false);
+                      }
+                    }}
+                  >
+                    {sshSaving ? "Сохранение…" : "Применить"}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="proxy-settings">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Прокси для внешних запросов
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Настройка прокси-сервера для исходящих запросов к Telegram API и платёжным системам.
+                Полезно, если на сервере заблокирован доступ к внешним сервисам.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-medium">Прокси включён</Label>
+                  <p className="text-sm text-muted-foreground">Глобальный переключатель — отключает все прокси-маршруты</p>
+                </div>
+                <Switch
+                  checked={settings.proxyEnabled ?? false}
+                  onCheckedChange={(v) => setSettings({ ...settings, proxyEnabled: v })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Proxy URL</Label>
+                <Input
+                  placeholder="http://user:pass@host:port или socks5://user:pass@host:port"
+                  value={settings.proxyUrl ?? ""}
+                  onChange={(e) => setSettings({ ...settings, proxyUrl: e.target.value || null })}
+                  disabled={!settings.proxyEnabled}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Поддерживаемые протоколы: <code>http://</code>, <code>https://</code>, <code>socks5://</code>
+                </p>
+              </div>
+
+              <div className="space-y-4 rounded-lg border p-4">
+                <p className="text-sm font-medium">Маршрутизация через прокси</p>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Telegram Bot API</Label>
+                    <p className="text-xs text-muted-foreground">Бот, уведомления, отправка сообщений</p>
+                  </div>
+                  <Switch
+                    checked={settings.proxyTelegram ?? false}
+                    onCheckedChange={(v) => setSettings({ ...settings, proxyTelegram: v })}
+                    disabled={!settings.proxyEnabled}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Платёжные системы</Label>
+                    <p className="text-xs text-muted-foreground">Platega, YooKassa, YooMoney, CryptoPay, Heleket</p>
+                  </div>
+                  <Switch
+                    checked={settings.proxyPayments ?? false}
+                    onCheckedChange={(v) => setSettings({ ...settings, proxyPayments: v })}
+                    disabled={!settings.proxyEnabled}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
+                <strong>Важно:</strong> после изменения настроек прокси для Telegram бота необходимо перезапустить контейнер бота,
+                чтобы он подключился через новый прокси.
+              </div>
+
+              <Button
+                onClick={(e) => {
+                  handleSubmit(e as unknown as React.FormEvent);
+                }}
+                disabled={saving}
+              >
+                {saving ? "Сохранение…" : "Сохранить"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="nalog-settings">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Мой Налог (самозанятые)
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Автоматическая отправка чеков в «Мой Налог» (lknpd.nalog.ru) при оплате через YooKassa.
+                Для самозанятых — регистрация дохода и выдача чека покупателю.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-medium">Чеки включены</Label>
+                  <p className="text-sm text-muted-foreground">При оплате через YooKassa автоматически будет создаваться чек в «Мой Налог»</p>
+                </div>
+                <Switch
+                  checked={settings.nalogEnabled ?? false}
+                  onCheckedChange={(v) => setSettings({ ...settings, nalogEnabled: v })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="nalog-inn">ИНН</Label>
+                <Input
+                  id="nalog-inn"
+                  placeholder="123456789012"
+                  maxLength={12}
+                  value={settings.nalogInn ?? ""}
+                  onChange={(e) => setSettings({ ...settings, nalogInn: e.target.value || null })}
+                  disabled={!settings.nalogEnabled}
+                />
+                <p className="text-xs text-muted-foreground mt-1">ИНН самозанятого (12 цифр)</p>
+              </div>
+
+              <div>
+                <Label htmlFor="nalog-password">Пароль от «Мой Налог»</Label>
+                <Input
+                  id="nalog-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={settings.nalogPassword ?? ""}
+                  onChange={(e) => setSettings({ ...settings, nalogPassword: e.target.value || null })}
+                  disabled={!settings.nalogEnabled}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Пароль от личного кабинета lknpd.nalog.ru</p>
+              </div>
+
+              <div>
+                <Label htmlFor="nalog-service-name">Название услуги в чеке</Label>
+                <Input
+                  id="nalog-service-name"
+                  placeholder="Оплата VPN-подписки"
+                  value={settings.nalogServiceName ?? ""}
+                  onChange={(e) => setSettings({ ...settings, nalogServiceName: e.target.value || null })}
+                  disabled={!settings.nalogEnabled}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Текст, который будет в чеке (если пусто — подставится название тарифа)</p>
+              </div>
+
+              <div>
+                <Label htmlFor="nalog-device-id">Device ID (необязательно)</Label>
+                <Input
+                  id="nalog-device-id"
+                  placeholder="stealthnet-bot-nalog"
+                  value={settings.nalogDeviceId ?? ""}
+                  onChange={(e) => setSettings({ ...settings, nalogDeviceId: e.target.value || null })}
+                  disabled={!settings.nalogEnabled}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Уникальный идентификатор устройства для API. По умолчанию: stealthnet-bot-nalog</p>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!settings.nalogEnabled || !settings.nalogInn || !settings.nalogPassword}
+                  onClick={async () => {
+                    setMessage("");
+                    try {
+                      const result = await api.testNalogConnection(token!);
+                      setMessage(result.ok ? `Подключение успешно (ИНН: ${result.inn})` : `Ошибка: ${result.error}`);
+                    } catch {
+                      setMessage("Не удалось проверить подключение");
+                    }
+                  }}
+                >
+                  Проверить подключение
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    handleSubmit(e as unknown as React.FormEvent);
+                  }}
+                  disabled={saving}
+                >
+                  {saving ? "Сохранение…" : "Сохранить"}
+                </Button>
+              </div>
+
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 text-sm text-blue-200 space-y-2">
+                <p><strong>Как это работает:</strong></p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>При успешной оплате через YooKassa автоматически создаётся чек в «Мой Налог»</li>
+                  <li>Чек содержит сумму платежа и название услуги</li>
+                  <li>Если создание чека не удалось — оплата всё равно проходит, ошибка логируется</li>
+                  <li>Токены авторизации сохраняются и обновляются автоматически</li>
+                </ul>
               </div>
             </CardContent>
           </Card>

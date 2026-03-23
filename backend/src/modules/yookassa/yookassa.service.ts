@@ -3,6 +3,9 @@
  * Документация: https://yookassa.ru/developers/api#create_payment
  */
 
+import { proxyFetch } from "../proxy-util/proxy-fetch.js";
+import { getProxyUrl } from "../proxy-util/get-proxy-url.js";
+
 const YOOKASSA_API = "https://api.yookassa.ru/v3";
 
 export type CreatePaymentParams = {
@@ -75,7 +78,8 @@ export async function createYookassaPayment(params: CreatePaymentParams): Promis
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const res = await fetch(`${YOOKASSA_API}/payments`, {
+    const proxy = await getProxyUrl("payments");
+    const res = await proxyFetch(`${YOOKASSA_API}/payments`, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -84,7 +88,7 @@ export async function createYookassaPayment(params: CreatePaymentParams): Promis
         Authorization: `Basic ${auth}`,
       },
       body: JSON.stringify(body),
-    });
+    }, proxy);
     clearTimeout(timeoutId);
 
     let data: {
@@ -210,7 +214,8 @@ export async function createYookassaAutopayment(params: AutopaymentParams): Prom
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const res = await fetch(`${YOOKASSA_API}/payments`, {
+    const proxy = await getProxyUrl("payments");
+    const res = await proxyFetch(`${YOOKASSA_API}/payments`, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -219,7 +224,7 @@ export async function createYookassaAutopayment(params: AutopaymentParams): Prom
         Authorization: `Basic ${auth}`,
       },
       body: JSON.stringify(body),
-    });
+    }, proxy);
     clearTimeout(timeoutId);
 
     let data: {
