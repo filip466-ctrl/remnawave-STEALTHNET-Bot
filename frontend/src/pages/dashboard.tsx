@@ -45,6 +45,51 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.06 } },
 };
 
+/* ── Ambient Background Blobs (2077 Neon Atmosphere) ── */
+
+function AmbientBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      {/* Purple/Blue blob — top left */}
+      <motion.div
+        className="absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-violet-600/30 to-blue-600/20 blur-[120px]"
+        animate={{
+          scale: [1, 1.15, 1],
+          opacity: [0.25, 0.45, 0.25],
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* Emerald/Teal blob — top right */}
+      <motion.div
+        className="absolute -top-20 -right-24 h-[420px] w-[420px] rounded-full bg-gradient-to-bl from-emerald-500/25 to-teal-600/15 blur-[120px]"
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+      {/* Amber/Rose blob — bottom center */}
+      <motion.div
+        className="absolute -bottom-40 left-1/3 h-[450px] w-[450px] rounded-full bg-gradient-to-tr from-amber-500/20 to-rose-500/15 blur-[120px]"
+        animate={{
+          scale: [1, 1.12, 1],
+          opacity: [0.18, 0.35, 0.18],
+        }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+      />
+      {/* Indigo accent — center-left */}
+      <motion.div
+        className="absolute top-1/2 -left-20 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-indigo-500/15 to-cyan-500/10 blur-[100px]"
+        animate={{
+          scale: [1, 1.08, 1],
+          opacity: [0.15, 0.3, 0.15],
+        }}
+        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut", delay: 6 }}
+      />
+    </div>
+  );
+}
+
 /* ── Utility functions (preserved) ── */
 
 function formatMoney(amount: number, currency = "USD") {
@@ -102,6 +147,12 @@ function ringStrokeColor(percent: number): string {
   return "#22c55e";
 }
 
+function ringGlowColor(percent: number): string {
+  if (percent >= 90) return "rgba(239, 68, 68, 0.6)";
+  if (percent >= 70) return "rgba(245, 158, 11, 0.6)";
+  return "rgba(34, 197, 94, 0.6)";
+}
+
 function ringBgClass(percent: number): string {
   if (percent >= 90) return "bg-red-500/10";
   if (percent >= 70) return "bg-amber-500/10";
@@ -145,15 +196,15 @@ function useCountUp(target: number, duration = 1500): number {
 
 function CountUpMoney({ value, currency }: { value: number; currency: string }) {
   const animated = useCountUp(value);
-  return <>{formatMoney(animated, currency)}</>;
+  return <span className="bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 to-teal-500">{formatMoney(animated, currency)}</span>;
 }
 
 function CountUpNumber({ value }: { value: number }) {
   const animated = useCountUp(value);
-  return <>{animated.toLocaleString()}</>;
+  return <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-white/90 to-white/60">{animated.toLocaleString()}</span>;
 }
 
-/* ── Animated Ring Gauge ── */
+/* ── Animated Ring Gauge with Neon Glow ── */
 
 function RingGauge({
   percent,
@@ -173,12 +224,31 @@ function RingGauge({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeColor = ringStrokeColor(percent);
+  const glowColor = ringGlowColor(percent);
   const bgClass = ringBgClass(percent);
+  const filterId = `neon-glow-${label.replace(/\s+/g, "-")}`;
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className={`relative rounded-2xl p-4 ${bgClass} transition-colors duration-500`}>
         <svg width={size} height={size} className="rotate-[-90deg]">
+          {/* Neon Glow Filter */}
+          <defs>
+            <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+              <feColorMatrix
+                in="blur"
+                type="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"
+                result="glow"
+              />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
           {/* Background track */}
           <circle
             cx={size / 2}
@@ -189,7 +259,7 @@ function RingGauge({
             className="text-muted-foreground/10"
             strokeWidth={strokeWidth}
           />
-          {/* Animated arc */}
+          {/* Animated arc with neon glow */}
           <motion.circle
             cx={size / 2}
             cy={size / 2}
@@ -202,6 +272,8 @@ function RingGauge({
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: circumference - (circumference * percent) / 100 }}
             transition={{ duration: 1.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 }}
+            filter={`url(#${filterId})`}
+            style={{ filter: `url(#${filterId}) drop-shadow(0 0 6px ${glowColor})` }}
           />
         </svg>
         {/* Center label */}
@@ -227,7 +299,7 @@ function RingGauge({
   );
 }
 
-/* ── Sparkline Mini Chart ── */
+/* ── Sparkline Mini Chart with Glow ── */
 
 function Sparkline({
   data,
@@ -241,6 +313,7 @@ function Sparkline({
   width?: number;
 }) {
   const gradientId = `spark-${color.replace("#", "")}`;
+  const glowFilterId = `spark-glow-${color.replace("#", "")}`;
   return (
     <ResponsiveContainer width={width} height={height}>
       <AreaChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
@@ -249,6 +322,14 @@ function Sparkline({
             <stop offset="0%" stopColor={color} stopOpacity={0.4} />
             <stop offset="100%" stopColor={color} stopOpacity={0} />
           </linearGradient>
+          {/* Drop-shadow glow for sparkline stroke */}
+          <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <Area
           type="monotone"
@@ -259,13 +340,14 @@ function Sparkline({
           dot={false}
           isAnimationActive={true}
           animationDuration={1200}
+          style={{ filter: `url(#${glowFilterId})` }}
         />
       </AreaChart>
     </ResponsiveContainer>
   );
 }
 
-/* ── Pulsing Status Dot ── */
+/* ── Pulsing Status Dot — Enhanced "Radar" Effect ── */
 
 function StatusDot({ isConnected, isConnecting, isDisabled }: { isConnected: boolean; isConnecting: boolean; isDisabled: boolean }) {
   if (isDisabled) {
@@ -277,28 +359,50 @@ function StatusDot({ isConnected, isConnecting, isDisabled }: { isConnected: boo
   }
   if (isConnecting) {
     return (
-      <span className="relative flex h-3 w-3">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-50" style={{ animationDuration: "2s" }} />
-        <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+      <span className="relative flex h-3.5 w-3.5">
+        {/* Outer radar pulse — slow & large */}
+        <span
+          className="absolute -inset-1 inline-flex rounded-full bg-amber-400 opacity-30 animate-ping"
+          style={{ animationDuration: "2.5s" }}
+        />
+        {/* Inner radar pulse */}
+        <span
+          className="absolute -inset-0.5 inline-flex rounded-full bg-amber-400 opacity-40 animate-ping"
+          style={{ animationDuration: "1.8s", animationDelay: "0.4s" }}
+        />
+        <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.7)]" />
       </span>
     );
   }
   if (isConnected) {
     return (
-      <span className="relative flex h-3 w-3">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
-        <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+      <span className="relative flex h-3.5 w-3.5">
+        {/* Outer radar pulse — slow & large */}
+        <span
+          className="absolute -inset-1.5 inline-flex rounded-full bg-emerald-400 opacity-25 animate-ping"
+          style={{ animationDuration: "3s" }}
+        />
+        {/* Inner radar pulse */}
+        <span
+          className="absolute -inset-0.5 inline-flex rounded-full bg-emerald-400 opacity-40 animate-ping"
+          style={{ animationDuration: "2s", animationDelay: "0.5s" }}
+        />
+        <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(34,197,94,0.7)]" />
       </span>
     );
   }
   return (
-    <span className="relative flex h-3 w-3">
-      <span className="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4)]" />
+    <span className="relative flex h-3.5 w-3.5">
+      <span
+        className="absolute -inset-0.5 inline-flex rounded-full bg-red-400 opacity-30 animate-ping"
+        style={{ animationDuration: "2.5s" }}
+      />
+      <span className="h-3.5 w-3.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
     </span>
   );
 }
 
-/* ── Section Header ── */
+/* ── Section Header — with Gradient Title ── */
 
 function SectionHeader({
   icon: Icon,
@@ -313,18 +417,18 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div className={`flex items-center justify-center h-10 w-10 rounded-xl ${iconBg}`}>
+      <div className={`flex items-center justify-center h-10 w-10 rounded-xl ${iconBg} shadow-lg`}>
         <Icon className="h-5 w-5 text-white" />
       </div>
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-lg font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">{title}</h2>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
     </div>
   );
 }
 
-/* ── Stat Card with icon background ── */
+/* ── Stat Card — Premium Glassmorphism + 3D Levitating Hover ── */
 
 function StatCard({
   index,
@@ -347,21 +451,23 @@ function StatCard({
 }) {
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className="group hover:shadow-lg hover:shadow-black/5 transition-all duration-300 hover:scale-[1.02]">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <div className={`flex items-center justify-center h-8 w-8 rounded-lg ${iconBg}`}>
+      <Card className="group relative overflow-hidden bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-violet-500/10 hover:border-white/20 transition-all duration-500 ease-out">
+        {/* Subtle inner shine */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+        <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <div className={`flex items-center justify-center h-8 w-8 rounded-lg ${iconBg} shadow-md`}>
             <Icon className="h-4 w-4 text-white" />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="relative">
           <div className="flex items-end justify-between gap-2">
             <div>
               <div className="text-2xl font-bold tabular-nums">{value}</div>
               <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
             </div>
             {sparkData && sparkColor && (
-              <div className="opacity-70 group-hover:opacity-100 transition-opacity">
+              <div className="opacity-70 group-hover:opacity-100 transition-opacity duration-500">
                 <Sparkline data={sparkData} color={sparkColor} height={40} width={80} />
               </div>
             )}
@@ -382,11 +488,13 @@ function TrafficBar({ used, limit }: { used: number | null | undefined; limit: n
   const percent = Math.min((usedVal / limit) * 100, 100);
   const barColor =
     percent >= 90 ? "from-red-500 to-red-400" : percent >= 70 ? "from-amber-500 to-amber-400" : "from-emerald-500 to-teal-400";
+  const glowShadow =
+    percent >= 90 ? "shadow-red-500/30" : percent >= 70 ? "shadow-amber-500/30" : "shadow-emerald-500/30";
   return (
     <div className="space-y-1 min-w-[100px]">
       <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
         <motion.div
-          className={`h-full rounded-full bg-gradient-to-r ${barColor}`}
+          className={`h-full rounded-full bg-gradient-to-r ${barColor} shadow-sm ${glowShadow}`}
           initial={{ width: 0 }}
           animate={{ width: `${percent}%` }}
           transition={{ duration: 1, ease: "easeOut", delay: 0.5 }}
@@ -407,7 +515,7 @@ function MiniBar({ value, maxValue, color }: { value: number; maxValue: number; 
     <div className="h-1.5 rounded-full bg-muted/60 overflow-hidden mt-1.5">
       <motion.div
         className="h-full rounded-full"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}40` }}
         initial={{ width: 0 }}
         animate={{ width: `${percent}%` }}
         transition={{ duration: 1, ease: "easeOut", delay: 0.8 }}
@@ -544,23 +652,28 @@ export function DashboardPage() {
   const nodesTotal = nodes.length;
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
+    <div className="relative space-y-8">
+      {/* Ambient Neon Background */}
+      <AmbientBackground />
+
+      {/* Page header — gradient title */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <h1 className="text-3xl font-bold tracking-tight">Дашборд</h1>
+        <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/90 to-foreground/60">
+          Дашборд
+        </h1>
         <p className="text-muted-foreground">Статистика пользователей, продажи, аналитика, ноды Remna</p>
       </motion.div>
 
       {/* Manager warning */}
       {admin?.role === "MANAGER" && (!admin.allowedSections || admin.allowedSections.length === 0) && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 backdrop-blur-xl px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
           У вас нет доступа ни к одному разделу. Обратитесь к администратору.
         </div>
       )}
 
       {/* Error display */}
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 backdrop-blur-xl px-4 py-2 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -608,8 +721,9 @@ export function DashboardPage() {
       <section>
         <SectionHeader icon={DollarSign} iconBg="bg-emerald-600" title="Статистика продаж" subtitle="Поступления и платежи" />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={4}>
-          <Card className="hover:shadow-lg hover:shadow-black/5 transition-all duration-300">
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/10 hover:border-white/20 transition-all duration-500 ease-out">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-transparent pointer-events-none" />
+            <CardContent className="relative pt-6">
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Total revenue */}
                 <div className="space-y-1">
@@ -673,45 +787,46 @@ export function DashboardPage() {
       <section>
         <SectionHeader icon={Activity} iconBg="bg-violet-600" title="Аналитика" subtitle="Ключевые метрики за периоды" />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={5}>
-          <Card className="hover:shadow-lg hover:shadow-black/5 transition-all duration-300">
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-violet-500/10 hover:border-white/20 transition-all duration-500 ease-out">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.02] to-transparent pointer-events-none" />
+            <CardContent className="relative pt-6">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Новые (сегодня)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpNumber value={stats.users.newToday} /> : "—"}
                   </p>
                   <MiniBar value={stats?.users.newToday ?? 0} maxValue={analyticsMaxUsers} color="#3b82f6" />
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Новые (7 дн.)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpNumber value={stats.users.newLast7Days} /> : "—"}
                   </p>
                   <MiniBar value={stats?.users.newLast7Days ?? 0} maxValue={analyticsMaxUsers} color="#8b5cf6" />
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Новые (30 дн.)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpNumber value={stats.users.newLast30Days} /> : "—"}
                   </p>
                   <MiniBar value={stats?.users.newLast30Days ?? 0} maxValue={analyticsMaxUsers} color="#6366f1" />
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Продажи (сегодня)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
                   </p>
                   <MiniBar value={stats?.sales.todayAmount ?? 0} maxValue={analyticsMaxSales} color="#22c55e" />
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Продажи (7 дн.)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
                   </p>
                   <MiniBar value={stats?.sales.last7DaysAmount ?? 0} maxValue={analyticsMaxSales} color="#14b8a6" />
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3 space-y-1">
+                <div className="rounded-xl border border-white/5 bg-muted/30 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/50 transition-colors duration-300">
                   <p className="text-xs text-muted-foreground">Продажи (30 дн.)</p>
                   <p className="text-lg font-medium tabular-nums">
                     {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
@@ -729,8 +844,9 @@ export function DashboardPage() {
         <section>
           <SectionHeader icon={Server} iconBg="bg-cyan-600" title="Сервер" subtitle={`${serverStats.hostname} — ${serverStats.platform} (${serverStats.arch})`} />
           <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={6}>
-            <Card className="hover:shadow-lg hover:shadow-black/5 transition-all duration-300">
-              <CardContent className="pt-6">
+            <Card className="relative overflow-hidden bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5 hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/10 hover:border-white/20 transition-all duration-500 ease-out">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] to-transparent pointer-events-none" />
+              <CardContent className="relative pt-6">
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                   {/* Ring Gauges */}
                   <div className="flex justify-center">
@@ -789,7 +905,7 @@ export function DashboardPage() {
                             transition={{ delay: 0.6, duration: 0.4 }}
                           >
                             <Clock className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-                            <span className="text-xl font-bold tabular-nums block">
+                            <span className="text-xl font-bold tabular-nums block bg-clip-text text-transparent bg-gradient-to-br from-blue-400 to-cyan-400">
                               {formatUptime(serverStats.uptimeSeconds)}
                             </span>
                           </motion.div>
@@ -821,7 +937,7 @@ export function DashboardPage() {
         />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={7}>
           {!hasRemnaNodesAccess ? (
-            <Card>
+            <Card className="bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5">
               <CardContent className="py-8">
                 <p className="text-muted-foreground text-sm text-center">
                   Нет доступа к управлению нодами Remna. Обратитесь к администратору для получения раздела «Ноды Remna».
@@ -829,7 +945,7 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           ) : nodes.length === 0 ? (
-            <Card>
+            <Card className="bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5">
               <CardContent className="py-8">
                 <p className="text-muted-foreground text-sm text-center">
                   Ноды не загружены или Remna API не настроен. Проверьте настройки и подключение к Remna.
@@ -859,11 +975,18 @@ export function DashboardPage() {
                     : node.isConnected
                       ? "text-emerald-500"
                       : "text-red-500";
+                const hoverShadow = node.isConnected && !node.isDisabled
+                  ? "hover:shadow-emerald-500/15"
+                  : node.isConnecting
+                    ? "hover:shadow-amber-500/15"
+                    : "hover:shadow-red-500/10";
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className="group hover:shadow-lg hover:shadow-black/5 transition-all duration-300 hover:scale-[1.01]">
-                      <CardHeader className="pb-3">
+                    <Card className={`group relative overflow-hidden bg-card/60 backdrop-blur-2xl border-white/10 dark:border-white/5 hover:-translate-y-1.5 hover:shadow-2xl ${hoverShadow} hover:border-white/20 transition-all duration-500 ease-out`}>
+                      {/* Inner shine */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+                      <CardHeader className="relative pb-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
                             <StatusDot isConnected={node.isConnected} isConnecting={node.isConnecting} isDisabled={node.isDisabled} />
@@ -877,7 +1000,7 @@ export function DashboardPage() {
                           {node.address}{node.port != null ? `:${node.port}` : ""}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-3">
+                      <CardContent className="relative space-y-3">
                         {/* Traffic */}
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Трафик</p>
@@ -914,7 +1037,7 @@ export function DashboardPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs gap-1"
+                              className="h-7 text-xs gap-1 border-white/10 hover:border-white/20 backdrop-blur-sm"
                               disabled={isBusy}
                               onClick={() => handleNodeAction(node.uuid, "enable")}
                             >
@@ -925,7 +1048,7 @@ export function DashboardPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs gap-1"
+                              className="h-7 text-xs gap-1 border-white/10 hover:border-white/20 backdrop-blur-sm"
                               disabled={isBusy}
                               onClick={() => handleNodeAction(node.uuid, "disable")}
                             >
@@ -936,7 +1059,7 @@ export function DashboardPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs gap-1"
+                            className="h-7 text-xs gap-1 border-white/10 hover:border-white/20 backdrop-blur-sm"
                             disabled={isBusy}
                             onClick={() => handleNodeAction(node.uuid, "restart")}
                           >
