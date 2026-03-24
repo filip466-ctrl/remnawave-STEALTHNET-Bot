@@ -31,119 +31,101 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 /* ── Animation variants — God-Tier Entrance ── */
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 24, scale: 0.96, filter: "blur(8px)" },
+  hidden: { opacity: 0, y: 30, scale: 0.95, filter: "blur(10px)" },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
     scale: 1,
     filter: "blur(0px)",
     transition: {
-      delay: i * 0.07,
-      duration: 0.7,
-      ease: [0.16, 1, 0.3, 1],
+      delay: i * 0.08,
+      duration: 0.85,
+      ease: [0.22, 1, 0.36, 1],
     },
   }),
 };
 
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.07 } },
+  visible: { transition: { staggerChildren: 0.1 } },
 };
 
 const floatVariants = {
   animate: {
-    y: [0, -6, 0],
-    transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+    y: [0, -8, 0],
+    transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
   },
 };
 
-/* ── Ambient Background Blobs (2077 Hyper-Neon Atmosphere) ── */
+/* ── Ambient Background Blobs (Aurora Borealis / God-Tier Elegance) ── */
 
 function AmbientBackground() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      {/* Cyber grid overlay */}
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+      {/* Refined Cyber Grid */}
       <div
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(139, 92, 246, 0.3) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(139, 92, 246, 0.3) 1px, transparent 1px)
+            linear-gradient(rgba(139, 92, 246, 0.2) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(139, 92, 246, 0.2) 1px, transparent 1px)
           `,
-          backgroundSize: "60px 60px",
+          backgroundSize: "64px 64px",
         }}
       />
 
-      {/* Scan line overlay */}
+      {/* Deep Violet & Indigo Core — Top Left */}
+      <motion.div
+        className="absolute -top-40 -left-20 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-violet-600/20 via-indigo-600/15 to-transparent blur-[160px]"
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.4, 0.6, 0.4],
+          x: [0, 50, 0],
+          y: [0, -30, 0],
+        }}
+        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      {/* Ethereal Teal / Emerald — Top Right */}
+      <motion.div
+        className="absolute -top-32 -right-40 h-[700px] w-[700px] rounded-full bg-gradient-to-bl from-teal-500/15 via-emerald-500/10 to-transparent blur-[160px]"
+        animate={{
+          scale: [1, 1.15, 1],
+          opacity: [0.3, 0.5, 0.3],
+          x: [0, -40, 0],
+          y: [0, 40, 0],
+        }}
+        transition={{ duration: 28, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+
+      {/* Warm Rose / Coral — Bottom Center */}
+      <motion.div
+        className="absolute -bottom-64 left-1/3 h-[800px] w-[800px] rounded-full bg-gradient-to-t from-rose-500/10 via-fuchsia-500/10 to-transparent blur-[160px]"
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.45, 0.3],
+          x: [0, -30, 0],
+        }}
+        transition={{ duration: 32, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+      />
+
+      {/* Cyber Cyan Accent — Center Left */}
+      <motion.div
+        className="absolute top-1/2 -left-48 h-[500px] w-[500px] rounded-full bg-gradient-to-r from-cyan-500/15 to-blue-500/5 blur-[140px]"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
+          y: [0, -40, 0],
+        }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 6 }}
+      />
+
+      {/* High-frequency Noise Texture for cinematic film grain */}
       <div
-        className="absolute inset-0 opacity-[0.015]"
+        className="absolute inset-0 mix-blend-overlay pointer-events-none"
         style={{
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)",
-        }}
-      />
-
-      {/* Primary — Violet/Blue blob — top left */}
-      <motion.div
-        className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-violet-600/35 via-blue-600/25 to-indigo-700/15 blur-[140px]"
-        animate={{
-          scale: [1, 1.18, 1.05, 1.15, 1],
-          opacity: [0.28, 0.5, 0.35, 0.48, 0.28],
-          x: [0, 30, -10, 20, 0],
-          y: [0, -20, 10, -15, 0],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* Emerald/Teal blob — top right */}
-      <motion.div
-        className="absolute -top-24 -right-32 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-emerald-500/30 via-teal-500/20 to-cyan-600/10 blur-[140px]"
-        animate={{
-          scale: [1, 1.12, 1.05, 1.1, 1],
-          opacity: [0.22, 0.42, 0.3, 0.4, 0.22],
-          x: [0, -25, 10, -15, 0],
-          y: [0, 15, -10, 20, 0],
-        }}
-        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
-
-      {/* Amber/Rose blob — bottom center */}
-      <motion.div
-        className="absolute -bottom-48 left-1/4 h-[550px] w-[550px] rounded-full bg-gradient-to-tr from-amber-500/25 via-rose-500/15 to-orange-500/10 blur-[150px]"
-        animate={{
-          scale: [1, 1.15, 1.05, 1.12, 1],
-          opacity: [0.2, 0.38, 0.25, 0.35, 0.2],
-          x: [0, 40, -20, 30, 0],
-        }}
-        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay: 4 }}
-      />
-
-      {/* Indigo/Cyan accent — center-left */}
-      <motion.div
-        className="absolute top-1/2 -left-24 h-[350px] w-[350px] rounded-full bg-gradient-to-r from-indigo-500/20 via-cyan-500/15 to-blue-400/10 blur-[120px]"
-        animate={{
-          scale: [1, 1.1, 1.03, 1.08, 1],
-          opacity: [0.18, 0.32, 0.22, 0.3, 0.18],
-          y: [0, -30, 15, -20, 0],
-        }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 6 }}
-      />
-
-      {/* Fuchsia accent — center-right (NEW) */}
-      <motion.div
-        className="absolute top-1/3 -right-16 h-[280px] w-[280px] rounded-full bg-gradient-to-l from-fuchsia-500/15 via-pink-500/10 to-purple-500/5 blur-[100px]"
-        animate={{
-          scale: [1, 1.08, 1],
-          opacity: [0.12, 0.25, 0.12],
-          y: [0, 20, 0],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-      />
-
-      {/* Noise texture overlay for depth */}
-      <div
-        className="absolute inset-0 opacity-[0.025] mix-blend-overlay"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
+          opacity: 0.03,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
         }}
       />
     </div>
@@ -288,23 +270,23 @@ function CountUpNumber({ value }: { value: number }) {
 
 function BorderBeam({ color = "violet" }: { color?: "violet" | "emerald" | "cyan" | "amber" | "rose" | "indigo" }) {
   const colorMap: Record<string, string> = {
-    violet: "from-violet-500/60 via-fuchsia-500/40 to-indigo-500/60",
-    emerald: "from-emerald-500/60 via-teal-500/40 to-cyan-500/60",
-    cyan: "from-cyan-500/60 via-blue-500/40 to-indigo-500/60",
-    amber: "from-amber-500/60 via-orange-500/40 to-rose-500/60",
-    rose: "from-rose-500/60 via-pink-500/40 to-fuchsia-500/60",
-    indigo: "from-indigo-500/60 via-violet-500/40 to-purple-500/60",
+    violet: "from-violet-500/50 via-fuchsia-400/30 to-indigo-500/50",
+    emerald: "from-emerald-500/50 via-teal-400/30 to-cyan-500/50",
+    cyan: "from-cyan-500/50 via-blue-400/30 to-indigo-500/50",
+    amber: "from-amber-500/50 via-orange-400/30 to-rose-500/50",
+    rose: "from-rose-500/50 via-pink-400/30 to-fuchsia-500/50",
+    indigo: "from-indigo-500/50 via-violet-400/30 to-purple-500/50",
   };
 
   return (
-    <div className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+    <div className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
       <motion.div
-        className={`absolute -inset-[1px] bg-gradient-to-r ${colorMap[color]} rounded-[inherit] blur-[1px]`}
+        className={`absolute -inset-[2px] bg-gradient-to-r ${colorMap[color]} rounded-[inherit] blur-[2px]`}
         animate={{ rotate: [0, 360] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
         style={{ transformOrigin: "center center" }}
       />
-      <div className="absolute inset-[1px] bg-card rounded-[inherit]" />
+      <div className="absolute inset-[1px] bg-background/80 rounded-[inherit] backdrop-blur-3xl" />
     </div>
   );
 }
@@ -313,14 +295,23 @@ function BorderBeam({ color = "violet" }: { color?: "violet" | "emerald" | "cyan
 
 function HoloShimmer() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
       <motion.div
-        className="absolute -inset-full"
+        className="absolute -inset-[150%]"
         style={{
-          background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 55%, transparent 60%)",
+          background: `linear-gradient(
+            115deg, 
+            transparent 30%, 
+            rgba(255,255,255,0.01) 35%, 
+            rgba(255,255,255,0.04) 45%, 
+            rgba(255,255,255,0.08) 50%, 
+            rgba(255,255,255,0.04) 55%, 
+            rgba(255,255,255,0.01) 65%, 
+            transparent 70%
+          )`,
         }}
-        animate={{ x: ["-100%", "200%"] }}
-        transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+        animate={{ x: ["-100%", "100%"], y: ["-20%", "20%"] }}
+        transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
       />
     </div>
   );
@@ -331,7 +322,7 @@ function HoloShimmer() {
 function RingGauge({
   percent,
   size = 120,
-  strokeWidth = 10,
+  strokeWidth = 8,
   label,
   detail,
   icon: Icon,
@@ -350,7 +341,6 @@ function RingGauge({
   const trailColor = ringTrailColor(percent);
   const bgClass = ringBgClass(percent);
   const filterId = `neon-glow-${label.replace(/\s+/g, "-")}`;
-  const pulseFilterId = `neon-pulse-${label.replace(/\s+/g, "-")}`;
 
   return (
     <motion.div
@@ -358,36 +348,25 @@ function RingGauge({
       variants={floatVariants}
       animate="animate"
     >
-      <div className={`relative rounded-2xl p-4 ${bgClass} transition-colors duration-500`}>
+      <div className={`relative rounded-2xl p-4 ${bgClass} transition-colors duration-700 border border-white/5`}>
         {/* Outer glow pulse ring */}
         <motion.div
-          className="absolute inset-0 rounded-2xl"
+          className="absolute inset-0 rounded-2xl pointer-events-none"
           style={{ boxShadow: `0 0 20px ${trailColor}, inset 0 0 20px ${trailColor}` }}
-          animate={{ opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ opacity: [0.4, 0.8, 0.4] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
 
         <svg width={size} height={size} className="rotate-[-90deg]">
-          {/* Neon Glow Filter */}
+          {/* Neon Glow Filter - Softened for elegance */}
           <defs>
             <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-              <feColorMatrix
-                in="blur"
-                type="matrix"
-                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1.2 0"
-                result="glow"
-              />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
               <feMerge>
-                <feMergeNode in="glow" />
-                <feMergeNode in="glow" />
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
                 <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id={pulseFilterId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="bigBlur" />
-              <feMerge>
-                <feMergeNode in="bigBlur" />
               </feMerge>
             </filter>
           </defs>
@@ -403,29 +382,7 @@ function RingGauge({
             strokeWidth={strokeWidth}
           />
 
-          {/* Outer glow ring (pulsing) */}
-          <motion.circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth={strokeWidth + 6}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{
-              strokeDashoffset: circumference - (circumference * percent) / 100,
-              opacity: [0.15, 0.3, 0.15],
-            }}
-            transition={{
-              strokeDashoffset: { duration: 1.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 },
-              opacity: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
-            }}
-            filter={`url(#${pulseFilterId})`}
-          />
-
-          {/* Main animated arc with neon glow */}
+          {/* Main animated arc with refined neon glow */}
           <motion.circle
             cx={size / 2}
             cy={size / 2}
@@ -437,31 +394,30 @@ function RingGauge({
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: circumference - (circumference * percent) / 100 }}
-            transition={{ duration: 1.5, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 }}
+            transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
             filter={`url(#${filterId})`}
-            style={{ filter: `url(#${filterId}) drop-shadow(0 0 8px ${glowColor})` }}
           />
         </svg>
 
         {/* Center label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <motion.span
-            className={`text-2xl font-bold tabular-nums ${usageColor(percent)}`}
-            initial={{ opacity: 0, scale: 0.5 }}
+            className={`text-2xl font-bold tabular-nums tracking-tight ${usageColor(percent)}`}
+            initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6, duration: 0.5, type: "spring", stiffness: 200 }}
-            style={{ textShadow: `0 0 16px ${glowColor}` }}
+            transition={{ delay: 0.5, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            style={{ textShadow: `0 0 20px ${glowColor}` }}
           >
             {percent}%
           </motion.span>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-sm font-medium">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground/80">
         <Icon className="h-4 w-4 text-muted-foreground" />
         {label}
       </div>
-      <p className="text-xs text-muted-foreground text-center max-w-[140px] truncate" title={detail}>
+      <p className="text-xs text-muted-foreground/70 text-center max-w-[140px] truncate" title={detail}>
         {detail}
       </p>
     </motion.div>
@@ -605,28 +561,28 @@ function SectionHeader({
       className="flex items-center gap-3 mb-5"
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.div
-        className={`relative flex items-center justify-center h-11 w-11 rounded-xl ${iconBg} shadow-lg`}
+        className={`relative flex items-center justify-center h-11 w-11 rounded-xl ${iconBg} shadow-lg border border-white/10`}
         whileHover={{ scale: 1.1, rotate: 5 }}
         transition={{ type: "spring", stiffness: 400, damping: 15 }}
       >
-        <Icon className="h-5 w-5 text-white" />
+        <Icon className="h-5 w-5 text-white drop-shadow-sm" />
         {/* Icon glow */}
         <div className={`absolute inset-0 rounded-xl ${iconBg} blur-lg opacity-40`} />
       </motion.div>
       <div>
-        <h2 className="text-lg font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/90 to-foreground/60">
+        <h2 className="text-lg font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/80 to-foreground/50">
           {title}
         </h2>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <p className="text-sm text-muted-foreground/80">{subtitle}</p>
         {/* Animated gradient underline */}
         <motion.div
-          className="h-[2px] mt-1 rounded-full bg-gradient-to-r from-transparent via-violet-500/50 to-transparent"
+          className="h-[2px] mt-1 rounded-full bg-gradient-to-r from-transparent via-violet-500/40 to-transparent"
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: "100%", opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
+          transition={{ delay: 0.3, duration: 1, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
     </motion.div>
@@ -658,35 +614,35 @@ function StatCard({
 }) {
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className="group relative overflow-hidden bg-card/50 backdrop-blur-2xl border-white/[0.08] dark:border-white/[0.04] hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-violet-500/10 hover:border-white/20 transition-all duration-500 ease-out cursor-default">
+      <Card className="group relative overflow-hidden bg-card/40 backdrop-blur-3xl border-white/[0.06] dark:border-white/[0.03] hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-violet-500/10 hover:border-white/[0.15] transition-all duration-700 ease-[0.22,1,0.36,1] cursor-default">
         {/* Border Beam */}
         <BorderBeam color={beamColor || "violet"} />
         {/* Holographic shimmer */}
         <HoloShimmer />
         {/* Subtle inner shine gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-white/[0.01] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-black/[0.05] dark:from-white/[0.02] dark:via-transparent dark:to-white/[0.01] pointer-events-none" />
         {/* Top edge glow line */}
-        <div className="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute top-0 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
         <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <CardTitle className="text-sm font-medium text-foreground/70 tracking-tight">{title}</CardTitle>
           <motion.div
-            className={`relative flex items-center justify-center h-9 w-9 rounded-xl ${iconBg} shadow-md`}
+            className={`relative flex items-center justify-center h-10 w-10 rounded-xl ${iconBg} shadow-md border border-white/10`}
             whileHover={{ scale: 1.15, rotate: -5 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
           >
-            <Icon className="h-4 w-4 text-white" />
-            <div className={`absolute inset-0 rounded-xl ${iconBg} blur-md opacity-30`} />
+            <Icon className="h-4 w-4 text-white drop-shadow-md" />
+            <div className={`absolute inset-0 rounded-xl ${iconBg} blur-md opacity-40`} />
           </motion.div>
         </CardHeader>
         <CardContent className="relative">
           <div className="flex items-end justify-between gap-2">
             <div>
-              <div className="text-2xl font-bold tabular-nums">{value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <div className="text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+              <p className="text-xs text-muted-foreground/80 mt-1 font-medium">{subtitle}</p>
             </div>
             {sparkData && sparkColor && (
-              <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+              <div className="opacity-50 group-hover:opacity-100 transition-opacity duration-700">
                 <Sparkline data={sparkData} color={sparkColor} height={40} width={80} />
               </div>
             )}
@@ -771,31 +727,31 @@ function GlassCard({
   animIndex?: number;
 }) {
   const shadowMap: Record<string, string> = {
-    violet: "hover:shadow-violet-500/10",
-    emerald: "hover:shadow-emerald-500/10",
-    cyan: "hover:shadow-cyan-500/10",
-    amber: "hover:shadow-amber-500/10",
-    indigo: "hover:shadow-indigo-500/10",
+    violet: "hover:shadow-violet-500/15",
+    emerald: "hover:shadow-emerald-500/15",
+    cyan: "hover:shadow-cyan-500/15",
+    amber: "hover:shadow-amber-500/15",
+    indigo: "hover:shadow-indigo-500/15",
   };
   const glowColorMap: Record<string, string> = {
-    violet: "from-violet-500/[0.03]",
-    emerald: "from-emerald-500/[0.03]",
-    cyan: "from-cyan-500/[0.03]",
-    amber: "from-amber-500/[0.03]",
-    indigo: "from-indigo-500/[0.03]",
+    violet: "from-violet-500/[0.04]",
+    emerald: "from-emerald-500/[0.04]",
+    cyan: "from-cyan-500/[0.04]",
+    amber: "from-amber-500/[0.04]",
+    indigo: "from-indigo-500/[0.04]",
   };
 
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className={`group relative overflow-hidden bg-card/50 backdrop-blur-2xl border-white/[0.08] dark:border-white/[0.04] hover:-translate-y-1.5 hover:shadow-2xl ${shadowMap[hoverShadowColor] || shadowMap.violet} hover:border-white/15 transition-all duration-500 ease-out`}>
+      <Card className={`group relative overflow-hidden bg-card/40 backdrop-blur-3xl border-white/[0.06] dark:border-white/[0.03] hover:-translate-y-1 hover:shadow-2xl ${shadowMap[hoverShadowColor] || shadowMap.violet} hover:border-white/[0.12] transition-all duration-700 ease-[0.22,1,0.36,1]`}>
         {/* Border Beam */}
         <BorderBeam color={hoverShadowColor as "violet" | "emerald" | "cyan" | "amber"} />
         {/* Holo shimmer */}
         <HoloShimmer />
         {/* Inner glow */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${glowColorMap[innerGlowColor || hoverShadowColor] || glowColorMap.violet} to-transparent pointer-events-none`} />
+        <div className={`absolute inset-0 bg-gradient-to-br ${glowColorMap[innerGlowColor || hoverShadowColor] || glowColorMap.violet} via-transparent to-transparent pointer-events-none`} />
         {/* Top edge glow */}
-        <div className="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute top-0 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
         {children}
       </Card>
     </motion.div>
