@@ -169,7 +169,7 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-6 bottom-6 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
         <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4">
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
@@ -237,7 +237,7 @@ export function DashboardLayout() {
 
       {/* ═══ Main content ═══ */}
       <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0 md:pl-[280px] w-full">
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:pr-6 md:-ml-[280px] md:w-[calc(100%+280px)] md:pl-[calc(280px+1.5rem)] bg-card/60 backdrop-blur-xl border-b border-white/10 md:border-r rounded-none md:rounded-br-[2rem] mb-6 md:mb-10 shadow-sm md:mr-6 transition-all">
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:pr-6 md:-ml-[280px] md:pl-[calc(280px+1.5rem)] bg-card/60 backdrop-blur-xl border-b border-white/10 md:border-r rounded-none md:rounded-br-[2rem] mb-6 md:mb-10 shadow-sm md:mr-6 transition-all">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
