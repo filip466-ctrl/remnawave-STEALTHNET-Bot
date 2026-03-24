@@ -193,14 +193,14 @@ export function ReferralNetworkPage() {
           linkDirectionalArrowRelPos={1}
           nodeColor={(n) => STATUS_COLORS[n.status] ?? "#64748b"}
           nodeLabel={(n) => `${n.name}\nРефералов: ${n.referralsCount}\nПодписки: ${n.subscriptionIncome} ₽\nРеф. доход: ${n.referralIncome} ₽`}
-          nodePointerAreaPaint={(node, color, ctx) => {
+          nodePointerAreaPaint={(node: any, color: any, ctx: any) => {
             const radius = 5 + Math.min(node.referralsCount * 1.5, 15);
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(node.x!, node.y!, radius + 4, 0, 2 * Math.PI);
             ctx.fill();
           }}
-          nodeCanvasObject={(node, ctx, globalScale) => {
+          nodeCanvasObject={(node: any, ctx: any, globalScale: any) => {
             const label = node.name || String(node.id).slice(0, 8);
             const fontSize = 12 / globalScale;
             const radius = 5 + Math.min(node.referralsCount * 1.5, 15);
@@ -216,7 +216,7 @@ export function ReferralNetworkPage() {
 
             ctx.font = `${fontSize}px sans-serif`;
             const textWidth = ctx.measureText(label).width;
-            const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4);
+            const bckgDimensions = [textWidth, fontSize].map((n: any) => n + fontSize * 0.4);
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
             ctx.fillRect(

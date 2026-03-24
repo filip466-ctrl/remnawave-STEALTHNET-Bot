@@ -4,7 +4,6 @@ import {
   Shield,
   Users,
   Server,
-  DollarSign,
   UserPlus,
   Activity,
   Loader2,
@@ -400,17 +399,6 @@ function StatCard({
 
 /* ── Build sparkline dataset from 4 data points ── */
 
-function buildSparkData(today: number, d7: number, d30: number, total: number): { v: number }[] {
-  const base = total - d30;
-  return [
-    { v: Math.max(base, 0) },
-    { v: Math.max(total - d30 + (d30 - d7) * 0.3, 0) },
-    { v: Math.max(d30 - d7, 0) + Math.max(base, 0) },
-    { v: Math.max(total - d7, 0) },
-    { v: Math.max(d7 - today, 0) + Math.max(total - d7, 0) },
-    { v: total },
-  ];
-}
 
 /* ── Terminal Container wrapper for major sections ── */
 
