@@ -200,7 +200,7 @@ export function DashboardLayout() {
         </div>
 
         {/* Chaotic Crosses background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0 blur-[2px]">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="cross-grid-sidebar" width="120" height="120" patternUnits="userSpaceOnUse">
@@ -285,7 +285,7 @@ export function DashboardLayout() {
               </div>
 
               {/* Chaotic Crosses background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0 blur-[2px]">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="cross-grid-sidebar-mobile" width="120" height="120" patternUnits="userSpaceOnUse">
