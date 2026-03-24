@@ -48,74 +48,63 @@ const staggerContainer = {
 
 
 
-/* ── Ambient Background Blobs (Aurora Borealis / God-Tier Elegance) ── */
+/* ── Ambient Background Blobs (Cyberpunk / Terminal) ── */
 
 function AmbientBackground() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-white dark:bg-[#050505]">
       {/* Refined Cyber Grid */}
       <div
-        className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(139, 92, 246, 0.2) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(139, 92, 246, 0.2) 1px, transparent 1px)
+            linear-gradient(rgba(6, 182, 212, 0.4) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(6, 182, 212, 0.4) 1px, transparent 1px)
           `,
-          backgroundSize: "64px 64px",
+          backgroundSize: "40px 40px",
         }}
       />
 
-      {/* Deep Violet & Indigo Core — Top Left */}
+      {/* Cyber Cyan Accent — Top Left */}
       <motion.div
-        className="absolute -top-40 -left-20 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-violet-600/20 via-indigo-600/15 to-transparent blur-[160px]"
+        className="absolute -top-40 -left-20 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent blur-[120px]"
+        animate={{
+          scale: [1, 1.05, 1],
+          opacity: [0.3, 0.5, 0.3],
+          x: [0, 30, 0],
+          y: [0, -20, 0],
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      {/* Deep Emerald Core — Bottom Right */}
+      <motion.div
+        className="absolute -bottom-32 -right-40 h-[700px] w-[700px] rounded-full bg-gradient-to-bl from-emerald-500/10 via-teal-500/5 to-transparent blur-[120px]"
         animate={{
           scale: [1, 1.1, 1],
-          opacity: [0.4, 0.6, 0.4],
-          x: [0, 50, 0],
-          y: [0, -30, 0],
+          opacity: [0.2, 0.4, 0.2],
+          x: [0, -30, 0],
+          y: [0, 20, 0],
         }}
-        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
 
-      {/* Ethereal Teal / Emerald — Top Right */}
+      {/* Subtle Purple Accent — Center Right */}
       <motion.div
-        className="absolute -top-32 -right-40 h-[700px] w-[700px] rounded-full bg-gradient-to-bl from-teal-500/15 via-emerald-500/10 to-transparent blur-[160px]"
+        className="absolute top-1/3 -right-48 h-[600px] w-[600px] rounded-full bg-gradient-to-l from-indigo-500/5 via-violet-500/5 to-transparent blur-[140px]"
         animate={{
           scale: [1, 1.15, 1],
-          opacity: [0.3, 0.5, 0.3],
-          x: [0, -40, 0],
-          y: [0, 40, 0],
-        }}
-        transition={{ duration: 28, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
-
-      {/* Warm Rose / Coral — Bottom Center */}
-      <motion.div
-        className="absolute -bottom-64 left-1/3 h-[800px] w-[800px] rounded-full bg-gradient-to-t from-rose-500/10 via-fuchsia-500/10 to-transparent blur-[160px]"
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.3, 0.45, 0.3],
-          x: [0, -30, 0],
-        }}
-        transition={{ duration: 32, repeat: Infinity, ease: "easeInOut", delay: 4 }}
-      />
-
-      {/* Cyber Cyan Accent — Center Left */}
-      <motion.div
-        className="absolute top-1/2 -left-48 h-[500px] w-[500px] rounded-full bg-gradient-to-r from-cyan-500/15 to-blue-500/5 blur-[140px]"
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.2, 0.4, 0.2],
+          opacity: [0.2, 0.3, 0.2],
           y: [0, -40, 0],
         }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 6 }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 4 }}
       />
 
       {/* High-frequency Noise Texture for cinematic film grain */}
       <div
         className="absolute inset-0 mix-blend-overlay pointer-events-none"
         style={{
-          opacity: 0.03,
+          opacity: 0.05,
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
         }}
       />
@@ -207,9 +196,7 @@ function useCountUp(target: number, duration = 1500): number {
 function CountUpMoney({ value, currency }: { value: number; currency: string }) {
   const animated = useCountUp(value);
   return (
-    <span
-      className="bg-clip-text text-transparent bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-500"
-    >
+    <span className="text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
       {formatMoney(animated, currency)}
     </span>
   );
@@ -218,62 +205,9 @@ function CountUpMoney({ value, currency }: { value: number; currency: string }) 
 function CountUpNumber({ value }: { value: number }) {
   const animated = useCountUp(value);
   return (
-    <span
-      className="bg-clip-text text-transparent bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-white/90 dark:to-white/50"
-    >
+    <span className="text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
       {animated.toLocaleString()}
     </span>
-  );
-}
-
-/* ── Animated Border Beam — rotating gradient border glow ── */
-
-function BorderBeam({ color = "violet" }: { color?: "violet" | "emerald" | "cyan" | "amber" | "rose" | "indigo" }) {
-  const colorMap: Record<string, string> = {
-    violet: "from-violet-500/50 via-fuchsia-400/30 to-indigo-500/50",
-    emerald: "from-emerald-500/50 via-teal-400/30 to-cyan-500/50",
-    cyan: "from-cyan-500/50 via-blue-400/30 to-indigo-500/50",
-    amber: "from-amber-500/50 via-orange-400/30 to-rose-500/50",
-    rose: "from-rose-500/50 via-pink-400/30 to-fuchsia-500/50",
-    indigo: "from-indigo-500/50 via-violet-400/30 to-purple-500/50",
-  };
-
-  return (
-    <div className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-      <motion.div
-        className={`absolute -inset-[2px] bg-gradient-to-r ${colorMap[color]} rounded-[inherit] blur-[2px]`}
-        animate={{ rotate: [0, 360] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        style={{ transformOrigin: "center center" }}
-      />
-      <div className="absolute inset-[1px] bg-background/80 rounded-[inherit] backdrop-blur-3xl" />
-    </div>
-  );
-}
-
-/* ── Holographic Shimmer Overlay ── */
-
-function HoloShimmer() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-      <motion.div
-        className="absolute -inset-[150%]"
-        style={{
-          background: `linear-gradient(
-            115deg, 
-            transparent 30%, 
-            rgba(255,255,255,0.01) 35%, 
-            rgba(255,255,255,0.04) 45%, 
-            rgba(255,255,255,0.08) 50%, 
-            rgba(255,255,255,0.04) 55%, 
-            rgba(255,255,255,0.01) 65%, 
-            transparent 70%
-          )`,
-        }}
-        animate={{ x: ["-100%", "100%"], y: ["-20%", "20%"] }}
-        transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-      />
-    </div>
   );
 }
 
@@ -398,47 +332,36 @@ function StatusDot({ isConnected, isConnecting, isDisabled }: { isConnected: boo
   );
 }
 
-/* ── Section Header — with Animated Gradient Underline ── */
+/* ── Section Header — Terminal Style ── */
 
 function SectionHeader({
   icon: Icon,
-  iconBg,
   title,
   subtitle,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
   title: string;
   subtitle: string;
 }) {
   return (
     <motion.div
-      className="flex items-center gap-3 mb-5"
+      className="flex items-center gap-4 mb-6 font-mono"
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.div
-        className={`relative flex items-center justify-center h-11 w-11 rounded-xl ${iconBg} shadow-lg border border-white/10`}
+        className={`relative flex items-center justify-center h-10 w-10 border border-white/20 dark:border-cyan-500/30 bg-white/10 dark:bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]`}
         whileHover={{ scale: 1.1, rotate: 5 }}
         transition={{ type: "spring", stiffness: 400, damping: 15 }}
       >
-        <Icon className="h-5 w-5 text-white drop-shadow-sm" />
-        {/* Icon glow */}
-        <div className={`absolute inset-0 rounded-xl ${iconBg} blur-lg opacity-40`} />
+        <Icon className="h-5 w-5 text-slate-800 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
       </motion.div>
       <div>
-        <h2 className="text-lg font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/80 to-foreground/50">
-          {title}
+        <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-cyan-400 flex items-center gap-2">
+          <span className="text-cyan-500/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-cyan-500/50 inline-block"></motion.span>
         </h2>
-        <p className="text-sm text-muted-foreground/80">{subtitle}</p>
-        {/* Animated gradient underline */}
-        <motion.div
-          className="h-[2px] mt-1 rounded-full bg-gradient-to-r from-transparent via-violet-500/40 to-transparent"
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: "100%", opacity: 1 }}
-          transition={{ delay: 0.3, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-        />
+        <p className="text-xs text-slate-500 dark:text-cyan-500/60 uppercase tracking-widest">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -449,56 +372,60 @@ function SectionHeader({
 function StatCard({
   index,
   icon: Icon,
-  iconBg,
   title,
   value,
   subtitle,
   sparkData,
   sparkColor,
-  beamColor,
 }: {
   index: number;
   icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
   title: string;
   value: React.ReactNode;
   subtitle: string;
   sparkData?: { v: number }[];
   sparkColor?: string;
-  beamColor?: "violet" | "emerald" | "cyan" | "amber" | "rose" | "indigo";
 }) {
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className="group relative overflow-hidden bg-card/40 backdrop-blur-3xl border-white/[0.06] dark:border-white/[0.03] hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-violet-500/10 hover:border-white/[0.15] transition-all duration-700 ease-[0.22,1,0.36,1] cursor-default">
-        {/* Border Beam */}
-        <BorderBeam color={beamColor || "violet"} />
-        {/* Holographic shimmer */}
-        <HoloShimmer />
-        {/* Subtle inner shine gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-black/[0.05] dark:from-white/[0.02] dark:via-transparent dark:to-white/[0.01] pointer-events-none" />
-        {/* Top edge glow line */}
-        <div className="absolute top-0 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-
-        <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-foreground/70 tracking-tight">{title}</CardTitle>
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/10 transition-all duration-500 font-mono">
+        {/* Scanlines / Matrix background */}
+        <div 
+          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+          }}
+        />
+        {/* Terminal Header Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        
+        <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2 pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-500/50 text-xs hidden sm:inline">[</span>
+            <CardTitle className="text-xs font-bold text-slate-700 dark:text-cyan-400 tracking-widest uppercase">{title}</CardTitle>
+            <span className="text-cyan-500/50 text-xs hidden sm:inline">]</span>
+          </div>
           <motion.div
-            className={`relative flex items-center justify-center h-10 w-10 rounded-xl ${iconBg} shadow-md border border-white/10`}
-            whileHover={{ scale: 1.15, rotate: -5 }}
+            className={`relative flex items-center justify-center h-8 w-8 rounded-none border border-white/20 dark:border-cyan-500/30 bg-white/10 dark:bg-cyan-950/30 shadow-[0_0_10px_rgba(6,182,212,0.1)]`}
+            whileHover={{ scale: 1.1, rotate: 90 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
           >
-            <Icon className="h-4 w-4 text-white drop-shadow-md" />
-            <div className={`absolute inset-0 rounded-xl ${iconBg} blur-md opacity-40`} />
+            <Icon className="h-4 w-4 text-slate-800 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
           </motion.div>
         </CardHeader>
-        <CardContent className="relative">
-          <div className="flex items-end justify-between gap-2">
+        <CardContent className="relative pb-4">
+          <div className="flex items-end justify-between gap-2 mt-2">
             <div>
-              <div className="text-2xl font-bold tabular-nums tracking-tight">{value}</div>
-              <p className="text-xs text-muted-foreground/80 mt-1 font-medium">{subtitle}</p>
+              <div className="text-2xl font-bold tracking-widest text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
+                {value}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-cyan-500/70 mt-1 tracking-widest uppercase">
+                &gt; {subtitle}
+              </p>
             </div>
             {sparkData && sparkColor && (
-              <div className="opacity-50 group-hover:opacity-100 transition-opacity duration-700">
-                <Sparkline data={sparkData} color={sparkColor} height={40} width={80} />
+              <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                <Sparkline data={sparkData} color={sparkColor} height={36} width={70} />
               </div>
             )}
           </div>
@@ -512,26 +439,25 @@ function StatCard({
 
 function TrafficBar({ used, limit }: { used: number | null | undefined; limit: number | null | undefined }) {
   if (limit == null || limit === 0) {
-    return <span className="text-xs tabular-nums text-muted-foreground">{formatBytes(used)}</span>;
+    return <span className="text-[10px] tabular-nums text-slate-500 dark:text-cyan-500/60 uppercase">{formatBytes(used)}</span>;
   }
   const usedVal = used ?? 0;
   const percent = Math.min((usedVal / limit) * 100, 100);
   const barColor =
-    percent >= 90 ? "from-red-500 to-red-400" : percent >= 70 ? "from-amber-500 to-amber-400" : "from-emerald-500 to-teal-400";
-  const glowShadow =
-    percent >= 90 ? "shadow-red-500/40" : percent >= 70 ? "shadow-amber-500/40" : "shadow-emerald-500/40";
+    percent >= 90 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" : percent >= 70 ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]";
   return (
-    <div className="space-y-1 min-w-[100px]">
-      <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
+    <div className="space-y-2 min-w-[100px] font-mono">
+      <div className="h-1.5 rounded-none bg-slate-200 dark:bg-cyan-950 overflow-hidden relative border-y border-white/10 dark:border-cyan-500/20">
         <motion.div
-          className={`h-full rounded-full bg-gradient-to-r ${barColor} shadow-sm ${glowShadow}`}
+          className={`absolute top-0 bottom-0 left-0 ${barColor}`}
           initial={{ width: 0 }}
           animate={{ width: `${percent}%` }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
         />
       </div>
-      <p className="text-xs tabular-nums text-muted-foreground">
-        {formatBytes(usedVal)} / {formatBytes(limit)}
+      <p className="text-[10px] tabular-nums text-slate-600 dark:text-cyan-400 uppercase tracking-widest flex justify-between">
+        <span>{formatBytes(usedVal)}</span>
+        <span className="opacity-50">/ {formatBytes(limit)}</span>
       </p>
     </div>
   );
@@ -542,10 +468,10 @@ function TrafficBar({ used, limit }: { used: number | null | undefined; limit: n
 function MiniBar({ value, maxValue, color }: { value: number; maxValue: number; color: string }) {
   const percent = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
   return (
-    <div className="h-1.5 rounded-full bg-muted/60 overflow-hidden mt-1.5">
+    <div className="h-1 rounded-none bg-slate-200 dark:bg-cyan-950 overflow-hidden mt-3 relative border-y border-white/10 dark:border-cyan-500/20">
       <motion.div
-        className="h-full rounded-full"
-        style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}50` }}
+        className="absolute top-0 bottom-0 left-0"
+        style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
         initial={{ width: 0 }}
         animate={{ width: `${percent}%` }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.8 }}
@@ -568,45 +494,31 @@ function buildSparkData(today: number, d7: number, d30: number, total: number): 
   ];
 }
 
-/* ── GlassCard wrapper for major sections ── */
+/* ── Terminal Container wrapper for major sections ── */
 
 function GlassCard({
   children,
-  hoverShadowColor = "violet",
-  innerGlowColor,
   animIndex = 0,
 }: {
   children: React.ReactNode;
-  hoverShadowColor?: string;
-  innerGlowColor?: string;
   animIndex?: number;
 }) {
-  const shadowMap: Record<string, string> = {
-    violet: "hover:shadow-violet-500/15",
-    emerald: "hover:shadow-emerald-500/15",
-    cyan: "hover:shadow-cyan-500/15",
-    amber: "hover:shadow-amber-500/15",
-    indigo: "hover:shadow-indigo-500/15",
-  };
-  const glowColorMap: Record<string, string> = {
-    violet: "from-violet-500/[0.04]",
-    emerald: "from-emerald-500/[0.04]",
-    cyan: "from-cyan-500/[0.04]",
-    amber: "from-amber-500/[0.04]",
-    indigo: "from-indigo-500/[0.04]",
-  };
-
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className={`group relative overflow-hidden bg-card/40 backdrop-blur-3xl border-white/[0.06] dark:border-white/[0.03] hover:-translate-y-1 hover:shadow-2xl ${shadowMap[hoverShadowColor] || shadowMap.violet} hover:border-white/[0.12] transition-all duration-700 ease-[0.22,1,0.36,1]`}>
-        {/* Border Beam */}
-        <BorderBeam color={hoverShadowColor as "violet" | "emerald" | "cyan" | "amber"} />
-        {/* Holo shimmer */}
-        <HoloShimmer />
-        {/* Inner glow */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${glowColorMap[innerGlowColor || hoverShadowColor] || glowColorMap.violet} via-transparent to-transparent pointer-events-none`} />
-        {/* Top edge glow */}
-        <div className="absolute top-0 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-[#0A0A0C] backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_rgba(6,182,212,0.1)] font-mono">
+        {/* Matrix background */}
+        <div 
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+          }}
+        />
+        {/* Inner scanline sweep */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.05] to-transparent h-[10%] w-full pointer-events-none"
+          animate={{ y: ["-100%", "1000%"] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+        />
         {children}
       </Card>
     </motion.div>
@@ -870,12 +782,19 @@ export function DashboardPage() {
   /* ── Loading state ── */
   if (loading && !stats) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] font-mono gap-4">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <Loader2 className="h-8 w-8 text-violet-500" />
+          <RotateCw className="h-8 w-8 text-cyan-500" />
+        </motion.div>
+        <motion.div
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          className="text-cyan-500 tracking-widest text-xs font-bold"
+        >
+          INITIALIZING_SYSTEM_
         </motion.div>
       </div>
     );
@@ -906,27 +825,28 @@ export function DashboardPage() {
       {/* Ambient Neon Background */}
       <AmbientBackground />
 
-      {/* Page header — animated gradient title */}
+      {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="font-mono"
       >
         <h1
-          className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/80 to-violet-500/70"
-          style={{ textShadow: "0 0 40px rgba(139,92,246,0.1)" }}
+          className="text-3xl font-bold tracking-widest uppercase text-slate-900 dark:text-cyan-400 flex items-center gap-3"
+          style={{ textShadow: "0 0 20px rgba(6,182,212,0.3)" }}
         >
-          Дашборд
+          <span className="text-cyan-500/50">~/</span> Дашборд <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}} className="w-4 h-6 bg-cyan-500 inline-block"></motion.span>
         </h1>
-        <p className="text-muted-foreground mt-1">Статистика пользователей, продажи, аналитика, ноды Remna</p>
+        <p className="text-slate-500 dark:text-cyan-500/60 mt-2 text-xs tracking-widest uppercase">Статистика / Пользователи / Продажи / Аналитика / Ноды_Remna</p>
         {/* Animated header underline */}
         <motion.div
-          className="h-[2px] mt-2 rounded-full"
+          className="h-[1px] mt-4"
           style={{
-            background: "linear-gradient(90deg, rgba(139,92,246,0.6), rgba(59,130,246,0.4), rgba(34,197,94,0.3), transparent)",
+            background: "linear-gradient(90deg, rgba(6,182,212,0.8), transparent)",
           }}
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: "200px", opacity: 1 }}
+          animate={{ width: "100%", opacity: 1 }}
           transition={{ delay: 0.4, duration: 1, ease: "easeOut" }}
         />
       </motion.div>
@@ -934,124 +854,124 @@ export function DashboardPage() {
       {/* Manager warning */}
       {admin?.role === "MANAGER" && (!admin.allowedSections || admin.allowedSections.length === 0) && (
         <motion.div
-          className="rounded-xl border border-amber-500/50 bg-amber-500/10 backdrop-blur-xl px-4 py-2 text-sm text-amber-700 dark:text-amber-400"
+          className="rounded-none border border-amber-500/50 bg-amber-500/10 backdrop-blur-xl px-4 py-3 text-xs tracking-widest uppercase font-mono text-amber-600 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          У вас нет доступа ни к одному разделу. Обратитесь к администратору.
+          [WARNING]: У вас нет доступа ни к одному разделу. Обратитесь к администратору.
         </motion.div>
       )}
 
       {/* Error display */}
       {error && (
         <motion.div
-          className="rounded-xl border border-destructive/50 bg-destructive/10 backdrop-blur-xl px-4 py-2 text-sm text-destructive"
+          className="rounded-none border border-red-500/50 bg-red-500/10 backdrop-blur-xl px-4 py-3 text-xs tracking-widest uppercase font-mono text-red-600 dark:text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
         >
-          {error}
+          [ERROR]: {error}
         </motion.div>
       )}
 
       {/* ═══ Users Section ═══ */}
       <section>
-        <SectionHeader icon={Users} iconBg="bg-blue-600" title="Пользователи" subtitle="Статистика клиентской базы" />
+        <SectionHeader icon={Users} title="Пользователи" subtitle="Статистика клиентской базы" />
         <motion.div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" variants={staggerContainer} initial="hidden" animate="visible">
           <StatCard
             index={0}
             icon={Users}
-            iconBg="bg-blue-500/20 dark:bg-blue-500/30"
             title="Всего пользователей"
             value={stats ? <CountUpNumber value={stats.users.total} /> : "—"}
             subtitle="Клиенты панели"
-            beamColor="cyan"
           />
           <StatCard
             index={1}
             icon={Shield}
-            iconBg="bg-violet-500/20 dark:bg-violet-500/30"
             title="Привязано к Remna"
             value={stats ? <CountUpNumber value={stats.users.withRemna} /> : "—"}
             subtitle="С remnawaveUuid"
-            beamColor="violet"
           />
           <StatCard
             index={2}
             icon={UserPlus}
-            iconBg="bg-emerald-500/20 dark:bg-emerald-500/30"
             title="Новых сегодня"
             value={stats ? <CountUpNumber value={stats.users.newToday} /> : "—"}
             subtitle="Регистрации за день"
-            beamColor="emerald"
           />
           <StatCard
             index={3}
             icon={TrendingUp}
-            iconBg="bg-amber-500/20 dark:bg-amber-500/30"
             title="Новых за 30 дней"
             value={stats ? <CountUpNumber value={stats.users.newLast30Days} /> : "—"}
             subtitle="Регистрации"
-            beamColor="amber"
           />
         </motion.div>
       </section>
 
       {/* ═══ Sales Section ═══ */}
       <section>
-        <SectionHeader icon={DollarSign} iconBg="bg-emerald-600" title="Статистика продаж" subtitle="Поступления и платежи" />
-        <GlassCard hoverShadowColor="emerald" animIndex={4}>
+        <SectionHeader icon={DollarSign} title="Статистика продаж" subtitle="Поступления и платежи" />
+        <GlassCard animIndex={4}>
           <CardContent className="relative pt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {/* Total revenue */}
-              <div className="space-y-1">
+              <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Всего поступления</p>
-                    <p className="text-xl font-semibold tabular-nums">
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; Всего поступления</p>
+                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.totalAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">{stats?.sales.totalCount ?? 0} платежей с платёжек (без оплаты с баланса)</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <Sparkline data={salesSparkTotal} color="#22c55e" height={48} width={100} />
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                    <Sparkline data={salesSparkTotal} color="#10b981" height={48} width={100} />
+                  </div>
                 </div>
               </div>
               {/* Today */}
-              <div className="space-y-1">
+              <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">За сегодня</p>
-                    <p className="text-xl font-semibold tabular-nums">
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За сегодня</p>
+                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">{stats?.sales.todayCount ?? 0} платежей</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <Sparkline data={salesSparkToday} color="#3b82f6" height={48} width={100} />
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                    <Sparkline data={salesSparkToday} color="#06b6d4" height={48} width={100} />
+                  </div>
                 </div>
               </div>
               {/* 7 days */}
-              <div className="space-y-1">
+              <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">За 7 дней</p>
-                    <p className="text-xl font-semibold tabular-nums">
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За 7 дней</p>
+                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">{stats?.sales.last7DaysCount ?? 0} платежей</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                    <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
+                  </div>
                 </div>
               </div>
               {/* 30 days */}
-              <div className="space-y-1">
+              <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">За 30 дней</p>
-                    <p className="text-xl font-semibold tabular-nums">
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За 30 дней</p>
+                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-xs text-muted-foreground">{stats?.sales.last30DaysCount ?? 0} платежей</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                    <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1061,27 +981,29 @@ export function DashboardPage() {
 
       {/* ═══ Analytics Section ═══ */}
       <section>
-        <SectionHeader icon={Activity} iconBg="bg-violet-600" title="Аналитика" subtitle="Ключевые метрики за периоды" />
-        <GlassCard hoverShadowColor="violet" animIndex={5}>
+        <SectionHeader icon={Activity} title="Аналитика" subtitle="Ключевые метрики за периоды" />
+        <GlassCard animIndex={5}>
           <CardContent className="relative pt-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
               {[
-                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "#3b82f6", isMoney: false },
-                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "#8b5cf6", isMoney: false },
-                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "#6366f1", isMoney: false },
-                { label: "Продажи (сегодня)", val: stats?.sales.todayAmount, max: analyticsMaxSales, color: "#22c55e", isMoney: true },
-                { label: "Продажи (7 дн.)", val: stats?.sales.last7DaysAmount, max: analyticsMaxSales, color: "#14b8a6", isMoney: true },
-                { label: "Продажи (30 дн.)", val: stats?.sales.last30DaysAmount, max: analyticsMaxSales, color: "#f59e0b", isMoney: true },
+                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
+                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
+                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
+                { label: "Продажи (сегодня)", val: stats?.sales.todayAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
+                { label: "Продажи (7 дн.)", val: stats?.sales.last7DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
+                { label: "Продажи (30 дн.)", val: stats?.sales.last30DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
               ].map((item, idx) => (
                 <motion.div
                   key={item.label}
-                  className="rounded-xl border border-white/[0.06] bg-muted/20 backdrop-blur-lg p-3 space-y-1 hover:bg-muted/40 hover:border-white/10 transition-all duration-400"
+                  className="rounded border border-white/[0.05] dark:border-cyan-500/20 bg-white/10 dark:bg-cyan-950/10 backdrop-blur-sm p-4 space-y-2 hover:bg-white/20 dark:hover:bg-cyan-900/20 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-400 group"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
                 >
-                  <p className="text-xs text-muted-foreground">{item.label}</p>
-                  <p className="text-lg font-medium tabular-nums">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">
+                    &gt; {item.label}
+                  </p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                     {stats ? (
                       item.isMoney ? (
                         <CountUpMoney value={item.val ?? 0} currency={defaultCurrency} />
@@ -1103,7 +1025,7 @@ export function DashboardPage() {
       {/* ═══ Server Command Center Section ═══ */}
       {serverStats && (
         <section>
-          <SectionHeader icon={Server} iconBg="bg-cyan-600" title="Командный центр" subtitle="Мониторинг ядра сервера" />
+          <SectionHeader icon={Server} title="Командный центр" subtitle="Мониторинг ядра сервера" />
           <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={6}>
             <ServerCommandCenter serverStats={serverStats} />
           </motion.div>
@@ -1114,24 +1036,23 @@ export function DashboardPage() {
       <section>
         <SectionHeader
           icon={Globe}
-          iconBg="bg-indigo-600"
           title="Ноды Remna"
           subtitle={hasRemnaNodesAccess && nodes.length > 0 ? `${nodesOnline} из ${nodesTotal} онлайн` : "Статус, трафик, CPU/RAM, онлайн пользователей"}
         />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={7}>
           {!hasRemnaNodesAccess ? (
-            <Card className="bg-card/50 backdrop-blur-2xl border-white/[0.08] dark:border-white/[0.04]">
+            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-cyan-500/30 rounded-none font-mono">
               <CardContent className="py-8">
-                <p className="text-muted-foreground text-sm text-center">
-                  Нет доступа к управлению нодами Remna. Обратитесь к администратору для получения раздела «Ноды Remna».
+                <p className="text-slate-500 dark:text-cyan-500/60 text-xs tracking-widest uppercase text-center">
+                  [ACCESS_DENIED] Нет доступа к управлению нодами Remna. Обратитесь к администратору.
                 </p>
               </CardContent>
             </Card>
           ) : nodes.length === 0 ? (
-            <Card className="bg-card/50 backdrop-blur-2xl border-white/[0.08] dark:border-white/[0.04]">
+            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-cyan-500/30 rounded-none font-mono">
               <CardContent className="py-8">
-                <p className="text-muted-foreground text-sm text-center">
-                  Ноды не загружены или Remna API не настроен. Проверьте настройки и подключение к Remna.
+                <p className="text-slate-500 dark:text-cyan-500/60 text-xs tracking-widest uppercase text-center">
+                  [SYSTEM_EMPTY] Ноды не загружены или Remna API не настроен. Проверьте настройки.
                 </p>
               </CardContent>
             </Card>
@@ -1159,72 +1080,74 @@ export function DashboardPage() {
                       ? "text-emerald-500"
                       : "text-red-500";
                 const hoverShadow = node.isConnected && !node.isDisabled
-                  ? "hover:shadow-emerald-500/15"
+                  ? "hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                   : node.isConnecting
-                    ? "hover:shadow-amber-500/15"
-                    : "hover:shadow-red-500/10";
+                    ? "hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                    : "hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]";
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`group relative overflow-hidden bg-card/50 backdrop-blur-2xl border-white/[0.08] dark:border-white/[0.04] hover:-translate-y-2 hover:scale-[1.01] hover:shadow-2xl ${hoverShadow} hover:border-white/15 transition-all duration-500 ease-out`}>
-                      {/* Holo shimmer */}
-                      <HoloShimmer />
-                      {/* Inner shine */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-white/[0.01] pointer-events-none" />
-                      {/* Top edge glow */}
-                      <div className="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <Card className={`group relative overflow-hidden bg-white/5 dark:bg-[#0A0A0C] backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:border-white/20 dark:hover:border-cyan-500/60 ${hoverShadow} transition-all duration-500 font-mono`}>
+                      {/* Matrix background */}
+                      <div 
+                        className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                        }}
+                      />
                       {/* Status indicator line at top */}
                       <div
-                        className="absolute top-0 left-0 right-0 h-[2px] opacity-60"
+                        className="absolute top-0 left-0 right-0 h-[2px] opacity-80"
                         style={{
                           background: node.isDisabled
-                            ? "linear-gradient(90deg, transparent, rgba(156,163,175,0.5), transparent)"
+                            ? "linear-gradient(90deg, rgba(156,163,175,0.8), transparent)"
                             : node.isConnecting
-                              ? "linear-gradient(90deg, transparent, rgba(245,158,11,0.6), transparent)"
+                              ? "linear-gradient(90deg, rgba(245,158,11,0.8), transparent)"
                               : node.isConnected
-                                ? "linear-gradient(90deg, transparent, rgba(34,197,94,0.6), transparent)"
-                                : "linear-gradient(90deg, transparent, rgba(239,68,68,0.5), transparent)",
+                                ? "linear-gradient(90deg, rgba(34,197,94,0.8), transparent)"
+                                : "linear-gradient(90deg, rgba(239,68,68,0.8), transparent)",
                         }}
                       />
 
-                      <CardHeader className="relative pb-3">
+                      <CardHeader className="relative pb-3 pt-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-3">
                             <StatusDot isConnected={node.isConnected} isConnecting={node.isConnecting} isDisabled={node.isDisabled} />
-                            <CardTitle className="text-base font-semibold truncate max-w-[180px]">
+                            <CardTitle className="text-sm font-bold tracking-widest text-slate-800 dark:text-cyan-400 uppercase truncate max-w-[160px]">
                               {node.name || node.uuid}
                             </CardTitle>
                           </div>
-                          <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
+                          <span className={`text-[10px] tracking-widest uppercase font-bold px-2 py-0.5 rounded border border-current ${statusColor}`}>{statusLabel}</span>
                         </div>
-                        <CardDescription className="font-mono text-xs mt-1">
-                          {node.address}{node.port != null ? `:${node.port}` : ""}
+                        <CardDescription className="font-mono text-[10px] tracking-widest mt-2 text-slate-500 dark:text-cyan-500/60 flex items-center gap-2">
+                          <span className="opacity-50">IP_ADDR</span>
+                          <span>{node.address}{node.port != null ? `:${node.port}` : ""}</span>
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="relative space-y-3">
+                      <CardContent className="relative space-y-4">
                         {/* Traffic */}
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Трафик</p>
+                        <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
+                          <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 mb-1.5 uppercase">BANDWIDTH</p>
                           <TrafficBar used={node.trafficUsedBytes} limit={node.trafficLimitBytes} />
                         </div>
 
                         {/* Info grid */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-xs text-muted-foreground">CPU / RAM</p>
-                            <p className="text-sm font-medium tabular-nums">{formatNodeCpuRam(node.cpuCount, node.totalRam)}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
+                            <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 uppercase">CPU/RAM</p>
+                            <p className="text-xs font-bold text-slate-800 dark:text-cyan-400 mt-1 tabular-nums">{formatNodeCpuRam(node.cpuCount, node.totalRam)}</p>
                           </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Онлайн юзеров</p>
-                            <p className="text-sm font-medium tabular-nums flex items-center gap-1.5">
+                          <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
+                            <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 uppercase">CONN</p>
+                            <p className="text-xs font-bold text-slate-800 dark:text-cyan-400 mt-1 tabular-nums flex items-center gap-1.5">
                               {node.usersOnline != null ? (
                                 <>
-                                  <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                                  <Wifi className="h-3 w-3 text-emerald-500" />
                                   {node.usersOnline}
                                 </>
                               ) : (
                                 <>
-                                  <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <WifiOff className="h-3 w-3 opacity-50" />
                                   —
                                 </>
                               )}
@@ -1233,39 +1156,39 @@ export function DashboardPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex flex-wrap gap-1.5 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10 dark:border-cyan-500/20">
                           {node.isDisabled ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs gap-1 border-white/10 hover:border-white/25 hover:bg-white/5 backdrop-blur-sm transition-all duration-300"
+                              className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all rounded-sm"
                               disabled={isBusy}
                               onClick={() => handleNodeAction(node.uuid, "enable")}
                             >
                               {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="h-3 w-3" />}
-                              Включить
+                              ACTIVATE
                             </Button>
                           ) : (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs gap-1 border-white/10 hover:border-white/25 hover:bg-white/5 backdrop-blur-sm transition-all duration-300"
+                              className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all rounded-sm"
                               disabled={isBusy}
                               onClick={() => handleNodeAction(node.uuid, "disable")}
                             >
                               {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerOff className="h-3 w-3" />}
-                              Выключить
+                              HALT
                             </Button>
                           )}
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs gap-1 border-white/10 hover:border-white/25 hover:bg-white/5 backdrop-blur-sm transition-all duration-300"
+                            className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all rounded-sm"
                             disabled={isBusy}
                             onClick={() => handleNodeAction(node.uuid, "restart")}
                           >
                             <RotateCw className="h-3 w-3" />
-                            Перезагрузить
+                            REBOOT
                           </Button>
                         </div>
                       </CardContent>
