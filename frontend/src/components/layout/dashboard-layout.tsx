@@ -94,16 +94,19 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                 to={item.to}
                 onClick={onClick}
                 className={cn(
-                  "group flex items-center gap-3 px-4 py-2.5 text-sm font-mono font-bold transition-all duration-200",
+                  "group flex items-center gap-3 px-3 py-2.5 mx-3 rounded-xl border transition-all duration-200",
                   isActive
-                    ? "bg-gradient-to-r from-primary/20 to-transparent border-l-2 border-primary text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
-                    : "text-muted-foreground hover:bg-muted/10 hover:text-foreground hover:translate-x-1 border-l-2 border-transparent"
+                    ? "border-primary/30 bg-primary/10 shadow-[inset_0_0_15px_rgba(var(--primary),0.15)] text-primary"
+                    : "border-transparent text-foreground hover:border-foreground/10 hover:bg-foreground/5 hover:translate-x-1"
                 )}
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/10 bg-background/50 transition-all duration-300 group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:shadow-[0_0_10px_rgba(var(--primary),0.3)]">
-                  <item.icon className="h-4 w-4 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/10 bg-background/50 transition-all duration-300 group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:shadow-[0_0_10px_rgba(var(--primary),0.3)]">
+                  <item.icon className={cn("h-4 w-4 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110", isActive && "text-primary")} />
                 </div>
-                <span>~/ {item.label}</span>
+                <div className="flex items-center text-[15px] font-bold">
+                  <span className="text-foreground/20 font-light mr-1">~/</span>
+                  <span>{item.label}</span>
+                </div>
               </Link>
             );
           })}
@@ -195,11 +198,12 @@ export function DashboardLayout() {
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.06] dark:opacity-10 z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <pattern id="matrix-grid-sidebar" width="24" height="24" patternUnits="userSpaceOnUse">
-                <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
+              <pattern id="plus-grid-sidebar" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 20 16 L 20 24 M 16 20 L 24 20" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+                <path d="M 36 6 L 36 10 M 34 8 L 38 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#matrix-grid-sidebar)" />
+            <rect width="100%" height="100%" fill="url(#plus-grid-sidebar)" />
           </svg>
         </div>
 
@@ -215,28 +219,28 @@ export function DashboardLayout() {
           <NavItems />
         </nav>
         <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
-          <div className="text-xs text-muted-foreground truncate px-3 py-1 flex items-center gap-2 font-mono">
+          <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            [ SYS_ONLINE ]
+            В сети
           </div>
-          <div className="text-xs text-muted-foreground truncate px-3 py-1 font-mono">{state.admin?.email}</div>
+          <div className="text-xs text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
           <Link to="/admin/change-password" className="block">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-mono hover:bg-primary/10 hover:text-primary transition-all">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-medium">
               <KeyRound className="h-4 w-4" />
-              [ SEC: PASS_CHANGE ]
+              Изменить пароль
             </Button>
           </Link>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="w-full justify-start gap-2 font-mono text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all" 
+            className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-medium" 
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            [ EXEC: LOGOUT ]
+            Выйти
           </Button>
         </div>
       </aside>
@@ -256,11 +260,12 @@ export function DashboardLayout() {
               <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.06] dark:opacity-10 z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
-                    <pattern id="matrix-grid-sidebar-mobile" width="24" height="24" patternUnits="userSpaceOnUse">
-                      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
+                    <pattern id="plus-grid-sidebar-mobile" width="40" height="40" patternUnits="userSpaceOnUse">
+                      <path d="M 20 16 L 20 24 M 16 20 L 24 20" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+                      <path d="M 36 6 L 36 10 M 34 8 L 38 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
                     </pattern>
                   </defs>
-                  <rect width="100%" height="100%" fill="url(#matrix-grid-sidebar-mobile)" />
+                  <rect width="100%" height="100%" fill="url(#plus-grid-sidebar-mobile)" />
                 </svg>
               </div>
 
@@ -277,28 +282,28 @@ export function DashboardLayout() {
                 <NavItems onClick={() => setMobileMenuOpen(false)} />
               </nav>
               <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
-                <div className="text-xs text-muted-foreground truncate px-3 py-1 flex items-center gap-2 font-mono">
+                <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  [ SYS_ONLINE ]
+                  В сети
                 </div>
-                <div className="text-xs text-muted-foreground truncate px-3 py-1 font-mono">{state.admin?.email}</div>
+                <div className="text-xs text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
                 <Link to="/admin/change-password" className="block" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-mono hover:bg-primary/10 hover:text-primary transition-all">
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-medium">
                     <KeyRound className="h-4 w-4" />
-                    [ SEC: PASS_CHANGE ]
+                    Изменить пароль
                   </Button>
                 </Link>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full justify-start gap-2 font-mono text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all" 
+                  className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-medium" 
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
-                  [ EXEC: LOGOUT ]
+                    Выйти
                 </Button>
               </div>
             </motion.aside>
