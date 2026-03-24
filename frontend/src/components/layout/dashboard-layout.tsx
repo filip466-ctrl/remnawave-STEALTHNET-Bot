@@ -95,14 +95,17 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                   to={item.to}
                   onClick={onClick}
                   className={cn(
-                    "flex items-center gap-3.5 py-2.5 px-2 rounded-xl transition-all duration-300 relative border-x-[4px]",
+                    "flex items-center gap-3.5 py-2.5 px-3 rounded-xl transition-all duration-300 relative border-x-[4px]",
                     isActive
                       ? "bg-primary/15 backdrop-blur-md text-primary shadow-[0_0_15px_rgba(var(--primary),0.2)] scale-[1.02] z-10 border-x-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border-x-transparent"
                   )}
                 >
                   <item.icon className={cn("h-[19px] w-[19px] shrink-0 transition-transform duration-300", isActive ? "text-primary scale-110" : "text-muted-foreground/70")} />
-                  <span className="text-[14.5px] font-medium tracking-wide">{item.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground/50 font-mono text-[13px]">~</span>
+                    <span className="text-[14.5px] font-mono tracking-wide">{item.label}</span>
+                  </div>
                 </Link>
               );
             })}
@@ -190,10 +193,10 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-background/30 bg-black/[0.04] dark:bg-white/[0.04] backdrop-blur-2xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-background/80 backdrop-blur-2xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] transition-all overflow-hidden">
         {/* Ambient Glow */}
-        <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-30 dark:opacity-20">
-          <div className="w-[300px] h-[300px] rounded-full bg-primary/40 blur-[90px]" />
+        <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-10">
+          <div className="w-[300px] h-[300px] rounded-full bg-primary/20 blur-[90px]" />
         </div>
 
         {/* Chaotic Crosses background */}
@@ -239,6 +242,9 @@ export function DashboardLayout() {
           <NavItems />
         </nav>
         <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
+          <div className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 mb-1">
+            [ ONLINE ]
+          </div>
           <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -246,9 +252,9 @@ export function DashboardLayout() {
             </span>
             В сети
           </div>
-          <div className="text-xs text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
+          <div className="text-xs font-mono text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
           <Link to="/admin/change-password" className="block">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-medium">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-mono text-[13px]">
               <KeyRound className="h-4 w-4" />
               Изменить пароль
             </Button>
@@ -256,11 +262,11 @@ export function DashboardLayout() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-medium" 
+            className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-mono font-bold text-[13px] mt-1" 
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            Выйти
+            [ ВЫЙТИ ]
           </Button>
         </div>
       </aside>
@@ -274,11 +280,11 @@ export function DashboardLayout() {
             <motion.aside
               initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-background/80 bg-black/[0.05] dark:bg-white/[0.05] backdrop-blur-2xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-background/95 backdrop-blur-2xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden"
             >
               {/* Ambient Glow */}
-              <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-30 dark:opacity-20">
-                <div className="w-[300px] h-[300px] rounded-full bg-primary/40 blur-[90px]" />
+              <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-10">
+                <div className="w-[300px] h-[300px] rounded-full bg-primary/20 blur-[90px]" />
               </div>
 
               {/* Chaotic Crosses background */}
@@ -324,6 +330,9 @@ export function DashboardLayout() {
                 <NavItems onClick={() => setMobileMenuOpen(false)} />
               </nav>
               <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
+                <div className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 mb-1">
+                  [ ONLINE ]
+                </div>
                 <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -331,9 +340,9 @@ export function DashboardLayout() {
                   </span>
                   В сети
                 </div>
-                <div className="text-xs text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
+                <div className="text-xs font-mono text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
                 <Link to="/admin/change-password" className="block" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-medium">
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-primary/10 hover:text-primary transition-all font-mono text-[13px]">
                     <KeyRound className="h-4 w-4" />
                     Изменить пароль
                   </Button>
@@ -341,11 +350,11 @@ export function DashboardLayout() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-medium" 
+                  className="w-full justify-start gap-2 text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all font-mono font-bold text-[13px] mt-1" 
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
-                    Выйти
+                  [ ВЫЙТИ ]
                 </Button>
               </div>
             </motion.aside>
