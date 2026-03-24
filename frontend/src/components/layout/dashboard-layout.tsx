@@ -86,7 +86,7 @@ function NavItems({ onClick }: { onClick?: () => void }) {
             <div className="w-[2px] h-[12px] bg-primary"></div>
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{category}</div>
           </div>
-          <div className="space-y-1 px-4">
+          <div className="space-y-1 px-3">
             {groupedNav[category].map((item) => {
               const isActive = isNavActive(location.pathname, item.to);
               return (
@@ -95,14 +95,14 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                   to={item.to}
                   onClick={onClick}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    "flex items-center gap-3.5 px-3 py-2.5 rounded-lg transition-colors",
                     isActive
                       ? "bg-primary/15 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                   )}
                 >
-                  <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} />
-                  <span className="text-[14px] font-medium">{item.label}</span>
+                  <item.icon className={cn("h-[19px] w-[19px] shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} />
+                  <span className="text-[14.5px] font-medium">{item.label}</span>
                 </Link>
               );
             })}
@@ -190,18 +190,36 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
+        {/* Ambient Glow */}
+        <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-30 dark:opacity-20">
+          <div className="w-[300px] h-[300px] rounded-full bg-primary/40 blur-[90px]" />
+        </div>
+
         {/* Chaotic Crosses background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.15] dark:opacity-10 z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <pattern id="cross-grid-sidebar" width="100" height="100" patternUnits="userSpaceOnUse">
-                <path d="M 18 28 L 22 32 M 18 32 L 22 28" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" />
-                <path d="M 68 13 L 72 17 M 68 17 L 72 13" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
-                <path d="M 38 78 L 42 82 M 38 82 L 42 78" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" />
-                <path d="M 88 58 L 92 62 M 88 62 L 92 58" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
-                <path d="M 8 88 L 12 92 M 8 92 L 12 88" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" />
-                <path d="M 50 45 L 54 49 M 50 49 L 54 45" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" />
+              <pattern id="cross-grid-sidebar" width="120" height="120" patternUnits="userSpaceOnUse">
+                {/* Big Crosses with subtle animated stroke */}
+                <path d="M 15 25 L 25 35 M 15 35 L 25 25" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; 6; 0" dur="4s" repeatCount="indefinite" />
+                </path>
+                <path d="M 75 15 L 85 25 M 75 25 L 85 15" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="5s" repeatCount="indefinite" />
+                </path>
+                <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; -6; 0" dur="6s" repeatCount="indefinite" />
+                </path>
+                <path d="M 100 70 L 110 80 M 100 80 L 110 70" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; 5; 0" dur="4.5s" repeatCount="indefinite" />
+                </path>
+                <path d="M 5 105 L 15 115 M 5 115 L 15 105" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; 7; 0" dur="3.5s" repeatCount="indefinite" />
+                </path>
+                <path d="M 60 50 L 70 60 M 60 60 L 70 50" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" strokeDasharray="14">
+                  <animate attributeName="stroke-dashoffset" values="0; -5; 0" dur="5.5s" repeatCount="indefinite" />
+                </path>
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#cross-grid-sidebar)" />
@@ -216,7 +234,7 @@ export function DashboardLayout() {
           )}
           {brand.serviceName ? <span className="font-bold text-lg tracking-wide truncate">{brand.serviceName}</span> : null}
         </div>
-        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10">
+        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
           <NavItems />
         </nav>
         <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
@@ -253,21 +271,38 @@ export function DashboardLayout() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-background/50 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
             <motion.aside
-              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
+              initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card/95 backdrop-blur-xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-card/95 backdrop-blur-xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
             >
+              {/* Ambient Glow */}
+              <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-30 dark:opacity-20">
+                <div className="w-[300px] h-[300px] rounded-full bg-primary/40 blur-[90px]" />
+              </div>
+
               {/* Chaotic Crosses background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.15] dark:opacity-10 z-0">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
-                    <pattern id="cross-grid-sidebar-mobile" width="100" height="100" patternUnits="userSpaceOnUse">
-                      <path d="M 18 28 L 22 32 M 18 32 L 22 28" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" />
-                      <path d="M 68 13 L 72 17 M 68 17 L 72 13" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
-                      <path d="M 38 78 L 42 82 M 38 82 L 42 78" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" />
-                      <path d="M 88 58 L 92 62 M 88 62 L 92 58" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
-                      <path d="M 8 88 L 12 92 M 8 92 L 12 88" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" />
-                      <path d="M 50 45 L 54 49 M 50 49 L 54 45" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" />
+                    <pattern id="cross-grid-sidebar-mobile" width="120" height="120" patternUnits="userSpaceOnUse">
+                      <path d="M 15 25 L 25 35 M 15 35 L 25 25" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; 6; 0" dur="4s" repeatCount="indefinite" />
+                      </path>
+                      <path d="M 75 15 L 85 25 M 75 25 L 85 15" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="5s" repeatCount="indefinite" />
+                      </path>
+                      <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; -6; 0" dur="6s" repeatCount="indefinite" />
+                      </path>
+                      <path d="M 100 70 L 110 80 M 100 80 L 110 70" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; 5; 0" dur="4.5s" repeatCount="indefinite" />
+                      </path>
+                      <path d="M 5 105 L 15 115 M 5 115 L 15 105" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; 7; 0" dur="3.5s" repeatCount="indefinite" />
+                      </path>
+                      <path d="M 60 50 L 70 60 M 60 60 L 70 50" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" strokeDasharray="14">
+                        <animate attributeName="stroke-dashoffset" values="0; -5; 0" dur="5.5s" repeatCount="indefinite" />
+                      </path>
                     </pattern>
                   </defs>
                   <rect width="100%" height="100%" fill="url(#cross-grid-sidebar-mobile)" />
@@ -283,7 +318,7 @@ export function DashboardLayout() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10">
+              <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
                 <NavItems onClick={() => setMobileMenuOpen(false)} />
               </nav>
               <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
@@ -317,8 +352,8 @@ export function DashboardLayout() {
       </AnimatePresence>
 
       {/* ═══ Main content ═══ */}
-      <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0 md:pl-[280px] w-full">
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:pr-6 md:-ml-[280px] md:pl-[calc(280px+1.5rem)] bg-card/60 backdrop-blur-xl border-b border-white/10 md:border-r rounded-none md:rounded-br-[2rem] mb-6 md:mb-10 shadow-sm md:mr-6 transition-all">
+      <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0 md:pl-[290px] w-full">
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:pr-6 md:-ml-[290px] md:pl-[calc(290px+1.5rem)] bg-card/60 backdrop-blur-xl border-b border-white/10 md:border-r rounded-none md:rounded-br-[2rem] mb-6 md:mb-10 shadow-sm md:mr-6 transition-all">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
