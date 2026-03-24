@@ -200,7 +200,7 @@ export function DashboardLayout() {
         </div>
 
         {/* Chaotic Crosses background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] text-primary z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="cross-grid-sidebar" width="120" height="120" patternUnits="userSpaceOnUse">
@@ -242,15 +242,12 @@ export function DashboardLayout() {
           <NavItems />
         </nav>
         <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
-          <div className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 mb-1">
-            [ ONLINE ]
-          </div>
-          <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
+          <div className="text-[12px] font-mono font-bold text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] uppercase tracking-widest px-3 py-1 mb-1 flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            В сети
+            [ ONLINE ]
           </div>
           <div className="text-xs font-mono text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
           <Link to="/admin/change-password" className="block">
@@ -288,7 +285,7 @@ export function DashboardLayout() {
               </div>
 
               {/* Chaotic Crosses background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] z-0">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] text-primary z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="cross-grid-sidebar-mobile" width="120" height="120" patternUnits="userSpaceOnUse">
@@ -330,15 +327,12 @@ export function DashboardLayout() {
                 <NavItems onClick={() => setMobileMenuOpen(false)} />
               </nav>
               <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
-                <div className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-widest px-3 py-1 mb-1">
-                  [ ONLINE ]
-                </div>
-                <div className="text-sm font-medium text-foreground truncate px-3 py-1 flex items-center gap-2">
+                <div className="text-[12px] font-mono font-bold text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] uppercase tracking-widest px-3 py-1 mb-1 flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  В сети
+                  [ ONLINE ]
                 </div>
                 <div className="text-xs font-mono text-muted-foreground truncate px-3 py-1 mb-2">{state.admin?.email}</div>
                 <Link to="/admin/change-password" className="block" onClick={() => setMobileMenuOpen(false)}>
