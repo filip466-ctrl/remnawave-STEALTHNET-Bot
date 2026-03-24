@@ -167,9 +167,9 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-svh bg-transparent">
+    <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex md:w-56 md:flex-col shrink-0 bg-card border-r">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-4 bottom-4 w-[280px] z-50 rounded-r-3xl border-r border-y border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
@@ -236,8 +236,8 @@ export function DashboardLayout() {
       </AnimatePresence>
 
       {/* ═══ Main content ═══ */}
-      <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0">
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 px-4 md:px-6 bg-card border-b">
+      <main className="flex-1 overflow-auto min-w-0 flex flex-col relative z-0 md:pl-[280px] w-full">
+        <header className="sticky top-4 z-40 flex h-14 shrink-0 items-center justify-between gap-2 px-4 md:px-6 bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl mx-4 md:ml-4 md:mr-4 mb-4 shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
@@ -285,7 +285,7 @@ export function DashboardLayout() {
             </a>
           </div>
         </header>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex-1 p-4 md:p-6">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex-1 px-4 md:px-6 pb-6">
           <Outlet />
         </motion.div>
       </main>

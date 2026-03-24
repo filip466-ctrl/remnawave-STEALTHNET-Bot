@@ -737,6 +737,10 @@ export function DashboardPage() {
     });
   }, [analyticsData, chartPeriod]);
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const sales90d = analyticsData?.revenueSeries?.reduce((acc: any, curr: any) => acc + curr.value, 0) || 0;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
   /* ── Loading state ── */
   if (loading && !stats) {
     return (
@@ -757,12 +761,6 @@ export function DashboardPage() {
       </div>
     );
   }
-
-  /* ── Sparkline datasets ── */
-  const salesSparkTotal = stats
-    ? buildSparkData(stats.sales.todayAmount, stats.sales.last7DaysAmount, stats.sales.last30DaysAmount, stats.sales.totalAmount)
-    : [];
-  const salesSparkToday = stats ? [{ v: 0 }, { v: stats.sales.todayAmount * 0.3 }, { v: stats.sales.todayAmount * 0.7 }, { v: stats.sales.todayAmount }] : [];
 
   /* ── Nodes online/total ── */
   const nodesOnline = nodes.filter((n) => n.isConnected && !n.isDisabled).length;
@@ -861,57 +859,51 @@ export function DashboardPage() {
         </motion.div>
       </section>
 
-      {/* ═══ Sales Section ═══ */}
-      <section>
-        <SectionHeader icon={DollarSign} title="Статистика продаж" subtitle="Поступления и платежи" />
-        <GlassCard animIndex={4}>
-          <CardContent className="relative pt-6">
-            <div className="grid gap-6 sm:grid-cols-2">
-              {/* Total revenue */}
-              <div className="space-y-2 group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; Всего поступления</p>
-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
-                      {stats ? <CountUpMoney value={stats.sales.totalAmount} currency={defaultCurrency} /> : "—"}
-                    </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
-                  </div>
-                  {stats && stats.sales.totalAmount > 0 && (
-                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                      <Sparkline data={salesSparkTotal} color="#10b981" height={48} width={100} />
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* Today */}
-              <div className="space-y-2 group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За сегодня</p>
-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
-                      {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
-                    </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
-                  </div>
-                  {stats && stats.sales.todayAmount > 0 && (
-                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                      <Sparkline data={salesSparkToday} color="hsl(var(--primary))" height={48} width={100} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </GlassCard>
-      </section>
-
       {/* ═══ Analytics Section ═══ */}
       <section>
         <SectionHeader icon={Activity} title="Аналитика" subtitle="Ключевые метрики за периоды" />
         <GlassCard animIndex={5}>
           <CardContent className="relative pt-6">
             <div className="flex flex-col gap-6">
+              {/* Sales Stats Grid */}
+              <div className="grid gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; Всего</p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white">
+                    {stats ? <CountUpMoney value={stats.sales.totalAmount} currency={defaultCurrency} /> : "—"}
+                  </p>
+                  <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; За сегодня</p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white">
+                    {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
+                  </p>
+                  <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; 7 дней</p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white">
+                    {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
+                  </p>
+                  <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; 30 дней</p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white">
+                    {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
+                  </p>
+                  <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; 90 дней</p>
+                  <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white">
+                    {analyticsData ? <CountUpMoney value={sales90d} currency={defaultCurrency} /> : "—"}
+                  </p>
+                  <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 uppercase">90 DAYS_REVENUE</p>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; Аналитика за период</p>
