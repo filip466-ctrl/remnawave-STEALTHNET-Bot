@@ -1,9 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Shield,
   Users,
-  TrendingUp,
   Server,
   DollarSign,
   UserPlus,
@@ -22,7 +21,18 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { DashboardStats, RemnaNode, RemnaNodesResponse, ServerStats } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import {
+  AreaChart,
+  Area,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 /* ── Animation variants — God-Tier Entrance ── */
 
@@ -388,29 +398,6 @@ function StatCard({
 }
 
 
-/* ── Mini Bar for analytics ── */
-
-function MiniBar({ value, maxValue, color }: { value: number; maxValue: number; color: string }) {
-  const percent = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
-  const segments = 25;
-  const activeSegments = Math.round((percent / 100) * segments);
-
-  return (
-    <div className="flex gap-[2px] h-2.5 w-full mt-3">
-      {Array.from({ length: segments }).map((_, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, scaleY: 0.2 }}
-          animate={{ opacity: i < activeSegments ? 1 : 0.15, scaleY: 1 }}
-          transition={{ delay: 0.8 + i * 0.02, duration: 0.3 }}
-          className="flex-1 rounded-[1px] bg-slate-300 dark:bg-primary/10"
-          style={i < activeSegments ? { backgroundColor: color, boxShadow: `0 0 8px ${color}` } : undefined}
-        />
-      ))}
-    </div>
-  );
-}
-
 /* ── Build sparkline dataset from 4 data points ── */
 
 function buildSparkData(today: number, d7: number, d30: number, total: number): { v: number }[] {
@@ -636,6 +623,11 @@ export function DashboardPage() {
   const admin = state.admin;
   const hasRemnaNodesAccess = admin ? canAccessRemnaNodes(admin.role, admin.allowedSections) : false;
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const [chartPeriod, setChartPeriod] = useState(30);
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [serverStats, setServerStats] = useState<ServerStats | null>(null);
   const [nodes, setNodes] = useState<RemnaNode[]>([]);
@@ -683,10 +675,18 @@ export function DashboardPage() {
           : Promise.resolve(null);
         const settingsP = api.getSettings(token!).catch(() => null);
         const serverP = api.getServerStats(token!).catch(() => null);
-        const [statsRes, nodesRes, settingsRes, serverRes] = await Promise.all([statsP, nodesP, settingsP, serverP]);
+        const analyticsP = api.getAnalytics(token!).catch(() => null);
+        const [statsRes, nodesRes, settingsRes, serverRes, analyticsRes] = await Promise.all([
+          statsP,
+          nodesP,
+          settingsP,
+          serverP,
+          analyticsP,
+        ]);
         if (cancelled) return;
         setStats(statsRes);
         setServerStats(serverRes);
+        setAnalyticsData(analyticsRes);
         if (nodesRes != null) {
           const data = nodesRes as RemnaNodesResponse;
           setNodes(Array.isArray(data?.response) ? data.response : []);
@@ -709,6 +709,33 @@ export function DashboardPage() {
       cancelled = true;
     };
   }, [token, hasRemnaNodesAccess]);
+
+  const chartData = useMemo(() => {
+    const revenueSeries = analyticsData?.revenueSeries ?? [];
+    const clientsSeries = analyticsData?.clientsSeries ?? [];
+    const period = Math.max(chartPeriod, 1);
+
+    const revenueSlice = revenueSeries.slice(-period);
+    const clientsSlice = clientsSeries.slice(-period);
+    const maxLen = Math.max(revenueSlice.length, clientsSlice.length);
+
+    return Array.from({ length: maxLen }).map((_, index) => {
+      const revenuePoint = revenueSlice[index];
+      const clientsPoint = clientsSlice[index];
+      const dateRaw = revenuePoint?.date ?? clientsPoint?.date ?? "";
+      const date = dateRaw
+        ? new Date(dateRaw)
+            .toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })
+            .replace(".", "")
+        : "";
+
+      return {
+        date,
+        revenue: revenuePoint?.value ?? 0,
+        users: clientsPoint?.value ?? 0,
+      };
+    });
+  }, [analyticsData, chartPeriod]);
 
   /* ── Loading state ── */
   if (loading && !stats) {
@@ -736,16 +763,6 @@ export function DashboardPage() {
     ? buildSparkData(stats.sales.todayAmount, stats.sales.last7DaysAmount, stats.sales.last30DaysAmount, stats.sales.totalAmount)
     : [];
   const salesSparkToday = stats ? [{ v: 0 }, { v: stats.sales.todayAmount * 0.3 }, { v: stats.sales.todayAmount * 0.7 }, { v: stats.sales.todayAmount }] : [];
-  const salesSpark7d = stats
-    ? buildSparkData(stats.sales.todayAmount, stats.sales.todayAmount, stats.sales.last7DaysAmount, stats.sales.last7DaysAmount)
-    : [];
-  const salesSpark30d = stats
-    ? buildSparkData(stats.sales.todayAmount, stats.sales.last7DaysAmount, stats.sales.last30DaysAmount, stats.sales.last30DaysAmount)
-    : [];
-
-  /* ── Analytics max values ── */
-  const analyticsMaxUsers = Math.max(stats?.users.newToday ?? 0, stats?.users.newLast7Days ?? 0, stats?.users.newLast30Days ?? 0, 1);
-  const analyticsMaxSales = Math.max(stats?.sales.todayAmount ?? 0, stats?.sales.last7DaysAmount ?? 0, stats?.sales.last30DaysAmount ?? 0, 1);
 
   /* ── Nodes online/total ── */
   const nodesOnline = nodes.filter((n) => n.isConnected && !n.isDisabled).length;
@@ -816,7 +833,7 @@ export function DashboardPage() {
       {/* ═══ Users Section ═══ */}
       <section>
         <SectionHeader icon={Users} title="Пользователи" subtitle="Статистика клиентской базы" />
-        <motion.div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" variants={staggerContainer} initial="hidden" animate="visible">
+        <motion.div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" variants={staggerContainer} initial="hidden" animate="visible">
           <StatCard
             index={0}
             icon={Users}
@@ -841,14 +858,6 @@ export function DashboardPage() {
             subtitle="Регистрации за день"
             accentColor="emerald"
           />
-          <StatCard
-            index={3}
-            icon={TrendingUp}
-            title="Новых за 30 дней"
-            value={stats ? <CountUpNumber value={stats.users.newLast30Days} /> : "—"}
-            subtitle="Регистрации"
-            accentColor="violet"
-          />
         </motion.div>
       </section>
 
@@ -857,7 +866,7 @@ export function DashboardPage() {
         <SectionHeader icon={DollarSign} title="Статистика продаж" subtitle="Поступления и платежи" />
         <GlassCard animIndex={4}>
           <CardContent className="relative pt-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2">
               {/* Total revenue */}
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
@@ -892,40 +901,6 @@ export function DashboardPage() {
                   )}
                 </div>
               </div>
-              {/* 7 days */}
-              <div className="space-y-2 group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За 7 дней</p>
-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
-                      {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
-                    </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
-                  </div>
-                  {stats && stats.sales.last7DaysAmount > 0 && (
-                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                      <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* 30 days */}
-              <div className="space-y-2 group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За 30 дней</p>
-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
-                      {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
-                    </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
-                  </div>
-                  {stats && stats.sales.last30DaysAmount > 0 && (
-                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                      <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </CardContent>
         </GlassCard>
@@ -936,47 +911,86 @@ export function DashboardPage() {
         <SectionHeader icon={Activity} title="Аналитика" subtitle="Ключевые метрики за периоды" />
         <GlassCard animIndex={5}>
           <CardContent className="relative pt-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "primary" },
-                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "primary" },
-                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "violet" },
-                { label: "Продажи (сегодня)", val: stats?.sales.todayAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
-                { label: "Продажи (7 дн.)", val: stats?.sales.last7DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
-                { label: "Продажи (30 дн.)", val: stats?.sales.last30DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
-              ].map((item, idx) => {
-                const isEmerald = item.theme === "emerald";
-                const isViolet = item.theme === "violet";
-                const borderClass = "border-white/[0.05] dark:border-primary/20 hover:border-white/20 dark:hover:border-primary/50";
-                const bgClass = "bg-white/10 dark:bg-primary/10 hover:bg-white/20 dark:hover:bg-primary/20";
-                const textClass = isEmerald ? "text-emerald-700 dark:text-emerald-400 group-hover:text-emerald-500" : isViolet ? "text-violet-700 dark:text-violet-400 group-hover:text-violet-500" : "text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]";
-                const titleGlow = isEmerald ? "dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" : isViolet ? "dark:drop-shadow-[0_0_10px_rgba(139,92,246,0.4)]" : "";
-                
-                return (
-                <motion.div
-                  key={item.label}
-                  className={`rounded border backdrop-blur-sm p-4 space-y-2 transition-all duration-400 group bg-gradient-to-br from-white/5 to-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${borderClass} ${bgClass}`}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
-                >
-                  <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">
-                    &gt; {item.label}
-                  </p>
-                  <p className={`text-xl font-bold tabular-nums tracking-widest ${textClass} ${titleGlow}`}>
-                    {stats ? (
-                      item.isMoney ? (
-                        <CountUpMoney value={item.val ?? 0} currency={defaultCurrency} />
-                      ) : (
-                        <CountUpNumber value={item.val ?? 0} />
-                      )
-                    ) : (
-                      "—"
-                    )}
-                  </p>
-                  <MiniBar value={item.val ?? 0} maxValue={item.max} color={item.color} />
-                </motion.div>
-              )})}
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">&gt; Аналитика за период</p>
+                  <h3 className="text-lg font-bold tracking-widest text-slate-900 dark:text-white">Revenue vs New Users</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {[7, 30, 90].map((period) => {
+                    const isActive = chartPeriod === period;
+                    return (
+                      <Button
+                        key={period}
+                        size="sm"
+                        variant="outline"
+                        className={`h-8 px-3 text-[10px] uppercase tracking-widest border-white/20 dark:border-primary/30 bg-white/30 dark:bg-black/30 hover:bg-white/50 dark:hover:bg-primary/20 ${
+                          isActive
+                            ? "text-slate-900 dark:text-primary border-primary/50 shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
+                            : "text-slate-500 dark:text-primary/60"
+                        }`}
+                        onClick={() => setChartPeriod(period)}
+                      >
+                        {period}d
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="h-[320px] w-full rounded-xl border border-white/10 dark:border-primary/20 bg-white/10 dark:bg-black/30 p-4 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="dashRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-slate-500" />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} className="text-slate-500" tickFormatter={(value) => formatMoney(Number(value ?? 0), defaultCurrency)} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "rgba(10,10,20,0.85)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: "8px",
+                        color: "white",
+                        fontSize: "12px",
+                      }}
+                      formatter={(value, name) => {
+                        if (name === "Revenue") return [formatMoney(Number(value ?? 0), defaultCurrency), "Revenue"];
+                        return [Number(value ?? 0).toLocaleString(), "New Users"];
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.9)" }} />
+                    <Area
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="revenue"
+                      name="Revenue"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#dashRevenue)"
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={1200}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="users"
+                      name="New Users"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={1200}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </CardContent>
         </GlassCard>
