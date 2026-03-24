@@ -23,7 +23,6 @@ import { api } from "@/lib/api";
 import type { DashboardStats, RemnaNode, RemnaNodesResponse, ServerStats } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
-import { AnimatedBackground } from "@/components/animated-background";
 
 /* ── Animation variants — God-Tier Entrance ── */
 
@@ -227,8 +226,8 @@ function SectionHeader({
         <Icon className="h-5 w-5 text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
       </motion.div>
       <div>
-        <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-primary flex items-center gap-2">
-          <span className="text-primary/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-primary/50 inline-block"></motion.span>
+        <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-primary dark:drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)] flex items-center gap-2">
+          <span className="text-primary/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-primary/50 inline-block drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]"></motion.span>
         </h2>
         <p className="text-xs text-slate-500 dark:text-primary/60 uppercase tracking-widest">{subtitle}</p>
       </div>
@@ -341,10 +340,10 @@ function StatCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
+      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
         {/* Scanlines / Matrix background */}
         <div 
-          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
+          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
@@ -437,10 +436,10 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_hsl(var(--primary)/0.1)] font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_20px_hsl(var(--primary)/0.1)] font-mono">
         {/* Matrix background */}
         <div 
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
@@ -508,10 +507,10 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
-        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+        className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
         }}
@@ -755,21 +754,17 @@ export function DashboardPage() {
   return (
     <div className="relative w-full rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-[#050507] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1),0_0_20px_rgba(0,0,0,0.05)] dark:shadow-[0_30px_80px_-15px_rgba(0,0,0,0.6),0_0_30px_rgba(0,0,0,0.3)] overflow-hidden">
       {/* Frame glowing inner border effect (3D Bevel) */}
-      <div className="absolute inset-0 border-[2px] border-white/80 dark:border-white/[0.03] rounded-[2rem] pointer-events-none z-20" />
+      <div className="absolute inset-0 rounded-[2rem] pointer-events-none z-20 border-t border-t-white/40 dark:border-t-primary/50 border-l border-l-white/20 dark:border-l-primary/20 border-r border-r-white/5 dark:border-r-primary/5 border-b border-b-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] bg-gradient-to-b from-white/10 via-transparent to-transparent dark:from-primary/10" />
       
       {/* Background Matrix/Grid strictly inside the frame */}
       <div 
-        className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none z-0"
+        className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none z-0"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
         }}
       />
-      
-      {/* Animated glowing lights STRICTLY INSIDE the frame, behind the content */}
-      <AnimatedBackground variant="absolute" intensity="weak" />
 
       <div className="relative space-y-8 p-6 sm:p-8 md:p-10 z-10">
-      {/* Ambient Neon Background */}
       {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
@@ -960,7 +955,7 @@ export function DashboardPage() {
                 return (
                 <motion.div
                   key={item.label}
-                  className={`rounded border backdrop-blur-sm p-4 space-y-2 transition-all duration-400 group ${borderClass} ${bgClass}`}
+                  className={`rounded border backdrop-blur-sm p-4 space-y-2 transition-all duration-400 group bg-gradient-to-br from-white/5 to-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ${borderClass} ${bgClass}`}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
@@ -1058,10 +1053,10 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500 ${hoverShadow}`}>
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500 ${hoverShadow}`}>
                       {/* Hex Background Pattern */}
                       <div 
-                        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+                        className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
                         }}
