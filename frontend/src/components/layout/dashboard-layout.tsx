@@ -80,31 +80,33 @@ function NavItems({ onClick }: { onClick?: () => void }) {
   return (
     <>
       {sortedCategories.map((category, index) => (
-        <div key={category} className="mb-2 last:mb-0">
-          {index > 0 && <div className="mx-4 my-3 border-t border-dotted border-foreground/20"></div>}
-          <div className="flex items-center gap-2 px-4 mb-1 mt-2">
-            <div className="w-[3px] h-[12px] bg-primary rounded-full"></div>
-            <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{category}</div>
+        <div key={category} className="mb-4 last:mb-0">
+          {index > 0 && <div className="mx-5 mb-4 border-t border-dashed border-foreground/10"></div>}
+          <div className="flex items-center gap-3 px-5 mb-2">
+            <div className="w-[3px] h-[14px] bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.6)]"></div>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">{category}</div>
           </div>
-          {groupedNav[category].map((item) => {
-            const isActive = isNavActive(location.pathname, item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={onClick}
-                className={cn(
-                  "group flex items-center gap-3 px-3 py-2 mx-2 rounded-lg border transition-all duration-200",
-                  isActive
-                    ? "border-primary/50 bg-primary/10 text-primary shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                )}
-              >
-                <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive && "text-primary")} />
-                <span className="text-[14px] font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
+          <div className="space-y-0.5 px-3">
+            {groupedNav[category].map((item) => {
+              const isActive = isNavActive(location.pathname, item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={onClick}
+                  className={cn(
+                    "group flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-200",
+                    isActive
+                      ? "border-primary/40 bg-primary/10 text-primary shadow-[inset_0_0_15px_rgba(var(--primary),0.1)]"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )}
+                >
+                  <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-primary drop-shadow-[0_0_5px_rgba(var(--primary),0.5)]" : "opacity-80")} />
+                  <span className="text-[14px] font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       ))}
     </>
@@ -190,12 +192,12 @@ export function DashboardLayout() {
       {/* ═══ Desktop sidebar ═══ */}
       <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
         {/* Matrix background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20 dark:opacity-15 z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 dark:opacity-15 z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="plus-grid-sidebar" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 20 16 L 20 24 M 16 20 L 24 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
-                <path d="M 36 6 L 36 10 M 34 8 L 38 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                <path d="M 20 14 L 20 26 M 14 20 L 26 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
+                <path d="M 36 5 L 36 11 M 33 8 L 39 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#plus-grid-sidebar)" />
@@ -252,12 +254,12 @@ export function DashboardLayout() {
               className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card/95 backdrop-blur-xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
             >
               {/* Matrix background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20 dark:opacity-15 z-0">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 dark:opacity-15 z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="plus-grid-sidebar-mobile" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 20 16 L 20 24 M 16 20 L 24 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
-                      <path d="M 36 6 L 36 10 M 34 8 L 38 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                      <path d="M 20 14 L 20 26 M 14 20 L 26 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
+                      <path d="M 36 5 L 36 11 M 33 8 L 39 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
                     </pattern>
                   </defs>
                   <rect width="100%" height="100%" fill="url(#plus-grid-sidebar-mobile)" />
