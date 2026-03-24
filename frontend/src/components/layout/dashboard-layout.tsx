@@ -5,6 +5,7 @@ import {
   Shield, LayoutDashboard, Users, CreditCard, Settings, LogOut, KeyRound,
   Megaphone, Tag, BarChart3, FileText, ExternalLink, Sun, Moon, Monitor,
   Palette, Menu, X, Database, Target, UserCog, Send, CalendarClock, Globe, Server, MessageSquare, Trophy,
+  Network, ShieldAlert, Key,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api, type AdminNotificationCounters } from "@/lib/api";
 
-const PANEL_VERSION = "3.2.5";
+const PANEL_VERSION = "3.2.6";
 const GITHUB_URL = "https://github.com/systemmaster1200-eng/remnawave-STEALTHNET-Bot";
 
 const navWithSections: { to: string; label: string; icon: typeof LayoutDashboard; section: string }[] = [
@@ -31,6 +32,9 @@ const navWithSections: { to: string; label: string; icon: typeof LayoutDashboard
   { to: "/admin/backup", label: "Бэкапы", icon: Database, section: "backup" },
   { to: "/admin/contests", label: "Конкурсы", icon: Trophy, section: "contests" },
   { to: "/admin/tickets", label: "Тикеты", icon: MessageSquare, section: "tickets" },
+  { to: "/admin/referral-network", label: "Реф. сеть", icon: Network, section: "clients" },
+  { to: "/admin/traffic-abuse", label: "Анализ трафика", icon: ShieldAlert, section: "analytics" },
+  { to: "/admin/api-keys", label: "API Ключи", icon: Key, section: "settings" },
   { to: "/admin/settings", label: "Настройки", icon: Settings, section: "settings" },
   { to: "/admin/admins", label: "Менеджеры", icon: UserCog, section: "admins" },
 ];
