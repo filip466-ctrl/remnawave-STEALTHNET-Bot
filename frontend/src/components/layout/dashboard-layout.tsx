@@ -81,12 +81,12 @@ function NavItems({ onClick }: { onClick?: () => void }) {
     <>
       {sortedCategories.map((category, index) => (
         <div key={category} className="mb-4 last:mb-0">
-          {index > 0 && <div className="mx-5 mb-4 border-t border-dashed border-foreground/10"></div>}
-          <div className="flex items-center gap-3 px-5 mb-2">
-            <div className="w-[3px] h-[14px] bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.6)]"></div>
-            <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">{category}</div>
+          {index > 0 && <div className="mx-6 mb-4 border-t border-dotted border-white/10 dark:border-white/20"></div>}
+          <div className="flex items-center gap-2 px-6 mb-2">
+            <div className="w-[2px] h-[12px] bg-primary"></div>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{category}</div>
           </div>
-          <div className="space-y-0.5 px-3">
+          <div className="space-y-1 px-4">
             {groupedNav[category].map((item) => {
               const isActive = isNavActive(location.pathname, item.to);
               return (
@@ -95,13 +95,13 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                   to={item.to}
                   onClick={onClick}
                   className={cn(
-                    "group flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-200",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
                     isActive
-                      ? "border-primary/40 bg-primary/10 text-primary shadow-[inset_0_0_15px_rgba(var(--primary),0.1)]"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                   )}
                 >
-                  <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-primary drop-shadow-[0_0_5px_rgba(var(--primary),0.5)]" : "opacity-80")} />
+                  <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} />
                   <span className="text-[14px] font-medium">{item.label}</span>
                 </Link>
               );
@@ -191,26 +191,30 @@ export function DashboardLayout() {
     <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
       <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
-        {/* Matrix background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 dark:opacity-15 z-0">
+        {/* Chaotic Crosses background */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.15] dark:opacity-10 z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <pattern id="plus-grid-sidebar" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 20 14 L 20 26 M 14 20 L 26 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
-                <path d="M 36 5 L 36 11 M 33 8 L 39 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+              <pattern id="cross-grid-sidebar" width="100" height="100" patternUnits="userSpaceOnUse">
+                <path d="M 18 28 L 22 32 M 18 32 L 22 28" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" />
+                <path d="M 68 13 L 72 17 M 68 17 L 72 13" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                <path d="M 38 78 L 42 82 M 38 82 L 42 78" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" />
+                <path d="M 88 58 L 92 62 M 88 62 L 92 58" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+                <path d="M 8 88 L 12 92 M 8 92 L 12 88" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" />
+                <path d="M 50 45 L 54 49 M 50 49 L 54 45" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#plus-grid-sidebar)" />
+            <rect width="100%" height="100%" fill="url(#cross-grid-sidebar)" />
           </svg>
         </div>
 
-        <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4 relative z-10">
+        <div className="flex h-16 items-center justify-center gap-3 border-b border-white/5 px-4 relative z-10">
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
           ) : (
-            <Shield className="h-6 w-6 text-primary shrink-0" />
+            <Shield className="h-7 w-7 text-primary shrink-0" />
           )}
-          {brand.serviceName ? <span className="font-semibold truncate">{brand.serviceName}</span> : null}
+          {brand.serviceName ? <span className="font-bold text-lg tracking-wide truncate">{brand.serviceName}</span> : null}
         </div>
         <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10">
           <NavItems />
@@ -253,25 +257,29 @@ export function DashboardLayout() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card/95 backdrop-blur-xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
             >
-              {/* Matrix background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 dark:opacity-15 z-0">
+              {/* Chaotic Crosses background */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.15] dark:opacity-10 z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
-                    <pattern id="plus-grid-sidebar-mobile" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 20 14 L 20 26 M 14 20 L 26 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
-                      <path d="M 36 5 L 36 11 M 33 8 L 39 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                    <pattern id="cross-grid-sidebar-mobile" width="100" height="100" patternUnits="userSpaceOnUse">
+                      <path d="M 18 28 L 22 32 M 18 32 L 22 28" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" />
+                      <path d="M 68 13 L 72 17 M 68 17 L 72 13" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                      <path d="M 38 78 L 42 82 M 38 82 L 42 78" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" />
+                      <path d="M 88 58 L 92 62 M 88 62 L 92 58" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+                      <path d="M 8 88 L 12 92 M 8 92 L 12 88" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" />
+                      <path d="M 50 45 L 54 49 M 50 49 L 54 45" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" />
                     </pattern>
                   </defs>
-                  <rect width="100%" height="100%" fill="url(#plus-grid-sidebar-mobile)" />
+                  <rect width="100%" height="100%" fill="url(#cross-grid-sidebar-mobile)" />
                 </svg>
               </div>
 
-              <div className="flex h-14 items-center justify-between gap-2 border-b border-white/10 px-4 relative z-10">
-                <div className="flex items-center gap-2 min-w-0">
-                  {brand.logo ? <img src={brand.logo} alt="" className="h-8 w-auto object-contain" /> : <Shield className="h-6 w-6 text-primary shrink-0" />}
-                  {brand.serviceName ? <span className="font-semibold truncate">{brand.serviceName}</span> : null}
+              <div className="flex h-16 items-center justify-center border-b border-white/5 px-4 relative z-10">
+                <div className="flex items-center gap-3 min-w-0">
+                  {brand.logo ? <img src={brand.logo} alt="" className="h-8 w-auto object-contain" /> : <Shield className="h-7 w-7 text-primary shrink-0" />}
+                  {brand.serviceName ? <span className="font-bold text-lg tracking-wide truncate">{brand.serviceName}</span> : null}
                 </div>
-                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" size="icon" className="absolute right-4 shrink-0" onClick={() => setMobileMenuOpen(false)}>
                   <X className="h-5 w-5" />
                 </Button>
               </div>
