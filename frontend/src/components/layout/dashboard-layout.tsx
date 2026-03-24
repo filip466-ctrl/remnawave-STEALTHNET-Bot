@@ -95,10 +95,10 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                   to={item.to}
                   onClick={onClick}
                   className={cn(
-                    "flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-300 relative",
+                    "flex items-center gap-3.5 py-2.5 px-2 rounded-xl transition-all duration-300 relative border-x-[4px]",
                     isActive
-                      ? "bg-primary/10 backdrop-blur-md border border-primary/20 border-l-primary border-r-primary border-l-2 border-r-2 text-primary shadow-[0_0_15px_rgba(var(--primary),0.15)] scale-[1.02]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
+                      ? "bg-primary/15 backdrop-blur-md text-primary shadow-[0_0_15px_rgba(var(--primary),0.2)] scale-[1.02] z-10 border-x-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border-x-transparent"
                   )}
                 >
                   <item.icon className={cn("h-[19px] w-[19px] shrink-0 transition-transform duration-300", isActive ? "text-primary scale-110" : "text-muted-foreground/70")} />
