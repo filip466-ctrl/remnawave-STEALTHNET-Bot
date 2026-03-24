@@ -77,14 +77,14 @@ function NavItems({ onClick }: { onClick?: () => void }) {
             to={item.to}
             onClick={onClick}
             className={cn(
-              "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              "group flex items-center gap-3 px-4 py-2.5 text-sm font-mono font-medium transition-all duration-200",
               isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                ? "bg-gradient-to-r from-primary/20 to-transparent border-l-2 border-primary text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+                : "text-muted-foreground hover:bg-muted/10 hover:text-foreground hover:translate-x-1 border-l-2 border-transparent"
             )}
           >
-            <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            <item.icon className="h-4 w-4 shrink-0 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" />
+            <span>~/ {item.label}</span>
           </Link>
         );
       })}
@@ -170,7 +170,19 @@ export function DashboardLayout() {
     <div className="flex min-h-svh bg-background/50 relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
       <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[280px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-card/60 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] transition-all overflow-hidden">
-        <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4">
+        {/* Matrix background */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.06] dark:opacity-10 z-0">
+          <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="matrix-grid-sidebar" width="24" height="24" patternUnits="userSpaceOnUse">
+                <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#matrix-grid-sidebar)" />
+          </svg>
+        </div>
+
+        <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4 relative z-10">
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
           ) : (
@@ -178,20 +190,32 @@ export function DashboardLayout() {
           )}
           {brand.serviceName ? <span className="font-semibold truncate">{brand.serviceName}</span> : null}
         </div>
-        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto">
+        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10">
           <NavItems />
         </nav>
-        <div className="border-t p-4 space-y-1.5">
-          <div className="text-xs text-muted-foreground truncate px-3 py-1">{state.admin?.email}</div>
+        <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
+          <div className="text-xs text-muted-foreground truncate px-3 py-1 flex items-center gap-2 font-mono">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            [ SYS_ONLINE ]
+          </div>
+          <div className="text-xs text-muted-foreground truncate px-3 py-1 font-mono">{state.admin?.email}</div>
           <Link to="/admin/change-password" className="block">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-mono hover:bg-primary/10 hover:text-primary transition-all">
               <KeyRound className="h-4 w-4" />
-              Сменить пароль
+              [ SEC: PASS_CHANGE ]
             </Button>
           </Link>
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl" onClick={handleLogout}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start gap-2 font-mono text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all" 
+            onClick={handleLogout}
+          >
             <LogOut className="h-4 w-4" />
-            Выйти
+            [ EXEC: LOGOUT ]
           </Button>
         </div>
       </aside>
@@ -205,9 +229,21 @@ export function DashboardLayout() {
             <motion.aside
               initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card border-r"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[280px] flex flex-col md:hidden bg-card/95 backdrop-blur-xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
             >
-              <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+              {/* Matrix background */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.06] dark:opacity-10 z-0">
+                <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="matrix-grid-sidebar-mobile" width="24" height="24" patternUnits="userSpaceOnUse">
+                      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#matrix-grid-sidebar-mobile)" />
+                </svg>
+              </div>
+
+              <div className="flex h-14 items-center justify-between gap-2 border-b border-white/10 px-4 relative z-10">
                 <div className="flex items-center gap-2 min-w-0">
                   {brand.logo ? <img src={brand.logo} alt="" className="h-8 w-auto object-contain" /> : <Shield className="h-6 w-6 text-primary shrink-0" />}
                   {brand.serviceName ? <span className="font-semibold truncate">{brand.serviceName}</span> : null}
@@ -216,18 +252,32 @@ export function DashboardLayout() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto">
+              <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto relative z-10">
                 <NavItems onClick={() => setMobileMenuOpen(false)} />
               </nav>
-              <div className="border-t p-4 space-y-1.5">
-                <div className="text-xs text-muted-foreground truncate px-3 py-1">{state.admin?.email}</div>
+              <div className="border-t border-white/10 p-4 space-y-1.5 relative z-10">
+                <div className="text-xs text-muted-foreground truncate px-3 py-1 flex items-center gap-2 font-mono">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  [ SYS_ONLINE ]
+                </div>
+                <div className="text-xs text-muted-foreground truncate px-3 py-1 font-mono">{state.admin?.email}</div>
                 <Link to="/admin/change-password" className="block" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl">
-                    <KeyRound className="h-4 w-4" />Сменить пароль
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-mono hover:bg-primary/10 hover:text-primary transition-all">
+                    <KeyRound className="h-4 w-4" />
+                    [ SEC: PASS_CHANGE ]
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 rounded-xl" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" />Выйти
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full justify-start gap-2 font-mono text-red-500/80 hover:bg-red-500/20 hover:text-red-400 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all" 
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4" />
+                  [ EXEC: LOGOUT ]
                 </Button>
               </div>
             </motion.aside>
