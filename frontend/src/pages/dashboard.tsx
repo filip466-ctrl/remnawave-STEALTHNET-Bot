@@ -12,10 +12,6 @@ import {
   Power,
   PowerOff,
   RotateCw,
-  Cpu,
-  MemoryStick,
-  HardDrive,
-  Clock,
   Globe,
   Wifi,
   WifiOff,
@@ -50,12 +46,7 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-const floatVariants = {
-  animate: {
-    y: [0, -8, 0],
-    transition: { duration: 7, repeat: Infinity, ease: "easeInOut" },
-  },
-};
+
 
 /* ── Ambient Background Blobs (Aurora Borealis / God-Tier Elegance) ── */
 
@@ -170,42 +161,13 @@ function formatGb(bytes: number): string {
   return (bytes / 1024 ** 3).toFixed(1) + " GB";
 }
 
-function usageColor(percent: number): string {
-  if (percent >= 90) return "text-red-500";
-  if (percent >= 70) return "text-amber-500";
-  return "text-emerald-500";
-}
+
 
 function canAccessRemnaNodes(role: string, allowedSections: string[] | undefined): boolean {
   if (role === "ADMIN") return true;
   return Array.isArray(allowedSections) && allowedSections.includes("remna-nodes");
 }
 
-/* ── Ring gauge color helpers ── */
-
-function ringStrokeColor(percent: number): string {
-  if (percent >= 90) return "#ef4444";
-  if (percent >= 70) return "#f59e0b";
-  return "#22c55e";
-}
-
-function ringGlowColor(percent: number): string {
-  if (percent >= 90) return "rgba(239, 68, 68, 0.7)";
-  if (percent >= 70) return "rgba(245, 158, 11, 0.7)";
-  return "rgba(34, 197, 94, 0.7)";
-}
-
-function ringTrailColor(percent: number): string {
-  if (percent >= 90) return "rgba(239, 68, 68, 0.08)";
-  if (percent >= 70) return "rgba(245, 158, 11, 0.08)";
-  return "rgba(34, 197, 94, 0.08)";
-}
-
-function ringBgClass(percent: number): string {
-  if (percent >= 90) return "bg-red-500/10";
-  if (percent >= 70) return "bg-amber-500/10";
-  return "bg-emerald-500/10";
-}
 
 /* ── CountUp Hook ── */
 
@@ -246,8 +208,7 @@ function CountUpMoney({ value, currency }: { value: number; currency: string }) 
   const animated = useCountUp(value);
   return (
     <span
-      className="bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500"
-      style={{ textShadow: "0 0 30px rgba(34,197,94,0.15)" }}
+      className="bg-clip-text text-transparent bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-500"
     >
       {formatMoney(animated, currency)}
     </span>
@@ -258,8 +219,7 @@ function CountUpNumber({ value }: { value: number }) {
   const animated = useCountUp(value);
   return (
     <span
-      className="bg-clip-text text-transparent bg-gradient-to-br from-white via-white/90 to-white/50"
-      style={{ textShadow: "0 0 30px rgba(255,255,255,0.08)" }}
+      className="bg-clip-text text-transparent bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-white/90 dark:to-white/50"
     >
       {animated.toLocaleString()}
     </span>
@@ -317,112 +277,7 @@ function HoloShimmer() {
   );
 }
 
-/* ── Animated Ring Gauge with Neon Glow + Pulse ── */
 
-function RingGauge({
-  percent,
-  size = 120,
-  strokeWidth = 8,
-  label,
-  detail,
-  icon: Icon,
-}: {
-  percent: number;
-  size?: number;
-  strokeWidth?: number;
-  label: string;
-  detail: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeColor = ringStrokeColor(percent);
-  const glowColor = ringGlowColor(percent);
-  const trailColor = ringTrailColor(percent);
-  const bgClass = ringBgClass(percent);
-  const filterId = `neon-glow-${label.replace(/\s+/g, "-")}`;
-
-  return (
-    <motion.div
-      className="flex flex-col items-center gap-2"
-      variants={floatVariants}
-      animate="animate"
-    >
-      <div className={`relative rounded-2xl p-4 ${bgClass} transition-colors duration-700 border border-white/5`}>
-        {/* Outer glow pulse ring */}
-        <motion.div
-          className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{ boxShadow: `0 0 20px ${trailColor}, inset 0 0 20px ${trailColor}` }}
-          animate={{ opacity: [0.4, 0.8, 0.4] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        <svg width={size} height={size} className="rotate-[-90deg]">
-          {/* Neon Glow Filter - Softened for elegance */}
-          <defs>
-            <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
-              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
-              <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Background track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            className="text-muted-foreground/10"
-            strokeWidth={strokeWidth}
-          />
-
-          {/* Main animated arc with refined neon glow */}
-          <motion.circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - (circumference * percent) / 100 }}
-            transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-            filter={`url(#${filterId})`}
-          />
-        </svg>
-
-        {/* Center label */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <motion.span
-            className={`text-2xl font-bold tabular-nums tracking-tight ${usageColor(percent)}`}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            style={{ textShadow: `0 0 20px ${glowColor}` }}
-          >
-            {percent}%
-          </motion.span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground/80">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        {label}
-      </div>
-      <p className="text-xs text-muted-foreground/70 text-center max-w-[140px] truncate" title={detail}>
-        {detail}
-      </p>
-    </motion.div>
-  );
-}
 
 /* ── Sparkline Mini Chart with Enhanced Glow ── */
 
@@ -758,7 +613,177 @@ function GlassCard({
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════ */
+/* ── Terminal / Command Center Components ── */
+
+function DataBarSegmented({ percent, label, value, colorClass }: { percent: number, label: string, value: string, colorClass: "cyan" | "emerald" | "amber" | "red" | "violet" }) {
+  const segments = 30;
+  const activeSegments = Math.round((percent / 100) * segments);
+  
+  const bgMap = {
+    cyan: "bg-cyan-500",
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    red: "bg-red-500",
+    violet: "bg-violet-500"
+  };
+  const textMap = {
+    cyan: "text-cyan-600 dark:text-cyan-400",
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    red: "text-red-600 dark:text-red-400",
+    violet: "text-violet-600 dark:text-violet-400"
+  };
+  const shadowMap = {
+    cyan: "dark:shadow-[0_0_10px_rgba(6,182,212,0.8)] shadow-[0_0_10px_rgba(6,182,212,0.3)]",
+    emerald: "dark:shadow-[0_0_10px_rgba(16,185,129,0.8)] shadow-[0_0_10px_rgba(16,185,129,0.3)]",
+    amber: "dark:shadow-[0_0_10px_rgba(245,158,11,0.8)] shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+    red: "dark:shadow-[0_0_10px_rgba(239,68,68,0.8)] shadow-[0_0_10px_rgba(239,68,68,0.3)]",
+    violet: "dark:shadow-[0_0_10px_rgba(139,92,246,0.8)] shadow-[0_0_10px_rgba(139,92,246,0.3)]"
+  };
+
+  return (
+    <div className="space-y-1.5 font-mono">
+      <div className="flex justify-between items-end text-xs">
+        <span className="text-foreground/60 uppercase tracking-widest">{label}</span>
+        <span className={`font-bold ${textMap[colorClass]}`}>{value} <span className="opacity-50 text-[10px] ml-1 text-foreground/50">[{percent.toFixed(1)}%]</span></span>
+      </div>
+      <div className="flex gap-0.5 h-3">
+        {Array.from({ length: segments }).map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scaleY: 0.2 }}
+            animate={{ opacity: i < activeSegments ? 1 : 0.15, scaleY: 1 }}
+            transition={{ delay: i * 0.03, duration: 0.3 }}
+            className={`flex-1 rounded-[1px] ${i < activeSegments ? bgMap[colorClass] + ' ' + shadowMap[colorClass] : 'bg-slate-300 dark:bg-cyan-950'}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
+  return (
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-[#0A0A0C] backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500">
+      {/* Hex Background Pattern */}
+      <div 
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+        }}
+      />
+      
+      {/* Top Bar / Terminal Header */}
+      <div className="border-b border-white/30 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/20 px-4 py-2 flex items-center justify-between text-xs transition-colors duration-500">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500/80 shadow-[0_0_8px_#ef4444]"></span>
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_#f59e0b]"></span>
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_#10b981]"></span>
+          </div>
+          <span className="ml-2 text-slate-600 dark:text-cyan-500/70 tracking-widest uppercase text-[10px]">root@{serverStats.hostname} ~ /sys/core</span>
+        </div>
+        <div className="flex items-center gap-3 text-slate-500 dark:text-cyan-500/50">
+          <span className="hidden sm:inline">ARCH: {serverStats.arch}</span>
+          <span className="hidden sm:inline">OS: {serverStats.platform}</span>
+          <motion.div 
+            animate={{ opacity: [1, 0, 1] }} 
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold"
+          >
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)] dark:shadow-[0_0_8px_#34d399]" />
+            SYS_ONLINE
+          </motion.div>
+        </div>
+      </div>
+
+      <CardContent className="p-6 relative">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Col: Main Resources */}
+          <div className="lg:col-span-2 space-y-6">
+            <DataBarSegmented 
+              label={`CPU [${serverStats.cpu.cores} CORES]`}
+              percent={serverStats.cpu.usagePercent}
+              value={`${serverStats.cpu.usagePercent.toFixed(1)}%`}
+              colorClass={serverStats.cpu.usagePercent > 80 ? "red" : serverStats.cpu.usagePercent > 60 ? "amber" : "cyan"}
+            />
+            
+            <DataBarSegmented 
+              label="MEM [RAM_ALLOC]"
+              percent={serverStats.memory.usagePercent}
+              value={`${formatGb(serverStats.memory.usedBytes)} / ${formatGb(serverStats.memory.totalBytes)}`}
+              colorClass={serverStats.memory.usagePercent > 80 ? "red" : serverStats.memory.usagePercent > 60 ? "amber" : "violet"}
+            />
+
+            {serverStats.disk && (
+              <DataBarSegmented 
+                label="DSK [STORAGE]"
+                percent={serverStats.disk.usagePercent}
+                value={`${formatGb(serverStats.disk.usedBytes)} / ${formatGb(serverStats.disk.totalBytes)}`}
+                colorClass={serverStats.disk.usagePercent > 80 ? "red" : serverStats.disk.usagePercent > 60 ? "amber" : "emerald"}
+              />
+            )}
+            
+            {/* Hex Dump / Mini Logs */}
+            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-cyan-500/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-cyan-700 font-mono leading-tight shadow-inner transition-colors duration-500">
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="absolute inset-x-3 bottom-3"
+              >
+                <div className="flex gap-4"><span className="opacity-50">0x0000</span><span>48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A</span></div>
+                <div className="flex gap-4"><span className="opacity-50">0x0010</span><span>53 79 73 74 65 6D 20 4F 6E 6C 69 6E 65</span></div>
+                <div className="flex gap-4"><span className="opacity-50">0x0020</span><span>{serverStats.loadAvg.map(l => l.toFixed(2)).join(' ')} CPU_LOAD</span></div>
+                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-cyan-400 font-medium">WAITING FOR COMMANDS_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Right Col: Digital Uptime & Status */}
+          <div className="flex flex-col gap-4">
+            <div className="border border-white/40 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/10 p-5 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-cyan-500/40 transition-colors duration-500 shadow-sm">
+               {/* Radar scan effect in background */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
+                <motion.div
+                   animate={{ rotate: 360 }}
+                   transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                   className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
+                   style={{
+                     background: "conic-gradient(from 0deg, transparent 70%, rgba(6, 182, 212, 0.4) 100%)"
+                   }}
+                />
+              </div>
+
+              <span className="text-slate-500 dark:text-cyan-500/50 text-xs tracking-[0.2em] mb-2 z-10 font-semibold">[ SYS_UPTIME ]</span>
+              
+              <div className="text-2xl sm:text-3xl font-bold tracking-widest text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_15px_rgba(34,211,238,0.8)] text-center z-10">
+                {formatUptime(serverStats.uptimeSeconds).toUpperCase()}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-2 w-full z-10 text-slate-600 dark:text-cyan-500 font-medium">
+                <div className="flex justify-between text-xs border-b border-white/30 dark:border-cyan-500/20 pb-1">
+                  <span className="opacity-70 dark:opacity-50">LOAD_AVG</span>
+                  <span className="text-slate-900 dark:text-cyan-400">{serverStats.loadAvg.map(l => l.toFixed(2)).join(' / ')}</span>
+                </div>
+                <div className="flex justify-between text-xs border-b border-white/30 dark:border-cyan-500/20 pb-1">
+                  <span className="opacity-70 dark:opacity-50">NETWORK</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    ESTABLISHED <Zap className="h-3 w-3" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════ *//* ══════════════════════════════════════════════════════════════════ */
 /*                       MAIN COMPONENT                              */
 /* ══════════════════════════════════════════════════════════════════ */
 
@@ -1075,102 +1100,13 @@ export function DashboardPage() {
         </GlassCard>
       </section>
 
-      {/* ═══ Server Monitoring Section ═══ */}
+      {/* ═══ Server Command Center Section ═══ */}
       {serverStats && (
         <section>
-          <SectionHeader icon={Server} iconBg="bg-cyan-600" title="Сервер" subtitle={`${serverStats.hostname} — ${serverStats.platform} (${serverStats.arch})`} />
-          <GlassCard hoverShadowColor="cyan" animIndex={6}>
-            <CardContent className="relative pt-6">
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Ring Gauges */}
-                <div className="flex justify-center">
-                  <RingGauge
-                    percent={serverStats.cpu.usagePercent}
-                    label="CPU"
-                    detail={`${serverStats.cpu.cores} ядер`}
-                    icon={Cpu}
-                  />
-                </div>
-                <div className="flex justify-center">
-                  <RingGauge
-                    percent={serverStats.memory.usagePercent}
-                    label="RAM"
-                    detail={`${formatGb(serverStats.memory.usedBytes)} / ${formatGb(serverStats.memory.totalBytes)}`}
-                    icon={MemoryStick}
-                  />
-                </div>
-                {serverStats.disk ? (
-                  <div className="flex justify-center">
-                    <RingGauge
-                      percent={serverStats.disk.usagePercent}
-                      label="Диск"
-                      detail={`${formatGb(serverStats.disk.usedBytes)} / ${formatGb(serverStats.disk.totalBytes)}`}
-                      icon={HardDrive}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex justify-center">
-                    <div className="flex flex-col items-center gap-2 opacity-30">
-                      <div className="rounded-2xl p-4 bg-muted/20">
-                        <svg width={120} height={120}>
-                          <circle cx={60} cy={60} r={50} fill="none" stroke="currentColor" className="text-muted-foreground/10" strokeWidth={10} />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-sm text-muted-foreground">—</span>
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium flex items-center gap-1.5">
-                        <HardDrive className="h-4 w-4 text-muted-foreground" />
-                        Диск
-                      </span>
-                      <p className="text-xs text-muted-foreground">Нет данных</p>
-                    </div>
-                  </div>
-                )}
-                {/* Uptime */}
-                <div className="flex justify-center">
-                  <motion.div
-                    className="flex flex-col items-center gap-2"
-                    variants={floatVariants}
-                    animate="animate"
-                  >
-                    <div className="relative rounded-2xl p-4 bg-blue-500/10 transition-colors duration-500">
-                      {/* Pulsing background glow */}
-                      <motion.div
-                        className="absolute inset-0 rounded-2xl"
-                        style={{ boxShadow: "0 0 20px rgba(59,130,246,0.08), inset 0 0 20px rgba(59,130,246,0.08)" }}
-                        animate={{ opacity: [0.3, 0.7, 0.3] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                      <div className="relative w-[120px] h-[120px] flex items-center justify-center">
-                        <motion.div
-                          className="text-center"
-                          initial={{ opacity: 0, scale: 0.5 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.6, duration: 0.5, type: "spring", stiffness: 200 }}
-                        >
-                          <Clock className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-                          <span
-                            className="text-xl font-bold tabular-nums block bg-clip-text text-transparent bg-gradient-to-br from-blue-400 via-cyan-400 to-teal-400"
-                            style={{ textShadow: "0 0 20px rgba(59,130,246,0.2)" }}
-                          >
-                            {formatUptime(serverStats.uptimeSeconds)}
-                          </span>
-                        </motion.div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-sm font-medium">
-                      <Zap className="h-4 w-4 text-muted-foreground" />
-                      Uptime
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Load: {serverStats.loadAvg.join(" / ")}
-                    </p>
-                  </motion.div>
-                </div>
-              </div>
-            </CardContent>
-          </GlassCard>
+          <SectionHeader icon={Server} iconBg="bg-cyan-600" title="Командный центр" subtitle="Мониторинг ядра сервера" />
+          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={6}>
+            <ServerCommandCenter serverStats={serverStats} />
+          </motion.div>
         </section>
       )}
 
