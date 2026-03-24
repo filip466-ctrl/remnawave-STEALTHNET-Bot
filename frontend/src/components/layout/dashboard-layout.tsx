@@ -86,7 +86,7 @@ function NavItems({ onClick }: { onClick?: () => void }) {
             <div className="w-[2px] h-[12px] bg-primary"></div>
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{category}</div>
           </div>
-          <div className="space-y-1 px-3">
+          <div className="space-y-1.5 px-3">
             {groupedNav[category].map((item) => {
               const isActive = isNavActive(location.pathname, item.to);
               return (
@@ -95,14 +95,14 @@ function NavItems({ onClick }: { onClick?: () => void }) {
                   to={item.to}
                   onClick={onClick}
                   className={cn(
-                    "flex items-center gap-3.5 px-3 py-2.5 rounded-lg transition-colors",
+                    "flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-300 relative",
                     isActive
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                      ? "bg-primary/10 backdrop-blur-md border border-primary/20 border-l-primary border-r-primary border-l-2 border-r-2 text-primary shadow-[0_0_15px_rgba(var(--primary),0.15)] scale-[1.02]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
                   )}
                 >
-                  <item.icon className={cn("h-[19px] w-[19px] shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} />
-                  <span className="text-[14.5px] font-medium">{item.label}</span>
+                  <item.icon className={cn("h-[19px] w-[19px] shrink-0 transition-transform duration-300", isActive ? "text-primary scale-110" : "text-muted-foreground/70")} />
+                  <span className="text-[14.5px] font-medium tracking-wide">{item.label}</span>
                 </Link>
               );
             })}
@@ -226,7 +226,8 @@ export function DashboardLayout() {
           </svg>
         </div>
 
-        <div className="flex h-16 items-center justify-center gap-3 border-b border-white/5 px-4 relative z-10">
+        <div className="flex h-16 items-center justify-center gap-3 px-4 relative z-10">
+          <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
           {brand.logo ? (
             <img src={brand.logo} alt="" className="h-8 w-auto object-contain" />
           ) : (
@@ -309,7 +310,8 @@ export function DashboardLayout() {
                 </svg>
               </div>
 
-              <div className="flex h-16 items-center justify-center border-b border-white/5 px-4 relative z-10">
+              <div className="flex h-16 items-center justify-center px-4 relative z-10">
+                <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
                 <div className="flex items-center gap-3 min-w-0">
                   {brand.logo ? <img src={brand.logo} alt="" className="h-8 w-auto object-contain" /> : <Shield className="h-7 w-7 text-primary shrink-0" />}
                   {brand.serviceName ? <span className="font-bold text-lg tracking-wide truncate">{brand.serviceName}</span> : null}
