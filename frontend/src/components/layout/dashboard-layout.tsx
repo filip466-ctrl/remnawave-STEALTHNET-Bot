@@ -200,28 +200,28 @@ export function DashboardLayout() {
         </div>
 
         {/* Chaotic Crosses background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] text-primary z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0">
           <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="cross-grid-sidebar" width="120" height="120" patternUnits="userSpaceOnUse">
-                {/* Big Crosses with subtle animated stroke */}
-                <path d="M 15 25 L 25 35 M 15 35 L 25 25" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
-                  <animate attributeName="stroke-dashoffset" values="0; 6; 0" dur="4s" repeatCount="indefinite" />
+                {/* Chaotic Crosses: Random sizes from tiny to huge, slightly larger average, varying opacity */}
+                <path d="M 12 22 L 28 38 M 12 38 L 28 22" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.9" strokeDasharray="23">
+                  <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="4s" repeatCount="indefinite" />
                 </path>
-                <path d="M 75 15 L 85 25 M 75 25 L 85 15" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="14">
-                  <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="5s" repeatCount="indefinite" />
+                <path d="M 68 8 L 92 32 M 68 32 L 92 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="34">
+                  <animate attributeName="stroke-dashoffset" values="0; 14; 0" dur="5s" repeatCount="indefinite" />
                 </path>
-                <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="14">
+                <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
                   <animate attributeName="stroke-dashoffset" values="0; -6; 0" dur="6s" repeatCount="indefinite" />
                 </path>
-                <path d="M 100 70 L 110 80 M 100 80 L 110 70" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="14">
-                  <animate attributeName="stroke-dashoffset" values="0; 5; 0" dur="4.5s" repeatCount="indefinite" />
+                <path d="M 95 65 L 115 85 M 95 85 L 115 65" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="28">
+                  <animate attributeName="stroke-dashoffset" values="0; 10; 0" dur="4.5s" repeatCount="indefinite" />
                 </path>
-                <path d="M 5 105 L 15 115 M 5 115 L 15 105" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="14">
-                  <animate attributeName="stroke-dashoffset" values="0; 7; 0" dur="3.5s" repeatCount="indefinite" />
+                <path d="M 4 94 L 26 116 M 4 116 L 26 94" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="31">
+                  <animate attributeName="stroke-dashoffset" values="0; 12; 0" dur="3.5s" repeatCount="indefinite" />
                 </path>
-                <path d="M 60 50 L 70 60 M 60 60 L 70 50" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" strokeDasharray="14">
-                  <animate attributeName="stroke-dashoffset" values="0; -5; 0" dur="5.5s" repeatCount="indefinite" />
+                <path d="M 58 48 L 72 62 M 58 62 L 72 48" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.75" strokeDasharray="20">
+                  <animate attributeName="stroke-dashoffset" values="0; -8; 0" dur="5.5s" repeatCount="indefinite" />
                 </path>
               </pattern>
             </defs>
@@ -285,27 +285,28 @@ export function DashboardLayout() {
               </div>
 
               {/* Chaotic Crosses background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.25] dark:opacity-[0.15] text-primary z-0">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.35] dark:opacity-[0.25] text-primary z-0">
                 <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="cross-grid-sidebar-mobile" width="120" height="120" patternUnits="userSpaceOnUse">
-                      <path d="M 15 25 L 25 35 M 15 35 L 25 25" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
-                        <animate attributeName="stroke-dashoffset" values="0; 6; 0" dur="4s" repeatCount="indefinite" />
+                      {/* Chaotic Crosses: Random sizes from tiny to huge, slightly larger average, varying opacity */}
+                      <path d="M 12 22 L 28 38 M 12 38 L 28 22" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.9" strokeDasharray="23">
+                        <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="4s" repeatCount="indefinite" />
                       </path>
-                      <path d="M 75 15 L 85 25 M 75 25 L 85 15" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="14">
-                        <animate attributeName="stroke-dashoffset" values="0; 8; 0" dur="5s" repeatCount="indefinite" />
+                      <path d="M 68 8 L 92 32 M 68 32 L 92 8" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="34">
+                        <animate attributeName="stroke-dashoffset" values="0; 14; 0" dur="5s" repeatCount="indefinite" />
                       </path>
-                      <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="14">
+                      <path d="M 40 85 L 50 95 M 40 95 L 50 85" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.8" strokeDasharray="14">
                         <animate attributeName="stroke-dashoffset" values="0; -6; 0" dur="6s" repeatCount="indefinite" />
                       </path>
-                      <path d="M 100 70 L 110 80 M 100 80 L 110 70" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="14">
-                        <animate attributeName="stroke-dashoffset" values="0; 5; 0" dur="4.5s" repeatCount="indefinite" />
+                      <path d="M 95 65 L 115 85 M 95 85 L 115 65" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.6" strokeDasharray="28">
+                        <animate attributeName="stroke-dashoffset" values="0; 10; 0" dur="4.5s" repeatCount="indefinite" />
                       </path>
-                      <path d="M 5 105 L 15 115 M 5 115 L 15 105" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="14">
-                        <animate attributeName="stroke-dashoffset" values="0; 7; 0" dur="3.5s" repeatCount="indefinite" />
+                      <path d="M 4 94 L 26 116 M 4 116 L 26 94" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" strokeDasharray="31">
+                        <animate attributeName="stroke-dashoffset" values="0; 12; 0" dur="3.5s" repeatCount="indefinite" />
                       </path>
-                      <path d="M 60 50 L 70 60 M 60 60 L 70 50" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" strokeDasharray="14">
-                        <animate attributeName="stroke-dashoffset" values="0; -5; 0" dur="5.5s" repeatCount="indefinite" />
+                      <path d="M 58 48 L 72 62 M 58 62 L 72 48" fill="none" stroke="currentColor" strokeWidth="1" strokeOpacity="0.75" strokeDasharray="20">
+                        <animate attributeName="stroke-dashoffset" values="0; -8; 0" dur="5.5s" repeatCount="indefinite" />
                       </path>
                     </pattern>
                   </defs>
