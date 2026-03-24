@@ -14,10 +14,10 @@ import {
   RotateCw,
   Globe,
   Wifi,
-  WifiOff,
   Zap,
+  Cpu,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { DashboardStats, RemnaNode, RemnaNodesResponse, ServerStats } from "@/lib/api";
@@ -263,74 +263,6 @@ function Sparkline({
   );
 }
 
-/* ── Pulsing Status Dot — Enhanced "Radar" Effect ── */
-
-function StatusDot({ isConnected, isConnecting, isDisabled }: { isConnected: boolean; isConnecting: boolean; isDisabled: boolean }) {
-  if (isDisabled) {
-    return (
-      <span className="relative flex h-3 w-3">
-        <span className="h-3 w-3 rounded-full bg-gray-400" />
-      </span>
-    );
-  }
-  if (isConnecting) {
-    return (
-      <span className="relative flex h-3.5 w-3.5">
-        {/* Outer radar pulse — slow & large */}
-        <span
-          className="absolute -inset-1.5 inline-flex rounded-full bg-amber-400 opacity-20 animate-ping"
-          style={{ animationDuration: "3s" }}
-        />
-        {/* Middle radar pulse */}
-        <span
-          className="absolute -inset-1 inline-flex rounded-full bg-amber-400 opacity-30 animate-ping"
-          style={{ animationDuration: "2.2s", animationDelay: "0.3s" }}
-        />
-        {/* Inner radar pulse */}
-        <span
-          className="absolute -inset-0.5 inline-flex rounded-full bg-amber-400 opacity-40 animate-ping"
-          style={{ animationDuration: "1.5s", animationDelay: "0.6s" }}
-        />
-        <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.8)]" />
-      </span>
-    );
-  }
-  if (isConnected) {
-    return (
-      <span className="relative flex h-3.5 w-3.5">
-        {/* Outer radar pulse — slow & large */}
-        <span
-          className="absolute -inset-2 inline-flex rounded-full bg-emerald-400 opacity-15 animate-ping"
-          style={{ animationDuration: "3.5s" }}
-        />
-        {/* Middle radar pulse */}
-        <span
-          className="absolute -inset-1 inline-flex rounded-full bg-emerald-400 opacity-30 animate-ping"
-          style={{ animationDuration: "2.5s", animationDelay: "0.4s" }}
-        />
-        {/* Inner radar pulse */}
-        <span
-          className="absolute -inset-0.5 inline-flex rounded-full bg-emerald-400 opacity-40 animate-ping"
-          style={{ animationDuration: "1.8s", animationDelay: "0.8s" }}
-        />
-        <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 shadow-[0_0_16px_rgba(34,197,94,0.8)]" />
-      </span>
-    );
-  }
-  return (
-    <span className="relative flex h-3.5 w-3.5">
-      <span
-        className="absolute -inset-1 inline-flex rounded-full bg-red-400 opacity-25 animate-ping"
-        style={{ animationDuration: "2.5s" }}
-      />
-      <span
-        className="absolute -inset-0.5 inline-flex rounded-full bg-red-400 opacity-35 animate-ping"
-        style={{ animationDuration: "1.8s", animationDelay: "0.3s" }}
-      />
-      <span className="h-3.5 w-3.5 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)]" />
-    </span>
-  );
-}
 
 /* ── Section Header — Terminal Style ── */
 
@@ -435,33 +367,6 @@ function StatCard({
   );
 }
 
-/* ── Traffic Progress Bar ── */
-
-function TrafficBar({ used, limit }: { used: number | null | undefined; limit: number | null | undefined }) {
-  if (limit == null || limit === 0) {
-    return <span className="text-[10px] tabular-nums text-slate-500 dark:text-cyan-500/60 uppercase">{formatBytes(used)}</span>;
-  }
-  const usedVal = used ?? 0;
-  const percent = Math.min((usedVal / limit) * 100, 100);
-  const barColor =
-    percent >= 90 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" : percent >= 70 ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]";
-  return (
-    <div className="space-y-2 min-w-[100px] font-mono">
-      <div className="h-1.5 rounded-none bg-slate-200 dark:bg-cyan-950 overflow-hidden relative border-y border-white/10 dark:border-cyan-500/20">
-        <motion.div
-          className={`absolute top-0 bottom-0 left-0 ${barColor}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
-        />
-      </div>
-      <p className="text-[10px] tabular-nums text-slate-600 dark:text-cyan-400 uppercase tracking-widest flex justify-between">
-        <span>{formatBytes(usedVal)}</span>
-        <span className="opacity-50">/ {formatBytes(limit)}</span>
-      </p>
-    </div>
-  );
-}
 
 /* ── Mini Bar for analytics ── */
 
@@ -1058,7 +963,7 @@ export function DashboardPage() {
             </Card>
           ) : (
             <motion.div
-              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              className="flex flex-col gap-6"
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
@@ -1085,111 +990,157 @@ export function DashboardPage() {
                     ? "hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                     : "hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]";
 
+                const limit = node.trafficLimitBytes ?? 0;
+                const usedVal = node.trafficUsedBytes ?? 0;
+                const percent = limit > 0 ? Math.min((usedVal / limit) * 100, 100) : 0;
+                const colorClass = percent >= 90 ? "red" : percent >= 70 ? "amber" : "cyan";
+                const valueStr = limit > 0 ? `${formatBytes(usedVal)} / ${formatBytes(limit)}` : `${formatBytes(usedVal)}`;
+
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:border-white/20 dark:hover:border-cyan-500/60 ${hoverShadow} transition-all duration-500 font-mono`}>
-                      {/* Matrix background */}
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500 ${hoverShadow}`}>
+                      {/* Hex Background Pattern */}
                       <div 
-                        className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
+                        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
                         style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
                         }}
                       />
-                      {/* Status indicator line at top */}
-                      <div
-                        className="absolute top-0 left-0 right-0 h-[2px] opacity-80"
-                        style={{
-                          background: node.isDisabled
-                            ? "linear-gradient(90deg, rgba(156,163,175,0.8), transparent)"
-                            : node.isConnecting
-                              ? "linear-gradient(90deg, rgba(245,158,11,0.8), transparent)"
-                              : node.isConnected
-                                ? "linear-gradient(90deg, rgba(34,197,94,0.8), transparent)"
-                                : "linear-gradient(90deg, rgba(239,68,68,0.8), transparent)",
-                        }}
-                      />
-
-                      <CardHeader className="relative pb-3 pt-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <StatusDot isConnected={node.isConnected} isConnecting={node.isConnecting} isDisabled={node.isDisabled} />
-                            <CardTitle className="text-sm font-bold tracking-widest text-slate-800 dark:text-cyan-400 uppercase truncate max-w-[160px]">
-                              {node.name || node.uuid}
-                            </CardTitle>
+                      
+                      {/* Top Bar / Terminal Header */}
+                      <div className="border-b border-white/30 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/20 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors duration-500">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-red-500/80 shadow-[0_0_8px_#ef4444]"></span>
+                            <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_#f59e0b]"></span>
+                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_#10b981]"></span>
                           </div>
-                          <span className={`text-[10px] tracking-widest uppercase font-bold px-2 py-0.5 rounded border border-current ${statusColor}`}>{statusLabel}</span>
+                          <span className="ml-2 text-slate-600 dark:text-cyan-500/70 tracking-widest uppercase text-[10px] truncate max-w-[200px] sm:max-w-[400px]">
+                            root@{node.address} ~ /sys/node/{node.name || node.uuid.substring(0,6)}
+                          </span>
                         </div>
-                        <CardDescription className="font-mono text-[10px] tracking-widest mt-2 text-slate-500 dark:text-cyan-500/60 flex items-center gap-2">
-                          <span className="opacity-50">IP_ADDR</span>
-                          <span>{node.address}{node.port != null ? `:${node.port}` : ""}</span>
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="relative space-y-4">
-                        {/* Traffic */}
-                        <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
-                          <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 mb-1.5 uppercase">BANDWIDTH</p>
-                          <TrafficBar used={node.trafficUsedBytes} limit={node.trafficLimitBytes} />
-                        </div>
-
-                        {/* Info grid */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
-                            <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 uppercase">CPU/RAM</p>
-                            <p className="text-xs font-bold text-slate-800 dark:text-cyan-400 mt-1 tabular-nums">{formatNodeCpuRam(node.cpuCount, node.totalRam)}</p>
-                          </div>
-                          <div className="bg-white/50 dark:bg-black/40 border border-white/20 dark:border-cyan-500/20 rounded p-2">
-                            <p className="text-[10px] tracking-widest text-slate-500 dark:text-cyan-500/70 uppercase">CONN</p>
-                            <p className="text-xs font-bold text-slate-800 dark:text-cyan-400 mt-1 tabular-nums flex items-center gap-1.5">
-                              {node.usersOnline != null ? (
-                                <>
-                                  <Wifi className="h-3 w-3 text-emerald-500" />
-                                  {node.usersOnline}
-                                </>
-                              ) : (
-                                <>
-                                  <WifiOff className="h-3 w-3 opacity-50" />
-                                  —
-                                </>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10 dark:border-cyan-500/20">
-                          {node.isDisabled ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all rounded-sm"
-                              disabled={isBusy}
-                              onClick={() => handleNodeAction(node.uuid, "enable")}
-                            >
-                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="h-3 w-3" />}
-                              ACTIVATE
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all rounded-sm"
-                              disabled={isBusy}
-                              onClick={() => handleNodeAction(node.uuid, "disable")}
-                            >
-                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerOff className="h-3 w-3" />}
-                              HALT
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[10px] uppercase tracking-widest gap-1.5 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all rounded-sm"
-                            disabled={isBusy}
-                            onClick={() => handleNodeAction(node.uuid, "restart")}
+                        <div className="flex items-center gap-3 text-slate-500 dark:text-cyan-500/50 justify-between sm:justify-end">
+                          <span className="hidden sm:inline">PORT: {node.port ?? "N/A"}</span>
+                          <motion.div 
+                            animate={node.isConnected && !node.isDisabled ? { opacity: [1, 0, 1] } : {}} 
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className={`flex items-center gap-1.5 font-bold uppercase tracking-widest text-[10px] ${statusColor}`}
                           >
-                            <RotateCw className="h-3 w-3" />
-                            REBOOT
-                          </Button>
+                            <div className={`h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]`} />
+                            {statusLabel}
+                          </motion.div>
+                        </div>
+                      </div>
+
+                      <CardContent className="p-6 relative">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          
+                          {/* Left Col: Main Resources */}
+                          <div className="lg:col-span-2 space-y-6">
+                            <DataBarSegmented 
+                              label="BANDWIDTH [ALLOC]"
+                              percent={percent}
+                              value={valueStr}
+                              colorClass={colorClass}
+                            />
+
+                            <div className="grid grid-cols-2 gap-6 mt-4">
+                              <div className="space-y-1.5">
+                                <span className="text-slate-500 dark:text-cyan-500/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                                  <Cpu className="h-3 w-3"/> CPU/RAM [ALLOC]
+                                </span>
+                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-cyan-400 tabular-nums">
+                                  {formatNodeCpuRam(node.cpuCount, node.totalRam)}
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-slate-500 dark:text-cyan-500/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                                  <Wifi className="h-3 w-3"/> CONN [WIFI]
+                                </span>
+                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-cyan-400 tabular-nums flex items-center gap-2">
+                                  {node.usersOnline != null ? (
+                                    <>
+                                      <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                                      {node.usersOnline} ONLINE
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="h-2 w-2 rounded-full bg-slate-500/50"></span>
+                                      OFFLINE
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Hex Dump / Mini Logs */}
+                            <div className="mt-6 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-cyan-500/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-cyan-700 font-mono leading-tight shadow-inner transition-colors duration-500">
+                              <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ duration: 0.5 }}
+                                className="absolute inset-x-3 bottom-3"
+                              >
+                                <div className="flex gap-4"><span className="opacity-50">0x0000</span><span>NODE_UUID: {node.uuid}</span></div>
+                                <div className="flex gap-4"><span className="opacity-50">0x0010</span><span>TRAFFIC_LIMIT: {limit > 0 ? formatBytes(limit) : 'UNLIMITED'}</span></div>
+                                <div className="flex gap-4"><span className="opacity-50">0x0020</span><span>VER: {node.name || 'UNKNOWN'}</span></div>
+                                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-cyan-400 font-medium">STATUS: {statusLabel.toUpperCase()}_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
+                              </motion.div>
+                            </div>
+                          </div>
+
+                          {/* Right Col: Actions */}
+                          <div className="flex flex-col gap-4">
+                            <div className="border border-white/40 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/10 p-5 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-cyan-500/40 transition-colors duration-500 shadow-sm gap-4">
+                              {/* Radar scan effect in background */}
+                              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
+                                <motion.div
+                                  animate={{ rotate: -360 }}
+                                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                                  className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
+                                  style={{
+                                    background: "conic-gradient(from 0deg, transparent 70%, rgba(6, 182, 212, 0.4) 100%)"
+                                  }}
+                                />
+                              </div>
+
+                              <span className="text-slate-500 dark:text-cyan-500/50 text-xs tracking-[0.2em] z-10 font-semibold">[ ACTIONS ]</span>
+                              
+                              <div className="flex flex-col gap-3 w-full z-10">
+                                {node.isDisabled ? (
+                                  <Button
+                                    variant="outline"
+                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                    disabled={isBusy}
+                                    onClick={() => handleNodeAction(node.uuid, "enable")}
+                                  >
+                                    {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                                    ACTIVATE
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                    disabled={isBusy}
+                                    onClick={() => handleNodeAction(node.uuid, "disable")}
+                                  >
+                                    {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PowerOff className="h-4 w-4" />}
+                                    HALT
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                  disabled={isBusy}
+                                  onClick={() => handleNodeAction(node.uuid, "restart")}
+                                >
+                                  <RotateCw className="h-4 w-4" />
+                                  REBOOT
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
                         </div>
                       </CardContent>
                     </Card>
