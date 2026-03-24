@@ -52,7 +52,7 @@ const staggerContainer = {
 
 function AmbientBackground() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-white dark:bg-[#050505]">
+    <div className="pointer-events-none absolute -inset-4 md:-inset-6 -z-10 overflow-hidden bg-white dark:bg-[#050505]">
       {/* Refined Cyber Grid */}
       <div
         className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
@@ -505,7 +505,7 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-[#0A0A0C] backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_rgba(6,182,212,0.1)] font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_rgba(6,182,212,0.1)] font-mono">
         {/* Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
@@ -576,7 +576,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-[#0A0A0C] backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
@@ -833,7 +833,7 @@ export function DashboardPage() {
         className="font-mono"
       >
         <h1
-          className="text-3xl font-bold tracking-widest uppercase text-slate-900 dark:text-cyan-400 flex items-center gap-3"
+          className="text-2xl font-bold tracking-widest uppercase text-slate-900 dark:text-cyan-400 flex items-center gap-3"
           style={{ textShadow: "0 0 20px rgba(6,182,212,0.3)" }}
         >
           <span className="text-cyan-500/50">~/</span> Дашборд <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}} className="w-4 h-6 bg-cyan-500 inline-block"></motion.span>
@@ -984,7 +984,7 @@ export function DashboardPage() {
         <SectionHeader icon={Activity} title="Аналитика" subtitle="Ключевые метрики за периоды" />
         <GlassCard animIndex={5}>
           <CardContent className="relative pt-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
                 { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
@@ -1087,7 +1087,7 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`group relative overflow-hidden bg-white/5 dark:bg-[#0A0A0C] backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:border-white/20 dark:hover:border-cyan-500/60 ${hoverShadow} transition-all duration-500 font-mono`}>
+                    <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:border-white/20 dark:hover:border-cyan-500/60 ${hoverShadow} transition-all duration-500 font-mono`}>
                       {/* Matrix background */}
                       <div 
                         className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
