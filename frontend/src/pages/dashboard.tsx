@@ -271,65 +271,65 @@ function StatCard({
       valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
     },
     emerald: {
-      borderHover: "hover:border-emerald-500/50",
-      shadowHover: "hover:shadow-emerald-500/10",
-      gradient: "from-transparent via-emerald-500/50 to-transparent",
+      borderHover: "hover:border-primary/50",
+      shadowHover: "hover:shadow-primary/10",
+      gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-emerald-500/50",
       title: "text-slate-700 dark:text-emerald-500",
-      iconBg: "dark:bg-emerald-500/20 bg-emerald-500/10",
-      iconBorder: "dark:border-emerald-500/30 border-emerald-500/20",
+      iconBg: "dark:bg-primary/30",
+      iconBorder: "dark:border-primary/30",
       iconShadow: "shadow-[0_0_10px_rgba(16,185,129,0.1)]",
       iconText: "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]",
       subtitle: "dark:text-emerald-500/70 text-emerald-600/70",
       valueGlow: "text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]",
     },
     amber: {
-      borderHover: "hover:border-amber-500/50",
-      shadowHover: "hover:shadow-amber-500/10",
-      gradient: "from-transparent via-amber-500/50 to-transparent",
+      borderHover: "hover:border-primary/50",
+      shadowHover: "hover:shadow-primary/10",
+      gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-amber-500/50",
       title: "text-slate-700 dark:text-amber-500",
-      iconBg: "dark:bg-amber-500/20 bg-amber-500/10",
-      iconBorder: "dark:border-amber-500/30 border-amber-500/20",
+      iconBg: "dark:bg-primary/30",
+      iconBorder: "dark:border-primary/30",
       iconShadow: "shadow-[0_0_10px_rgba(245,158,11,0.1)]",
       iconText: "text-amber-600 dark:text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
       subtitle: "dark:text-amber-500/70 text-amber-600/70",
       valueGlow: "text-amber-600 dark:text-amber-400 dark:drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]",
     },
     red: {
-      borderHover: "hover:border-red-500/50",
-      shadowHover: "hover:shadow-red-500/10",
-      gradient: "from-transparent via-red-500/50 to-transparent",
+      borderHover: "hover:border-primary/50",
+      shadowHover: "hover:shadow-primary/10",
+      gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-red-500/50",
       title: "text-slate-700 dark:text-red-500",
-      iconBg: "dark:bg-red-500/20 bg-red-500/10",
-      iconBorder: "dark:border-red-500/30 border-red-500/20",
+      iconBg: "dark:bg-primary/30",
+      iconBorder: "dark:border-primary/30",
       iconShadow: "shadow-[0_0_10px_rgba(239,68,68,0.1)]",
       iconText: "text-red-600 dark:text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]",
       subtitle: "dark:text-red-500/70 text-red-600/70",
       valueGlow: "text-red-600 dark:text-red-400 dark:drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]",
     },
     violet: {
-      borderHover: "hover:border-violet-500/50",
-      shadowHover: "hover:shadow-violet-500/10",
-      gradient: "from-transparent via-violet-500/50 to-transparent",
+      borderHover: "hover:border-primary/50",
+      shadowHover: "hover:shadow-primary/10",
+      gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-violet-500/50",
       title: "text-slate-700 dark:text-violet-500",
-      iconBg: "dark:bg-violet-500/20 bg-violet-500/10",
-      iconBorder: "dark:border-violet-500/30 border-violet-500/20",
+      iconBg: "dark:bg-primary/30",
+      iconBorder: "dark:border-primary/30",
       iconShadow: "shadow-[0_0_10px_rgba(139,92,246,0.1)]",
       iconText: "text-violet-600 dark:text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]",
       subtitle: "dark:text-violet-500/70 text-violet-600/70",
       valueGlow: "text-violet-600 dark:text-violet-400 dark:drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]",
     },
     cyan: {
-      borderHover: "hover:border-cyan-500/50",
-      shadowHover: "hover:shadow-cyan-500/10",
-      gradient: "from-transparent via-cyan-500/50 to-transparent",
+      borderHover: "hover:border-primary/50",
+      shadowHover: "hover:shadow-primary/10",
+      gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-cyan-500/50",
       title: "text-slate-700 dark:text-cyan-500",
-      iconBg: "dark:bg-cyan-500/20 bg-cyan-500/10",
-      iconBorder: "dark:border-cyan-500/30 border-cyan-500/20",
+      iconBg: "dark:bg-primary/30",
+      iconBorder: "dark:border-primary/30",
       iconShadow: "shadow-[0_0_10px_rgba(6,182,212,0.1)]",
       iconText: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]",
       subtitle: "dark:text-cyan-500/70 text-cyan-600/70",
@@ -487,7 +487,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
   return (
     <div className="space-y-1.5 font-mono">
       <div className="flex justify-between items-end text-xs">
-        <span className="text-foreground/60 uppercase tracking-widest">{label}</span>
+        <span className={`${textMap[colorClass]} uppercase tracking-widest`}>{label}</span>
         <span className={`font-bold ${textMap[colorClass]}`}>{value} <span className="opacity-50 text-[10px] ml-1 text-foreground/50">[{percent.toFixed(1)}%]</span></span>
       </div>
       <div className="flex gap-0.5 h-3">
@@ -857,9 +857,11 @@ export function DashboardPage() {
                     </p>
                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                    <Sparkline data={salesSparkTotal} color="#10b981" height={48} width={100} />
-                  </div>
+                  {stats && stats.sales.totalAmount > 0 && (
+                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                      <Sparkline data={salesSparkTotal} color="#10b981" height={48} width={100} />
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Today */}
@@ -872,9 +874,11 @@ export function DashboardPage() {
                     </p>
                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                    <Sparkline data={salesSparkToday} color="hsl(var(--primary))" height={48} width={100} />
-                  </div>
+                  {stats && stats.sales.todayAmount > 0 && (
+                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                      <Sparkline data={salesSparkToday} color="hsl(var(--primary))" height={48} width={100} />
+                    </div>
+                  )}
                 </div>
               </div>
               {/* 7 days */}
@@ -887,9 +891,11 @@ export function DashboardPage() {
                     </p>
                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                    <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
-                  </div>
+                  {stats && stats.sales.last7DaysAmount > 0 && (
+                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                      <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
+                    </div>
+                  )}
                 </div>
               </div>
               {/* 30 days */}
@@ -902,9 +908,11 @@ export function DashboardPage() {
                     </p>
                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
-                  <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                    <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
-                  </div>
+                  {stats && stats.sales.last30DaysAmount > 0 && (
+                    <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                      <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -928,8 +936,8 @@ export function DashboardPage() {
               ].map((item, idx) => {
                 const isEmerald = item.theme === "emerald";
                 const isViolet = item.theme === "violet";
-                const borderClass = isEmerald ? "border-emerald-500/20 dark:border-emerald-500/30 hover:border-emerald-500/50" : isViolet ? "border-violet-500/20 dark:border-violet-500/30 hover:border-violet-500/50" : "border-white/[0.05] dark:border-primary/20 hover:border-white/20 dark:hover:border-primary/50";
-                const bgClass = isEmerald ? "bg-emerald-500/5 dark:bg-emerald-500/10 hover:bg-emerald-500/15" : isViolet ? "bg-violet-500/5 dark:bg-violet-500/10 hover:bg-violet-500/15" : "bg-white/10 dark:bg-primary/10 hover:bg-white/20 dark:hover:bg-primary/20";
+                const borderClass = "border-white/[0.05] dark:border-primary/20 hover:border-white/20 dark:hover:border-primary/50";
+                const bgClass = "bg-white/10 dark:bg-primary/10 hover:bg-white/20 dark:hover:bg-primary/20";
                 const textClass = isEmerald ? "text-emerald-700 dark:text-emerald-400 group-hover:text-emerald-500" : isViolet ? "text-violet-700 dark:text-violet-400 group-hover:text-violet-500" : "text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]";
                 const titleGlow = isEmerald ? "dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" : isViolet ? "dark:drop-shadow-[0_0_10px_rgba(139,92,246,0.4)]" : "";
                 
