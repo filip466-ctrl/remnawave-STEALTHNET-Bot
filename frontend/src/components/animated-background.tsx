@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useTheme, ACCENT_PALETTES } from "@/contexts/theme";
+import { useLocation } from "react-router-dom";
 
 interface OrbConfig {
   x: number;
@@ -30,6 +31,15 @@ function hexToRgb(hex: string) {
 
 export function AnimatedBackground() {
   const { config, resolvedMode } = useTheme();
+
+  const location = useLocation();
+  // Hide on Dashboard page as requested by user (Command Center aesthetic)
+  if (location.pathname === "/admin") {
+    return (
+      <div className="fixed inset-0 -z-50 bg-background" aria-hidden />
+    );
+  }
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number>(0);
   const startRef = useRef<number>(0);
