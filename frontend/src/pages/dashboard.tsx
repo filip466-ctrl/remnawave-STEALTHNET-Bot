@@ -48,70 +48,6 @@ const staggerContainer = {
 
 
 
-/* ── Ambient Background Blobs (Cyberpunk / Terminal) ── */
-
-function AmbientBackground() {
-  return (
-    <div className="pointer-events-none absolute -inset-4 md:-inset-6 -z-10 overflow-hidden bg-white dark:bg-[#050505]">
-      {/* Refined Cyber Grid */}
-      <div
-        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(6, 182, 212, 0.4) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(6, 182, 212, 0.4) 1px, transparent 1px)
-          `,
-          backgroundSize: "40px 40px",
-        }}
-      />
-
-      {/* Cyber Cyan Accent — Top Left */}
-      <motion.div
-        className="absolute -top-40 -left-20 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent blur-[120px]"
-        animate={{
-          scale: [1, 1.05, 1],
-          opacity: [0.3, 0.5, 0.3],
-          x: [0, 30, 0],
-          y: [0, -20, 0],
-        }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* Deep Emerald Core — Bottom Right */}
-      <motion.div
-        className="absolute -bottom-32 -right-40 h-[700px] w-[700px] rounded-full bg-gradient-to-bl from-emerald-500/10 via-teal-500/5 to-transparent blur-[120px]"
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.2, 0.4, 0.2],
-          x: [0, -30, 0],
-          y: [0, 20, 0],
-        }}
-        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
-
-      {/* Subtle Purple Accent — Center Right */}
-      <motion.div
-        className="absolute top-1/3 -right-48 h-[600px] w-[600px] rounded-full bg-gradient-to-l from-indigo-500/5 via-violet-500/5 to-transparent blur-[140px]"
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.2, 0.3, 0.2],
-          y: [0, -40, 0],
-        }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 4 }}
-      />
-
-      {/* High-frequency Noise Texture for cinematic film grain */}
-      <div
-        className="absolute inset-0 mix-blend-overlay pointer-events-none"
-        style={{
-          opacity: 0.05,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
-        }}
-      />
-    </div>
-  );
-}
-
 /* ── Utility functions (preserved) ── */
 
 function formatMoney(amount: number, currency = "USD") {
@@ -196,7 +132,7 @@ function useCountUp(target: number, duration = 1500): number {
 function CountUpMoney({ value, currency }: { value: number; currency: string }) {
   const animated = useCountUp(value);
   return (
-    <span className="text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
+    <span className="text-slate-800 dark:text-primary dark:drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]">
       {formatMoney(animated, currency)}
     </span>
   );
@@ -205,7 +141,7 @@ function CountUpMoney({ value, currency }: { value: number; currency: string }) 
 function CountUpNumber({ value }: { value: number }) {
   const animated = useCountUp(value);
   return (
-    <span className="text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
+    <span className="text-slate-800 dark:text-primary dark:drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]">
       {animated.toLocaleString()}
     </span>
   );
@@ -283,17 +219,17 @@ function SectionHeader({
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.div
-        className={`relative flex items-center justify-center h-10 w-10 border border-white/20 dark:border-cyan-500/30 bg-white/10 dark:bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]`}
+        className={`relative flex items-center justify-center h-10 w-10 border border-white/20 dark:border-primary/30 bg-white/10 dark:bg-primary/20 shadow-[0_0_15px_hsl(var(--primary)/0.15)]`}
         whileHover={{ scale: 1.1, rotate: 5 }}
         transition={{ type: "spring", stiffness: 400, damping: 15 }}
       >
-        <Icon className="h-5 w-5 text-slate-800 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+        <Icon className="h-5 w-5 text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
       </motion.div>
       <div>
-        <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-cyan-400 flex items-center gap-2">
-          <span className="text-cyan-500/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-cyan-500/50 inline-block"></motion.span>
+        <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-primary flex items-center gap-2">
+          <span className="text-primary/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-primary/50 inline-block"></motion.span>
         </h2>
-        <p className="text-xs text-slate-500 dark:text-cyan-500/60 uppercase tracking-widest">{subtitle}</p>
+        <p className="text-xs text-slate-500 dark:text-primary/60 uppercase tracking-widest">{subtitle}</p>
       </div>
     </motion.div>
   );
@@ -320,29 +256,29 @@ function StatCard({
 }) {
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/10 transition-all duration-500 font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 transition-all duration-500 font-mono">
         {/* Scanlines / Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
         />
         {/* Terminal Header Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
         <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2 pt-4">
           <div className="flex items-center gap-2">
-            <span className="text-cyan-500/50 text-xs hidden sm:inline">[</span>
-            <CardTitle className="text-xs font-bold text-slate-700 dark:text-cyan-400 tracking-widest uppercase">{title}</CardTitle>
-            <span className="text-cyan-500/50 text-xs hidden sm:inline">]</span>
+            <span className="text-primary/50 text-xs hidden sm:inline">[</span>
+            <CardTitle className="text-xs font-bold text-slate-700 dark:text-primary tracking-widest uppercase">{title}</CardTitle>
+            <span className="text-primary/50 text-xs hidden sm:inline">]</span>
           </div>
           <motion.div
-            className={`relative flex items-center justify-center h-8 w-8 rounded-none border border-white/20 dark:border-cyan-500/30 bg-white/10 dark:bg-cyan-950/30 shadow-[0_0_10px_rgba(6,182,212,0.1)]`}
+            className={`relative flex items-center justify-center h-8 w-8 rounded-none border border-white/20 dark:border-primary/30 bg-white/10 dark:bg-primary/30 shadow-[0_0_10px_hsl(var(--primary)/0.1)]`}
             whileHover={{ scale: 1.1, rotate: 90 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
           >
-            <Icon className="h-4 w-4 text-slate-800 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+            <Icon className="h-4 w-4 text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
           </motion.div>
         </CardHeader>
         <CardContent className="relative pb-4">
@@ -351,7 +287,7 @@ function StatCard({
               <div className="text-2xl font-bold tracking-widest text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
                 {value}
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-cyan-500/70 mt-1 tracking-widest uppercase">
+              <p className="text-[10px] text-slate-500 dark:text-primary/70 mt-1 tracking-widest uppercase">
                 &gt; {subtitle}
               </p>
             </div>
@@ -373,7 +309,7 @@ function StatCard({
 function MiniBar({ value, maxValue, color }: { value: number; maxValue: number; color: string }) {
   const percent = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
   return (
-    <div className="h-1 rounded-none bg-slate-200 dark:bg-cyan-950 overflow-hidden mt-3 relative border-y border-white/10 dark:border-cyan-500/20">
+    <div className="h-1 rounded-none bg-slate-200 dark:bg-primary/10 overflow-hidden mt-3 relative border-y border-white/10 dark:border-primary/20">
       <motion.div
         className="absolute top-0 bottom-0 left-0"
         style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
@@ -410,17 +346,17 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-cyan-500/30 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_rgba(6,182,212,0.1)] font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[0_0_20px_hsl(var(--primary)/0.1)] font-mono">
         {/* Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
         />
         {/* Inner scanline sweep */}
         <motion.div 
-          className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.05] to-transparent h-[10%] w-full pointer-events-none"
+          className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.05] to-transparent h-[10%] w-full pointer-events-none"
           animate={{ y: ["-100%", "1000%"] }}
           transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
         />
@@ -437,21 +373,21 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
   const activeSegments = Math.round((percent / 100) * segments);
   
   const bgMap = {
-    cyan: "bg-cyan-500",
+    cyan: "bg-primary",
     emerald: "bg-emerald-500",
     amber: "bg-amber-500",
     red: "bg-red-500",
     violet: "bg-violet-500"
   };
   const textMap = {
-    cyan: "text-cyan-600 dark:text-cyan-400",
+    cyan: "text-primary/80 dark:text-primary",
     emerald: "text-emerald-600 dark:text-emerald-400",
     amber: "text-amber-600 dark:text-amber-400",
     red: "text-red-600 dark:text-red-400",
     violet: "text-violet-600 dark:text-violet-400"
   };
   const shadowMap = {
-    cyan: "dark:shadow-[0_0_10px_rgba(6,182,212,0.8)] shadow-[0_0_10px_rgba(6,182,212,0.3)]",
+    cyan: "dark:shadow-[0_0_10px_hsl(var(--primary)/0.8)] shadow-[0_0_10px_hsl(var(--primary)/0.3)]",
     emerald: "dark:shadow-[0_0_10px_rgba(16,185,129,0.8)] shadow-[0_0_10px_rgba(16,185,129,0.3)]",
     amber: "dark:shadow-[0_0_10px_rgba(245,158,11,0.8)] shadow-[0_0_10px_rgba(245,158,11,0.3)]",
     red: "dark:shadow-[0_0_10px_rgba(239,68,68,0.8)] shadow-[0_0_10px_rgba(239,68,68,0.3)]",
@@ -471,7 +407,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
             initial={{ opacity: 0, scaleY: 0.2 }}
             animate={{ opacity: i < activeSegments ? 1 : 0.15, scaleY: 1 }}
             transition={{ delay: i * 0.03, duration: 0.3 }}
-            className={`flex-1 rounded-[1px] ${i < activeSegments ? bgMap[colorClass] + ' ' + shadowMap[colorClass] : 'bg-slate-300 dark:bg-cyan-950'}`}
+            className={`flex-1 rounded-[1px] ${i < activeSegments ? bgMap[colorClass] + ' ' + shadowMap[colorClass] : 'bg-slate-300 dark:bg-primary/10'}`}
           />
         ))}
       </div>
@@ -481,26 +417,26 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
         }}
       />
       
       {/* Top Bar / Terminal Header */}
-      <div className="border-b border-white/30 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/20 px-4 py-2 flex items-center justify-between text-xs transition-colors duration-500">
+      <div className="border-b border-white/30 dark:border-primary/20 bg-white/50 dark:bg-primary/20 px-4 py-2 flex items-center justify-between text-xs transition-colors duration-500">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500/80 shadow-[0_0_8px_#ef4444]"></span>
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_#f59e0b]"></span>
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_#10b981]"></span>
           </div>
-          <span className="ml-2 text-slate-600 dark:text-cyan-500/70 tracking-widest uppercase text-[10px]">root@{serverStats.hostname} ~ /sys/core</span>
+          <span className="ml-2 text-slate-600 dark:text-primary/70 tracking-widest uppercase text-[10px]">root@{serverStats.hostname} ~ /sys/core</span>
         </div>
-        <div className="flex items-center gap-3 text-slate-500 dark:text-cyan-500/50">
+        <div className="flex items-center gap-3 text-slate-500 dark:text-primary/50">
           <span className="hidden sm:inline">ARCH: {serverStats.arch}</span>
           <span className="hidden sm:inline">OS: {serverStats.platform}</span>
           <motion.div 
@@ -514,11 +450,11 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
         </div>
       </div>
 
-      <CardContent className="p-6 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <CardContent className="p-4 sm:p-5 relative">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
           
           {/* Left Col: Main Resources */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="xl:col-span-2 space-y-4">
             <DataBarSegmented 
               label={`CPU [${serverStats.cpu.cores} CORES]`}
               percent={serverStats.cpu.usagePercent}
@@ -543,7 +479,7 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
             )}
             
             {/* Hex Dump / Mini Logs */}
-            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-cyan-500/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-cyan-700 font-mono leading-tight shadow-inner transition-colors duration-500">
+            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -553,14 +489,14 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
                 <div className="flex gap-4"><span className="opacity-50">0x0000</span><span>48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A</span></div>
                 <div className="flex gap-4"><span className="opacity-50">0x0010</span><span>53 79 73 74 65 6D 20 4F 6E 6C 69 6E 65</span></div>
                 <div className="flex gap-4"><span className="opacity-50">0x0020</span><span>{serverStats.loadAvg.map(l => l.toFixed(2)).join(' ')} CPU_LOAD</span></div>
-                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-cyan-400 font-medium">WAITING FOR COMMANDS_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
+                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-primary font-medium">WAITING FOR COMMANDS_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
               </motion.div>
             </div>
           </div>
 
           {/* Right Col: Digital Uptime & Status */}
-          <div className="flex flex-col gap-4">
-            <div className="border border-white/40 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/10 p-5 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-cyan-500/40 transition-colors duration-500 shadow-sm">
+          <div className="flex flex-col gap-3">
+            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-primary/40 transition-colors duration-500 shadow-sm">
                {/* Radar scan effect in background */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
                 <motion.div
@@ -568,23 +504,23 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                    className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
                    style={{
-                     background: "conic-gradient(from 0deg, transparent 70%, rgba(6, 182, 212, 0.4) 100%)"
+                     background: "conic-gradient(from 0deg, transparent 70%, hsl(var(--primary)/0.4) 100%)"
                    }}
                 />
               </div>
 
-              <span className="text-slate-500 dark:text-cyan-500/50 text-xs tracking-[0.2em] mb-2 z-10 font-semibold">[ SYS_UPTIME ]</span>
+              <span className="text-slate-500 dark:text-primary/50 text-xs tracking-[0.2em] mb-2 z-10 font-semibold">[ SYS_UPTIME ]</span>
               
-              <div className="text-2xl sm:text-3xl font-bold tracking-widest text-slate-800 dark:text-cyan-400 dark:drop-shadow-[0_0_15px_rgba(34,211,238,0.8)] text-center z-10">
+              <div className="text-2xl sm:text-3xl font-bold tracking-widest text-slate-800 dark:text-primary dark:drop-shadow-[0_0_15px_hsl(var(--primary)/0.8)] text-center z-10">
                 {formatUptime(serverStats.uptimeSeconds).toUpperCase()}
               </div>
 
-              <div className="mt-6 flex flex-col gap-2 w-full z-10 text-slate-600 dark:text-cyan-500 font-medium">
-                <div className="flex justify-between text-xs border-b border-white/30 dark:border-cyan-500/20 pb-1">
+              <div className="mt-6 flex flex-col gap-2 w-full z-10 text-slate-600 dark:text-primary font-medium">
+                <div className="flex justify-between text-xs border-b border-white/30 dark:border-primary/20 pb-1">
                   <span className="opacity-70 dark:opacity-50">LOAD_AVG</span>
-                  <span className="text-slate-900 dark:text-cyan-400">{serverStats.loadAvg.map(l => l.toFixed(2)).join(' / ')}</span>
+                  <span className="text-slate-900 dark:text-primary">{serverStats.loadAvg.map(l => l.toFixed(2)).join(' / ')}</span>
                 </div>
-                <div className="flex justify-between text-xs border-b border-white/30 dark:border-cyan-500/20 pb-1">
+                <div className="flex justify-between text-xs border-b border-white/30 dark:border-primary/20 pb-1">
                   <span className="opacity-70 dark:opacity-50">NETWORK</span>
                   <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     ESTABLISHED <Zap className="h-3 w-3" />
@@ -692,12 +628,12 @@ export function DashboardPage() {
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <RotateCw className="h-8 w-8 text-cyan-500" />
+          <RotateCw className="h-8 w-8 text-primary" />
         </motion.div>
         <motion.div
           animate={{ opacity: [0, 1, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-          className="text-cyan-500 tracking-widest text-xs font-bold"
+          className="text-primary tracking-widest text-xs font-bold"
         >
           INITIALIZING_SYSTEM_
         </motion.div>
@@ -728,8 +664,6 @@ export function DashboardPage() {
   return (
     <div className="relative space-y-8">
       {/* Ambient Neon Background */}
-      <AmbientBackground />
-
       {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
@@ -738,17 +672,17 @@ export function DashboardPage() {
         className="font-mono"
       >
         <h1
-          className="text-2xl font-bold tracking-widest uppercase text-slate-900 dark:text-cyan-400 flex items-center gap-3"
-          style={{ textShadow: "0 0 20px rgba(6,182,212,0.3)" }}
+          className="text-2xl font-bold tracking-widest uppercase text-slate-900 dark:text-primary flex items-center gap-3"
+          style={{ textShadow: "0 0 20px hsl(var(--primary)/0.3)" }}
         >
-          <span className="text-cyan-500/50">~/</span> Дашборд <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}} className="w-4 h-6 bg-cyan-500 inline-block"></motion.span>
+          <span className="text-primary/50">~/</span> Дашборд <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}} className="w-4 h-6 bg-primary inline-block"></motion.span>
         </h1>
-        <p className="text-slate-500 dark:text-cyan-500/60 mt-2 text-xs tracking-widest uppercase">Статистика / Пользователи / Продажи / Аналитика / Ноды_Remna</p>
+        <p className="text-slate-500 dark:text-primary/60 mt-2 text-xs tracking-widest uppercase">Статистика / Пользователи / Продажи / Аналитика / Ноды_Remna</p>
         {/* Animated header underline */}
         <motion.div
           className="h-[1px] mt-4"
           style={{
-            background: "linear-gradient(90deg, rgba(6,182,212,0.8), transparent)",
+            background: "linear-gradient(90deg, hsl(var(--primary)/0.8), transparent)",
           }}
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: "100%", opacity: 1 }}
@@ -823,11 +757,11 @@ export function DashboardPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; Всего поступления</p>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; Всего поступления</p>
                     <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.totalAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
                   <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
                     <Sparkline data={salesSparkTotal} color="#10b981" height={48} width={100} />
@@ -838,14 +772,14 @@ export function DashboardPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За сегодня</p>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За сегодня</p>
                     <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
                   <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-                    <Sparkline data={salesSparkToday} color="#06b6d4" height={48} width={100} />
+                    <Sparkline data={salesSparkToday} color="hsl(var(--primary))" height={48} width={100} />
                   </div>
                 </div>
               </div>
@@ -853,11 +787,11 @@ export function DashboardPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За 7 дней</p>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За 7 дней</p>
                     <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
                   <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
                     <Sparkline data={salesSpark7d} color="#8b5cf6" height={48} width={100} />
@@ -868,11 +802,11 @@ export function DashboardPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">&gt; За 30 дней</p>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За 30 дней</p>
                     <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
                       {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
                     </p>
-                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-cyan-500/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
+                    <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
                   </div>
                   <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
                     <Sparkline data={salesSpark30d} color="#f59e0b" height={48} width={100} />
@@ -891,21 +825,21 @@ export function DashboardPage() {
           <CardContent className="relative pt-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
-                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
-                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "#06b6d4", isMoney: false },
+                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false },
+                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false },
+                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false },
                 { label: "Продажи (сегодня)", val: stats?.sales.todayAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
                 { label: "Продажи (7 дн.)", val: stats?.sales.last7DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
                 { label: "Продажи (30 дн.)", val: stats?.sales.last30DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true },
               ].map((item, idx) => (
                 <motion.div
                   key={item.label}
-                  className="rounded border border-white/[0.05] dark:border-cyan-500/20 bg-white/10 dark:bg-cyan-950/10 backdrop-blur-sm p-4 space-y-2 hover:bg-white/20 dark:hover:bg-cyan-900/20 hover:border-white/20 dark:hover:border-cyan-500/50 transition-all duration-400 group"
+                  className="rounded border border-white/[0.05] dark:border-primary/20 bg-white/10 dark:bg-primary/10 backdrop-blur-sm p-4 space-y-2 hover:bg-white/20 dark:hover:bg-primary/20 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-400 group"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
                 >
-                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-cyan-500/70 group-hover:text-slate-800 dark:group-hover:text-cyan-400 transition-colors">
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">
                     &gt; {item.label}
                   </p>
                   <p className="text-xl font-bold tabular-nums tracking-widest text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
@@ -946,24 +880,24 @@ export function DashboardPage() {
         />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={7}>
           {!hasRemnaNodesAccess ? (
-            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-cyan-500/30 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-primary/30 rounded-none font-mono">
               <CardContent className="py-8">
-                <p className="text-slate-500 dark:text-cyan-500/60 text-xs tracking-widest uppercase text-center">
+                <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [ACCESS_DENIED] Нет доступа к управлению нодами Remna. Обратитесь к администратору.
                 </p>
               </CardContent>
             </Card>
           ) : nodes.length === 0 ? (
-            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-cyan-500/30 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-primary/30 rounded-none font-mono">
               <CardContent className="py-8">
-                <p className="text-slate-500 dark:text-cyan-500/60 text-xs tracking-widest uppercase text-center">
+                <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [SYSTEM_EMPTY] Ноды не загружены или Remna API не настроен. Проверьте настройки.
                 </p>
               </CardContent>
             </Card>
           ) : (
             <motion.div
-              className="flex flex-col gap-6"
+              className="grid gap-4 lg:grid-cols-2"
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
@@ -998,28 +932,28 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-cyan-500/30 shadow-xl dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] font-mono text-slate-900 dark:text-cyan-500 group transition-colors duration-500 ${hoverShadow}`}>
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500 ${hoverShadow}`}>
                       {/* Hex Background Pattern */}
                       <div 
                         className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
                         style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%2306b6d4' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
                         }}
                       />
                       
                       {/* Top Bar / Terminal Header */}
-                      <div className="border-b border-white/30 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/20 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors duration-500">
+                      <div className="border-b border-white/30 dark:border-primary/20 bg-white/50 dark:bg-primary/20 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors duration-500">
                         <div className="flex items-center gap-2">
                           <div className="flex gap-1.5">
                             <span className="h-2.5 w-2.5 rounded-full bg-red-500/80 shadow-[0_0_8px_#ef4444]"></span>
                             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_#f59e0b]"></span>
                             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_#10b981]"></span>
                           </div>
-                          <span className="ml-2 text-slate-600 dark:text-cyan-500/70 tracking-widest uppercase text-[10px] truncate max-w-[200px] sm:max-w-[400px]">
+                          <span className="ml-2 text-slate-600 dark:text-primary/70 tracking-widest uppercase text-[10px] truncate max-w-[200px] sm:max-w-[400px]">
                             root@{node.address} ~ /sys/node/{node.name || node.uuid.substring(0,6)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-slate-500 dark:text-cyan-500/50 justify-between sm:justify-end">
+                        <div className="flex items-center gap-3 text-slate-500 dark:text-primary/50 justify-between sm:justify-end">
                           <span className="hidden sm:inline">PORT: {node.port ?? "N/A"}</span>
                           <motion.div 
                             animate={node.isConnected && !node.isDisabled ? { opacity: [1, 0, 1] } : {}} 
@@ -1032,11 +966,11 @@ export function DashboardPage() {
                         </div>
                       </div>
 
-                      <CardContent className="p-6 relative">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <CardContent className="p-4 sm:p-5 relative">
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
                           
                           {/* Left Col: Main Resources */}
-                          <div className="lg:col-span-2 space-y-6">
+                          <div className="xl:col-span-2 space-y-4">
                             <DataBarSegmented 
                               label="BANDWIDTH [ALLOC]"
                               percent={percent}
@@ -1044,20 +978,20 @@ export function DashboardPage() {
                               colorClass={colorClass}
                             />
 
-                            <div className="grid grid-cols-2 gap-6 mt-4">
+                            <div className="grid grid-cols-2 gap-4 mt-4">
                               <div className="space-y-1.5">
-                                <span className="text-slate-500 dark:text-cyan-500/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                                <span className="text-slate-500 dark:text-primary/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
                                   <Cpu className="h-3 w-3"/> CPU/RAM [ALLOC]
                                 </span>
-                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-cyan-400 tabular-nums">
+                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-primary tabular-nums">
                                   {formatNodeCpuRam(node.cpuCount, node.totalRam)}
                                 </div>
                               </div>
                               <div className="space-y-1.5">
-                                <span className="text-slate-500 dark:text-cyan-500/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                                <span className="text-slate-500 dark:text-primary/70 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
                                   <Wifi className="h-3 w-3"/> CONN [WIFI]
                                 </span>
-                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-cyan-400 tabular-nums flex items-center gap-2">
+                                <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-primary tabular-nums flex items-center gap-2">
                                   {node.usersOnline != null ? (
                                     <>
                                       <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
@@ -1074,7 +1008,7 @@ export function DashboardPage() {
                             </div>
 
                             {/* Hex Dump / Mini Logs */}
-                            <div className="mt-6 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-cyan-500/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-cyan-700 font-mono leading-tight shadow-inner transition-colors duration-500">
+                            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
                               <motion.div
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
@@ -1084,14 +1018,14 @@ export function DashboardPage() {
                                 <div className="flex gap-4"><span className="opacity-50">0x0000</span><span>NODE_UUID: {node.uuid}</span></div>
                                 <div className="flex gap-4"><span className="opacity-50">0x0010</span><span>TRAFFIC_LIMIT: {limit > 0 ? formatBytes(limit) : 'UNLIMITED'}</span></div>
                                 <div className="flex gap-4"><span className="opacity-50">0x0020</span><span>VER: {node.name || 'UNKNOWN'}</span></div>
-                                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-cyan-400 font-medium">STATUS: {statusLabel.toUpperCase()}_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
+                                <div className="flex gap-4"><span className="opacity-50">0x0030</span><span className="text-slate-900 dark:text-primary font-medium">STATUS: {statusLabel.toUpperCase()}_</span><motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.8}}>█</motion.span></div>
                               </motion.div>
                             </div>
                           </div>
 
                           {/* Right Col: Actions */}
-                          <div className="flex flex-col gap-4">
-                            <div className="border border-white/40 dark:border-cyan-500/20 bg-white/50 dark:bg-cyan-950/10 p-5 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-cyan-500/40 transition-colors duration-500 shadow-sm gap-4">
+                          <div className="flex flex-col gap-3">
+                            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-primary/40 transition-colors duration-500 shadow-sm gap-4">
                               {/* Radar scan effect in background */}
                               <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
                                 <motion.div
@@ -1099,12 +1033,12 @@ export function DashboardPage() {
                                   transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                                   className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
                                   style={{
-                                    background: "conic-gradient(from 0deg, transparent 70%, rgba(6, 182, 212, 0.4) 100%)"
+                                    background: "conic-gradient(from 0deg, transparent 70%, hsl(var(--primary)/0.4) 100%)"
                                   }}
                                 />
                               </div>
 
-                              <span className="text-slate-500 dark:text-cyan-500/50 text-xs tracking-[0.2em] z-10 font-semibold">[ ACTIONS ]</span>
+                              <span className="text-slate-500 dark:text-primary/50 text-xs tracking-[0.2em] z-10 font-semibold">[ ACTIONS ]</span>
                               
                               <div className="flex flex-col gap-3 w-full z-10">
                                 {node.isDisabled ? (
@@ -1130,7 +1064,7 @@ export function DashboardPage() {
                                 )}
                                 <Button
                                   variant="outline"
-                                  className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                  className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-primary/30 text-primary/80 dark:text-primary hover:bg-primary/10 hover:border-primary/50 transition-all bg-white/50 dark:bg-black/20"
                                   disabled={isBusy}
                                   onClick={() => handleNodeAction(node.uuid, "restart")}
                                 >
