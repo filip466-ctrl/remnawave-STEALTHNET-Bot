@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 import type { DashboardStats, RemnaNode, RemnaNodesResponse, ServerStats } from "@/lib/api";
 import { useAuth } from "@/contexts/auth";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { AnimatedBackground } from "@/components/animated-background";
 
 /* ── Animation variants — God-Tier Entrance ── */
 
@@ -765,28 +766,7 @@ export function DashboardPage() {
       />
       
       {/* Animated glowing lights STRICTLY INSIDE the frame, behind the content */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 opacity-40 dark:opacity-30">
-        <motion.div
-          animate={{ x: [0, 150, 0], y: [0, 100, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-40 -left-40 w-[40rem] h-[40rem] bg-primary/20 rounded-full blur-[120px] mix-blend-normal"
-        />
-        <motion.div
-          animate={{ x: [0, -100, 0], y: [0, -150, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute top-1/3 -right-20 w-[30rem] h-[30rem] bg-primary/20 rounded-full blur-[100px] mix-blend-normal"
-        />
-        <motion.div
-          animate={{ x: [0, 100, 0], y: [0, -100, 0] }}
-          transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-40 left-1/4 w-[35rem] h-[35rem] bg-primary/20 rounded-full blur-[120px] mix-blend-normal"
-        />
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[25rem] h-[25rem] bg-primary/20 rounded-full blur-[100px] mix-blend-normal"
-        />
-      </div>
+      <AnimatedBackground variant="absolute" intensity="weak" />
 
       <div className="relative space-y-8 p-6 sm:p-8 md:p-10 z-10">
       {/* Ambient Neon Background */}
