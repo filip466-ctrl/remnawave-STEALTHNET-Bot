@@ -193,7 +193,7 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-primary/30 bg-primary/20 dark:bg-primary/30 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
         {/* Ambient Glow */}
         <div className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-0 flex items-start justify-center opacity-60">
           <div className="w-[400px] h-[400px] -mt-[200px] rounded-full bg-primary/40 blur-[100px]" />

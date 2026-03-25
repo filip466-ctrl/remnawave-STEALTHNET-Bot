@@ -1,21 +1,28 @@
 const fs = require('fs');
-const path = 'frontend/src/pages/dashboard.tsx';
-let content = fs.readFileSync(path, 'utf-8');
 
-// Update colorMap in StatCard
-content = content.replace(/title: "text-slate-700 dark:text-primary",/g, 'title: "text-slate-900 dark:text-white",');
-content = content.replace(/title: "text-slate-700 dark:text-[a-z]+-500",/g, 'title: "text-slate-900 dark:text-white",');
+const layoutPath = 'frontend/src/components/layout/dashboard-layout.tsx';
+let layoutContent = fs.readFileSync(layoutPath, 'utf8');
 
-content = content.replace(/subtitle: "dark:text-primary\/70",/g, 'subtitle: "text-primary/70 dark:text-primary",');
-content = content.replace(/subtitle: "dark:text-[a-z]+-500\/70 text-[a-z]+-600\/70",/g, 'subtitle: "text-primary/70 dark:text-primary",');
+// Sidebar: reduce primary color opacity back to something subtle but with glass effect
+layoutContent = layoutContent.replace(
+  /bg-primary\/20 dark:bg-primary\/30 backdrop-blur-3xl shadow-\[20px_0_40px_-10px_rgba\(0,0,0,0\.5\)\] dark:shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.2\),inset_0_0_40px_hsl\(var\(--primary\)\/0\.2\),0_0_40px_hsl\(var\(--primary\)\/0\.2\)\]/g,
+  'bg-white/5 dark:bg-white/5 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.1),0_0_20px_hsl(var(--primary)/0.1)]'
+);
 
-content = content.replace(/valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-\[0_0_12px_rgba\(255,255,255,0\.4\)\]",/g, 'valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",');
-content = content.replace(/valueGlow: "text-[a-z]+-600 dark:text-[a-z]+-400 dark:drop-shadow-\[0_0_12px_rgba\([0-9,]+\,0\.5\)\]",/g, 'valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",');
+fs.writeFileSync(layoutPath, layoutContent);
 
+const dashboardPath = 'frontend/src/pages/dashboard.tsx';
+let dashboardContent = fs.readFileSync(dashboardPath, 'utf8');
 
-// Update Sales Section
-content = content.replace(/text-\[10px\] tracking-widest uppercase text-slate-500 dark:text-primary\/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors/g, 'text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors');
-content = content.replace(/text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-\[0_0_10px_rgba\(16,185,129,0\.5\)\]/g, 'text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]');
+// Revert dashboard cards to be less "green block" and more glassmorphism
+dashboardContent = dashboardContent.replace(/dark:bg-primary\/20/g, 'dark:bg-white/5');
+dashboardContent = dashboardContent.replace(/dark:bg-primary\/15/g, 'dark:bg-white/5');
+dashboardContent = dashboardContent.replace(/dark:shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.2\)\]/g, 'dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]');
+dashboardContent = dashboardContent.replace(/dark:border-primary\/40/g, 'dark:border-white/10');
 
-fs.writeFileSync(path, content, 'utf-8');
-console.log("Colors fixed");
+// Make the main background a bit brighter but neutral
+dashboardContent = dashboardContent.replace(/dark:bg-\[\#050507\]/g, 'dark:bg-[#0A0A0C]');
+
+fs.writeFileSync(dashboardPath, dashboardContent);
+
+console.log("Fixed colors to look less terrible!");
