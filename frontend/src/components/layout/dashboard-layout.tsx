@@ -205,16 +205,15 @@ export function DashboardLayout() {
         <div className="absolute bottom-[-10%] -right-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.12)_0%,transparent_60%)]" />
         <div className="absolute top-[30%] right-[10%] w-[35%] h-[35%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.06)_0%,transparent_55%)]" />
         
-        {/* Матричная сетка (Grid) — CSS-based для чёткости */}
-        <div 
-          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.07]"
-          style={{
-            backgroundSize: '30px 50px',
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='30' height='50' viewBox='0 0 30 50' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50L15 25L0 0M30 50L15 25L30 0' stroke='%23ffffff' stroke-width='1' fill='none'/%3E%3C/svg%3E")`,
-            imageRendering: 'auto',
-          }}
-        />
       </div>
+
+      {/* ═══ Матричная сетка — OVERLAY поверх blur, чтобы не рвалась ═══ */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-[1] opacity-[0.03] dark:opacity-[0.06]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%23ffffff' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+        }}
+      />
 
       {/* ═══ Desktop sidebar ═══ */}
       <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
