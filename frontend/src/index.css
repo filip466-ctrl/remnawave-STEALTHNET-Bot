@@ -17,21 +17,6 @@
   --color-destructive: hsl(var(--destructive));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-
-  --animate-soft-glow: soft-glow 3s ease-in-out infinite;
-
-  @keyframes soft-glow {
-    0%, 100% {
-      opacity: 0.5;
-      transform: scale(1);
-      box-shadow: 0 0 4px 1px currentColor;
-    }
-    50% {
-      opacity: 0.8;
-      transform: scale(1.4);
-      box-shadow: 0 0 12px 3px currentColor;
-    }
-  }
 }
 
 @layer base {
