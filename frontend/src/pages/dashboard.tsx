@@ -562,15 +562,17 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
           {/* Right Col: Digital Uptime & Status */}
           <div className="flex flex-col gap-3">
             <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-primary/40 transition-colors duration-500 shadow-sm">
-               {/* Radar scan effect in background */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
+               {/* Soft pulsing ambient glow in background */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <motion.div
-                   animate={{ rotate: 360 }}
-                   transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                   className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
-                   style={{
-                     background: "conic-gradient(from 0deg, transparent 70%, hsl(var(--primary)/0.4) 100%)"
-                   }}
+                  animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
+                />
+                <motion.div
+                  animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.15, 1] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.1)_0%,transparent_50%)]"
                 />
               </div>
 
@@ -1141,15 +1143,17 @@ export function DashboardPage() {
                           {/* Right Col: Actions */}
                           <div className="flex flex-col gap-3">
                             <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-primary/40 transition-colors duration-500 shadow-sm gap-4">
-                              {/* Radar scan effect in background */}
-                              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 dark:opacity-20">
+                              {/* Soft pulsing ambient glow in background */}
+                              <div className="absolute inset-0 pointer-events-none overflow-hidden">
                                 <motion.div
-                                  animate={{ rotate: -360 }}
-                                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                                  className="w-[200%] h-[200%] absolute -top-1/2 -left-1/2"
-                                  style={{
-                                    background: "conic-gradient(from 0deg, transparent 70%, hsl(var(--primary)/0.4) 100%)"
-                                  }}
+                                  animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+                                  transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+                                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
+                                />
+                                <motion.div
+                                  animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.15, 1] }}
+                                  transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+                                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.1)_0%,transparent_50%)]"
                                 />
                               </div>
 
