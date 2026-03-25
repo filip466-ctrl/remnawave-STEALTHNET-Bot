@@ -193,7 +193,7 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background relative overflow-hidden">
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/10 bg-background/40 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-primary/30 bg-primary/20 dark:bg-primary/30 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] transition-all overflow-hidden">
         {/* Ambient Glow */}
         <div className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-0 flex items-start justify-center opacity-60">
           <div className="w-[400px] h-[400px] -mt-[200px] rounded-full bg-primary/40 blur-[100px]" />
@@ -247,7 +247,7 @@ export function DashboardLayout() {
             <motion.aside
               initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-background/60 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-3xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
             >
               {/* Ambient Glow */}
               <div className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-0 flex items-start justify-center opacity-60">

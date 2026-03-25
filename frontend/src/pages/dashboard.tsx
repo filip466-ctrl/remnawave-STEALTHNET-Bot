@@ -228,7 +228,7 @@ function SectionHeader({
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
       <motion.div
-        className={`relative flex items-center justify-center h-10 w-10 border border-white/20 dark:border-primary/30 bg-white/10 dark:bg-primary/20 shadow-[0_0_15px_hsl(var(--primary)/0.15)]`}
+        className={`relative flex items-center justify-center h-10 w-10 border border-white/20 dark:border-primary/40 bg-white/10 dark:bg-primary/20 shadow-[0_0_15px_hsl(var(--primary)/0.25)]`}
         whileHover={{ scale: 1.1, rotate: 5 }}
         transition={{ type: "spring", stiffness: 400, damping: 15 }}
       >
@@ -273,8 +273,8 @@ function StatCard({
       bracket: "text-primary/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
-      iconShadow: "shadow-[0_0_10px_hsl(var(--primary)/0.1)]",
+      iconBorder: "dark:border-primary/40",
+      iconShadow: "shadow-[0_0_10px_hsl(var(--primary)/0.15)]",
       iconText: "text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]",
       subtitle: "text-primary/70 dark:text-primary",
       valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
@@ -286,7 +286,7 @@ function StatCard({
       bracket: "text-emerald-500/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
+      iconBorder: "dark:border-primary/40",
       iconShadow: "shadow-[0_0_10px_rgba(16,185,129,0.1)]",
       iconText: "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]",
       subtitle: "text-primary/70 dark:text-primary",
@@ -299,7 +299,7 @@ function StatCard({
       bracket: "text-amber-500/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
+      iconBorder: "dark:border-primary/40",
       iconShadow: "shadow-[0_0_10px_rgba(245,158,11,0.1)]",
       iconText: "text-amber-600 dark:text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
       subtitle: "text-primary/70 dark:text-primary",
@@ -312,7 +312,7 @@ function StatCard({
       bracket: "text-red-500/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
+      iconBorder: "dark:border-primary/40",
       iconShadow: "shadow-[0_0_10px_rgba(239,68,68,0.1)]",
       iconText: "text-red-600 dark:text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]",
       subtitle: "text-primary/70 dark:text-primary",
@@ -325,7 +325,7 @@ function StatCard({
       bracket: "text-violet-500/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
+      iconBorder: "dark:border-primary/40",
       iconShadow: "shadow-[0_0_10px_rgba(139,92,246,0.1)]",
       iconText: "text-violet-600 dark:text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]",
       subtitle: "text-primary/70 dark:text-primary",
@@ -338,7 +338,7 @@ function StatCard({
       bracket: "text-cyan-500/50",
       title: "text-slate-900 dark:text-white",
       iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-primary/30",
+      iconBorder: "dark:border-primary/40",
       iconShadow: "shadow-[0_0_10px_rgba(6,182,212,0.1)]",
       iconText: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]",
       subtitle: "text-primary/70 dark:text-primary",
@@ -349,7 +349,7 @@ function StatCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
+      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-primary/20 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-xl border border-white/10 dark:border-primary/40 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
         {/* Scanlines / Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -411,7 +411,7 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_20px_hsl(var(--primary)/0.1)] font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-primary/20 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/10 dark:border-primary/40 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_20px_hsl(var(--primary)/0.15)] font-mono">
         {/* Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -472,7 +472,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
             initial={{ opacity: 0, scaleY: 0.2 }}
             animate={{ opacity: i < activeSegments ? 1 : 0.15, scaleY: 1 }}
             transition={{ delay: i * 0.03, duration: 0.3 }}
-            className={`flex-1 rounded-[1px] ${i < activeSegments ? bgMap[colorClass] + ' ' + shadowMap[colorClass] : 'bg-slate-300 dark:bg-primary/10'}`}
+            className={`flex-1 rounded-[1px] ${i < activeSegments ? bgMap[colorClass] + ' ' + shadowMap[colorClass] : 'bg-slate-300 dark:bg-primary/20'}`}
           />
         ))}
       </div>
@@ -482,7 +482,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-primary/20 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/40 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.25)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -544,7 +544,7 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
             )}
             
             {/* Hex Dump / Mini Logs */}
-            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
+            <div className="mt-4 p-3 bg-white/60 dark:bg-primary/20 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -561,18 +561,18 @@ function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
 
           {/* Right Col: Digital Uptime & Status */}
           <div className="flex flex-col gap-3">
-            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-primary/40 transition-colors duration-500 shadow-sm">
+            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/20 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:group-hover:border-primary/40 transition-colors duration-500 shadow-sm">
                {/* Soft pulsing ambient glow in background */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <motion.div
                   animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
+                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.25)_0%,transparent_50%)]"
                 />
                 <motion.div
                   animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.15, 1] }}
                   transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.1)_0%,transparent_50%)]"
+                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
                 />
               </div>
 
@@ -759,7 +759,7 @@ export function DashboardPage() {
   return (
     <div className="relative w-full rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-[#050507] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1),0_0_20px_rgba(0,0,0,0.05)] dark:shadow-[0_30px_80px_-15px_rgba(0,0,0,0.6),0_0_30px_rgba(0,0,0,0.3)] overflow-hidden">
       {/* Frame glowing inner border effect (3D Bevel) */}
-      <div className="absolute inset-0 rounded-[2rem] pointer-events-none z-20 border-t border-t-white/40 dark:border-t-primary/50 border-l border-l-white/20 dark:border-l-primary/20 border-r border-r-white/5 dark:border-r-primary/5 border-b border-b-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] bg-gradient-to-b from-white/10 via-transparent to-transparent dark:from-primary/10" />
+      <div className="absolute inset-0 rounded-[2rem] pointer-events-none z-20 border-t border-t-white/40 dark:border-t-primary/50 border-l border-l-white/20 dark:border-l-primary/20 border-r border-r-white/5 dark:border-r-primary/5 border-b border-b-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] bg-gradient-to-b from-white/10 via-transparent to-transparent dark:from-primary/10" />
       
       {/* Background Matrix/Grid strictly inside the frame */}
       <div 
@@ -907,7 +907,7 @@ export function DashboardPage() {
                         key={period}
                         size="sm"
                         variant="outline"
-                        className={`h-8 px-3 text-[10px] uppercase tracking-widest border-white/20 dark:border-primary/30 bg-white/30 dark:bg-black/30 hover:bg-white/50 dark:hover:bg-primary/20 ${
+                        className={`h-8 px-3 text-[10px] uppercase tracking-widest border-white/20 dark:border-primary/40 bg-white/30 dark:bg-black/30 hover:bg-white/50 dark:hover:bg-primary/20 ${
                           isActive
                             ? "text-slate-900 dark:text-primary border-primary/50 shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
                             : "text-slate-500 dark:text-primary/60"
@@ -997,7 +997,7 @@ export function DashboardPage() {
         />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={7}>
           {!hasRemnaNodesAccess ? (
-            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-primary/30 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-primary/20 backdrop-blur-xl border-white/10 dark:border-primary/40 rounded-none font-mono">
               <CardContent className="py-8">
                 <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [ACCESS_DENIED] Нет доступа к управлению нодами Remna. Обратитесь к администратору.
@@ -1005,7 +1005,7 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           ) : nodes.length === 0 ? (
-            <Card className="bg-white/5 dark:bg-black/40 backdrop-blur-xl border-white/10 dark:border-primary/30 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-primary/20 backdrop-blur-xl border-white/10 dark:border-primary/40 rounded-none font-mono">
               <CardContent className="py-8">
                 <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [SYSTEM_EMPTY] Ноды не загружены или Remna API не настроен. Проверьте настройки.
@@ -1049,7 +1049,7 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-black/40 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/30 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500 ${hoverShadow}`}>
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-primary/20 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-primary/40 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.25)] font-mono text-slate-900 dark:text-primary group transition-colors duration-500 ${hoverShadow}`}>
                       {/* Hex Background Pattern */}
                       <div 
                         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -1125,7 +1125,7 @@ export function DashboardPage() {
                             </div>
 
                             {/* Hex Dump / Mini Logs */}
-                            <div className="mt-4 p-3 bg-white/60 dark:bg-black/40 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
+                            <div className="mt-4 p-3 bg-white/60 dark:bg-primary/20 border border-white/40 dark:border-primary/10 rounded overflow-hidden h-24 relative text-[10px] sm:text-xs text-slate-700 dark:text-primary/60 font-mono leading-tight shadow-inner transition-colors duration-500">
                               <motion.div
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
@@ -1142,18 +1142,18 @@ export function DashboardPage() {
 
                           {/* Right Col: Actions */}
                           <div className="flex flex-col gap-3">
-                            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-primary/40 transition-colors duration-500 shadow-sm gap-4">
+                            <div className="border border-white/40 dark:border-primary/20 bg-white/50 dark:bg-primary/20 p-4 rounded-lg flex flex-col items-center justify-center relative overflow-hidden flex-1 hover:border-white/60 dark:hover:border-primary/40 transition-colors duration-500 shadow-sm gap-4">
                               {/* Soft pulsing ambient glow in background */}
                               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                                 <motion.div
                                   animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
                                   transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
+                                  className="absolute -top-[50%] -right-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.25)_0%,transparent_50%)]"
                                 />
                                 <motion.div
                                   animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.15, 1] }}
                                   transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-                                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.1)_0%,transparent_50%)]"
+                                  className="absolute -bottom-[50%] -left-[50%] w-[200%] h-[200%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_50%)]"
                                 />
                               </div>
 
@@ -1163,7 +1163,7 @@ export function DashboardPage() {
                                 {node.isDisabled ? (
                                   <Button
                                     variant="outline"
-                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-all bg-white/50 dark:bg-primary/15"
                                     disabled={isBusy}
                                     onClick={() => handleNodeAction(node.uuid, "enable")}
                                   >
@@ -1173,7 +1173,7 @@ export function DashboardPage() {
                                 ) : (
                                   <Button
                                     variant="outline"
-                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all bg-white/50 dark:bg-black/20"
+                                    className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all bg-white/50 dark:bg-primary/15"
                                     disabled={isBusy}
                                     onClick={() => handleNodeAction(node.uuid, "disable")}
                                   >
@@ -1183,7 +1183,7 @@ export function DashboardPage() {
                                 )}
                                 <Button
                                   variant="outline"
-                                  className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-primary/30 text-primary/80 dark:text-primary hover:bg-primary/10 hover:border-primary/50 transition-all bg-white/50 dark:bg-black/20"
+                                  className="w-full h-10 text-[10px] sm:text-xs uppercase tracking-widest gap-2 border-primary/30 text-primary/80 dark:text-primary hover:bg-primary/10 hover:border-primary/50 transition-all bg-white/50 dark:bg-primary/15"
                                   disabled={isBusy}
                                   onClick={() => handleNodeAction(node.uuid, "restart")}
                                 >
