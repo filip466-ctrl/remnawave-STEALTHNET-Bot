@@ -757,7 +757,7 @@ export function DashboardPage() {
   const nodesTotal = nodes.length;
 
   return (
-    <div className="relative w-full space-y-8 p-6 sm:p-8 md:p-10 z-10">
+    <div className="relative w-full space-y-8 p-6 sm:p-8 md:p-10 pt-2 sm:pt-4 md:pt-6 z-10">
       {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
