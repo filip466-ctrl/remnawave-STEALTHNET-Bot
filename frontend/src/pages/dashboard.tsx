@@ -236,7 +236,7 @@ function SectionHeader({
       </motion.div>
       <div>
         <h2 className="text-lg font-bold tracking-widest uppercase text-slate-800 dark:text-primary dark:drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)] flex items-center gap-2">
-          <span className="text-primary/50 hidden sm:inline">&gt;</span> {title} <motion.span animate={{opacity:[0,1]}} transition={{repeat:Infinity, duration:0.9}} className="w-2 h-4 bg-primary/50 inline-block drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]"></motion.span>
+          <span className="text-primary/50 hidden sm:inline">&gt;</span> {title}
         </h2>
         <p className="text-xs text-slate-500 dark:text-primary/60 uppercase tracking-widest">{subtitle}</p>
       </div>
