@@ -192,26 +192,13 @@ export function DashboardLayout() {
 
   return (
     <div className="flex min-h-svh bg-background relative">
-      {/* ═══ Global Ambient Lights & Background ═══ */}
-      <div
-        className="fixed inset-0 pointer-events-none overflow-hidden -z-10"
-        style={{ backgroundColor: 'hsl(var(--background))' }}
-      >
-        {/* Мягкое свечение сверху */}
+      {/* ═══ Global Ambient Lights ═══ */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10" aria-hidden>
+        <div className="absolute inset-0" style={{ backgroundColor: 'hsl(var(--background))' }} />
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-primary/10" />
-        
-        {/* Огоньки (ambient lights) */}
         <div className="absolute top-[-10%] -left-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_60%)]" />
         <div className="absolute bottom-[-10%] -right-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.12)_0%,transparent_60%)]" />
         <div className="absolute top-[30%] right-[10%] w-[35%] h-[35%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.06)_0%,transparent_55%)]" />
-        
-        {/* Матричная сетка (Grid) */}
-        <div 
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.12]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%23ffffff' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-          }}
-        />
       </div>
 
       {/* ═══ Desktop sidebar ═══ */}
@@ -310,7 +297,7 @@ export function DashboardLayout() {
       </AnimatePresence>
 
       {/* ═══ Main content ═══ */}
-      <main className="flex-1 min-w-0 flex flex-col md:pl-[290px] w-full">
+      <main className="flex-1 min-w-0 flex flex-col md:pl-[290px] w-full relative z-10">
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:pr-6 md:-ml-[290px] md:pl-[calc(290px+1.5rem)] bg-card/60 backdrop-blur-xl border-b border-white/10 md:border-r rounded-none md:rounded-br-[2rem] shadow-sm md:mr-6 transition-all">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileMenuOpen(true)}>
@@ -359,7 +346,7 @@ export function DashboardLayout() {
             </a>
           </div>
         </header>
-        <div className="flex-1 px-4 md:px-6 pb-6 animate-in fade-in duration-300">
+        <div className="flex-1 px-4 md:px-6 pb-6 animate-in fade-in duration-300 relative z-10">
           <Outlet />
         </div>
       </main>
