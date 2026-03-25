@@ -193,19 +193,23 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-svh bg-background relative overflow-hidden">
       {/* ═══ Global Ambient Lights & Background ═══ */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {/* Мягкое свечение сверху, как было в Дашборде */}
+      <div
+        className="fixed inset-0 pointer-events-none overflow-hidden -z-10"
+        style={{ backgroundColor: 'hsl(var(--background))' }}
+      >
+        {/* Мягкое свечение сверху */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent dark:from-primary/10" />
         
         {/* Огоньки (ambient lights) */}
-        <div className="absolute top-[-10%] -left-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.08)_0%,transparent_60%)]" />
-        <div className="absolute bottom-[-10%] -right-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.08)_0%,transparent_60%)]" />
+        <div className="absolute top-[-10%] -left-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_60%)]" />
+        <div className="absolute bottom-[-10%] -right-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.12)_0%,transparent_60%)]" />
+        <div className="absolute top-[30%] right-[10%] w-[35%] h-[35%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.06)_0%,transparent_55%)]" />
         
         {/* Матричная сетка (Grid) */}
         <div 
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%23ffffff' stroke-width='0.5' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
         />
       </div>
