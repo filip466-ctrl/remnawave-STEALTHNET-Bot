@@ -1,21 +1,24 @@
-const fs = require('fs');
-const filePath = 'frontend/src/pages/dashboard.tsx';
-let content = fs.readFileSync(filePath, 'utf-8');
+import re
 
-// 1. Update CountUpMoney and CountUpNumber
-content = content.replace(
-  /function CountUpMoney\(\{ value, currency \}: \{ value: number; currency: string \}\) \{([\s\S]*?)<span className="text-slate-800 dark:text-primary dark:drop-shadow-\[0_0_10px_hsl\(var\(--primary\)\/0\.5\)\]">([\s\S]*?)<\/span>/g,
-  'function CountUpMoney({ value, currency, className }: { value: number; currency: string; className?: string }) {$1<span className={className || "text-inherit drop-shadow-sm dark:drop-shadow-none"}>$2</span>'
-);
+file_path = 'frontend/src/pages/dashboard.tsx'
+with open(file_path, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-content = content.replace(
-  /function CountUpNumber\(\{ value \}: \{ value: number \}\) \{([\s\S]*?)<span className="text-slate-800 dark:text-primary dark:drop-shadow-\[0_0_10px_hsl\(var\(--primary\)\/0\.5\)\]">([\s\S]*?)<\/span>/g,
-  'function CountUpNumber({ value, className }: { value: number; className?: string }) {$1<span className={className || "text-inherit drop-shadow-sm dark:drop-shadow-none"}>$2</span>'
-);
+# 1. Update CountUpMoney and CountUpNumber
+content = re.sub(
+    r'function CountUpMoney\(\{ value, currency \}: \{ value: number; currency: string \}\) \{([\s\S]*?)<span className="text-slate-800 dark:text-primary dark:drop-shadow-\[0_0_10px_hsl\(var\(--primary\)/0\.5\)\]">([\s\S]*?)</span>',
+    r'function CountUpMoney({ value, currency, className }: { value: number; currency: string; className?: string }) {\1<span className={className || "text-inherit drop-shadow-sm dark:drop-shadow-none"}>\2</span>',
+    content
+)
 
-// 2. Update StatCard
-const statCardOld = /function StatCard\(\{[\s\S]*?\}\) \{[\s\S]*?return \([\s\S]*?  \);\n\}/;
-const statCardNew = `function StatCard({
+content = re.sub(
+    r'function CountUpNumber\(\{ value \}: \{ value: number \}\) \{([\s\S]*?)<span className="text-slate-800 dark:text-primary dark:drop-shadow-\[0_0_10px_hsl\(var\(--primary\)/0\.5\)\]">([\s\S]*?)</span>',
+    r'function CountUpNumber({ value, className }: { value: number; className?: string }) {\1<span className={className || "text-inherit drop-shadow-sm dark:drop-shadow-none"}>\2</span>',
+    content
+)
+
+# 2. Update StatCard Definition and Body
+stat_card_new = '''function StatCard({
   index,
   icon: Icon,
   title,
@@ -118,35 +121,36 @@ const statCardNew = `function StatCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className={\`group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 transition-all duration-500 font-mono \${theme.borderHover} \${theme.shadowHover}\`}>
+      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-black/40 backdrop-blur-xl border border-white/10 dark:border-primary/30 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
         {/* Scanlines / Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none"
           style={{
-            backgroundImage: \`url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")\`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
         />
         {/* Terminal Header Bar */}
-        <div className={\`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r \${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500\`} />
+        <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
         
         <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2 pt-4">
           <div className="flex items-center gap-2">
-            <span className={\`\${theme.bracket} text-xs hidden sm:inline\`}>[</span>
-            <CardTitle className={\`text-xs font-bold tracking-widest uppercase \${theme.title}\`}>{title}</CardTitle>
-            <span className={\`\${theme.bracket} text-xs hidden sm:inline\`}>]</span>
+            <span className={`${theme.bracket} text-xs hidden sm:inline`}>[</span>
+            <CardTitle className={`text-xs font-bold tracking-widest uppercase ${theme.title}`}>{title}</CardTitle>
+            <span className={`${theme.bracket} text-xs hidden sm:inline`}>]</span>
           </div>
           <motion.div
-            className={\`relative flex items-center justify-center h-8 w-8 rounded-none border border-white/20 bg-white/10 \${theme.iconBg} \${theme.iconBorder} \${theme.iconShadow}\`}
+            className={`relative flex items-center justify-center h-8 w-8 rounded-none border border-white/20 bg-white/10 ${theme.iconBg} ${theme.iconBorder} ${theme.iconShadow}`}
             whileHover={{ scale: 1.1, rotate: 90 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
           >
-            <Icon className={\`h-4 w-4 \${theme.iconText}\`} />
+            <Icon className={`h-4 w-4 ${theme.iconText}`} />
           </motion.div>
         </CardHeader>
         <CardContent className="relative pb-4">
           <div className="flex items-end justify-between gap-2 mt-2">
             <div>
-              <div className={\`text-2xl font-bold tracking-widest tabular-nums \${theme.valueGlow}\`}>
+              <div className={`text-2xl font-bold tracking-widest tabular-nums ${theme.valueGlow}`}>
                 {value}
               </div>
-              <p className={\`text-[10
+              <p className={`text-[10px] mt-1 tracking-widest uppercase text-slate-500 ${theme.subtitle}`}>
+             

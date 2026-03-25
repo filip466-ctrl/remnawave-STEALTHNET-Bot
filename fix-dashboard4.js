@@ -149,4 +149,145 @@ const statCardNew = `function StatCard({
               <div className={\`text-2xl font-bold tracking-widest tabular-nums \${theme.valueGlow}\`}>
                 {value}
               </div>
-              <p className={\`text-[10
+              <p className={\`text-[10px] mt-1 tracking-widest uppercase text-slate-500 \${theme.subtitle}\`}>
+                &gt; {subtitle}
+              </p>
+            </div>
+            {sparkData && sparkColor && (
+              <div className="opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                <Sparkline data={sparkData} color={sparkColor} height={36} width={70} />
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}`;
+content = content.replace(statCardOld, statCardNew);
+
+// 3. Update MiniBar
+const minibarOld = /function MiniBar\(\{ value, maxValue, color \}: \{ value: number; maxValue: number; color: string \}\) \{[\s\S]*?return \([\s\S]*?  \);\n\}/;
+const minibarNew = `function MiniBar({ value, maxValue, color }: { value: number; maxValue: number; color: string }) {
+  const percent = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
+  const segments = 25;
+  const activeSegments = Math.round((percent / 100) * segments);
+
+  return (
+    <div className="flex gap-[2px] h-2.5 w-full mt-3">
+      {Array.from({ length: segments }).map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, scaleY: 0.2 }}
+          animate={{ opacity: i < activeSegments ? 1 : 0.15, scaleY: 1 }}
+          transition={{ delay: 0.8 + i * 0.02, duration: 0.3 }}
+          className="flex-1 rounded-[1px] bg-slate-300 dark:bg-primary/10"
+          style={i < activeSegments ? { backgroundColor: color, boxShadow: \`0 0 8px \${color}\` } : undefined}
+        />
+      ))}
+    </div>
+  );
+}`;
+content = content.replace(minibarOld, minibarNew);
+
+// 4. Update Analytics section in main component
+const analyticsOld = /\{\[\s*\{ label: "Новые \(сегодня\)"[\s\S]*?\)\}\]\.map\(\(item, idx\) => \([\s\S]*?<\/motion\.div>\n\s*\)\)}/;
+const analyticsNew = `{[
+                { label: "Новые (сегодня)", val: stats?.users.newToday, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "primary" },
+                { label: "Новые (7 дн.)", val: stats?.users.newLast7Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "primary" },
+                { label: "Новые (30 дн.)", val: stats?.users.newLast30Days, max: analyticsMaxUsers, color: "hsl(var(--primary))", isMoney: false, theme: "violet" },
+                { label: "Продажи (сегодня)", val: stats?.sales.todayAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
+                { label: "Продажи (7 дн.)", val: stats?.sales.last7DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
+                { label: "Продажи (30 дн.)", val: stats?.sales.last30DaysAmount, max: analyticsMaxSales, color: "#10b981", isMoney: true, theme: "emerald" },
+              ].map((item, idx) => {
+                const isEmerald = item.theme === "emerald";
+                const isViolet = item.theme === "violet";
+                const borderClass = isEmerald ? "border-emerald-500/10 dark:border-emerald-500/20 hover:border-emerald-500/30" : isViolet ? "border-violet-500/10 dark:border-violet-500/20 hover:border-violet-500/30" : "border-white/[0.05] dark:border-primary/20 hover:border-primary/50";
+                const bgClass = isEmerald ? "bg-emerald-500/5 dark:bg-emerald-500/10 hover:bg-emerald-500/10" : isViolet ? "bg-violet-500/5 dark:bg-violet-500/10 hover:bg-violet-500/10" : "bg-white/10 dark:bg-primary/10 hover:bg-primary/20";
+                const textClass = isEmerald ? "text-emerald-700 dark:text-emerald-400 group-hover:text-emerald-500" : isViolet ? "text-violet-700 dark:text-violet-400 group-hover:text-violet-500" : "text-slate-900 dark:text-white dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]";
+                const titleGlow = isEmerald ? "dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" : isViolet ? "dark:drop-shadow-[0_0_10px_rgba(139,92,246,0.4)]" : "";
+                
+                return (
+                <motion.div
+                  key={item.label}
+                  className={\`rounded border backdrop-blur-sm p-4 space-y-2 transition-all duration-400 group \${borderClass} \${bgClass}\`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
+                >
+                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">
+                    &gt; {item.label}
+                  </p>
+                  <p className={\`text-xl font-bold tabular-nums tracking-widest \${textClass} \${titleGlow}\`}>
+                    {stats ? (
+                      item.isMoney ? (
+                        <CountUpMoney value={item.val ?? 0} currency={defaultCurrency} />
+                      ) : (
+                        <CountUpNumber value={item.val ?? 0} />
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                  <MiniBar value={item.val ?? 0} maxValue={item.max} color={item.color} />
+                </motion.div>
+              )})}`;
+content = content.replace(analyticsOld, analyticsNew);
+
+// 5. Add accentColors to StatCard usages
+content = content.replace(
+  /<StatCard\s*index=\{0\}\s*icon=\{Users\}\s*title="Всего пользователей"\s*value=\{stats \? <CountUpNumber value=\{stats\.users\.total\} \/> : "—"\}\s*subtitle="Клиенты панели"\s*\/>/g,
+  `<StatCard
+            index={0}
+            icon={Users}
+            title="Всего пользователей"
+            value={stats ? <CountUpNumber value={stats.users.total} /> : "—"}
+            subtitle="Клиенты панели"
+            accentColor="primary"
+          />`
+);
+
+content = content.replace(
+  /<StatCard\s*index=\{1\}\s*icon=\{Shield\}\s*title="Привязано к Remna"\s*value=\{stats \? <CountUpNumber value=\{stats\.users\.withRemna\} \/> : "—"\}\s*subtitle="С remnawaveUuid"\s*\/>/g,
+  `<StatCard
+            index={1}
+            icon={Shield}
+            title="Привязано к Remna"
+            value={stats ? <CountUpNumber value={stats.users.withRemna} /> : "—"}
+            subtitle="С remnawaveUuid"
+            accentColor="cyan"
+          />`
+);
+
+content = content.replace(
+  /<StatCard\s*index=\{2\}\s*icon=\{UserPlus\}\s*title="Новых сегодня"\s*value=\{stats \? <CountUpNumber value=\{stats\.users\.newToday\} \/> : "—"\}\s*subtitle="Регистрации за день"\s*\/>/g,
+  `<StatCard
+            index={2}
+            icon={UserPlus}
+            title="Новых сегодня"
+            value={stats ? <CountUpNumber value={stats.users.newToday} /> : "—"}
+            subtitle="Регистрации за день"
+            accentColor="emerald"
+          />`
+);
+
+content = content.replace(
+  /<StatCard\s*index=\{3\}\s*icon=\{TrendingUp\}\s*title="Новых за 30 дней"\s*value=\{stats \? <CountUpNumber value=\{stats\.users\.newLast30Days\} \/> : "—"\}\s*subtitle="Регистрации"\s*\/>/g,
+  `<StatCard
+            index={3}
+            icon={TrendingUp}
+            title="Новых за 30 дней"
+            value={stats ? <CountUpNumber value={stats.users.newLast30Days} /> : "—"}
+            subtitle="Регистрации"
+            accentColor="violet"
+          />`
+);
+
+// 6. Update Sales Analytics text colors
+content = content.replace(
+  /className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-\[0_0_10px_rgba\(255,255,255,0\.3\)\]"/g,
+  'className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]"'
+);
+
+fs.writeFileSync(filePath, content, 'utf-8');
+console.log("Patch applied successfully!");

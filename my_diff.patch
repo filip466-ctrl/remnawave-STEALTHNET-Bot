@@ -1,0 +1,153 @@
+diff --git a/frontend/src/pages/dashboard.tsx b/frontend/src/pages/dashboard.tsx
+index e962031..fa96b73 100644
+--- a/frontend/src/pages/dashboard.tsx
++++ b/frontend/src/pages/dashboard.tsx
+@@ -262,12 +262,12 @@ function StatCard({
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-primary/50",
+-      title: "text-slate-700 dark:text-primary",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_hsl(var(--primary)/0.1)]",
+       iconText: "text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]",
+-      subtitle: "dark:text-primary/70",
++      subtitle: "text-primary/70 dark:text-primary",
+       valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+     emerald: {
+@@ -275,65 +275,65 @@ function StatCard({
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-emerald-500/50",
+-      title: "text-slate-700 dark:text-emerald-500",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_rgba(16,185,129,0.1)]",
+       iconText: "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+-      subtitle: "dark:text-emerald-500/70 text-emerald-600/70",
+-      valueGlow: "text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]",
++      subtitle: "text-primary/70 dark:text-primary",
++      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+     amber: {
+       borderHover: "hover:border-primary/50",
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-amber-500/50",
+-      title: "text-slate-700 dark:text-amber-500",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_rgba(245,158,11,0.1)]",
+       iconText: "text-amber-600 dark:text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+-      subtitle: "dark:text-amber-500/70 text-amber-600/70",
+-      valueGlow: "text-amber-600 dark:text-amber-400 dark:drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]",
++      subtitle: "text-primary/70 dark:text-primary",
++      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+     red: {
+       borderHover: "hover:border-primary/50",
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-red-500/50",
+-      title: "text-slate-700 dark:text-red-500",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_rgba(239,68,68,0.1)]",
+       iconText: "text-red-600 dark:text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]",
+-      subtitle: "dark:text-red-500/70 text-red-600/70",
+-      valueGlow: "text-red-600 dark:text-red-400 dark:drop-shadow-[0_0_12px_rgba(239,68,68,0.5)]",
++      subtitle: "text-primary/70 dark:text-primary",
++      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+     violet: {
+       borderHover: "hover:border-primary/50",
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-violet-500/50",
+-      title: "text-slate-700 dark:text-violet-500",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_rgba(139,92,246,0.1)]",
+       iconText: "text-violet-600 dark:text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]",
+-      subtitle: "dark:text-violet-500/70 text-violet-600/70",
+-      valueGlow: "text-violet-600 dark:text-violet-400 dark:drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]",
++      subtitle: "text-primary/70 dark:text-primary",
++      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+     cyan: {
+       borderHover: "hover:border-primary/50",
+       shadowHover: "hover:shadow-primary/10",
+       gradient: "from-transparent via-primary/50 to-transparent",
+       bracket: "text-cyan-500/50",
+-      title: "text-slate-700 dark:text-cyan-500",
++      title: "text-slate-900 dark:text-white",
+       iconBg: "dark:bg-primary/30",
+       iconBorder: "dark:border-primary/30",
+       iconShadow: "shadow-[0_0_10px_rgba(6,182,212,0.1)]",
+       iconText: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]",
+-      subtitle: "dark:text-cyan-500/70 text-cyan-600/70",
+-      valueGlow: "text-cyan-600 dark:text-cyan-400 dark:drop-shadow-[0_0_12px_rgba(6,182,212,0.5)]",
++      subtitle: "text-primary/70 dark:text-primary",
++      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+     },
+   };
+   const theme = colorMap[accentColor];
+@@ -851,8 +851,8 @@ export function DashboardPage() {
+               <div className="space-y-2 group">
+                 <div className="flex items-center justify-between">
+                   <div>
+-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; Всего поступления</p>
+-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
++                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; Всего поступления</p>
++                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
+                       {stats ? <CountUpMoney value={stats.sales.totalAmount} currency={defaultCurrency} /> : "—"}
+                     </p>
+                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.totalCount ?? 0} PAYMENTS_RCVD</p>
+@@ -868,8 +868,8 @@ export function DashboardPage() {
+               <div className="space-y-2 group">
+                 <div className="flex items-center justify-between">
+                   <div>
+-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За сегодня</p>
+-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
++                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За сегодня</p>
++                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
+                       {stats ? <CountUpMoney value={stats.sales.todayAmount} currency={defaultCurrency} /> : "—"}
+                     </p>
+                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.todayCount ?? 0} PAYMENTS_RCVD</p>
+@@ -885,8 +885,8 @@ export function DashboardPage() {
+               <div className="space-y-2 group">
+                 <div className="flex items-center justify-between">
+                   <div>
+-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За 7 дней</p>
+-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
++                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За 7 дней</p>
++                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
+                       {stats ? <CountUpMoney value={stats.sales.last7DaysAmount} currency={defaultCurrency} /> : "—"}
+                     </p>
+                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last7DaysCount ?? 0} PAYMENTS_RCVD</p>
+@@ -902,8 +902,8 @@ export function DashboardPage() {
+               <div className="space-y-2 group">
+                 <div className="flex items-center justify-between">
+                   <div>
+-                    <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">&gt; За 30 дней</p>
+-                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-emerald-600 dark:text-emerald-400 dark:drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
++                    <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">&gt; За 30 дней</p>
++                    <p className="text-2xl font-bold tabular-nums tracking-widest mt-1 text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">
+                       {stats ? <CountUpMoney value={stats.sales.last30DaysAmount} currency={defaultCurrency} /> : "—"}
+                     </p>
+                     <p className="text-[10px] tracking-widest text-slate-400 dark:text-primary/50 mt-1 uppercase">{stats?.sales.last30DaysCount ?? 0} PAYMENTS_RCVD</p>
+@@ -949,7 +949,7 @@ export function DashboardPage() {
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ delay: 0.3 + idx * 0.06, duration: 0.5 }}
+                 >
+-                  <p className="text-[10px] tracking-widest uppercase text-slate-500 dark:text-primary/70 group-hover:text-slate-800 dark:group-hover:text-primary transition-colors">
++                  <p className="text-[10px] tracking-widest uppercase text-slate-900 dark:text-white transition-colors">
+                     &gt; {item.label}
+                   </p>
+                   <p className={`text-xl font-bold tabular-nums tracking-widest ${textClass} ${titleGlow}`}>
