@@ -207,7 +207,7 @@ export function DashboardLayout() {
         
         {/* Матричная сетка (Grid) */}
         <div 
-          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.08]"
+          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.12]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='%23ffffff' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
@@ -215,7 +215,7 @@ export function DashboardLayout() {
       </div>
 
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
         <div className="flex h-16 items-center justify-center gap-3 px-4 relative z-10">
           <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
           {brand.logo ? (
@@ -264,7 +264,7 @@ export function DashboardLayout() {
             <motion.aside
               initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-3xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
+              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
             >
               <div className="flex h-16 items-center justify-center px-4 relative z-10">
                 <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
@@ -359,9 +359,9 @@ export function DashboardLayout() {
             </a>
           </div>
         </header>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex-1 px-4 md:px-6 pb-6">
+        <div className="flex-1 px-4 md:px-6 pb-6 animate-in fade-in duration-300">
           <Outlet />
-        </motion.div>
+        </div>
       </main>
 
       {notificationToasts.length > 0 && (

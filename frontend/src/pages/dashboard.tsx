@@ -349,7 +349,7 @@ function StatCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-xl border border-white/10 dark:border-white/10 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
+      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-md border border-white/10 dark:border-white/10 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
         {/* Scanlines / Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -411,7 +411,7 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/10 dark:border-white/10 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_20px_hsl(var(--primary)/0.15)] font-mono">
+      <Card className="group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-md border border-white/10 dark:border-white/10 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_20px_hsl(var(--primary)/0.15)] font-mono">
         {/* Matrix background */}
         <div 
           className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -482,7 +482,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -757,7 +757,7 @@ export function DashboardPage() {
   const nodesTotal = nodes.length;
 
   return (
-    <div className="relative w-full space-y-8 px-4 sm:px-6 md:px-8 pt-6 sm:pt-10 md:pt-14 pb-8 z-10">
+    <div className="w-full space-y-8 px-4 sm:px-6 md:px-8 pt-6 sm:pt-10 md:pt-14 pb-8">
       {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
@@ -787,7 +787,7 @@ export function DashboardPage() {
       {/* Manager warning */}
       {admin?.role === "MANAGER" && (!admin.allowedSections || admin.allowedSections.length === 0) && (
         <motion.div
-          className="rounded-none border border-amber-500/50 bg-amber-500/10 backdrop-blur-xl px-4 py-3 text-xs tracking-widest uppercase font-mono text-amber-600 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+          className="rounded-none border border-amber-500/50 bg-amber-500/10 backdrop-blur-md px-4 py-3 text-xs tracking-widest uppercase font-mono text-amber-600 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -798,7 +798,7 @@ export function DashboardPage() {
       {/* Error display */}
       {error && (
         <motion.div
-          className="rounded-none border border-red-500/50 bg-red-500/10 backdrop-blur-xl px-4 py-3 text-xs tracking-widest uppercase font-mono text-red-600 dark:text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+          className="rounded-none border border-red-500/50 bg-red-500/10 backdrop-blur-md px-4 py-3 text-xs tracking-widest uppercase font-mono text-red-600 dark:text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
         >
@@ -908,7 +908,7 @@ export function DashboardPage() {
                   })}
                 </div>
               </div>
-              <div className="h-[320px] w-full rounded-xl border border-white/10 dark:border-primary/20 bg-white/10 dark:bg-black/30 p-4 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+              <div className="h-[320px] w-full rounded-xl border border-white/10 dark:border-primary/20 bg-white/10 dark:bg-black/30 p-4 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
@@ -985,7 +985,7 @@ export function DashboardPage() {
         />
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={7}>
           {!hasRemnaNodesAccess ? (
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-xl border-white/10 dark:border-white/10 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 dark:border-white/10 rounded-none font-mono">
               <CardContent className="py-8">
                 <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [ACCESS_DENIED] Нет доступа к управлению нодами Remna. Обратитесь к администратору.
@@ -993,7 +993,7 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           ) : nodes.length === 0 ? (
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-xl border-white/10 dark:border-white/10 rounded-none font-mono">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 dark:border-white/10 rounded-none font-mono">
               <CardContent className="py-8">
                 <p className="text-slate-500 dark:text-primary/60 text-xs tracking-widest uppercase text-center">
                   [SYSTEM_EMPTY] Ноды не загружены или Remna API не настроен. Проверьте настройки.
@@ -1037,7 +1037,7 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500 ${hoverShadow}`}>
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500 ${hoverShadow}`}>
                       {/* Hex Background Pattern */}
                       <div 
                         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
