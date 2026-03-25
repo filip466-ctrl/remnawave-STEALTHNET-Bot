@@ -192,13 +192,20 @@ export function DashboardLayout() {
 
   return (
     <div className="flex min-h-svh bg-background relative overflow-hidden">
+      {/* ═══ Global Ambient Lights & Background ═══ */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] -left-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_60%)]" />
+        <div className="absolute bottom-[-10%] -right-[10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.15)_0%,transparent_60%)]" />
+        <div 
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+          }}
+        />
+      </div>
+
       {/* ═══ Desktop sidebar ═══ */}
       <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-3xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-0 flex items-start justify-center opacity-60">
-          <div className="w-[400px] h-[400px] -mt-[200px] rounded-full bg-primary/40 blur-[100px]" />
-        </div>
-
         <div className="flex h-16 items-center justify-center gap-3 px-4 relative z-10">
           <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
           {brand.logo ? (
@@ -249,11 +256,6 @@ export function DashboardLayout() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-3xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
             >
-              {/* Ambient Glow */}
-              <div className="absolute top-0 left-0 right-0 h-[300px] pointer-events-none z-0 flex items-start justify-center opacity-60">
-                <div className="w-[400px] h-[400px] -mt-[200px] rounded-full bg-primary/40 blur-[100px]" />
-              </div>
-
               <div className="flex h-16 items-center justify-center px-4 relative z-10">
                 <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
                 <div className="flex items-center gap-3 min-w-0">

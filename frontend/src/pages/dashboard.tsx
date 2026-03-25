@@ -757,19 +757,7 @@ export function DashboardPage() {
   const nodesTotal = nodes.length;
 
   return (
-    <div className="relative w-full rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-[#0c0c0f] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1),0_0_20px_rgba(0,0,0,0.05)] dark:shadow-[0_30px_80px_-15px_rgba(0,0,0,0.6),0_0_30px_rgba(0,0,0,0.3)] overflow-hidden">
-      {/* Frame glowing inner border effect (3D Bevel) */}
-      <div className="absolute inset-0 rounded-[2rem] pointer-events-none z-20 border-t border-t-white/40 dark:border-t-white/30 border-l border-l-white/20 dark:border-l-white/20 border-r border-r-white/5 dark:border-r-primary/5 border-b border-b-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] bg-gradient-to-b from-white/10 via-transparent to-transparent dark:from-primary/10" />
-      
-      {/* Background Matrix/Grid strictly inside the frame */}
-      <div 
-        className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none z-0"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      <div className="relative space-y-8 p-6 sm:p-8 md:p-10 z-10">
+    <div className="relative w-full space-y-8 p-6 sm:p-8 md:p-10 z-10">
       {/* Page header — Terminal Style */}
       <motion.div
         initial={{ opacity: 0, y: -16, filter: "blur(8px)" }}
@@ -1204,7 +1192,6 @@ export function DashboardPage() {
           )}
         </motion.div>
       </section>
-      </div>
     </div>
   );
 }
