@@ -482,7 +482,7 @@ function DataBarSegmented({ percent, label, value, colorClass }: { percent: numb
 
 function ServerCommandCenter({ serverStats }: { serverStats: ServerStats }) {
   return (
-    <Card className="relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500">
+    <Card className="relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500">
       {/* Hex Background Pattern */}
       <div 
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
@@ -1037,7 +1037,7 @@ export function DashboardPage() {
 
                 return (
                   <motion.div key={node.uuid} custom={idx + 8} variants={cardVariants}>
-                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500 ${hoverShadow}`}>
+                    <Card className={`relative overflow-hidden bg-white/40 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_30px_hsl(var(--primary)/0.15)] font-mono text-slate-900 dark:text-white group transition-colors duration-500 ${hoverShadow}`}>
                       {/* Hex Background Pattern */}
                       <div 
                         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
