@@ -15,7 +15,7 @@
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
-  --color-card: hsl(var(--card));
+  --color-card: hsl(var(--card) / 0.15);
   --color-card-foreground: hsl(var(--card-foreground));
 }
 
