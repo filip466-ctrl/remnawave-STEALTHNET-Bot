@@ -75,6 +75,8 @@
   /* Карточки и выпадающие меню делаем полупрозрачными */
   .bg-card {
     background-color: color-mix(in srgb, hsl(var(--card)) 15%, transparent) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid color-mix(in srgb, hsl(var(--foreground)) 10%, transparent);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
