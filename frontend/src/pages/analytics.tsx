@@ -75,19 +75,13 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex} className={`h-full ${className}`}>
-      <Card className="group relative overflow-hidden bg-white dark:bg-[#1a1b1e]/95 shadow-sm border border-slate-200 dark:border-[#2a2b2e] hover:border-slate-300 dark:hover:border-[#3a3b3e] transition-all duration-500 font-mono h-full flex flex-col">
-        {/* macOS Terminal Dots */}
-        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 dark:border-[#2a2b2e]/50 bg-slate-50/50 dark:bg-[#1a1b1e]">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-        </div>
-        <div className="flex-1 flex flex-col relative z-10">
-          {children}
-        </div>
-      </Card>
-    </motion.div>
-  );
+      <Card className="group relative overflow-hidden bg-white dark:bg-[#2A2B32]/95 shadow-sm border border-slate-200 dark:border-[#3A3B42]/50 hover:border-slate-300 dark:hover:border-[#4a4b52] transition-all duration-500 font-mono h-full flex flex-col">
+         <div className="flex-1 flex flex-col relative z-10 pt-4">
+           {children}
+         </div>
+       </Card>
+     </motion.div>
+   );
 }
 
 function SectionHeader({
@@ -738,17 +732,11 @@ function MetricCard({
     );
   };
 
-  return (
-    <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
-      <Card className={`group relative h-full overflow-hidden bg-white dark:bg-[#1a1b1e]/95 shadow-sm border border-slate-200 dark:border-[#2a2b2e] hover:-translate-y-1 transition-all duration-500 font-mono flex flex-col ${theme.borderHover} ${theme.shadowHover}`}>
-        {/* macOS Terminal Dots */}
-        <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 dark:border-[#2a2b2e]/50 bg-slate-50/50 dark:bg-[#1a1b1e]">
-          <div className="w-2 h-2 rounded-full bg-[#ff5f56]" />
-          <div className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
-          <div className="w-2 h-2 rounded-full bg-[#27c93f]" />
-        </div>
-        
-        <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[120px]">
+   return (
+     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
+       <Card className={`group relative h-full overflow-hidden bg-white dark:bg-[#2A2B32]/95 shadow-sm border border-slate-200 dark:border-[#3A3B42]/50 hover:-translate-y-1 transition-all duration-500 font-mono flex flex-col ${theme.borderHover} ${theme.shadowHover}`}>
+         
+         <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[120px]">
           <div className="flex justify-between items-start w-full mb-4">
             <div className="flex items-center gap-1.5 overflow-hidden pr-2 mt-1">
               <span className={`${theme.bracket} text-[10px] sm:text-xs font-bold`}>[</span>
