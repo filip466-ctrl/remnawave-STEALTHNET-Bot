@@ -67,27 +67,24 @@ const staggerContainer = {
 function GlassCard({
   children,
   animIndex = 0,
+  className = "",
 }: {
   children: React.ReactNode;
   animIndex?: number;
+  className?: string;
 }) {
   return (
-    <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex}>
-      <Card className="group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-md border border-white/10 dark:border-white/10 hover:border-white/20 dark:hover:border-primary/50 transition-all duration-500 shadow-lg dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_20px_hsl(var(--primary)/0.15)] font-mono">
-        {/* Matrix background */}
-        <div 
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-          }}
-        />
-        {/* Inner scanline sweep */}
-        <motion.div 
-          className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.05] to-transparent h-[10%] w-full pointer-events-none"
-          animate={{ y: ["-100%", "1000%"] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-        />
-        {children}
+    <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex} className={`h-full ${className}`}>
+      <Card className="group relative overflow-hidden bg-white dark:bg-[#1a1b1e]/95 shadow-sm border border-slate-200 dark:border-[#2a2b2e] hover:border-slate-300 dark:hover:border-[#3a3b3e] transition-all duration-500 font-mono h-full flex flex-col">
+        {/* macOS Terminal Dots */}
+        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 dark:border-[#2a2b2e]/50 bg-slate-50/50 dark:bg-[#1a1b1e]">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+        </div>
+        <div className="flex-1 flex flex-col relative z-10">
+          {children}
+        </div>
       </Card>
     </motion.div>
   );
@@ -292,13 +289,7 @@ export function AnalyticsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={revenueWeekly}>
               <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
+                
 
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -312,7 +303,7 @@ export function AnalyticsPage() {
                 content={<CustomTooltip />}
                 formatter={(v) => [fmt(Number(v ?? 0)), "Доход"]}
               />
-              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" style={{ filter: "url(#glow)" }} />
+              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)"  />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -321,15 +312,7 @@ export function AnalyticsPage() {
         <ChartCard index={17} title="Новые пользователи по неделям (90 дн.)" icon={UserPlus}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={clientsWeekly}>
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-</defs>
+              
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
@@ -337,7 +320,7 @@ export function AnalyticsPage() {
                 content={<CustomTooltip />}
                 formatter={(v) => [Number(v ?? 0), "Пользователей"]}
               />
-              <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
+              <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]}  />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -346,15 +329,7 @@ export function AnalyticsPage() {
         <ChartCard index={18} title="Триалы по неделям (90 дн.)" icon={Zap}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={trialsWeekly}>
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-</defs>
+              
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
@@ -362,7 +337,7 @@ export function AnalyticsPage() {
                 content={<CustomTooltip />}
                 formatter={(v) => [Number(v ?? 0), "Триалов"]}
               />
-              <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
+              <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]}  />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -373,13 +348,7 @@ export function AnalyticsPage() {
             <AreaChart data={refCreditsWeekly}>
               <defs>
                 
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
+                
 
                 <linearGradient id="refGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
@@ -393,7 +362,7 @@ export function AnalyticsPage() {
                 content={<CustomTooltip />}
                 formatter={(v) => [fmtDec(Number(v ?? 0)), "Выплаты"]}
               />
-              <Area type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#refGrad)" style={{ filter: "url(#glow)" }} />
+              <Area type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#refGrad)"  />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -402,21 +371,13 @@ export function AnalyticsPage() {
         <ChartCard index={20} title="Промо активации по неделям (90 дн.)" icon={Gift}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={promoWeekly}>
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-</defs>
+              
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="v1" name="Промо-ссылки" fill="#8b5cf6" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
-              <Line type="monotone" dataKey="v2" name="Промокоды" stroke="#06b6d4" strokeWidth={2} dot={false} style={{ filter: "url(#glow)" }} />
+              <Bar dataKey="v1" name="Промо-ссылки" fill="#8b5cf6" radius={[4, 4, 0, 0]}  />
+              <Line type="monotone" dataKey="v2" name="Промокоды" stroke="#06b6d4" strokeWidth={2} dot={false}  />
               <Legend wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.9)" }} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -426,15 +387,7 @@ export function AnalyticsPage() {
         <ChartCard index={21} title="Источники клиентов" icon={Users}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-</defs>
+              
               <Pie
                 data={[
                   { name: "Только бот", value: s.botClients },
@@ -448,7 +401,7 @@ export function AnalyticsPage() {
                 outerRadius={90}
                 stroke="hsl(var(--background))"
                 strokeWidth={2}
-                style={{ filter: "url(#glow)" }}
+                
                 label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {[COLORS[0], COLORS[2], COLORS[1]].map((c, i) => (
@@ -472,15 +425,7 @@ export function AnalyticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
 
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
+              
                 <Pie
                   data={data.providerSeries}
                   dataKey="amount"
@@ -490,7 +435,7 @@ export function AnalyticsPage() {
                   outerRadius={90}
                 stroke="hsl(var(--background))"
                 strokeWidth={2}
-                style={{ filter: "url(#glow)" }}
+                
                   label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {data.providerSeries.map((_, i) => (
@@ -514,15 +459,7 @@ export function AnalyticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.topTariffs} layout="vertical" margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-</defs>
+              
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
                 <XAxis type="number" tick={{ fontSize: 11 }} className="text-slate-500" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} className="text-slate-500" />
@@ -530,7 +467,7 @@ export function AnalyticsPage() {
                   content={<CustomTooltip />}
                   formatter={(v: any) => [fmt(Number(v ?? 0)), "Доход"]}
                 />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Доход" radius={[0, 4, 4, 0]} style={{ filter: "url(#glow)" }} />
+                <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Доход" radius={[0, 4, 4, 0]}  />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -550,7 +487,7 @@ export function AnalyticsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm font-mono text-slate-800 dark:text-white/90">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">
+                    <tr className="border-b border-slate-200 dark:border-[#2a2b2e] bg-slate-50/50 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400">
                       <th className="text-left px-4 py-3 font-medium">Источник</th>
                       <th className="text-left px-4 py-3 font-medium">Кампания</th>
                       <th className="text-right px-4 py-3 font-medium">Регистрации</th>
@@ -561,7 +498,7 @@ export function AnalyticsPage() {
                   </thead>
                   <tbody>
                     {data.campaignsStats.map((row, i) => (
-                      <tr key={i} className="border-b border-white/5 hover:bg-white/10 dark:hover:bg-primary/5 transition-colors">
+                      <tr key={i} className="border-b border-slate-100 dark:border-[#2a2b2e]/50 hover:bg-slate-50 dark:hover:bg-[#2a2b2e]/30 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{row.source}</td>
                         <td className="px-4 py-3 opacity-70">{row.campaign ?? "—"}</td>
                         <td className="px-4 py-3 text-right">{fmt(row.registrations)}</td>
@@ -591,7 +528,7 @@ export function AnalyticsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm font-mono text-slate-800 dark:text-white/90">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">
+                    <tr className="border-b border-slate-200 dark:border-[#2a2b2e] bg-slate-50/50 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400">
                       <th className="text-left px-4 py-3 font-medium">#</th>
                       <th className="text-left px-4 py-3 font-medium">Реферер</th>
                       <th className="text-right px-4 py-3 font-medium">Рефералов</th>
@@ -604,7 +541,7 @@ export function AnalyticsPage() {
                   </thead>
                   <tbody>
                     {data.topReferrers.map((r, i) => (
-                      <tr key={r.id} className="border-b border-white/5 hover:bg-white/10 dark:hover:bg-primary/5 transition-colors">
+                      <tr key={r.id} className="border-b border-slate-100 dark:border-[#2a2b2e]/50 hover:bg-slate-50 dark:hover:bg-[#2a2b2e]/30 transition-colors">
                         <td className="px-4 py-3 opacity-50">{i + 1}</td>
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{r.name}</td>
                         <td className="px-4 py-3 text-right">{r.referrals}</td>
@@ -635,10 +572,9 @@ export function AnalyticsPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Промо-ссылки */}
           <GlassCard animIndex={29}>
-            <CardHeader className="pb-2 border-b border-white/10 relative">
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
-              <CardTitle className="text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-white">
-                <span className="text-primary/50">[</span> Промо-ссылки (топ 10) <span className="text-primary/50">]</span>
+            <CardHeader className="pb-2 relative pt-4 px-5">
+              <CardTitle className="text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-slate-300">
+                <span className="text-slate-400 dark:text-[#4a4b4e]">[</span> Промо-ссылки (топ 10) <span className="text-slate-400 dark:text-[#4a4b4e]">]</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -648,7 +584,7 @@ export function AnalyticsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm font-mono text-slate-800 dark:text-white/90">
                     <thead>
-                      <tr className="border-b border-white/10 bg-white/5 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">
+                      <tr className="border-b border-slate-200 dark:border-[#2a2b2e] bg-slate-50/50 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400">
                         <th className="text-left px-4 py-3 font-medium">Название</th>
                         <th className="text-left px-4 py-3 font-medium">Код</th>
                         <th className="text-right px-4 py-3 font-medium">Активаций</th>
@@ -657,7 +593,7 @@ export function AnalyticsPage() {
                     </thead>
                     <tbody>
                       {data.promoGroupStats.map((g) => (
-                        <tr key={g.code} className="border-b border-white/5 hover:bg-white/10 dark:hover:bg-primary/5 transition-colors">
+                        <tr key={g.code} className="border-b border-slate-100 dark:border-[#2a2b2e]/50 hover:bg-slate-50 dark:hover:bg-[#2a2b2e]/30 transition-colors">
                           <td className="px-4 py-3 text-slate-900 dark:text-white font-medium">{g.name}</td>
                           <td className="px-4 py-3 text-xs text-primary/80">{g.code}</td>
                           <td className="px-4 py-3 text-right font-medium">{g.activations}</td>
@@ -673,10 +609,9 @@ export function AnalyticsPage() {
 
           {/* Промокоды */}
           <GlassCard animIndex={30}>
-            <CardHeader className="pb-2 border-b border-white/10 relative">
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
-              <CardTitle className="text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-white">
-                <span className="text-primary/50">[</span> Промокоды (топ 10) <span className="text-primary/50">]</span>
+            <CardHeader className="pb-2 relative pt-4 px-5">
+              <CardTitle className="text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-slate-300">
+                <span className="text-slate-400 dark:text-[#4a4b4e]">[</span> Промокоды (топ 10) <span className="text-slate-400 dark:text-[#4a4b4e]">]</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -686,7 +621,7 @@ export function AnalyticsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm font-mono text-slate-800 dark:text-white/90">
                     <thead>
-                      <tr className="border-b border-white/10 bg-white/5 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-primary/60">
+                      <tr className="border-b border-slate-200 dark:border-[#2a2b2e] bg-slate-50/50 dark:bg-transparent text-xs tracking-widest uppercase text-slate-500 dark:text-slate-400">
                         <th className="text-left px-4 py-3 font-medium">Код</th>
                         <th className="text-left px-4 py-3 font-medium">Тип</th>
                         <th className="text-right px-4 py-3 font-medium">Использований</th>
@@ -695,7 +630,7 @@ export function AnalyticsPage() {
                     </thead>
                     <tbody>
                       {data.promoCodeStats.map((c) => (
-                        <tr key={c.code} className="border-b border-white/5 hover:bg-white/10 dark:hover:bg-primary/5 transition-colors">
+                        <tr key={c.code} className="border-b border-slate-100 dark:border-[#2a2b2e]/50 hover:bg-slate-50 dark:hover:bg-[#2a2b2e]/30 transition-colors">
                           <td className="px-4 py-3 text-xs text-primary/80">{c.code}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center border px-2 py-0.5 text-[10px] tracking-widest uppercase font-bold ${
@@ -767,17 +702,15 @@ function MetricCard({
   color?: string;
 }) {
   const theme = {
-    borderHover: "hover:border-primary/50",
-    shadowHover: "hover:shadow-primary/10",
-    gradient: "from-transparent via-primary/50 to-transparent",
-    bracket: "text-primary/50",
-    title: "text-slate-800 dark:text-slate-300",
-    iconBg: "bg-primary/10",
-    iconBorder: "border-primary/20",
-    iconShadow: "shadow-[0_0_15px_hsl(var(--primary)/0.2)]",
-    iconText: "text-primary",
-    subtitle: "text-primary/70",
-    valueGlow: "drop-shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
+    borderHover: "hover:border-slate-300 dark:hover:border-[#3a3b3e]",
+    shadowHover: "hover:shadow-md dark:hover:shadow-xl",
+    bracket: "text-slate-400 dark:text-[#4a4b4e]",
+    title: "text-slate-600 dark:text-slate-400",
+    iconBg: "bg-slate-100 dark:bg-[#2a2b2e]",
+    iconBorder: "border-slate-200 dark:border-[#3a3b3e]",
+    iconText: "text-slate-600 dark:text-slate-400",
+    subtitle: "text-slate-500 dark:text-slate-500",
+    valueGlow: "",
   };
 
   const renderValue = () => {
@@ -787,11 +720,11 @@ function MetricCard({
         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
           {parts.map((part, i) => (
             <Fragment key={i}>
-              <div className={`px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white ${theme.valueGlow}`}>
+              <div className={`px-2 py-0.5 rounded bg-slate-100 dark:bg-[#2a2b2e] border border-slate-200 dark:border-[#3a3b3e] text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white ${theme.valueGlow}`}>
                 {part}
               </div>
               {i < parts.length - 1 && (
-                <span className="text-primary/40 font-bold text-sm">/</span>
+                <span className="text-slate-400 dark:text-slate-600 font-bold text-sm">/</span>
               )}
             </Fragment>
           ))}
@@ -807,18 +740,15 @@ function MetricCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
-      <Card className={`group relative h-full overflow-hidden bg-white/50 dark:bg-[#0A0A0F]/80 backdrop-blur-md border border-slate-200 dark:border-white/5 hover:-translate-y-1 transition-all duration-300 font-mono ${theme.borderHover} shadow-lg ${theme.shadowHover}`}>
-        {/* Matrix background */}
-        <div 
-          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none transition-opacity duration-300 group-hover:opacity-[0.05] dark:group-hover:opacity-[0.08]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-          }}
-        />
-        {/* Terminal Header Bar */}
-        <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${theme.gradient} opacity-50 group-hover:opacity-100 transition-opacity duration-500`} />
+      <Card className={`group relative h-full overflow-hidden bg-white dark:bg-[#1a1b1e]/95 shadow-sm border border-slate-200 dark:border-[#2a2b2e] hover:-translate-y-1 transition-all duration-500 font-mono flex flex-col ${theme.borderHover} ${theme.shadowHover}`}>
+        {/* macOS Terminal Dots */}
+        <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 dark:border-[#2a2b2e]/50 bg-slate-50/50 dark:bg-[#1a1b1e]">
+          <div className="w-2 h-2 rounded-full bg-[#ff5f56]" />
+          <div className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
+          <div className="w-2 h-2 rounded-full bg-[#27c93f]" />
+        </div>
         
-        <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[140px]">
+        <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[120px]">
           <div className="flex justify-between items-start w-full mb-4">
             <div className="flex items-center gap-1.5 overflow-hidden pr-2 mt-1">
               <span className={`${theme.bracket} text-[10px] sm:text-xs font-bold`}>[</span>
@@ -826,7 +756,7 @@ function MetricCard({
               <span className={`${theme.bracket} text-[10px] sm:text-xs font-bold`}>]</span>
             </div>
             <motion.div
-              className={`relative flex items-center justify-center w-8 h-8 rounded-md border backdrop-blur-sm ${theme.iconBg} ${theme.iconBorder} ${theme.iconShadow}`}
+              className={`relative flex items-center justify-center w-8 h-8 rounded-md border ${theme.iconBg} ${theme.iconBorder}`}
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
@@ -849,18 +779,17 @@ function MetricCard({
 
 function ChartCard({ title, icon: Icon, children, index = 0 }: { title: string; icon: React.ElementType; children: React.ReactNode; index?: number }) {
   return (
-    <GlassCard animIndex={index}>
-      <CardHeader className="pb-2 border-b border-white/10 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
-        <CardTitle className="flex items-center gap-2 text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-white">
-          <span className="text-primary/50">[</span>
-          <Icon className="h-4 w-4 text-primary" />
+    <GlassCard animIndex={index} className="flex flex-col">
+      <CardHeader className="pb-2 relative pt-4 px-5">
+        <CardTitle className="flex items-center gap-2 text-sm font-mono tracking-widest uppercase text-slate-800 dark:text-slate-300">
+          <span className="text-slate-400 dark:text-[#4a4b4e]">[</span>
+          <Icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
           {title}
-          <span className="text-primary/50">]</span>
+          <span className="text-slate-400 dark:text-[#4a4b4e]">]</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-4 relative">
-        <div className="h-72">{children}</div>
+      <CardContent className="pt-2 pb-5 px-5 relative flex-1">
+        <div className="h-72 w-full">{children}</div>
       </CardContent>
     </GlassCard>
   );
