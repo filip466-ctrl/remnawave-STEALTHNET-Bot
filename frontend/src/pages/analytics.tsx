@@ -292,19 +292,27 @@ export function AnalyticsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={revenueWeekly}>
               <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" />
               <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                content={<CustomTooltip />}
                 formatter={(v) => [fmt(Number(v ?? 0)), "Доход"]}
               />
-              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" />
+              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" style={{ filter: "url(#glow)" }} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -313,14 +321,23 @@ export function AnalyticsPage() {
         <ChartCard index={17} title="Новые пользователи по неделям (90 дн.)" icon={UserPlus}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={clientsWeekly}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+</defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                content={<CustomTooltip />}
                 formatter={(v) => [Number(v ?? 0), "Пользователей"]}
               />
-              <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -329,14 +346,23 @@ export function AnalyticsPage() {
         <ChartCard index={18} title="Триалы по неделям (90 дн.)" icon={Zap}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={trialsWeekly}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+</defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                content={<CustomTooltip />}
                 formatter={(v) => [Number(v ?? 0), "Триалов"]}
               />
-              <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -346,19 +372,28 @@ export function AnalyticsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={refCreditsWeekly}>
               <defs>
+                
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
                 <linearGradient id="refGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" />
               <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                content={<CustomTooltip />}
                 formatter={(v) => [fmtDec(Number(v ?? 0)), "Выплаты"]}
               />
-              <Area type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#refGrad)" />
+              <Area type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#refGrad)" style={{ filter: "url(#glow)" }} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -367,14 +402,21 @@ export function AnalyticsPage() {
         <ChartCard index={20} title="Промо активации по неделям (90 дн.)" icon={Gift}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={promoWeekly}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+</defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-slate-500" />
               <YAxis tick={{ fontSize: 11 }} className="text-slate-500" allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
-              />
-              <Bar dataKey="v1" name="Промо-ссылки" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-              <Line type="monotone" dataKey="v2" name="Промокоды" stroke="#06b6d4" strokeWidth={2} dot={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="v1" name="Промо-ссылки" fill="#8b5cf6" radius={[4, 4, 0, 0]} style={{ filter: "url(#glow)" }} />
+              <Line type="monotone" dataKey="v2" name="Промокоды" stroke="#06b6d4" strokeWidth={2} dot={false} style={{ filter: "url(#glow)" }} />
               <Legend wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.9)" }} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -384,6 +426,15 @@ export function AnalyticsPage() {
         <ChartCard index={21} title="Источники клиентов" icon={Users}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+</defs>
               <Pie
                 data={[
                   { name: "Только бот", value: s.botClients },
@@ -395,6 +446,9 @@ export function AnalyticsPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={90}
+                stroke="hsl(var(--background))"
+                strokeWidth={2}
+                style={{ filter: "url(#glow)" }}
                 label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {[COLORS[0], COLORS[2], COLORS[1]].map((c, i) => (
@@ -402,7 +456,7 @@ export function AnalyticsPage() {
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                content={<CustomTooltip />}
                 formatter={(v) => [Number(v ?? 0), "Клиентов"]}
               />
               <Legend wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.9)" }} />
@@ -417,6 +471,16 @@ export function AnalyticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
+
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
                 <Pie
                   data={data.providerSeries}
                   dataKey="amount"
@@ -424,6 +488,9 @@ export function AnalyticsPage() {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
+                stroke="hsl(var(--background))"
+                strokeWidth={2}
+                style={{ filter: "url(#glow)" }}
                   label={({ name, percent }: { name?: string; percent?: number }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {data.providerSeries.map((_, i) => (
@@ -431,7 +498,7 @@ export function AnalyticsPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                  content={<CustomTooltip />}
                   formatter={(v) => [fmt(Number(v ?? 0)), "Сумма"]}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.9)" }} />
@@ -447,14 +514,23 @@ export function AnalyticsPage() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.topTariffs} layout="vertical" margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-white/10" />
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+</defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-slate-200 dark:stroke-white/10" />
                 <XAxis type="number" tick={{ fontSize: 11 }} className="text-slate-500" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} className="text-slate-500" />
                 <Tooltip
-                  contentStyle={{ background: "rgba(10,10,20,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", color: "white", fontSize: "12px" }}
+                  content={<CustomTooltip />}
                   formatter={(v: any) => [fmt(Number(v ?? 0)), "Доход"]}
                 />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Доход" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Доход" radius={[0, 4, 4, 0]} style={{ filter: "url(#glow)" }} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -647,6 +723,33 @@ export function AnalyticsPage() {
 }
 
 // ─── Компоненты ───
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white/90 dark:bg-slate-950/90 text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl text-xs font-mono z-50">
+        {label && <p className="font-bold mb-1.5 opacity-80 border-b border-slate-200 dark:border-white/10 pb-1">{label}</p>}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center justify-between gap-4 py-0.5">
+            <div className="flex items-center gap-1.5">
+              <div 
+                className="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" 
+                style={{ 
+                  backgroundColor: entry.color || entry.payload?.fill || 'hsl(var(--primary))',
+                  color: entry.color || entry.payload?.fill || 'hsl(var(--primary))'
+                }} 
+              />
+              <span className="opacity-80">{entry.name}</span>
+            </div>
+            <span className="font-bold">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 
 function MetricCard({
   index = 0,
