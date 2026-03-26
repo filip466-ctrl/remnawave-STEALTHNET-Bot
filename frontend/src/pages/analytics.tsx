@@ -75,7 +75,7 @@ function GlassCard({
 }) {
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={animIndex} className={`h-full ${className}`}>
-      <Card className="group relative overflow-hidden bg-white dark:bg-[#2A2B32]/95 shadow-sm border border-slate-200 dark:border-[#3A3B42]/50 hover:border-slate-300 dark:hover:border-[#4a4b52] transition-all duration-500 font-mono h-full flex flex-col">
+      <Card className="group relative overflow-hidden !bg-white dark:!bg-[#262730] shadow-sm border !border-slate-200 dark:!border-[#3A3B42] hover:border-slate-300 dark:hover:border-[#4a4b52] transition-all duration-500 font-mono h-full flex flex-col">
          <div className="flex-1 flex flex-col relative z-10 pt-4">
            {children}
          </div>
@@ -734,7 +734,7 @@ function MetricCard({
 
    return (
      <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
-       <Card className={`group relative h-full overflow-hidden bg-white dark:bg-[#2A2B32]/95 shadow-sm border border-slate-200 dark:border-[#3A3B42]/50 hover:-translate-y-1 transition-all duration-500 font-mono flex flex-col ${theme.borderHover} ${theme.shadowHover}`}>
+       <Card className={`group relative h-full overflow-hidden !bg-white dark:!bg-[#262730] shadow-sm border !border-slate-200 dark:!border-[#3A3B42] hover:-translate-y-1 transition-all duration-500 font-mono flex flex-col ${theme.borderHover} ${theme.shadowHover}`}>
          
          <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[120px]">
           <div className="flex justify-between items-start w-full mb-4">
