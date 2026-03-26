@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useAuth } from "@/contexts/auth";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -654,7 +654,7 @@ function MetricCard({
   label,
   value,
   sub,
-  color,
+  color: _color,
 }: {
   index?: number;
   icon: React.ElementType;
@@ -663,99 +663,44 @@ function MetricCard({
   sub?: string;
   color?: string;
 }) {
-  let mappedColor: "primary" | "emerald" | "amber" | "red" | "violet" | "cyan" = "primary";
-  if (color?.includes("green")) mappedColor = "emerald";
-  else if (color?.includes("blue")) mappedColor = "cyan";
-  else if (color?.includes("indigo")) mappedColor = "primary";
-  else if (color?.includes("cyan")) mappedColor = "cyan";
-  else if (color?.includes("violet")) mappedColor = "violet";
-  else if (color?.includes("orange")) mappedColor = "amber";
-  else if (color?.includes("emerald")) mappedColor = "emerald";
-  else if (color?.includes("amber")) mappedColor = "amber";
-  else if (color?.includes("rose") || color?.includes("pink")) mappedColor = "red";
-  else if (color?.includes("yellow")) mappedColor = "amber";
-
-  const colorMap = {
-    primary: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
-      bracket: "text-primary/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-primary/10",
-      iconBorder: "border-primary/20",
-      iconShadow: "shadow-[0_0_15px_hsl(var(--primary)/0.2)]",
-      iconText: "text-primary",
-      subtitle: "text-primary/70",
-      valueGlow: "drop-shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
-    },
-    emerald: {
-      borderHover: "hover:border-emerald-500/50",
-      shadowHover: "hover:shadow-emerald-500/10",
-      gradient: "from-transparent via-emerald-500/50 to-transparent",
-      bracket: "text-emerald-500/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-emerald-500/10",
-      iconBorder: "border-emerald-500/20",
-      iconShadow: "shadow-[0_0_15px_rgba(16,185,129,0.2)]",
-      iconText: "text-emerald-400",
-      subtitle: "text-emerald-400/70",
-      valueGlow: "drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]",
-    },
-    amber: {
-      borderHover: "hover:border-amber-500/50",
-      shadowHover: "hover:shadow-amber-500/10",
-      gradient: "from-transparent via-amber-500/50 to-transparent",
-      bracket: "text-amber-500/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-amber-500/10",
-      iconBorder: "border-amber-500/20",
-      iconShadow: "shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-      iconText: "text-amber-400",
-      subtitle: "text-amber-400/70",
-      valueGlow: "drop-shadow-[0_0_12px_rgba(245,158,11,0.3)]",
-    },
-    red: {
-      borderHover: "hover:border-red-500/50",
-      shadowHover: "hover:shadow-red-500/10",
-      gradient: "from-transparent via-red-500/50 to-transparent",
-      bracket: "text-red-500/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-red-500/10",
-      iconBorder: "border-red-500/20",
-      iconShadow: "shadow-[0_0_15px_rgba(239,68,68,0.2)]",
-      iconText: "text-red-400",
-      subtitle: "text-red-400/70",
-      valueGlow: "drop-shadow-[0_0_12px_rgba(239,68,68,0.3)]",
-    },
-    violet: {
-      borderHover: "hover:border-violet-500/50",
-      shadowHover: "hover:shadow-violet-500/10",
-      gradient: "from-transparent via-violet-500/50 to-transparent",
-      bracket: "text-violet-500/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-violet-500/10",
-      iconBorder: "border-violet-500/20",
-      iconShadow: "shadow-[0_0_15px_rgba(139,92,246,0.2)]",
-      iconText: "text-violet-400",
-      subtitle: "text-violet-400/70",
-      valueGlow: "drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]",
-    },
-    cyan: {
-      borderHover: "hover:border-cyan-500/50",
-      shadowHover: "hover:shadow-cyan-500/10",
-      gradient: "from-transparent via-cyan-500/50 to-transparent",
-      bracket: "text-cyan-500/50",
-      title: "text-slate-200 dark:text-slate-300",
-      iconBg: "bg-cyan-500/10",
-      iconBorder: "border-cyan-500/20",
-      iconShadow: "shadow-[0_0_15px_rgba(6,182,212,0.2)]",
-      iconText: "text-cyan-400",
-      subtitle: "text-cyan-400/70",
-      valueGlow: "drop-shadow-[0_0_12px_rgba(6,182,212,0.3)]",
-    },
+  const theme = {
+    borderHover: "hover:border-primary/50",
+    shadowHover: "hover:shadow-primary/10",
+    gradient: "from-transparent via-primary/50 to-transparent",
+    bracket: "text-primary/50",
+    title: "text-slate-200 dark:text-slate-300",
+    iconBg: "bg-primary/10",
+    iconBorder: "border-primary/20",
+    iconShadow: "shadow-[0_0_15px_hsl(var(--primary)/0.2)]",
+    iconText: "text-primary",
+    subtitle: "text-primary/70",
+    valueGlow: "drop-shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
   };
-  const theme = colorMap[mappedColor];
+
+  const renderValue = () => {
+    if (typeof value === "string" && value.includes(" / ")) {
+      const parts = value.split(" / ");
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+          {parts.map((part, i) => (
+            <Fragment key={i}>
+              <div className={`px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-lg sm:text-xl font-black tracking-tight text-white ${theme.valueGlow}`}>
+                {part}
+              </div>
+              {i < parts.length - 1 && (
+                <span className="text-primary/40 font-bold text-sm">/</span>
+              )}
+            </Fragment>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className={`text-2xl sm:text-3xl font-black tracking-tight text-white mb-1.5 ${theme.valueGlow}`}>
+        {value}
+      </div>
+    );
+  };
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
@@ -787,9 +732,7 @@ function MetricCard({
           </div>
           
           <div className="mt-auto">
-            <div className={`text-2xl sm:text-3xl font-black tracking-tight text-white mb-1.5 ${theme.valueGlow}`}>
-              {value}
-            </div>
+            {renderValue()}
             <div className={`text-[9px] sm:text-[10px] tracking-widest uppercase font-semibold ${theme.subtitle} flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity`}>
               <span className={`${theme.bracket} opacity-70`}>&gt;</span>
               <span className="truncate">{sub || "DATA_POINT"}</span>
