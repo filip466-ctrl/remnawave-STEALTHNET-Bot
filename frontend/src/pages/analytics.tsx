@@ -668,7 +668,7 @@ function MetricCard({
     shadowHover: "hover:shadow-primary/10",
     gradient: "from-transparent via-primary/50 to-transparent",
     bracket: "text-primary/50",
-    title: "text-slate-200 dark:text-slate-300",
+    title: "text-slate-800 dark:text-slate-300",
     iconBg: "bg-primary/10",
     iconBorder: "border-primary/20",
     iconShadow: "shadow-[0_0_15px_hsl(var(--primary)/0.2)]",
@@ -684,7 +684,7 @@ function MetricCard({
         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
           {parts.map((part, i) => (
             <Fragment key={i}>
-              <div className={`px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-lg sm:text-xl font-black tracking-tight text-white ${theme.valueGlow}`}>
+              <div className={`px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white ${theme.valueGlow}`}>
                 {part}
               </div>
               {i < parts.length - 1 && (
@@ -696,7 +696,7 @@ function MetricCard({
       );
     }
     return (
-      <div className={`text-2xl sm:text-3xl font-black tracking-tight text-white mb-1.5 ${theme.valueGlow}`}>
+      <div className={`text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white mb-1.5 ${theme.valueGlow}`}>
         {value}
       </div>
     );
@@ -704,10 +704,10 @@ function MetricCard({
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
-      <Card className={`group relative h-full overflow-hidden bg-slate-950/40 dark:bg-[#0A0A0F]/80 backdrop-blur-md border border-white/5 hover:-translate-y-1 transition-all duration-300 font-mono ${theme.borderHover} shadow-lg ${theme.shadowHover}`}>
+      <Card className={`group relative h-full overflow-hidden bg-white/50 dark:bg-[#0A0A0F]/80 backdrop-blur-md border border-slate-200 dark:border-white/5 hover:-translate-y-1 transition-all duration-300 font-mono ${theme.borderHover} shadow-lg ${theme.shadowHover}`}>
         {/* Matrix background */}
         <div 
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none transition-opacity duration-300 group-hover:opacity-[0.08]"
+          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05] pointer-events-none transition-opacity duration-300 group-hover:opacity-[0.05] dark:group-hover:opacity-[0.08]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
