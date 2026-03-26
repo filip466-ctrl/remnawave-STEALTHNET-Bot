@@ -672,8 +672,7 @@ function MetricCard({
   else if (color?.includes("orange")) mappedColor = "amber";
   else if (color?.includes("emerald")) mappedColor = "emerald";
   else if (color?.includes("amber")) mappedColor = "amber";
-  else if (color?.includes("rose")) mappedColor = "red";
-  else if (color?.includes("pink")) mappedColor = "red";
+  else if (color?.includes("rose") || color?.includes("pink")) mappedColor = "red";
   else if (color?.includes("yellow")) mappedColor = "amber";
 
   const colorMap = {
@@ -682,121 +681,121 @@ function MetricCard({
       shadowHover: "hover:shadow-primary/10",
       gradient: "from-transparent via-primary/50 to-transparent",
       bracket: "text-primary/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_hsl(var(--primary)/0.15)]",
-      iconText: "text-slate-800 dark:text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.8)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-primary/10",
+      iconBorder: "border-primary/20",
+      iconShadow: "shadow-[0_0_15px_hsl(var(--primary)/0.2)]",
+      iconText: "text-primary",
+      subtitle: "text-primary/70",
+      valueGlow: "drop-shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
     },
     emerald: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
+      borderHover: "hover:border-emerald-500/50",
+      shadowHover: "hover:shadow-emerald-500/10",
+      gradient: "from-transparent via-emerald-500/50 to-transparent",
       bracket: "text-emerald-500/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_rgba(16,185,129,0.1)]",
-      iconText: "text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-emerald-500/10",
+      iconBorder: "border-emerald-500/20",
+      iconShadow: "shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+      iconText: "text-emerald-400",
+      subtitle: "text-emerald-400/70",
+      valueGlow: "drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]",
     },
     amber: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
+      borderHover: "hover:border-amber-500/50",
+      shadowHover: "hover:shadow-amber-500/10",
+      gradient: "from-transparent via-amber-500/50 to-transparent",
       bracket: "text-amber-500/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_rgba(245,158,11,0.1)]",
-      iconText: "text-amber-600 dark:text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-amber-500/10",
+      iconBorder: "border-amber-500/20",
+      iconShadow: "shadow-[0_0_15px_rgba(245,158,11,0.2)]",
+      iconText: "text-amber-400",
+      subtitle: "text-amber-400/70",
+      valueGlow: "drop-shadow-[0_0_12px_rgba(245,158,11,0.3)]",
     },
     red: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
+      borderHover: "hover:border-red-500/50",
+      shadowHover: "hover:shadow-red-500/10",
+      gradient: "from-transparent via-red-500/50 to-transparent",
       bracket: "text-red-500/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_rgba(239,68,68,0.1)]",
-      iconText: "text-red-600 dark:text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-red-500/10",
+      iconBorder: "border-red-500/20",
+      iconShadow: "shadow-[0_0_15px_rgba(239,68,68,0.2)]",
+      iconText: "text-red-400",
+      subtitle: "text-red-400/70",
+      valueGlow: "drop-shadow-[0_0_12px_rgba(239,68,68,0.3)]",
     },
     violet: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
+      borderHover: "hover:border-violet-500/50",
+      shadowHover: "hover:shadow-violet-500/10",
+      gradient: "from-transparent via-violet-500/50 to-transparent",
       bracket: "text-violet-500/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_rgba(139,92,246,0.1)]",
-      iconText: "text-violet-600 dark:text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-violet-500/10",
+      iconBorder: "border-violet-500/20",
+      iconShadow: "shadow-[0_0_15px_rgba(139,92,246,0.2)]",
+      iconText: "text-violet-400",
+      subtitle: "text-violet-400/70",
+      valueGlow: "drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]",
     },
     cyan: {
-      borderHover: "hover:border-primary/50",
-      shadowHover: "hover:shadow-primary/10",
-      gradient: "from-transparent via-primary/50 to-transparent",
+      borderHover: "hover:border-cyan-500/50",
+      shadowHover: "hover:shadow-cyan-500/10",
+      gradient: "from-transparent via-cyan-500/50 to-transparent",
       bracket: "text-cyan-500/50",
-      title: "text-slate-900 dark:text-white",
-      iconBg: "dark:bg-primary/30",
-      iconBorder: "dark:border-white/10",
-      iconShadow: "shadow-[0_0_10px_rgba(6,182,212,0.1)]",
-      iconText: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]",
-      subtitle: "text-primary/70 dark:text-primary",
-      valueGlow: "text-slate-900 dark:text-white dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]",
+      title: "text-slate-200 dark:text-slate-300",
+      iconBg: "bg-cyan-500/10",
+      iconBorder: "border-cyan-500/20",
+      iconShadow: "shadow-[0_0_15px_rgba(6,182,212,0.2)]",
+      iconText: "text-cyan-400",
+      subtitle: "text-cyan-400/70",
+      valueGlow: "drop-shadow-[0_0_12px_rgba(6,182,212,0.3)]",
     },
   };
   const theme = colorMap[mappedColor];
 
   return (
-    <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className={`group relative overflow-hidden bg-white/5 dark:bg-white/5 bg-gradient-to-br from-white/5 to-transparent dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-md border border-white/10 dark:border-white/10 hover:-translate-y-1 transition-all duration-500 font-mono ${theme.borderHover} ${theme.shadowHover}`}>
+    <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible" className="h-full">
+      <Card className={`group relative h-full overflow-hidden bg-slate-950/40 dark:bg-[#0A0A0F]/80 backdrop-blur-md border border-white/5 hover:-translate-y-1 transition-all duration-300 font-mono ${theme.borderHover} shadow-lg ${theme.shadowHover}`}>
         {/* Matrix background */}
         <div 
-          className="absolute inset-0 opacity-[0.06] dark:opacity-[0.10] pointer-events-none"
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none transition-opacity duration-300 group-hover:opacity-[0.08]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L12 20L0 0M24 40L12 20L24 0' stroke='var(--primary)' stroke-width='1' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E")`,
           }}
         />
         {/* Terminal Header Bar */}
-        <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+        <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${theme.gradient} opacity-50 group-hover:opacity-100 transition-opacity duration-500`} />
         
-        <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2 pt-4">
-          <div className="flex items-center gap-2 overflow-hidden mr-2">
-            <span className={`${theme.bracket} text-xs hidden sm:inline`}>[</span>
-            <CardTitle className={`text-[10px] sm:text-xs font-bold tracking-widest uppercase ${theme.title} truncate`}>{label}</CardTitle>
-            <span className={`${theme.bracket} text-xs hidden sm:inline`}>]</span>
+        <div className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10 min-h-[140px]">
+          <div className="flex justify-between items-start w-full mb-4">
+            <div className="flex items-center gap-1.5 overflow-hidden pr-2 mt-1">
+              <span className={`${theme.bracket} text-[10px] sm:text-xs font-bold`}>[</span>
+              <h3 className={`text-[10px] sm:text-xs font-bold tracking-[0.1em] uppercase ${theme.title} truncate`}>{label}</h3>
+              <span className={`${theme.bracket} text-[10px] sm:text-xs font-bold`}>]</span>
+            </div>
+            <motion.div
+              className={`relative flex items-center justify-center w-8 h-8 rounded-md border backdrop-blur-sm ${theme.iconBg} ${theme.iconBorder} ${theme.iconShadow}`}
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
+              <Icon className={`w-4 h-4 ${theme.iconText}`} />
+            </motion.div>
           </div>
-          <motion.div
-            className={`relative flex items-center justify-center h-8 w-8 shrink-0 rounded-none border border-white/20 bg-white/10 ${theme.iconBg} ${theme.iconBorder} ${theme.iconShadow}`}
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            transition={{ type: "spring", stiffness: 400, damping: 15 }}
-          >
-            <Icon className={`h-4 w-4 ${theme.iconText}`} />
-          </motion.div>
-        </CardHeader>
-        <CardContent className="relative pb-4">
-          <div className="flex items-end justify-between gap-2 mt-2">
-            <div>
-              <div className={`text-xl sm:text-2xl font-bold tracking-widest tabular-nums ${theme.valueGlow}`}>
-                {value}
-              </div>
-              <p className={`text-[9px] sm:text-[10px] mt-1 tracking-widest uppercase text-slate-500 ${theme.subtitle} truncate max-w-[200px]`}>
-                &gt; {sub || "DATA_POINT"}
-              </p>
+          
+          <div className="mt-auto">
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight text-white mb-1.5 ${theme.valueGlow}`}>
+              {value}
+            </div>
+            <div className={`text-[9px] sm:text-[10px] tracking-widest uppercase font-semibold ${theme.subtitle} flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity`}>
+              <span className={`${theme.bracket} opacity-70`}>&gt;</span>
+              <span className="truncate">{sub || "DATA_POINT"}</span>
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </motion.div>
   );
