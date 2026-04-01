@@ -13,11 +13,18 @@ const envSchema = z.object({
     z.string().url().optional()
   ),
   REMNA_ADMIN_TOKEN: z.string().optional(),
+  REMNA_SECRET_KEY: z.string().optional(),
   CORS_ORIGIN: z.string().default("*"),
   /** Cron для авто-рассылки (например "0 9 * * *" = 9:00 каждый день). Пусто = по умолчанию 9:00. */
   AUTO_BROADCAST_CRON: z.string().optional(),
   /** Cron для ежедневного напоминания об активном конкурсе (по умолчанию "0 10 * * *" = 10:00). */
   CONTEST_REMINDER_CRON: z.string().optional(),
+  /** Path to MaxMind GeoLite2-City.mmdb file for IP geolocation. */
+  MAXMIND_DB_PATH: z.string().optional(),
+  /** MaxMind license key for automatic DB download (optional). */
+  MAXMIND_LICENSE_KEY: z.string().optional(),
+  /** TTL (seconds) for the geo-map aggregated data cache. Default 60. */
+  GEO_CACHE_TTL: z.coerce.number().default(60),
 });
 
 export type Env = z.infer<typeof envSchema>;
