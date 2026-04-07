@@ -259,6 +259,7 @@ export async function createPlategaPayment(
     tariffId?: string;
     proxyTariffId?: string;
     singboxTariffId?: string;
+    promoCode?: string;
     extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string };
   }
 ): Promise<{ paymentUrl: string; orderId: string; paymentId: string }> {
@@ -550,13 +551,15 @@ export async function postBotAdminBroadcast(
   telegramId: number,
   message: string,
   channel: "telegram" | "email" | "both",
-  photoFileId?: string
+  photoFileId?: string,
+  buttonText?: string,
+  buttonUrl?: string
 ): Promise<{ ok: boolean; sentTelegram: number; sentEmail: number; failedTelegram: number; failedEmail: number; errors: string[] }> {
   const botToken = process.env.BOT_TOKEN || "";
   const res = await fetch(`${API_URL}${BOT_ADMIN_BASE}/broadcast`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken },
-    body: JSON.stringify({ telegramId, message, channel, photoFileId: photoFileId ?? undefined }),
+    body: JSON.stringify({ telegramId, message, channel, photoFileId: photoFileId ?? undefined, buttonText: buttonText ?? undefined, buttonUrl: buttonUrl ?? undefined }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     ok: boolean;

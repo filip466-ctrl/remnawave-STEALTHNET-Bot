@@ -370,7 +370,7 @@ export function ClientTariffsPage() {
               autoComplete="off"
               inputMode="text"
               value={promoInput}
-              onChange={(e) => { setPromoInput(e.target.value); if (promoResult) { setPromoResult(null); setPromoError(null); } }}
+              onChange={(e) => setPromoInput(e.target.value)}
               placeholder={t("cabinet.tariffs.promo_placeholder")}
               className={cn("font-mono font-medium focus-visible:ring-primary/50", isMobileOrMiniapp ? "text-base bg-card/40 border-white/5 h-14 rounded-2xl" : "text-sm bg-background border-border/50 h-12 rounded-xl shadow-sm")}
               disabled={payLoading || promoChecking}

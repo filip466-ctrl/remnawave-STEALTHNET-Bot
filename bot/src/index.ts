@@ -280,7 +280,7 @@ const lastAdminSearch = new Map<number, string>();
 const awaitingAdminBalance = new Map<number, string>();
 // Админ: рассылка — ожидаем текст или фото+подпись, затем канал
 const awaitingBroadcastMessage = new Set<number>();
-type BroadcastPayload = { text: string; photoFileId?: string };
+type BroadcastPayload = { text: string; photoFileId?: string; buttonText?: string; buttonUrl?: string };
 const lastBroadcastMessage = new Map<number, string | BroadcastPayload>();
 // Админ: сквады — список для добавления/удаления (clientId + items с uuid/name)
 const lastSquadsForAdd = new Map<number, { clientId: string; items: { uuid: string; name: string }[] }>();
@@ -800,6 +800,10 @@ bot.command("start", async (ctx) => {
   const telegramId = String(from.id);
   const telegramUsername = from.username ?? undefined;
   const payload = ctx.match?.trim() || "";
+
+  // Сбрасываем состояние рассылки, чтобы баннер/фото не «залипало»
+  lastBroadcastMessage.delete(from.id);
+  awaitingBroadcastMessage.delete(from.id);
 
   // Deep-link авторизация на сайте: /start auth_TOKEN
   if (/^auth_/i.test(payload)) {
@@ -1403,7 +1407,7 @@ bot.on("callback_query:data", async (ctx) => {
       });
       lastBroadcastMessage.delete(userId);
       try {
-        const result = await api.postBotAdminBroadcast(userId, msg.text, ch, msg.photoFileId);
+        const result = await api.postBotAdminBroadcast(userId, msg.text, ch, msg.photoFileId, msg.buttonText, msg.buttonUrl);
         const text = `✅ Рассылка завершена.\n\nTelegram: отправлено ${result.sentTelegram}, ошибок ${result.failedTelegram}\nEmail: отправлено ${result.sentEmail}, ошибок ${result.failedEmail}${result.errors?.length ? "\n\nОшибки: " + result.errors.slice(0, 3).join("; ") : ""}`;
         await editMessageContent(ctx, text, {
           inline_keyboard: [[{ text: "◀️ В админку", callback_data: "admin:menu" }]],
@@ -1925,13 +1929,16 @@ bot.on("callback_query:data", async (ctx) => {
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
+          const promoCode = activeDiscountCode.get(userId);
           const payment = await api.createPlategaPayment(token, {
             amount: tariff.price,
             currency: tariff.currency,
             paymentMethod: methodIdFromBtn,
             description: `Прокси: ${tariff.name}`,
             proxyTariffId: tariff.id,
+            promoCode,
           });
+          if (promoCode) activeDiscountCode.delete(userId);
           const msg = buildPaymentMessage(config, {
             name: tariff.name,
             price: formatMoney(tariff.price, tariff.currency),
@@ -2070,13 +2077,16 @@ bot.on("callback_query:data", async (ctx) => {
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
+          const promoCode = activeDiscountCode.get(userId);
           const payment = await api.createPlategaPayment(token, {
             amount: tariff.price,
             currency: tariff.currency,
             paymentMethod: methodIdFromBtn,
             description: `Доступы: ${tariff.name}`,
             singboxTariffId: tariff.id,
+            promoCode,
           });
+          if (promoCode) activeDiscountCode.delete(userId);
           const msg = buildPaymentMessage(config, {
             name: tariff.name,
             price: formatMoney(tariff.price, tariff.currency),
@@ -2447,13 +2457,16 @@ bot.on("callback_query:data", async (ctx) => {
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
 
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
+        const promoCode = activeDiscountCode.get(userId);
         const payment = await api.createPlategaPayment(token, {
           amount: tariff.price,
           currency: tariff.currency,
           paymentMethod: methodIdFromBtn,
           description: `Тариф: ${tariff.name}`,
           tariffId: tariff.id,
+          promoCode,
         });
+        if (promoCode) activeDiscountCode.delete(userId);
         const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
@@ -2868,7 +2881,12 @@ bot.on("message:photo", async (ctx) => {
   }
   const largest = photos[photos.length - 1];
   const caption = ctx.message.caption?.trim() ?? "";
-  lastBroadcastMessage.set(userId, { text: caption, photoFileId: largest.file_id });
+  // Парсим кнопку вида [Текст кнопки](URL) из подписи
+  const btnMatch = caption.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+  const buttonText = btnMatch?.[1];
+  const buttonUrl = btnMatch?.[2];
+  const cleanCaption = btnMatch ? caption.replace(btnMatch[0], "").trim() : caption;
+  lastBroadcastMessage.set(userId, { text: cleanCaption || caption, photoFileId: largest.file_id, buttonText, buttonUrl });
   await ctx.reply("Кому отправить?", {
     reply_markup: {
       inline_keyboard: [
@@ -2902,7 +2920,12 @@ bot.on("message:text", async (ctx) => {
       await ctx.reply("Введите непустой текст сообщения.");
       return;
     }
-    lastBroadcastMessage.set(userId, { text });
+    // Парсим кнопку вида [Текст кнопки](URL) из текста
+    const btnMatch = text.match(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+    const buttonText = btnMatch?.[1];
+    const buttonUrl = btnMatch?.[2];
+    const cleanText = btnMatch ? text.replace(btnMatch[0], "").trim() : text;
+    lastBroadcastMessage.set(userId, { text: cleanText || text, buttonText, buttonUrl });
     await ctx.reply("Кому отправить?", {
       reply_markup: {
         inline_keyboard: [
