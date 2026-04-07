@@ -1,7 +1,7 @@
 {
   "name": "stealthnet-api",
-  "version": "3.2.6",
-  "description": "STEALTHNET 3.2.6 — модульный Web API",
+  "version": "3.2.7",
+  "description": "STEALTHNET 3.2.7 — модульный Web API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -29,6 +29,8 @@
     "helmet": "^7.1.0",
     "jose": "^6.2.0",
     "jsonwebtoken": "^9.0.2",
+    "lru-cache": "^11.2.7",
+    "maxmind": "^5.0.5",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",

@@ -203,6 +203,14 @@ clientAuthRouter.post("/register", async (req, res) => {
       select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true },
     });
     if (existing) {
+      if (!existing.isBlocked) {
+        const blConfig = await getSystemConfig();
+        if (blConfig.blacklistEnabled) {
+          const { checkAndBlockIfBlacklisted } = await import("../blacklist/blacklist.service.js");
+          const blocked = await checkAndBlockIfBlacklisted(data.telegramId!);
+          if (blocked) return res.status(403).json({ message: "Account is blocked" });
+        }
+      }
       if (existing.isBlocked) return res.status(403).json({ message: "Account is blocked" });
       return res.json({ token: signClientToken(existing.id), client: toClientShape(existing) });
     }
@@ -238,6 +246,16 @@ clientAuthRouter.post("/register", async (req, res) => {
     },
   });
   notifyAdminsAboutNewClient(client.id).catch(() => {});
+
+  if (data.telegramId) {
+    const blConfig2 = await getSystemConfig();
+    if (blConfig2.blacklistEnabled) {
+      const { checkAndBlockIfBlacklisted } = await import("../blacklist/blacklist.service.js");
+      const blocked = await checkAndBlockIfBlacklisted(data.telegramId);
+      if (blocked) return res.status(403).json({ message: "Account is blocked" });
+    }
+  }
+
   const token = signClientToken(client.id);
   return res.status(201).json({ token, client: toClientShape(client) });
 });
