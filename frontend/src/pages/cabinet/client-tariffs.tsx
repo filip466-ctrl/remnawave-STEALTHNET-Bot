@@ -619,7 +619,7 @@ export function ClientTariffsPage() {
             </div>
 
             <div className="p-4 sm:p-6 pb-8">
-               <PaymentContent />
+               {PaymentContent()}
             </div>
           </motion.div>
         ) : (
@@ -855,7 +855,7 @@ export function ClientTariffsPage() {
               <DialogDescription className="hidden" />
             </DialogHeader>
 
-            <PaymentContent />
+            {PaymentContent()}
 
             <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
               <Button variant="ghost" onClick={closePayment} disabled={payLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">

@@ -24,6 +24,7 @@ import { trafficAbuseRouter } from "./modules/admin/traffic-abuse.routes.js";
 import { apiKeysAdminRouter } from "./modules/api-keys/api-keys.admin.routes.js";
 import { externalApiRouter } from "./modules/api-keys/external-api.routes.js";
 import { geoMapRouter } from "./modules/geo-map/geo-map.routes.js";
+import { giftRouter } from "./modules/gift/gift.routes.js";
 
 const app = express();
 
@@ -130,6 +131,7 @@ app.use("/api/admin/singbox", singboxAdminRouter);
 app.use("/api/proxy-nodes", proxyAgentRouter);
 app.use("/api/singbox-nodes", singboxAgentRouter);
 app.use("/api/client", clientRouter);
+app.use("/api/client/gift", giftRouter);
 app.use("/api/public", publicConfigRouter);
 app.use("/api/public", contestPublicRouter);
 app.use("/api/v1", externalApiRouter);

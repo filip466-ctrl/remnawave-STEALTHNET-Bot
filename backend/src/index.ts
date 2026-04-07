@@ -7,6 +7,7 @@ import { startAutoBroadcastScheduler, stopAutoBroadcastScheduler } from "./modul
 import { startContestDailyReminderScheduler, stopContestDailyReminderScheduler } from "./modules/contest/contest-daily-reminder-scheduler.js";
 import { startAutoRenewScheduler } from "./modules/payment/auto-renew.cron.js";
 import { startAutoBackupScheduler, stopAutoBackupScheduler } from "./modules/backup/auto-backup.scheduler.js";
+import { startGiftExpiryCron } from "./modules/gift/gift-expiry.cron.js";
 
 async function main() {
   await prisma.$connect();
@@ -17,6 +18,7 @@ async function main() {
   await startAutoBroadcastScheduler();
   startContestDailyReminderScheduler(env.CONTEST_REMINDER_CRON ?? undefined);
   startAutoRenewScheduler();
+  startGiftExpiryCron();
   await startAutoBackupScheduler();
 
   const server = app.listen(env.PORT, "0.0.0.0", () => {

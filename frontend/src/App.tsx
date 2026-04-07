@@ -54,6 +54,7 @@ import { ClientProxyPage } from "@/pages/cabinet/client-proxy";
 import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
 import { ClientTicketsPage } from "@/pages/cabinet/client-tickets";
 import { ClientCustomBuildPage } from "@/pages/cabinet/client-custom-build";
+import { ClientGiftsPage } from "@/pages/cabinet/client-gifts";
 import { LandingPage } from "@/pages/landing";
 import type { PublicConfig } from "@/lib/api";
 
@@ -325,6 +326,14 @@ function AppRoutes() {
           element={
             <RequireClientAuth>
               <ClientSingboxPage />
+            </RequireClientAuth>
+          }
+        />
+        <Route
+          path="gifts"
+          element={
+            <RequireClientAuth>
+              <ClientGiftsPage />
             </RequireClientAuth>
           }
         />

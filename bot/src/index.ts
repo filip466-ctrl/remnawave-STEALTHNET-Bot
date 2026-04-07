@@ -33,6 +33,12 @@ import {
   currencyButtons,
   trialConfirmButton,
   openSubscribePageMarkup,
+  giftMenuButtons,
+  giftSubscriptionButtons,
+  giftCodeResultButtons,
+  giftCodesListButtons,
+  giftTariffButtons,
+  giftPaymentButtons,
   type InlineMarkup,
   type InnerEmojiIds,
 } from "./keyboard.js";
@@ -272,6 +278,8 @@ async function getOrRestoreToken(userId: number, username?: string): Promise<str
 const awaitingPromoCode = new Set<number>();
 // Активный промокод на скидку (хранится до оплаты)
 const activeDiscountCode = new Map<number, string>();
+// Ожидание ввода подарочного кода
+const awaitingGiftCode = new Set<number>();
 
 // Админ: ожидание ввода поиска; последний поиск по userId для пагинации
 const awaitingAdminSearch = new Set<number>();
@@ -2842,6 +2850,180 @@ bot.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    // ——— Gift / Secondary Subscriptions handlers ———
+
+    if (data === "menu:gift") {
+      if (!config?.giftSubscriptionsEnabled) {
+        await editMessageContent(ctx, "Функция подарков недоступна.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      await editMessageContent(
+        ctx,
+        "🎁 Подарки и подписки\n\nЗдесь вы можете купить дополнительные подписки, подарить их или активировать подарок.",
+        giftMenuButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+      );
+      return;
+    }
+
+    if (data === "gift:buy") {
+      const { items } = await api.getPublicTariffs();
+      if (!items?.length) {
+        await editMessageContent(ctx, "Тарифы не настроены.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      await editMessageContent(
+        ctx,
+        "🛒 Купить доп. подписку\n\nВыберите тариф:",
+        giftTariffButtons(items, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+      );
+      return;
+    }
+
+    if (data.startsWith("gift_tariff:")) {
+      const tariffId = data.slice("gift_tariff:".length);
+      const { items } = await api.getPublicTariffs();
+      const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === tariffId);
+      if (!tariff) {
+        await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      const client = await api.getMe(token);
+      const balanceLabel = `💰 Оплатить балансом (${formatMoney(client?.balance ?? 0, client?.preferredCurrency ?? "RUB")})`;
+      await editMessageContent(
+        ctx,
+        `🛒 ${tariff.name}\n\nСтоимость: ${formatMoney(tariff.price, tariff.currency)}\n\nПодтвердите оплату:`,
+        giftPaymentButtons(tariffId, balanceLabel, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+      );
+      return;
+    }
+
+    if (data.startsWith("gift_pay_balance:")) {
+      const tariffId = data.slice("gift_pay_balance:".length);
+      try {
+        const result = await api.buyGiftSubscription(token, { tariffId });
+        await editMessageContent(
+          ctx,
+          `✅ Дополнительная подписка создана! Подписка #${result.subscriptionIndex}`,
+          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка оплаты";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data === "gift:subscriptions") {
+      try {
+        const result = await api.getGiftSubscriptions(token);
+        if (!result.subscriptions?.length) {
+          await editMessageContent(
+            ctx,
+            "📋 Мои подписки\n\nУ вас пока нет дополнительных подписок.",
+            giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          );
+          return;
+        }
+        await editMessageContent(
+          ctx,
+          `📋 Мои подписки\n\nУ вас ${result.subscriptions.length} доп. подписок:`,
+          giftSubscriptionButtons(result.subscriptions, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка загрузки";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("gift:connect:")) {
+      const secondaryClientId = data.slice("gift:connect:".length);
+      try {
+        const result = await api.getGiftSubscriptionUrl(token, secondaryClientId);
+        const appUrl2 = config?.publicAppUrl?.replace(/\/$/, "") ?? null;
+        const subUrl = appUrl2 ? `${appUrl2}/sub/${result.uuid}` : `Подписка UUID: ${result.uuid}`;
+        await editMessageContent(
+          ctx,
+          `📲 Ссылка на подписку:\n\n${subUrl}`,
+          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка получения ссылки";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("gift:give:")) {
+      const secondaryClientId = data.slice("gift:give:".length);
+      try {
+        const result = await api.createGiftCode(token, { secondaryClientId });
+        const expiresAt = new Date(result.expiresAt).toLocaleDateString("ru-RU");
+        await editMessageContent(
+          ctx,
+          `🎁 Подарочный код создан!\n\nКод: \`${result.code}\`\n\nОтправьте этот код получателю. Код действителен до ${expiresAt}.`,
+          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка создания кода";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data === "gift:redeem") {
+      awaitingGiftCode.add(userId);
+      await editMessageContent(
+        ctx,
+        "🎁 Введите подарочный код:",
+        backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds),
+      );
+      return;
+    }
+
+    if (data === "gift:codes") {
+      try {
+        const result = await api.getGiftCodes(token);
+        if (!result.codes?.length) {
+          await editMessageContent(
+            ctx,
+            "🎟️ Мои подарки\n\nУ вас пока нет подарочных кодов.",
+            giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          );
+          return;
+        }
+        const lines = result.codes.map((c) => {
+          const statusLabel = c.status === "ACTIVE" ? "✅ Активен" : c.status === "REDEEMED" ? "🎁 Использован" : "❌ Отменён";
+          return `${c.code} — ${statusLabel}`;
+        }).join("\n");
+        await editMessageContent(
+          ctx,
+          `🎟️ Мои подарки\n\n${lines}`,
+          giftCodesListButtons(result.codes, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка загрузки";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("gift:cancel_code:")) {
+      const codeOrId = data.slice("gift:cancel_code:".length);
+      try {
+        const result = await api.cancelGiftCode(token, codeOrId);
+        await editMessageContent(
+          ctx,
+          `✅ ${result.message}`,
+          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка отмены";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     await ctx.answerCallbackQuery({ text: "Неизвестное действие" });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Ошибка";
@@ -3011,6 +3193,25 @@ bot.on("message:text", async (ctx) => {
   if (!token) return;
   const publicConfig = await api.getPublicConfig().catch(() => null);
   if (await enforceSubscription(ctx, publicConfig)) return;
+
+  // Если пользователь ожидает ввод подарочного кода
+  if (awaitingGiftCode.has(userId)) {
+    awaitingGiftCode.delete(userId);
+    const code = ctx.message.text.trim().toUpperCase();
+    const menuKb = { reply_markup: { inline_keyboard: [[{ text: publicConfig?.botBackLabel ?? "← Назад", callback_data: "menu:gift" }]] } };
+    if (!code) {
+      await ctx.reply("Код не может быть пустым.", menuKb);
+      return;
+    }
+    try {
+      const result = await api.redeemGiftCode(token, code);
+      await ctx.reply(`✅ Подарок активирован!\n\nПодписка #${result.subscriptionIndex} добавлена в ваш аккаунт!`, menuKb);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Ошибка активации подарка";
+      await ctx.reply(`❌ ${msg}`, menuKb);
+    }
+    return;
+  }
 
   // Если пользователь ожидает ввод промокода
   if (awaitingPromoCode.has(userId)) {

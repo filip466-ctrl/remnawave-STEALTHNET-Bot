@@ -1216,6 +1216,43 @@ export const api = {
     return request("/client/referral-stats", { token });
   },
 
+  // ─── Gift Subscriptions ─────────────────────────────────────────────────────
+
+  /** Buy additional subscription (balance payment) */
+  async giftBuySubscription(token: string, tariffId: string): Promise<{ message: string; secondaryClientId: string; subscriptionIndex: number }> {
+    return request("/client/gift/buy", { token, method: "POST", body: JSON.stringify({ tariffId }) });
+  },
+
+  /** List all secondary subscriptions */
+  async giftListSubscriptions(token: string): Promise<{ subscriptions: Array<{ id: string; remnawaveUuid: string | null; subscriptionIndex: number | null; giftStatus: string | null; parentClientId: string | null }> }> {
+    return request("/client/gift/subscriptions", { token });
+  },
+
+  /** Create gift code for a subscription */
+  async giftCreateCode(token: string, secondaryClientId: string): Promise<{ message: string; code: string; expiresAt: string }> {
+    return request("/client/gift/create-code", { token, method: "POST", body: JSON.stringify({ secondaryClientId }) });
+  },
+
+  /** Redeem a gift code */
+  async giftRedeemCode(token: string, code: string): Promise<{ message: string; secondaryClientId: string; subscriptionIndex: number }> {
+    return request("/client/gift/redeem", { token, method: "POST", body: JSON.stringify({ code }) });
+  },
+
+  /** Cancel a gift code */
+  async giftCancelCode(token: string, codeOrId: string): Promise<{ message: string }> {
+    return request(`/client/gift/cancel/${encodeURIComponent(codeOrId)}`, { token, method: "DELETE" });
+  },
+
+  /** List gift codes created by the client */
+  async giftListCodes(token: string): Promise<{ codes: Array<{ id: string; code: string; status: string; expiresAt: string; createdAt: string; redeemedAt: string | null; secondaryClientId: string }> }> {
+    return request("/client/gift/codes", { token });
+  },
+
+  /** Get Remnawave subscription URL for a secondary subscription */
+  async giftGetSubscriptionUrl(token: string, secondaryClientId: string): Promise<{ uuid: string }> {
+    return request(`/client/gift/subscription-url/${encodeURIComponent(secondaryClientId)}`, { token });
+  },
+
   /** Список тикетов клиента (доступно при включённой тикет-системе) */
   async getTickets(token: string): Promise<{ items: { id: string; subject: string; status: string; createdAt: string; updatedAt: string }[] }> {
     return request("/client/tickets", { token });
@@ -1659,6 +1696,9 @@ export type UpdateSettingsPayload = {
   geoMapEnabled?: boolean;
   geoCacheTtl?: number;
   maxmindDbPath?: string | null;
+  giftSubscriptionsEnabled?: boolean;
+  giftCodeExpiryHours?: number;
+  maxAdditionalSubscriptions?: number;
 };
 
 export interface ClientRecord {
@@ -2013,6 +2053,9 @@ export interface AdminSettings {
   geoMapEnabled?: boolean;
   geoCacheTtl?: number;
   maxmindDbPath?: string | null;
+  giftSubscriptionsEnabled?: boolean;
+  giftCodeExpiryHours?: number;
+  maxAdditionalSubscriptions?: number;
 }
 
 /** Конфиг страницы подписки (формат как sub.stealthnet.app) */
@@ -2480,8 +2523,10 @@ export interface PublicTariffCategory {
   name: string;
   emojiKey: string | null;
   emoji: string;
-  tariffs: { id: string; name: string; description: string | null; durationDays: number; price: number; currency: string; trafficLimitBytes: number | null; trafficResetMode?: string; deviceLimit: number | null }[];
+  tariffs: PublicTariff[];
 }
+
+export type PublicTariff = { id: string; name: string; description: string | null; durationDays: number; price: number; currency: string; trafficLimitBytes: number | null; trafficResetMode?: string; deviceLimit: number | null };
 
 // ——— Промо-группы ———
 export interface PromoGroup {
@@ -2710,4 +2755,7 @@ export interface PublicConfig {
     readyToConnectDesc?: string | null;
   } | null;
   translations?: Record<string, Record<string, unknown>>;
+  giftSubscriptionsEnabled?: boolean;
+  giftCodeExpiryHours?: number;
+  maxAdditionalSubscriptions?: number;
 }

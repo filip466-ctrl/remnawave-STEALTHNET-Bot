@@ -144,6 +144,7 @@ export async function getPublicConfig(): Promise<{
   proxyUrl?: string | null;
   proxyTelegram?: boolean;
   proxyPayments?: boolean;
+  giftSubscriptionsEnabled?: boolean;
   defaultLanguage?: string;
   translations?: Record<string, Record<string, unknown>>;
 } | null> {
@@ -696,4 +697,60 @@ export async function postBotAdminClientRemnaSquadRemove(telegramId: number, cli
     throw new Error(msg);
   }
   return data as { ok: boolean; activeInternalSquads: string[] };
+}
+
+// ——— Gift / Secondary Subscriptions API ———
+
+/** Купить дополнительную подписку (оплата балансом) */
+export async function buyGiftSubscription(
+  token: string,
+  body: { tariffId: string }
+): Promise<{ message: string; secondaryClientId: string; subscriptionIndex: number }> {
+  return fetchJson("/api/client/gift/buy", { method: "POST", body, token });
+}
+
+/** Список дополнительных подписок клиента */
+export async function getGiftSubscriptions(
+  token: string
+): Promise<{ subscriptions: { id: string; remnawaveUuid: string | null; subscriptionIndex: number | null; giftStatus: string | null; parentClientId: string | null }[] }> {
+  return fetchJson("/api/client/gift/subscriptions", { token });
+}
+
+/** Создать подарочный код */
+export async function createGiftCode(
+  token: string,
+  body: { secondaryClientId: string }
+): Promise<{ message: string; code: string; expiresAt: string }> {
+  return fetchJson("/api/client/gift/create-code", { method: "POST", body, token });
+}
+
+/** Активировать подарочный код */
+export async function redeemGiftCode(
+  token: string,
+  code: string
+): Promise<{ message: string; secondaryClientId: string; subscriptionIndex: number }> {
+  return fetchJson("/api/client/gift/redeem", { method: "POST", body: { code }, token });
+}
+
+/** Отменить подарочный код */
+export async function cancelGiftCode(
+  token: string,
+  codeOrId: string
+): Promise<{ message: string }> {
+  return fetchJson("/api/client/gift/cancel/" + encodeURIComponent(codeOrId), { method: "DELETE", token });
+}
+
+/** Список подарочных кодов клиента */
+export async function getGiftCodes(
+  token: string
+): Promise<{ codes: { id: string; code: string; status: string; expiresAt: string; createdAt: string; redeemedAt: string | null; secondaryClientId: string }[] }> {
+  return fetchJson("/api/client/gift/codes", { token });
+}
+
+/** URL подписки для вторичного аккаунта */
+export async function getGiftSubscriptionUrl(
+  token: string,
+  secondaryClientId: string
+): Promise<{ uuid: string }> {
+  return fetchJson("/api/client/gift/subscription-url/" + encodeURIComponent(secondaryClientId), { token });
 }

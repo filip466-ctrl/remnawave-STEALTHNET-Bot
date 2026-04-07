@@ -60,6 +60,7 @@ model AdminNotificationPreference {
 }
 
 // Клиент панели (покупатель подписок): сайт, бот, mini app
+// Дополнительные подписки хранятся как дочерние Client-записи (parentClientId != null, subscriptionIndex = 1,2,3...)
 model Client {
   id                  String   @id @default(cuid())
   email               String?  @unique
@@ -93,11 +94,17 @@ model Client {
   autoRenewNotifiedAt DateTime? @map("auto_renew_notified_at")
   yookassaPaymentMethodId    String?  @map("yookassa_payment_method_id")
   yookassaPaymentMethodTitle String?  @map("yookassa_payment_method_title")
+  // Дополнительные подписки: дочерний Client → parentClientId указывает на root-клиента
+  parentClientId      String?  @map("parent_client_id")
+  subscriptionIndex   Int?     @map("subscription_index") // 1, 2, 3... суффикс _1, _2 в Remnawave
+  giftStatus          String?  @map("gift_status") // null = обычная | GIFT_RESERVED = ожидает подарка
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   referrer          Client?            @relation("ClientReferrer", fields: [referrerId], references: [id])
   referrals         Client[]           @relation("ClientReferrer")
+  parentClient      Client?            @relation("SecondarySubscriptions", fields: [parentClientId], references: [id], onDelete: Cascade)
+  secondaryClients  Client[]           @relation("SecondarySubscriptions")
   payments          Payment[]
   autoRenewTariff   Tariff?            @relation("ClientAutoRenewTariff", fields: [autoRenewTariffId], references: [id], onDelete: SetNull)
   referralCredits   ReferralCredit[]
@@ -108,10 +115,14 @@ model Client {
   singboxSlots      SingboxSlot[]
   tickets           Ticket[]
   contestWinners    ContestWinner[]
+  giftCodesCreated  GiftCode[]         @relation("GiftCodeCreator")
+  giftCodesRedeemed GiftCode[]         @relation("GiftCodeRedeemer")
 
+  @@unique([parentClientId, subscriptionIndex])
   @@index([telegramId])
   @@index([email])
   @@index([utmSource])
+  @@index([parentClientId])
   @@map("clients")
 }
 
@@ -643,6 +654,28 @@ model ContestWinner {
   @@unique([contestId, place])
   @@index([contestId])
   @@map("contest_winners")
+}
+
+// Код подарка подписки: создаётся при нажатии «Подарить», погашается получателем
+model GiftCode {
+  id                    String    @id @default(cuid())
+  code                  String    @unique // 8-символьный уникальный код
+  creatorId             String    @map("creator_id") // root-клиент, создавший подарок
+  secondaryClientId     String    @map("secondary_client_id") // дочерний Client (подписка)
+  redeemedById          String?   @map("redeemed_by_id") // root-клиент, активировавший подарок
+  status                String    @default("ACTIVE") // ACTIVE | REDEEMED | EXPIRED | CANCELLED
+  expiresAt             DateTime  @map("expires_at")
+  redeemedAt            DateTime? @map("redeemed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  creator               Client    @relation("GiftCodeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  redeemedBy            Client?   @relation("GiftCodeRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
+
+  @@index([code])
+  @@index([creatorId])
+  @@index([secondaryClientId])
+  @@index([status])
+  @@map("gift_codes")
 }
 
 model TelegramAuthToken {

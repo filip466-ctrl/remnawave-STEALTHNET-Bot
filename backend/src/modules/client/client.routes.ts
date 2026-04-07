@@ -2805,6 +2805,26 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
     }
 
+    // Применяем промокод на скидку (не для опций и гибких тарифов)
+    let promoCodeRecord: { id: string } | null = null;
+    if (promoCode?.trim() && !extraOption && !customBuildBody) {
+      const result = await validatePromoCode(promoCode.trim(), clientId);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+      const originalAmount = amountRounded;
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        amountRounded = Math.max(0, amountRounded - promo.discountFixed);
+      }
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      if (amountRounded <= 0) return res.status(400).json({ message: "Итоговая сумма не может быть 0" });
+      promoCodeRecord = promo;
+      metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
+    }
+
     const client = await prisma.client.findUnique({
       where: { id: clientId },
       select: { email: true },
@@ -2855,6 +2875,11 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     if (!result.ok) {
       await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
       return res.status(500).json({ message: result.error });
+    }
+
+    // Записываем использование промокода
+    if (promoCodeRecord) {
+      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
     }
 
     return res.status(201).json({
@@ -2995,6 +3020,26 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
     if (!fiatSupported.includes(currencyUpper)) return res.status(400).json({ message: "Crypto Pay: поддерживаются USD, RUB, EUR и др. Укажите валюту из списка." });
     if (amountRounded < 0.5) return res.status(400).json({ message: "Минимальная сумма — 0.5" });
 
+    // Применяем промокод на скидку (не для опций и гибких тарифов)
+    let promoCodeRecord: { id: string } | null = null;
+    if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
+      const result = await validatePromoCode(promoCodeStr.trim(), clientId);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+      const originalAmount = amountRounded;
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        amountRounded = Math.max(0, amountRounded - promo.discountFixed);
+      }
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      if (amountRounded <= 0) return res.status(400).json({ message: "Итоговая сумма не может быть 0" });
+      promoCodeRecord = promo;
+      metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
+    }
+
     const orderId = randomUUID();
     const payment = await prisma.payment.create({
       data: {
@@ -3036,6 +3081,11 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
     if (!result.ok) {
       await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
       return res.status(500).json({ message: result.error });
+    }
+
+    // Записываем использование промокода
+    if (promoCodeRecord) {
+      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
     }
 
     return res.status(201).json({
@@ -3154,6 +3204,26 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
 
     if (amountRounded < 1) return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
 
+    // Применяем промокод на скидку (не для опций и гибких тарифов)
+    let promoCodeRecord: { id: string } | null = null;
+    if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
+      const result = await validatePromoCode(promoCodeStr.trim(), clientId);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+      const originalAmount = amountRounded;
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        amountRounded = Math.max(0, amountRounded - promo.discountFixed);
+      }
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      if (amountRounded <= 0) return res.status(400).json({ message: "Итоговая сумма не может быть 0" });
+      promoCodeRecord = promo;
+      metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
+    }
+
     const orderId = randomUUID();
     const payment = await prisma.payment.create({
       data: {
@@ -3192,6 +3262,11 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
     if (!result.ok) {
       await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
       return res.status(500).json({ message: result.error });
+    }
+
+    // Записываем использование промокода
+    if (promoCodeRecord) {
+      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
     }
 
     return res.status(201).json({

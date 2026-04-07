@@ -249,6 +249,9 @@ export function SettingsPage() {
         sellOptionsDevicesProducts: (data as AdminSettings).sellOptionsDevicesProducts ?? [],
         sellOptionsServersEnabled: (data as AdminSettings).sellOptionsServersEnabled ?? false,
         sellOptionsServersProducts: (data as AdminSettings).sellOptionsServersProducts ?? [],
+        giftSubscriptionsEnabled: (data as AdminSettings).giftSubscriptionsEnabled ?? false,
+        giftCodeExpiryHours: (data as AdminSettings).giftCodeExpiryHours ?? 72,
+        maxAdditionalSubscriptions: (data as AdminSettings).maxAdditionalSubscriptions ?? 5,
       });
     }).finally(() => setLoading(false));
     api.getAutoRenewStats(token).then(setAutoRenewStats).catch(() => {});
@@ -578,6 +581,9 @@ export function SettingsPage() {
         sellOptionsDevicesProducts: settings.sellOptionsDevicesProducts?.length ? JSON.stringify(settings.sellOptionsDevicesProducts) : null,
         sellOptionsServersEnabled: settings.sellOptionsServersEnabled ?? false,
         sellOptionsServersProducts: settings.sellOptionsServersProducts?.length ? JSON.stringify(settings.sellOptionsServersProducts) : null,
+        giftSubscriptionsEnabled: settings.giftSubscriptionsEnabled ?? false,
+        giftCodeExpiryHours: settings.giftCodeExpiryHours ?? 72,
+        maxAdditionalSubscriptions: settings.maxAdditionalSubscriptions ?? 5,
         customBuildEnabled: settings.customBuildEnabled ?? false,
         customBuildPricePerDay: settings.customBuildPricePerDay ?? 0,
         customBuildPricePerDevice: settings.customBuildPricePerDevice ?? 0,
@@ -1210,6 +1216,63 @@ export function SettingsPage() {
                       )}
                     </div>
                   </div>
+                </div>
+                <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Gift className="h-4 w-4 text-primary shrink-0" />
+                    <Label className="text-base font-medium">Подарки и дополнительные подписки</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="gift-subscriptions-enabled"
+                      checked={!!settings.giftSubscriptionsEnabled}
+                      onCheckedChange={(checked: boolean) =>
+                        setSettings((s) => (s ? { ...s, giftSubscriptionsEnabled: checked === true } : s))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="gift-subscriptions-enabled" className="text-base font-medium cursor-pointer">Дополнительные подписки и подарки</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Разрешить клиентам покупать дополнительные подписки и дарить их другим пользователям
+                      </p>
+                    </div>
+                  </div>
+                  {settings.giftSubscriptionsEnabled && (
+                    <div className="space-y-4 pl-4 border-l-2 border-primary/30">
+                      <div className="space-y-2">
+                        <Label htmlFor="gift-code-expiry-hours">Срок действия подарочного кода (часы)</Label>
+                        <Input
+                          id="gift-code-expiry-hours"
+                          type="number"
+                          min={1}
+                          value={settings.giftCodeExpiryHours ?? 72}
+                          onChange={(e) =>
+                            setSettings((s) => (s ? { ...s, giftCodeExpiryHours: parseInt(e.target.value, 10) || 72 } : s))
+                          }
+                          className="max-w-[200px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Через сколько часов истекает неиспользованный подарочный код
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="max-additional-subscriptions">Максимум дополнительных подписок</Label>
+                        <Input
+                          id="max-additional-subscriptions"
+                          type="number"
+                          min={1}
+                          value={settings.maxAdditionalSubscriptions ?? 5}
+                          onChange={(e) =>
+                            setSettings((s) => (s ? { ...s, maxAdditionalSubscriptions: parseInt(e.target.value, 10) || 5 } : s))
+                          }
+                          className="max-w-[200px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Максимальное количество дополнительных подписок на одного клиента
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
                 <Button type="submit" disabled={saving}>

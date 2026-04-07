@@ -188,6 +188,8 @@ const SYSTEM_CONFIG_KEYS = [
   "nalog_enabled", "nalog_inn", "nalog_password", "nalog_device_id", "nalog_service_name",
   // Карта нод (Geo Map)
   "geo_map_enabled", "geo_cache_ttl", "maxmind_db_path",
+  // Дополнительные подписки и подарки
+  "gift_subscriptions_enabled", "gift_code_expiry_hours", "max_additional_subscriptions",
 ];
 
 /** Продукт «Доп. трафик»: объём в ГБ, цена, валюта */
@@ -693,6 +695,9 @@ export async function getSystemConfig() {
     geoMapEnabled: map.geo_map_enabled === "true" || map.geo_map_enabled === "1",
     geoCacheTtl: parseInt(map.geo_cache_ttl || "60", 10) || 60,
     maxmindDbPath: (map.maxmind_db_path ?? "").trim() || null,
+    giftSubscriptionsEnabled: map.gift_subscriptions_enabled === "true" || map.gift_subscriptions_enabled === "1",
+    giftCodeExpiryHours: parseInt(map.gift_code_expiry_hours || "72", 10) || 72,
+    maxAdditionalSubscriptions: parseInt(map.max_additional_subscriptions || "5", 10) || 5,
   };
 }
 
@@ -1288,6 +1293,9 @@ export async function getPublicConfig() {
         showCta: l.landingShowCta !== false,
       };
     })(),
+    giftSubscriptionsEnabled: full.giftSubscriptionsEnabled ?? false,
+    giftCodeExpiryHours: full.giftCodeExpiryHours ?? 72,
+    maxAdditionalSubscriptions: full.maxAdditionalSubscriptions ?? 5,
     proxyEnabled: full.proxyEnabled ?? false,
     proxyUrl: full.proxyUrl ?? null,
     proxyTelegram: full.proxyTelegram ?? false,
