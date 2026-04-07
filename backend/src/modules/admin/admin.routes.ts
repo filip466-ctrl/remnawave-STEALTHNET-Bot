@@ -1275,6 +1275,9 @@ const updateSettingsSchema = z.object({
   geoMapEnabled: z.boolean().optional(),
   geoCacheTtl: z.number().min(10).max(3600).optional(),
   maxmindDbPath: z.string().max(500).nullable().optional(),
+  giftSubscriptionsEnabled: z.boolean().optional(),
+  giftCodeExpiryHours: z.number().int().min(1).max(8760).optional(),
+  maxAdditionalSubscriptions: z.number().int().min(1).max(100).optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -2013,6 +2016,21 @@ adminRouter.patch("/settings", async (req, res) => {
     const v = updates[key];
     if (v === undefined) continue;
     const val = typeof v === "boolean" ? (v ? "true" : "false") : (v === null ? "" : String(v));
+    await prisma.systemSetting.upsert({
+      where: { key: dbKey },
+      create: { key: dbKey, value: val },
+      update: { value: val },
+    });
+  }
+  const giftKeys: [keyof typeof updates, string][] = [
+    ["giftSubscriptionsEnabled", "gift_subscriptions_enabled"],
+    ["giftCodeExpiryHours", "gift_code_expiry_hours"],
+    ["maxAdditionalSubscriptions", "max_additional_subscriptions"],
+  ];
+  for (const [key, dbKey] of giftKeys) {
+    const v = updates[key];
+    if (v === undefined) continue;
+    const val = typeof v === "boolean" ? (v ? "true" : "false") : String(v);
     await prisma.systemSetting.upsert({
       where: { key: dbKey },
       create: { key: dbKey, value: val },
