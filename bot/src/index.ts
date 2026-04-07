@@ -277,7 +277,8 @@ async function getOrRestoreToken(userId: number, username?: string): Promise<str
 // Пользователи, ожидающие ввода промокода
 const awaitingPromoCode = new Set<number>();
 // Активный промокод на скидку (хранится до оплаты)
-const activeDiscountCode = new Map<number, string>();
+type DiscountInfo = { code: string; discountPercent?: number | null; discountFixed?: number | null };
+const activeDiscountCode = new Map<number, DiscountInfo>();
 // Ожидание ввода подарочного кода
 const awaitingGiftCode = new Set<number>();
 
@@ -434,18 +435,35 @@ function renderPaymentText(
 
 function buildPaymentMessage(
   config: Awaited<ReturnType<typeof api.getPublicConfig>> | null | undefined,
-  vars: { name: string; price: string; amount: string; currency: string; action: string }
+  vars: { name: string; price: string; amount: string; currency: string; action: string },
+  discount?: { originalPrice: string; discountedPrice: string }
 ): { text: string; entities: CustomEmojiEntity[] } {
+  const priceDisplay = discount
+    ? `${discount.originalPrice} → ${discount.discountedPrice}`
+    : vars.price;
   const template = (config?.botPaymentText ?? "").trim() || DEFAULT_PAYMENT_TEXT;
-  const base = renderPaymentText(template, vars);
-  return applyCustomEmojiPlaceholders(base, config?.botEmojis);
+  const base = renderPaymentText(template, { ...vars, price: priceDisplay });
+  const result = applyCustomEmojiPlaceholders(base, config?.botEmojis);
+  if (discount) {
+    const pos = result.text.indexOf(priceDisplay);
+    if (pos >= 0) {
+      result.entities.push(
+        { type: "strikethrough", offset: pos, length: discount.originalPrice.length },
+        { type: "bold", offset: pos + discount.originalPrice.length + 3, length: discount.discountedPrice.length },
+      );
+    }
+  }
+  return result;
 }
 
 function t(texts: Record<string, string> | null | undefined, key: string): string {
   return (texts?.[key] ?? DEFAULT_MENU_TEXTS[key]) || "";
 }
 
-type CustomEmojiEntity = { type: "custom_emoji"; offset: number; length: number; custom_emoji_id: string };
+type CustomEmojiEntity =
+  | { type: "custom_emoji"; offset: number; length: number; custom_emoji_id: string }
+  | { type: "strikethrough"; offset: number; length: number }
+  | { type: "bold"; offset: number; length: number };
 
 /** Длина первого символа в UTF-16 (для entity) */
 function firstCharLengthUtf16(s: string): number {
@@ -753,6 +771,14 @@ function formatMoney(amount: number, currency: string): string {
   const c = currency.toUpperCase();
   const sym = c === "RUB" ? "₽" : c === "USD" ? "$" : "₴";
   return `${amount} ${sym}`;
+}
+
+/** Рассчитать цену со скидкой */
+function getDiscountedPrice(price: number, discount: DiscountInfo): number {
+  let final = price;
+  if (discount.discountPercent && discount.discountPercent > 0) final -= final * discount.discountPercent / 100;
+  if (discount.discountFixed && discount.discountFixed > 0) final -= discount.discountFixed;
+  return Math.max(0, Math.round(final * 100) / 100);
 }
 
 /**
@@ -1935,25 +1961,30 @@ bot.on("callback_query:data", async (ctx) => {
       const methods = config?.plategaMethods ?? [];
       const client = await api.getMe(token);
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
+      const discountInfoProxy = activeDiscountCode.get(userId);
+      const promoCodeProxy = discountInfoProxy?.code;
+      const discountArgProxy = discountInfoProxy ? {
+        originalPrice: formatMoney(tariff.price, tariff.currency),
+        discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoProxy), tariff.currency),
+      } : undefined;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
-          const promoCode = activeDiscountCode.get(userId);
           const payment = await api.createPlategaPayment(token, {
             amount: tariff.price,
             currency: tariff.currency,
             paymentMethod: methodIdFromBtn,
             description: `Прокси: ${tariff.name}`,
             proxyTariffId: tariff.id,
-            promoCode,
+            promoCode: promoCodeProxy,
           });
-          if (promoCode) activeDiscountCode.delete(userId);
+          if (promoCodeProxy) activeDiscountCode.delete(userId);
           const msg = buildPaymentMessage(config, {
             name: tariff.name,
             price: formatMoney(tariff.price, tariff.currency),
             amount: String(tariff.price),
             currency: tariff.currency,
             action: "Нажмите для оплаты:",
-          });
+          }, discountArgProxy);
           await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка";
@@ -1979,7 +2010,7 @@ bot.on("callback_query:data", async (ctx) => {
         amount: String(tariff.price),
         currency: tariff.currency,
         action: "Выберите способ оплаты:",
-      });
+      }, discountArgProxy);
       await editMessageContent(ctx, msg.text, markup, msg.entities);
       return;
     }
@@ -2083,25 +2114,30 @@ bot.on("callback_query:data", async (ctx) => {
       const methods = config?.plategaMethods ?? [];
       const client = await api.getMe(token);
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
+      const discountInfoSingbox = activeDiscountCode.get(userId);
+      const promoCodeSingbox = discountInfoSingbox?.code;
+      const discountArgSingbox = discountInfoSingbox ? {
+        originalPrice: formatMoney(tariff.price, tariff.currency),
+        discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoSingbox), tariff.currency),
+      } : undefined;
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
         try {
-          const promoCode = activeDiscountCode.get(userId);
           const payment = await api.createPlategaPayment(token, {
             amount: tariff.price,
             currency: tariff.currency,
             paymentMethod: methodIdFromBtn,
             description: `Доступы: ${tariff.name}`,
             singboxTariffId: tariff.id,
-            promoCode,
+            promoCode: promoCodeSingbox,
           });
-          if (promoCode) activeDiscountCode.delete(userId);
+          if (promoCodeSingbox) activeDiscountCode.delete(userId);
           const msg = buildPaymentMessage(config, {
             name: tariff.name,
             price: formatMoney(tariff.price, tariff.currency),
             amount: String(tariff.price),
             currency: tariff.currency,
             action: "Нажмите для оплаты:",
-          });
+          }, discountArgSingbox);
           await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка";
@@ -2127,7 +2163,7 @@ bot.on("callback_query:data", async (ctx) => {
         amount: String(tariff.price),
         currency: tariff.currency,
         action: "Выберите способ оплаты:",
-      });
+      }, discountArgSingbox);
       await editMessageContent(ctx, msg.text, markup, msg.entities);
       return;
     }
@@ -2135,7 +2171,8 @@ bot.on("callback_query:data", async (ctx) => {
     if (data.startsWith("pay_tariff_balance:")) {
       const tariffId = data.slice("pay_tariff_balance:".length);
       try {
-        const promoCode = activeDiscountCode.get(userId);
+        const discountInfoBal = activeDiscountCode.get(userId);
+        const promoCode = discountInfoBal?.code;
         const result = await api.payByBalance(token, { tariffId, promoCode });
         if (promoCode) activeDiscountCode.delete(userId);
         await editMessageContent(ctx, `✅ ${result.message}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
@@ -2155,7 +2192,8 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       try {
-        const promoCode = activeDiscountCode.get(userId);
+        const discountInfoYm = activeDiscountCode.get(userId);
+        const promoCode = discountInfoYm?.code;
         const payment = await api.createYoomoneyPayment(token, {
           amount: tariff.price,
           paymentType: "AC",
@@ -2163,13 +2201,17 @@ bot.on("callback_query:data", async (ctx) => {
           promoCode,
         });
         if (promoCode) activeDiscountCode.delete(userId);
+        const discountArgYm = discountInfoYm ? {
+          originalPrice: formatMoney(tariff.price, tariff.currency),
+          discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoYm), tariff.currency),
+        } : undefined;
         const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮMoney:",
-        });
+        }, discountArgYm);
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
@@ -2191,7 +2233,8 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       try {
-        const promoCode = activeDiscountCode.get(userId);
+        const discountInfoYk = activeDiscountCode.get(userId);
+        const promoCode = discountInfoYk?.code;
         const payment = await api.createYookassaPayment(token, {
           amount: tariff.price,
           currency: "RUB",
@@ -2199,13 +2242,17 @@ bot.on("callback_query:data", async (ctx) => {
           promoCode,
         });
         if (promoCode) activeDiscountCode.delete(userId);
+        const discountArgYk = discountInfoYk ? {
+          originalPrice: formatMoney(tariff.price, tariff.currency),
+          discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoYk), tariff.currency),
+        } : undefined;
         const msg = buildPaymentMessage(config, {
           name: tariff.name,
           price: formatMoney(tariff.price, tariff.currency),
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты через ЮKassa:",
-        });
+        }, discountArgYk);
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.confirmationUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮKassa";
@@ -2223,10 +2270,15 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       try {
-        const promoCode = activeDiscountCode.get(userId);
+        const discountInfoCp = activeDiscountCode.get(userId);
+        const promoCode = discountInfoCp?.code;
         const payment = await api.createCryptopayPayment(token, { amount: tariff.price, currency: tariff.currency, tariffId: tariff.id, promoCode });
         if (promoCode) activeDiscountCode.delete(userId);
-        const msg = buildPaymentMessage(config, { name: tariff.name, price: formatMoney(tariff.price, tariff.currency), amount: String(tariff.price), currency: tariff.currency, action: "Нажмите кнопку ниже для оплаты через Crypto Bot:" });
+        const discountArgCp = discountInfoCp ? {
+          originalPrice: formatMoney(tariff.price, tariff.currency),
+          discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoCp), tariff.currency),
+        } : undefined;
+        const msg = buildPaymentMessage(config, { name: tariff.name, price: formatMoney(tariff.price, tariff.currency), amount: String(tariff.price), currency: tariff.currency, action: "Нажмите кнопку ниже для оплаты через Crypto Bot:" }, discountArgCp);
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
@@ -2464,8 +2516,14 @@ bot.on("callback_query:data", async (ctx) => {
       const client = await api.getMe(token);
       const balanceLabel = client && client.balance >= tariff.price ? `💰 Оплатить балансом (${formatMoney(client.balance, client.preferredCurrency ?? "RUB")})` : null;
 
+      const discountInfoTariff = activeDiscountCode.get(userId);
+      const discountArgTariff = discountInfoTariff ? {
+        originalPrice: formatMoney(tariff.price, tariff.currency),
+        discountedPrice: formatMoney(getDiscountedPrice(tariff.price, discountInfoTariff), tariff.currency),
+      } : undefined;
+
       if (methodIdFromBtn != null && Number.isFinite(methodIdFromBtn)) {
-        const promoCode = activeDiscountCode.get(userId);
+        const promoCode = discountInfoTariff?.code;
         const payment = await api.createPlategaPayment(token, {
           amount: tariff.price,
           currency: tariff.currency,
@@ -2481,7 +2539,7 @@ bot.on("callback_query:data", async (ctx) => {
           amount: String(tariff.price),
           currency: tariff.currency,
           action: "Нажмите кнопку ниже для оплаты:",
-        });
+        }, discountArgTariff);
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         return;
       }
@@ -2492,7 +2550,7 @@ bot.on("callback_query:data", async (ctx) => {
         amount: String(tariff.price),
         currency: tariff.currency,
         action: "Выберите способ оплаты:",
-      });
+      }, discountArgTariff);
       await editMessageContent(ctx, pay2.text, tariffPaymentMethodButtons(tariffId, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, !!config?.cryptopayEnabled, tariff.currency), pay2.entities);
       return;
     }
@@ -3234,7 +3292,7 @@ bot.on("message:text", async (ctx) => {
           : checkResult.discountFixed
             ? `скидка ${checkResult.discountFixed}`
             : "скидка";
-        activeDiscountCode.set(userId, code);
+        activeDiscountCode.set(userId, { code, discountPercent: checkResult.discountPercent, discountFixed: checkResult.discountFixed });
         await ctx.reply(`✅ Промокод «${checkResult.name}» принят! ${desc}.\n\n${_t("promo.discount_applied", lang)}`, menuKb);
       }
     } catch (e: unknown) {
