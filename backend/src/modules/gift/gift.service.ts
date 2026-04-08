@@ -246,7 +246,7 @@ export async function activateForSelf(
     return { ok: false, error: "Подписка не найдена", status: 404 };
   }
 
-  if (!sub.giftStatus || sub.giftStatus === "ACTIVATED_SELF") {
+  if (sub.giftStatus === "ACTIVATED_SELF") {
     // Уже активна на себя
     return { ok: true, data: { subscriptionId } };
   }
@@ -343,6 +343,7 @@ export async function listClientSubscriptions(
       ownerId: rootClientId,
       OR: [
         { giftStatus: null },
+        { giftStatus: "" },
         { giftStatus: "ACTIVATED_SELF" },
         { giftStatus: "GIFTED" },
       ], // не показываем только зарезервированные под подарок
@@ -364,6 +365,7 @@ export async function listAllClientSubscriptions(
       ownerId: rootClientId,
       OR: [
         { giftStatus: null },
+        { giftStatus: "" },
         { giftStatus: "GIFT_RESERVED" },
         { giftStatus: "GIFTED" },
       ],

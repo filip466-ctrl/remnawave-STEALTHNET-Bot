@@ -1795,6 +1795,7 @@ clientRouter.get("/subscription/all", async (req, res) => {
     where: {
       OR: [
         { ownerId: clientId, giftStatus: null },
+        { ownerId: clientId, giftStatus: "" },
         { ownerId: clientId, giftStatus: "ACTIVATED_SELF" },
         { giftedToClientId: clientId, giftStatus: "GIFTED" },
       ],
