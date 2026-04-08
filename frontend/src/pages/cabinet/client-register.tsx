@@ -190,7 +190,7 @@ export function ClientRegisterPage() {
             if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
             loginByTelegramDeepLink(res);
             setTgAuthPending(false);
-            navigate("/cabinet/dashboard", { replace: true });
+            navigate("/cabinet/onboarding", { replace: true });
           }
         } catch {
           // Ошибка поллинга — продолжаем
@@ -404,7 +404,7 @@ export function ClientRegisterPage() {
       if (result?.requiresVerification) {
         setEmailSent(true);
       } else {
-        navigate("/cabinet/dashboard", { replace: true });
+        navigate("/cabinet/onboarding", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("cabinet.register.error"));
