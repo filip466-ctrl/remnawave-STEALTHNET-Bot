@@ -536,15 +536,15 @@ export function ClientGiftsPage() {
                       <div>
                         <h3 className="text-xl font-bold text-foreground">Подписка #{sub.subscriptionIndex}</h3>
                         <p className="text-sm text-muted-foreground mt-1 max-w-[240px]">
-                          {isGifted ? "Эту подписку вы подарили." : isReserved ? "Для подписки создан код." : "Доступна для подарка или активации себе."}
+                          {isGifted ? "Эта подписка была подарена вам." : isReserved ? "Для подписки создан код." : "Доступна для подарка или активации себе."}
                         </p>
                       </div>
                       <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${isGifted ? 'bg-purple-500/15 text-purple-500 border border-purple-500/20' : isReserved ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20' : 'bg-green-500/15 text-green-500 border border-green-500/20'}`}>
-                        {isGifted ? "Подарена" : isReserved ? "Код создан" : "Доступна"}
+                        {isGifted ? "Получена в подарок" : isReserved ? "Код создан" : "Доступна"}
                       </span>
                     </div>
 
-                    {activeCode && (
+                    {!isGifted && activeCode && (
                       <div className="bg-background/40 p-4 rounded-2xl border border-border/50 flex items-center justify-between gap-3">
                         <code className="text-lg font-mono font-bold tracking-wider text-foreground">{activeCode.code}</code>
                         <Button variant="ghost" size="icon" onClick={() => copyCode(activeCode.code, activeCode.id)} className="h-9 w-9 rounded-xl hover:bg-muted">
@@ -553,11 +553,17 @@ export function ClientGiftsPage() {
                       </div>
                     )}
 
+                    {isGifted ? (
+                      <div className="mt-auto rounded-2xl bg-green-500/10 border border-green-500/20 p-4 flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        <span className="text-sm font-semibold text-green-600 dark:text-green-400">Активирована</span>
+                      </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
                       <Button 
                         className="rounded-xl shadow-md w-full gap-2"
                         onClick={() => handleCreateCode(sub.id)}
-                        disabled={isGifted || isReserved || actionLoading === `create-${sub.id}`}
+                        disabled={isReserved || actionLoading === `create-${sub.id}`}
                       >
                         {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
                         Подарить
@@ -575,7 +581,7 @@ export function ClientGiftsPage() {
                         variant="secondary" 
                         className="rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-semibold border-none shadow-none w-full gap-2"
                         onClick={() => handleActivateForSelf(sub.id)}
-                        disabled={isGifted || actionLoading === `activate-${sub.id}`}
+                        disabled={actionLoading === `activate-${sub.id}`}
                       >
                         {actionLoading === `activate-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                         Активировать себе
@@ -590,6 +596,7 @@ export function ClientGiftsPage() {
                         Отменить код
                       </Button>
                     </div>
+                    )}
                   </motion.div>
                 );
               })}
