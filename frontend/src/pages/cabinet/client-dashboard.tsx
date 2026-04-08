@@ -20,7 +20,8 @@ import {
   Users,
   
   AlertCircle,
-  Zap
+  Zap,
+  Smartphone
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -340,7 +341,7 @@ export function ClientDashboardPage() {
                 )}
                 {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0 && deviceCount != null && (
                   <span className="text-sm font-semibold text-foreground bg-primary/10 text-primary px-3 py-1.5 rounded-full border border-primary/20 flex items-center gap-1.5">
-                    📱 {deviceCount} / {subParsed.hwidDeviceLimit}
+                    <Smartphone className="h-4 w-4" /> {deviceCount} / {subParsed.hwidDeviceLimit}
                   </span>
                 )}
               </div>
@@ -436,7 +437,7 @@ export function ClientDashboardPage() {
                   )}
                   {secParsed.hwidDeviceLimit != null && secParsed.hwidDeviceLimit > 0 && (
                     <span className="text-sm font-semibold text-foreground bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 flex items-center gap-1.5">
-                      📱 {secParsed.hwidDeviceLimit}
+                      <Smartphone className="h-4 w-4" /> {secParsed.hwidDeviceLimit}
                     </span>
                   )}
                 </div>
@@ -713,7 +714,7 @@ export function ClientDashboardPage() {
                   )}
                   {subParsed.hwidDeviceLimit != null && subParsed.hwidDeviceLimit > 0 && deviceCount != null && (
                     <span className="text-sm font-semibold text-foreground bg-primary/10 text-primary px-3 py-1.5 rounded-full border border-primary/20 shadow-sm flex items-center gap-1.5">
-                      📱 {deviceCount} / {subParsed.hwidDeviceLimit}
+                      <Smartphone className="h-4 w-4" /> {deviceCount} / {subParsed.hwidDeviceLimit}
                     </span>
                   )}
                 </div>
@@ -934,7 +935,7 @@ export function ClientDashboardPage() {
                         )}
                         {secParsed.hwidDeviceLimit != null && secParsed.hwidDeviceLimit > 0 && (
                           <span className="text-sm font-semibold text-foreground bg-indigo-500/10 text-indigo-400 px-3 py-1.5 rounded-full border border-indigo-500/20 shadow-sm flex items-center gap-1.5">
-                            📱 {secParsed.hwidDeviceLimit}
+                            <Smartphone className="h-4 w-4" /> {secParsed.hwidDeviceLimit}
                           </span>
                         )}
                       </div>

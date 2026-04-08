@@ -79,17 +79,27 @@ export function ClientReferralPage() {
 
   return (
     <div className="space-y-6 w-full min-w-0 pb-10">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="min-w-0"
+        transition={{ duration: 0.4 }}
+        className="relative overflow-hidden rounded-3xl bg-card/40 backdrop-blur-2xl border border-border/50 p-8 sm:p-10 shadow-xl"
       >
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Рефералы</h1>
-        <p className="text-muted-foreground text-sm mt-1 truncate">
-          Приглашайте друзей — получайте процент от их пополнений
-        </p>
-      </motion.div>
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-blue-500/10 blur-[80px] pointer-events-none -ml-20 -mb-20" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex-1">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-5 shadow-inner border border-primary/20">
+              <Users className="h-7 w-7" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Рефералы</h1>
+            <p className="mt-3 text-[16px] text-muted-foreground max-w-xl leading-relaxed">
+              Приглашайте друзей — получайте процент от их пополнений прямо на свой баланс
+            </p>
+          </div>
+        </div>
+      </motion.section>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <motion.div
