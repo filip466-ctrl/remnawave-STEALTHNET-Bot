@@ -3398,7 +3398,14 @@ adminRouter.get("/secondary-subscriptions", asyncRoute(async (req, res) => {
 
   // Gift status filter
   if (giftStatus === "owned") {
-    conditions.push({ giftStatus: null, giftedToClientId: null });
+    conditions.push({
+      OR: [
+        { giftStatus: null, giftedToClientId: null },
+        { giftStatus: "ACTIVATED_SELF" },
+      ],
+    });
+  } else if (giftStatus === "ACTIVATED_SELF") {
+    conditions.push({ giftStatus: "ACTIVATED_SELF" });
   } else if (giftStatus === "GIFT_RESERVED" || giftStatus === "GIFT_CODE_ACTIVE" || giftStatus === "GIFTED") {
     conditions.push({ giftStatus });
   }
@@ -3623,7 +3630,7 @@ adminRouter.get("/gift-analytics", asyncRoute(async (_req, res) => {
   ] = await Promise.all([
     prisma.secondarySubscription.count(),
     prisma.secondarySubscription.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.secondarySubscription.count({ where: { giftStatus: null, giftedToClientId: null } }),
+    prisma.secondarySubscription.count({ where: { OR: [{ giftStatus: null, giftedToClientId: null }, { giftStatus: "ACTIVATED_SELF" }] } }),
     prisma.secondarySubscription.count({ where: { giftedToClientId: { not: null } } }),
     prisma.giftCode.count({ where: { status: "ACTIVE" } }),
     prisma.giftCode.count({ where: { status: "EXPIRED" } }),

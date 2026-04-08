@@ -246,7 +246,7 @@ export async function activateForSelf(
     return { ok: false, error: "Подписка не найдена", status: 404 };
   }
 
-  if (!sub.giftStatus) {
+  if (!sub.giftStatus || sub.giftStatus === "ACTIVATED_SELF") {
     // Уже активна на себя
     return { ok: true, data: { subscriptionId } };
   }
@@ -265,7 +265,7 @@ export async function activateForSelf(
 
   await prisma.secondarySubscription.update({
     where: { id: subscriptionId },
-    data: { giftStatus: null },
+    data: { giftStatus: "ACTIVATED_SELF" },
   });
 
   await logGiftEvent(ownerId, "ACTIVATED_SELF", subscriptionId, {
@@ -294,6 +294,11 @@ export async function deleteSubscription(
   // Нельзя удалить подарённую подписку (она уже у получателя)
   if (sub.giftStatus === "GIFTED" && sub.giftedToClientId) {
     return { ok: false, error: "Нельзя удалить подарённую подписку", status: 400 };
+  }
+
+  // Нельзя удалить активированную на себя подписку через раздел подарков
+  if (sub.giftStatus === "ACTIVATED_SELF") {
+    return { ok: false, error: "Подписка активирована на себя и не может быть удалена из подарков", status: 400 };
   }
 
   // Отменяем все активные коды
@@ -338,6 +343,7 @@ export async function listClientSubscriptions(
       ownerId: rootClientId,
       OR: [
         { giftStatus: null },
+        { giftStatus: "ACTIVATED_SELF" },
         { giftStatus: "GIFTED" },
       ], // не показываем только зарезервированные под подарок
     },
@@ -348,12 +354,16 @@ export async function listClientSubscriptions(
 
 /**
  * Список ВСЕХ подписок клиента включая GIFT_RESERVED (для страницы управления подарками).
+ * Подписки со статусом ACTIVATED_SELF исключаются — они уже «свои» и не участвуют в подарках.
  */
 export async function listAllClientSubscriptions(
   rootClientId: string,
 ): Promise<GiftResult<SecondarySubscriptionData[]>> {
   const secondaries = await prisma.secondarySubscription.findMany({
-    where: { ownerId: rootClientId },
+    where: {
+      ownerId: rootClientId,
+      giftStatus: { not: "ACTIVATED_SELF" },
+    },
     orderBy: { subscriptionIndex: "asc" },
   });
   return { ok: true, data: secondaries };
@@ -385,6 +395,9 @@ export async function createGiftCode(
   }
   if (sub.giftStatus === "GIFTED") {
     return { ok: false, error: "Подписка уже подарена", status: 400 };
+  }
+  if (sub.giftStatus === "ACTIVATED_SELF") {
+    return { ok: false, error: "Подписка активирована на себя и не может быть подарена", status: 400 };
   }
 
   // Проверяем, нет ли активного кода для этой подписки

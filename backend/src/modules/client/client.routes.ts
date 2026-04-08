@@ -1789,11 +1789,13 @@ clientRouter.get("/subscription/all", async (req, res) => {
 
   // 2. Secondary подписки:
   // - свои обычные (ownerId + giftStatus null)
+  // - активированные на себя (ownerId + giftStatus ACTIVATED_SELF)
   // - полученные в подарок (giftedToClientId + giftStatus GIFTED)
   const secondaries = await prisma.secondarySubscription.findMany({
     where: {
       OR: [
         { ownerId: clientId, giftStatus: null },
+        { ownerId: clientId, giftStatus: "ACTIVATED_SELF" },
         { giftedToClientId: clientId, giftStatus: "GIFTED" },
       ],
     },
