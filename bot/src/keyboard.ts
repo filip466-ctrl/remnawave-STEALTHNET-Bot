@@ -733,6 +733,8 @@ export function giftSubscriptionButtons(
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const rows: InlineButton[][] = [];
   for (const sub of subscriptions) {
+    // Пропускаем подписки, активированные на себя — они не участвуют в подарках
+    if (sub.giftStatus === "ACTIVATED_SELF") continue;
     const idx = sub.subscriptionIndex ?? 0;
     const statusLabel = sub.giftStatus === "GIFTED" ? " (подарена)" : sub.giftStatus === "GIFT_RESERVED" ? " (код создан)" : "";
     rows.push([
