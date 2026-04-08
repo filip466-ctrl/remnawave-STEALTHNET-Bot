@@ -548,8 +548,10 @@ export function ClientGiftsPage() {
             <AnimatePresence mode="popLayout">
               {subscriptions.map((sub, i) => {
                 const isGifted = sub.giftStatus === "GIFTED";
+                const isActivatedSelf = sub.giftStatus === "ACTIVATED_SELF";
                 const isReserved = sub.giftStatus === "GIFT_RESERVED";
                 const activeCode = codes.find(c => c.secondarySubscriptionId === sub.id && c.status === "ACTIVE");
+                const isFinalized = isGifted || isActivatedSelf;
 
                 return (
                   <motion.div
@@ -564,15 +566,15 @@ export function ClientGiftsPage() {
                       <div>
                         <h3 className="text-xl font-bold text-foreground">Подписка #{sub.subscriptionIndex}</h3>
                         <p className="text-sm text-muted-foreground mt-1 max-w-[240px]">
-                          {isGifted ? "Эта подписка была подарена вам." : isReserved ? "Для подписки создан код." : "Доступна для подарка или активации себе."}
+                          {isGifted ? "Эта подписка была подарена вам." : isActivatedSelf ? "Эта подписка была активирована вами." : isReserved ? "Для подписки создан код." : "Доступна для подарка или активации себе."}
                         </p>
                       </div>
-                      <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${isGifted ? 'bg-purple-500/15 text-purple-500 border border-purple-500/20' : isReserved ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20' : 'bg-green-500/15 text-green-500 border border-green-500/20'}`}>
-                        {isGifted ? "Получена в подарок" : isReserved ? "Код создан" : "Доступна"}
+                      <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${isGifted ? 'bg-purple-500/15 text-purple-500 border border-purple-500/20' : isActivatedSelf ? 'bg-blue-500/15 text-blue-500 border border-blue-500/20' : isReserved ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20' : 'bg-green-500/15 text-green-500 border border-green-500/20'}`}>
+                        {isGifted ? "Получена в подарок" : isActivatedSelf ? "Для себя" : isReserved ? "Код создан" : "Доступна"}
                       </span>
                     </div>
 
-                    {!isGifted && activeCode && (
+                    {!isFinalized && activeCode && (
                       <div className="bg-background/40 p-4 rounded-2xl border border-border/50 flex items-center justify-between gap-3">
                         <code className="text-lg font-mono font-bold tracking-wider text-foreground">{activeCode.code}</code>
                         <Button variant="ghost" size="icon" onClick={() => copyCode(activeCode.code, activeCode.id)} className="h-9 w-9 rounded-xl hover:bg-muted">
@@ -581,7 +583,7 @@ export function ClientGiftsPage() {
                       </div>
                     )}
 
-                    {isGifted ? (
+                    {isFinalized ? (
                       <div className="mt-auto rounded-2xl bg-green-500/10 border border-green-500/20 p-4 flex items-center justify-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-green-500" />
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">Активирована</span>
