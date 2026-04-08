@@ -189,6 +189,24 @@ export function ClientDashboardPage() {
     api.getClientReferralStats(token).then(setReferralStats).catch(() => {});
   }, [token, isMiniapp]);
 
+  // Auto-redeem pending gift code (saved by /gift/:code page before redirect to login/register)
+  const [giftRedeemMessage, setGiftRedeemMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  useEffect(() => {
+    if (!token || loading) return;
+    const pendingCode = localStorage.getItem("stealthnet_pending_gift");
+    if (!pendingCode) return;
+    localStorage.removeItem("stealthnet_pending_gift");
+    api.giftRedeemCode(token, pendingCode)
+      .then((res) => {
+        setGiftRedeemMessage({ type: "success", text: res.message || "Подарок активирован!" });
+        setRefreshKey((k) => k + 1);
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Не удалось активировать подарок";
+        setGiftRedeemMessage({ type: "error", text: msg });
+      });
+  }, [token, loading]);
+
   async function toggleAutoRenew(enabled: boolean) {
     if (!token || !client) return;
     setAutoRenewLoading(true);
@@ -286,6 +304,11 @@ export function ClientDashboardPage() {
         {paymentMessage === "failed" && (
           <div className="rounded-xl bg-destructive/15 backdrop-blur-md border border-destructive/30 px-4 py-3 text-sm font-medium text-destructive shadow-sm">
             Оплата не прошла. Попробуйте снова.
+          </div>
+        )}
+        {giftRedeemMessage && (
+          <div className={`rounded-xl backdrop-blur-md px-4 py-3 text-sm font-medium shadow-sm ${giftRedeemMessage.type === "success" ? "bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400" : "bg-destructive/15 border border-destructive/30 text-destructive"}`}>
+            {giftRedeemMessage.type === "success" ? "🎁 " : "❌ "}{giftRedeemMessage.text}
           </div>
         )}
 
@@ -618,6 +641,11 @@ export function ClientDashboardPage() {
               <div className="mt-4 inline-flex items-center gap-2 bg-destructive/15 border border-destructive/30 px-4 py-2 rounded-xl text-destructive font-medium text-sm">
                 <AlertCircle className="h-4 w-4" />
                 {t("cabinet.dashboard.payment_failed")}
+              </div>
+            )}
+            {giftRedeemMessage && (
+              <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm ${giftRedeemMessage.type === "success" ? "bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400" : "bg-destructive/15 border border-destructive/30 text-destructive"}`}>
+                {giftRedeemMessage.type === "success" ? "🎁" : "❌"} {giftRedeemMessage.text}
               </div>
             )}
             {trialError && <p className="mt-3 text-sm text-destructive font-medium">{trialError}</p>}

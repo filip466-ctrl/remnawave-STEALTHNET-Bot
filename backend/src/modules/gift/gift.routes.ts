@@ -1,24 +1,55 @@
 /**
- * Роуты дополнительных подписок и подарков.
+ * Роуты дополнительных подписок и подарков (v2).
  *
- * Все эндпоинты защищены requireClientAuth (монтируется в app.ts).
+ * Authed endpoints: requireClientAuth (монтируется в app.ts).
  * Клиент ID берётся из req.clientId (проставляется middleware).
+ *
+ * Public endpoints (no auth): GET /public/gift/:code
  */
 
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import {
   createAdditionalSubscription,
+  activateForSelf,
+  deleteSubscription,
   listClientSubscriptions,
+  listAllClientSubscriptions,
   createGiftCode,
   redeemGiftCode,
   cancelGiftCode,
   listGiftCodes,
   getSubscriptionUrl,
+  getGiftHistory,
+  getPublicGiftCodeInfo,
 } from "./gift.service.js";
 import { requireClientAuth } from "../client/client.middleware.js";
 import { prisma } from "../../db.js";
 import { randomUUID } from "crypto";
+
+// ─── Public Router (no auth) ─────────────────────────────────────────────────
+
+export const giftPublicRouter = Router();
+
+/**
+ * GET /api/gift/public/:code — Публичная информация о подарочном коде.
+ * Для страницы /gift/:code — не требует авторизации.
+ */
+giftPublicRouter.get("/:code", async (req: Request, res: Response) => {
+  const { code } = req.params;
+  if (!code || code.length < 8 || code.length > 20) {
+    return res.status(400).json({ message: "Некорректный код" });
+  }
+
+  const result = await getPublicGiftCodeInfo(code);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json(result.data);
+});
+
+// ─── Authed Router ───────────────────────────────────────────────────────────
 
 export const giftRouter = Router();
 
@@ -36,11 +67,21 @@ const buySchema = z.object({
 });
 
 const createCodeSchema = z.object({
-  secondaryClientId: z.string().min(1, "secondaryClientId обязателен"),
+  secondarySubscriptionId: z.string().min(1, "secondarySubscriptionId обязателен"),
+  giftMessage: z.string().max(200).optional(),
 });
 
 const redeemSchema = z.object({
   code: z.string().min(1, "Код обязателен").max(20),
+});
+
+const activateSelfSchema = z.object({
+  subscriptionId: z.string().min(1, "subscriptionId обязателен"),
+});
+
+const historyQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 // ─── POST /buy — Покупка дополнительной подписки (оплата балансом) ────────────
@@ -58,6 +99,7 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
     where: { id: body.data.tariffId },
     select: {
       id: true,
+      name: true,
       price: true,
       currency: true,
       durationDays: true,
@@ -94,6 +136,9 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
 
   // Создаём дополнительную подписку
   const result = await createAdditionalSubscription(clientId, {
+    id: tariff.id,
+    name: tariff.name,
+    price,
     durationDays: tariff.durationDays,
     trafficLimitBytes: tariff.trafficLimitBytes,
     deviceLimit: tariff.deviceLimit,
@@ -130,7 +175,7 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
   });
 });
 
-// ─── GET /subscriptions — Список подписок клиента ────────────────────────────
+// ─── GET /subscriptions — Список подписок клиента (без GIFT_RESERVED) ────────
 
 giftRouter.get("/subscriptions", async (req: Request, res: Response) => {
   const clientId = (req as AuthedReq).clientId;
@@ -143,6 +188,51 @@ giftRouter.get("/subscriptions", async (req: Request, res: Response) => {
   return res.json({ subscriptions: result.data });
 });
 
+// ─── GET /subscriptions/all — Все подписки включая GIFT_RESERVED ─────────────
+
+giftRouter.get("/subscriptions/all", async (req: Request, res: Response) => {
+  const clientId = (req as AuthedReq).clientId;
+
+  const result = await listAllClientSubscriptions(clientId);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json({ subscriptions: result.data });
+});
+
+// ─── POST /activate-self — Активировать подписку на себя (снять GIFT_RESERVED) ─
+
+giftRouter.post("/activate-self", async (req: Request, res: Response) => {
+  const clientId = (req as AuthedReq).clientId;
+
+  const body = activateSelfSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ message: "Некорректные данные", errors: body.error.flatten() });
+  }
+
+  const result = await activateForSelf(clientId, body.data.subscriptionId);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json({ message: "Подписка активирована", ...result.data });
+});
+
+// ─── DELETE /subscription/:id — Удалить дополнительную подписку ──────────────
+
+giftRouter.delete("/subscription/:id", async (req: Request, res: Response) => {
+  const clientId = (req as AuthedReq).clientId;
+  const subscriptionId = req.params.id;
+
+  const result = await deleteSubscription(clientId, subscriptionId);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json({ message: "Подписка удалена" });
+});
+
 // ─── POST /create-code — Создать подарочный код ──────────────────────────────
 
 giftRouter.post("/create-code", async (req: Request, res: Response) => {
@@ -153,7 +243,7 @@ giftRouter.post("/create-code", async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Некорректные данные", errors: body.error.flatten() });
   }
 
-  const result = await createGiftCode(clientId, body.data.secondaryClientId);
+  const result = await createGiftCode(clientId, body.data.secondarySubscriptionId, body.data.giftMessage);
   if (!result.ok) {
     return res.status(result.status).json({ message: result.error });
   }
@@ -162,6 +252,7 @@ giftRouter.post("/create-code", async (req: Request, res: Response) => {
     message: "Подарочный код создан",
     code: result.data.code,
     expiresAt: result.data.expiresAt,
+    tariffName: result.data.tariffName,
   });
 });
 
@@ -213,13 +304,31 @@ giftRouter.get("/codes", async (req: Request, res: Response) => {
   return res.json({ codes: result.data });
 });
 
+// ─── GET /history — История подарочных событий (пагинация) ───────────────────
+
+giftRouter.get("/history", async (req: Request, res: Response) => {
+  const clientId = (req as AuthedReq).clientId;
+
+  const query = historyQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ message: "Некорректные параметры", errors: query.error.flatten() });
+  }
+
+  const result = await getGiftHistory(clientId, query.data.page, query.data.limit);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json(result.data);
+});
+
 // ─── GET /subscription-url/:id — URL подписки (Remnawave UUID) ───────────────
 
 giftRouter.get("/subscription-url/:id", async (req: Request, res: Response) => {
   const clientId = (req as AuthedReq).clientId;
-  const secondaryClientId = req.params.id;
+  const subscriptionId = req.params.id;
 
-  const result = await getSubscriptionUrl(secondaryClientId, clientId);
+  const result = await getSubscriptionUrl(subscriptionId, clientId);
   if (!result.ok) {
     return res.status(result.status).json({ message: result.error });
   }

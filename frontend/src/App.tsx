@@ -33,6 +33,7 @@ import { TrafficAbusePage } from "@/pages/traffic-abuse";
 import { ApiKeysPage } from "@/pages/api-keys";
 import { ApiDocsPage } from "@/pages/api-docs";
 import { GeoMapPage } from "@/pages/geo-map";
+import { AdminSecondarySubscriptionsPage } from "@/pages/admin-secondary-subscriptions";
 import { ProxyPage } from "@/pages/proxy";
 import { SingboxPage } from "@/pages/singbox";
 import LanguagesPage from "@/pages/languages";
@@ -55,6 +56,7 @@ import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
 import { ClientTicketsPage } from "@/pages/cabinet/client-tickets";
 import { ClientCustomBuildPage } from "@/pages/cabinet/client-custom-build";
 import { ClientGiftsPage } from "@/pages/cabinet/client-gifts";
+import { GiftActivatePage } from "@/pages/gift-activate";
 import { LandingPage } from "@/pages/landing";
 import type { PublicConfig } from "@/lib/api";
 
@@ -213,6 +215,7 @@ function AppRoutes() {
         <Route path="languages" element={<ForceChangePassword><LanguagesPage /></ForceChangePassword>} />
         <Route path="api-docs" element={<ForceChangePassword><ApiDocsPage /></ForceChangePassword>} />
         <Route path="geo-map" element={<ForceChangePassword><GeoMapPage /></ForceChangePassword>} />
+        <Route path="secondary-subscriptions" element={<ForceChangePassword><AdminSecondarySubscriptionsPage /></ForceChangePassword>} />
       </Route>
       {/* Онбординг — вне CabinetLayout (без навбара) */}
       <Route
@@ -224,6 +227,16 @@ function AppRoutes() {
                 <ClientOnboardingPage />
               </RequireOnboarding>
             </RequireClientAuth>
+          </ClientAuthProvider>
+        }
+      />
+
+      {/* Публичная страница подарка — без auth */}
+      <Route
+        path="/gift/:code"
+        element={
+          <ClientAuthProvider>
+            <GiftActivatePage />
           </ClientAuthProvider>
         }
       />

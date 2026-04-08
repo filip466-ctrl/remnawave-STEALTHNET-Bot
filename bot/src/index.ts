@@ -2963,7 +2963,7 @@ bot.on("callback_query:data", async (ctx) => {
         await editMessageContent(
           ctx,
           `✅ Дополнительная подписка создана!\n\nПодписка #${result.subscriptionIndex}\n\nВы можете активировать её на своём аккаунте или подарить другу.`,
-          giftPostPurchaseButtons(result.secondaryClientId, result.subscriptionIndex, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          giftPostPurchaseButtons(result.secondarySubscriptionId, result.subscriptionIndex, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
@@ -2996,9 +2996,12 @@ bot.on("callback_query:data", async (ctx) => {
     }
 
     if (data.startsWith("gift:connect:")) {
-      const secondaryClientId = data.slice("gift:connect:".length);
+      const subscriptionId = data.slice("gift:connect:".length);
       try {
-        const result = await api.getGiftSubscriptionUrl(token, secondaryClientId);
+        // Сначала активируем подписку (снимаем GIFT_RESERVED, если есть)
+        await api.activateGiftForSelf(token, subscriptionId).catch(() => {});
+        // Потом получаем URL
+        const result = await api.getGiftSubscriptionUrl(token, subscriptionId);
         const appUrl2 = config?.publicAppUrl?.replace(/\/$/, "") ?? null;
         const subUrl = appUrl2 ? `${appUrl2}/sub/${result.uuid}` : `Подписка UUID: ${result.uuid}`;
         await editMessageContent(
@@ -3014,17 +3017,52 @@ bot.on("callback_query:data", async (ctx) => {
     }
 
     if (data.startsWith("gift:give:")) {
-      const secondaryClientId = data.slice("gift:give:".length);
+      const subscriptionId = data.slice("gift:give:".length);
       try {
-        const result = await api.createGiftCode(token, { secondaryClientId });
+        const result = await api.createGiftCode(token, { secondarySubscriptionId: subscriptionId });
         const expiresAt = new Date(result.expiresAt).toLocaleDateString("ru-RU");
+        const tariffLabel = result.tariffName ? `\nТариф: ${result.tariffName}` : "";
+
+        // Формируем ссылку на подарок и кнопку "Поделиться"
+        const appUrl = config?.publicAppUrl?.replace(/\/$/, "") ?? "";
+        const giftUrl = appUrl ? `${appUrl}/gift/${result.code}` : "";
+        const shareText = `🎁 Я дарю тебе VPN-подписку STEALTHNET${result.tariffName ? ` (${result.tariffName})` : ""}! Активируй по ссылке:`;
+        const shareUrl = giftUrl
+          ? `https://t.me/share/url?url=${encodeURIComponent(giftUrl)}&text=${encodeURIComponent(shareText)}`
+          : "";
+
+        const buttons: (({ text: string; callback_data: string } | { text: string; url: string })[])[] = [];
+        if (shareUrl) {
+          buttons.push([{ text: "📤 Поделиться в Telegram", url: shareUrl }]);
+        }
+        if (giftUrl) {
+          buttons.push([{ text: "🔗 Ссылка на подарок", url: giftUrl }]);
+        }
+        buttons.push([{ text: config?.botBackLabel ?? "← Назад", callback_data: "menu:gift" }]);
+
         await editMessageContent(
           ctx,
-          `🎁 Подарочный код создан!\n\nКод: \`${result.code}\`\n\nОтправьте этот код получателю. Код действителен до ${expiresAt}.`,
-          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          `🎁 Подарочный код создан!\n\nКод: \`${result.code}\`${tariffLabel}\n\nОтправьте этот код получателю или поделитесь ссылкой. Код действителен до ${expiresAt}.`,
+          { inline_keyboard: buttons },
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания кода";
+        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    if (data.startsWith("gift:delete:")) {
+      const subscriptionId = data.slice("gift:delete:".length);
+      try {
+        const result = await api.deleteGiftSubscription(token, subscriptionId);
+        await editMessageContent(
+          ctx,
+          `✅ ${result.message || "Подписка удалена"}`,
+          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка удаления";
         await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       }
       return;
@@ -3264,7 +3302,21 @@ bot.on("message:text", async (ctx) => {
     }
     try {
       const result = await api.redeemGiftCode(token, code);
-      await ctx.reply(`✅ Подарок активирован!\n\nПодписка #${result.subscriptionIndex} добавлена в ваш аккаунт!`, menuKb);
+      let text = `✅ Подарок активирован!\n\nПодписка #${result.subscriptionIndex} добавлена в ваш аккаунт!`;
+      if (result.tariffName) {
+        text += `\nТариф: ${result.tariffName}`;
+      }
+      if (result.giftMessage) {
+        text += `\n\n💌 Сообщение от дарителя:\n«${result.giftMessage}»`;
+      }
+      await ctx.reply(text, menuKb);
+
+      // Уведомляем дарителя о том, что подарок активирован
+      if (result.creatorTelegramId) {
+        const recipientName = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name ?? "Пользователь";
+        const notifyText = `🎁 Ваш подарок активирован!\n\n${recipientName} принял(а) ваш подарок${result.tariffName ? ` (${result.tariffName})` : ""}.`;
+        bot.api.sendMessage(result.creatorTelegramId, notifyText).catch(() => {});
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Ошибка активации подарка";
       await ctx.reply(`❌ ${msg}`, menuKb);

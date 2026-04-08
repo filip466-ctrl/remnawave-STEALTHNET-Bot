@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, Send, Link as LinkIcon, CheckCircle2, Play } from "lucide-react";
+import { Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail, XCircle, Trash, History } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
 import { api, type PublicTariff, type PublicTariffCategory } from "@/lib/api";
@@ -18,6 +18,30 @@ function formatMoney(amount: number, currency: string = "usd") {
   }).format(amount);
 }
 
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "только что";
+  if (mins < 60) return `${mins} мин назад`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "вчера";
+  if (days < 7) return `${days} дн назад`;
+  return new Date(dateStr).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+const HISTORY_EVENT_MAP: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+  PURCHASED: { icon: <ShoppingCart className="w-4 h-4" />, label: "Подписка куплена", color: "bg-blue-500/15 text-blue-500" },
+  ACTIVATED_SELF: { icon: <CheckCircle2 className="w-4 h-4" />, label: "Добавлена в профиль", color: "bg-green-500/15 text-green-500" },
+  CODE_CREATED: { icon: <Gift className="w-4 h-4" />, label: "Подарочный код создан", color: "bg-purple-500/15 text-purple-500" },
+  GIFT_SENT: { icon: <Send className="w-4 h-4" />, label: "Подарок отправлен", color: "bg-indigo-500/15 text-indigo-500" },
+  GIFT_RECEIVED: { icon: <Mail className="w-4 h-4" />, label: "Подарок получен", color: "bg-emerald-500/15 text-emerald-500" },
+  CODE_CANCELLED: { icon: <XCircle className="w-4 h-4" />, label: "Код отменён", color: "bg-red-500/15 text-red-500" },
+  CODE_EXPIRED: { icon: <Clock className="w-4 h-4" />, label: "Код истёк", color: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400" },
+  DELETED: { icon: <Trash className="w-4 h-4" />, label: "Подписка удалена", color: "bg-red-500/15 text-red-500" },
+};
+
 export function ClientGiftsPage() {
   const { state, refreshProfile } = useClientAuth();
   const config = useCabinetConfig();
@@ -26,8 +50,8 @@ export function ClientGiftsPage() {
   const currency = (client?.preferredCurrency ?? "usd").toLowerCase();
 
   // Data states
-  const [subscriptions, setSubscriptions] = useState<Array<{ id: string; remnawaveUuid: string | null; subscriptionIndex: number | null; giftStatus: string | null; parentClientId: string | null }>>([]);
-  const [codes, setCodes] = useState<Array<{ id: string; code: string; status: string; expiresAt: string; createdAt: string; redeemedAt: string | null; secondaryClientId: string }>>([]);
+  const [subscriptions, setSubscriptions] = useState<Array<{ id: string; ownerId: string; remnawaveUuid: string | null; subscriptionIndex: number; tariffId: string | null; giftStatus: string | null; giftedToClientId: string | null; createdAt: string; updatedAt: string }>>([]);
+  const [codes, setCodes] = useState<Array<{ id: string; code: string; status: string; expiresAt: string; createdAt: string; redeemedAt: string | null; giftMessage: string | null; secondarySubscriptionId: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -50,12 +74,18 @@ export function ClientGiftsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // History states
+  const [historyItems, setHistoryItems] = useState<Array<{ id: string; eventType: string; metadata: unknown; createdAt: string; secondarySubscriptionId: string | null }>>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
       setError(null);
       const [subsRes, codesRes] = await Promise.all([
-        api.giftListSubscriptions(token),
+        api.giftListAllSubscriptions(token),
         api.giftListCodes(token),
       ]);
       setSubscriptions(subsRes.subscriptions || []);
@@ -70,6 +100,27 @@ export function ClientGiftsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const fetchHistory = useCallback(async (page: number = 1) => {
+    if (!token) return;
+    setHistoryLoading(true);
+    try {
+      const res = await api.giftGetHistory(token, page, 10);
+      setHistoryItems(res.items);
+      setHistoryTotal(res.total);
+      setHistoryPage(res.page);
+    } catch {
+      // silent
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchHistory(historyPage);
+    }
+  }, [activeTab, historyPage, fetchHistory]);
 
   const loadTariffs = async () => {
     if (tariffs.length > 0) return;
@@ -104,11 +155,11 @@ export function ClientGiftsPage() {
     }
   };
 
-  const handleCreateCode = async (secondaryClientId: string) => {
+  const handleCreateCode = async (subscriptionId: string) => {
     if (!token) return;
-    setActionLoading(`create-${secondaryClientId}`);
+    setActionLoading(`create-${subscriptionId}`);
     try {
-      await api.giftCreateCode(token, secondaryClientId);
+      await api.giftCreateCode(token, subscriptionId);
       await fetchData();
       setActiveTab("codes");
     } catch (err) {
@@ -151,15 +202,15 @@ export function ClientGiftsPage() {
     }
   };
 
-  const handleGetUrl = async (secondaryClientId: string) => {
+  const handleGetUrl = async (subscriptionId: string) => {
     if (!token) return;
-    setActionLoading(`url-${secondaryClientId}`);
+    setActionLoading(`url-${subscriptionId}`);
     try {
-      const res = await api.giftGetSubscriptionUrl(token, secondaryClientId);
+      const res = await api.giftGetSubscriptionUrl(token, subscriptionId);
       const appUrl = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
       const link = `${appUrl}/sub/${res.uuid}`;
       await navigator.clipboard.writeText(link);
-      setCopiedId(`url-${secondaryClientId}`);
+      setCopiedId(`url-${subscriptionId}`);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Ошибка получения ссылки");
@@ -168,13 +219,12 @@ export function ClientGiftsPage() {
     }
   };
 
-  const handleActivateForSelf = async (secondaryClientId: string) => {
+  const handleActivateForSelf = async (subscriptionId: string) => {
     if (!token) return;
-    setActionLoading(`activate-${secondaryClientId}`);
+    setActionLoading(`activate-${subscriptionId}`);
     try {
-      const res = await api.giftGetSubscriptionUrl(token, secondaryClientId);
-      const appUrl = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
-      window.location.href = `${appUrl}/sub/${res.uuid}`;
+      await api.giftActivateForSelf(token, subscriptionId);
+      await fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Ошибка активации");
     } finally {
@@ -222,10 +272,11 @@ export function ClientGiftsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-md bg-muted/40 p-1 border border-border/50 rounded-xl mb-6">
-          <TabsTrigger value="subscriptions" className="rounded-lg text-xs sm:text-sm">Мои подписки</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 max-w-lg bg-muted/40 p-1 border border-border/50 rounded-xl mb-6">
+          <TabsTrigger value="subscriptions" className="rounded-lg text-xs sm:text-sm">Подписки</TabsTrigger>
           <TabsTrigger value="codes" className="rounded-lg text-xs sm:text-sm">Подарить</TabsTrigger>
           <TabsTrigger value="redeem" className="rounded-lg text-xs sm:text-sm">Получить</TabsTrigger>
+          <TabsTrigger value="history" className="rounded-lg text-xs sm:text-sm">История</TabsTrigger>
         </TabsList>
 
         <TabsContent value="subscriptions" className="space-y-4">
@@ -260,7 +311,8 @@ export function ClientGiftsPage() {
                 </motion.div>
               ) : (
                 subscriptions.map((sub, i) => {
-                  const isGifted = sub.giftStatus === "ACTIVE" || sub.giftStatus === "REDEEMED";
+                  const isGifted = sub.giftStatus === "GIFTED";
+                  const isReserved = sub.giftStatus === "GIFT_RESERVED";
                   return (
                     <motion.div
                       key={sub.id}
@@ -277,7 +329,7 @@ export function ClientGiftsPage() {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-foreground truncate">Подписка #{sub.subscriptionIndex}</h3>
                           <p className="text-xs text-muted-foreground">
-                            {sub.giftStatus === "REDEEMED" ? "Подарена (активна)" : sub.giftStatus === "ACTIVE" ? "Код создан (ожидает)" : "Доступна"}
+                            {isGifted ? "Подарена (активна)" : isReserved ? "Код создан (ожидает)" : "Доступна"}
                           </p>
                         </div>
                       </div>
@@ -299,10 +351,10 @@ export function ClientGiftsPage() {
                             size="sm" 
                             className="flex-1 rounded-xl shadow-md gap-2"
                             onClick={() => handleCreateCode(sub.id)}
-                            disabled={isGifted || actionLoading === `create-${sub.id}`}
+                            disabled={isGifted || isReserved || actionLoading === `create-${sub.id}`}
                           >
                             {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gift className="w-4 h-4 mr-2" />}
-                            <span className="truncate">{isGifted ? "Подарено" : "Подарить"}</span>
+                            <span className="truncate">{isGifted ? "Подарено" : isReserved ? "Код создан" : "Подарить"}</span>
                           </Button>
                         </div>
                         <Button 
@@ -448,6 +500,94 @@ export function ClientGiftsPage() {
               )}
             </AnimatePresence>
           </motion.div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          {historyLoading && historyItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Загрузка истории…</p>
+            </div>
+          ) : historyItems.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2rem] border border-dashed border-border/50 flex flex-col items-center justify-center text-center gap-3 bg-muted/20"
+            >
+              <History className="w-8 h-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">История пуста</p>
+            </motion.div>
+          ) : (
+            <>
+              <div className="space-y-3 pl-4 border-l-2 border-border/30 dark:border-white/10 ml-3">
+                <AnimatePresence mode="popLayout">
+                  {historyItems.map((item, i) => {
+                    const ev = HISTORY_EVENT_MAP[item.eventType] ?? { icon: <Clock className="w-4 h-4" />, label: item.eventType, color: "bg-muted text-muted-foreground" };
+                    const meta = item.metadata as Record<string, string> | null;
+                    const timeAgo = formatTimeAgo(item.createdAt);
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -8 }}
+                        transition={{ duration: 0.25, delay: i * 0.04 }}
+                        className="relative -ml-[21px] flex items-start gap-3 group"
+                      >
+                        <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm border border-border/50 dark:border-white/10 ${ev.color}`}>
+                          {ev.icon}
+                        </div>
+                        <div className="flex-1 p-3 sm:p-4 rounded-xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors group-hover:bg-muted/60 dark:group-hover:bg-white/10">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <span className="text-sm font-medium text-foreground">{ev.label}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo}</span>
+                          </div>
+                          {meta && Object.keys(meta).length > 0 && (
+                            <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+                              {meta.code && <span className="font-mono bg-background/50 px-1.5 py-0.5 rounded border border-border/30">{meta.code}</span>}
+                              {meta.tariffName && <span className="ml-1">{meta.tariffName}</span>}
+                              {meta.recipientUsername && <span className="ml-1">→ @{meta.recipientUsername}</span>}
+                              {meta.senderUsername && <span className="ml-1">от @{meta.senderUsername}</span>}
+                              {meta.giftMessage && (
+                                <p className="italic opacity-70 mt-1 border-l-2 border-primary/30 pl-2">"{meta.giftMessage}"</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+
+              {historyTotal > 10 && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl bg-muted/30 border-border/50"
+                    disabled={historyPage <= 1 || historyLoading}
+                    onClick={() => setHistoryPage((p) => p - 1)}
+                  >
+                    ← Назад
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {historyPage} / {Math.ceil(historyTotal / 10)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl bg-muted/30 border-border/50"
+                    disabled={historyPage >= Math.ceil(historyTotal / 10) || historyLoading}
+                    onClick={() => setHistoryPage((p) => p + 1)}
+                  >
+                    Вперед →
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 

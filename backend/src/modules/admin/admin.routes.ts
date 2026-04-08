@@ -53,6 +53,7 @@ import {
 } from "../notification/telegram-notify.service.js";
 import { runRule, runAllRules, getEligibleClientIds } from "../auto-broadcast/auto-broadcast.service.js";
 import { testNalogConnection } from "../nalog/nalog.service.js";
+import { adminCreateGiftCode } from "../gift/gift.service.js";
 import { languageRouter } from "./language.routes.js";
 
 export const adminRouter = Router();
@@ -1278,6 +1279,11 @@ const updateSettingsSchema = z.object({
   giftSubscriptionsEnabled: z.boolean().optional(),
   giftCodeExpiryHours: z.number().int().min(1).max(8760).optional(),
   maxAdditionalSubscriptions: z.number().int().min(1).max(100).optional(),
+  giftCodeFormatLength: z.number().int().min(6).max(24).optional(),
+  giftRateLimitPerMinute: z.number().int().min(1).max(60).optional(),
+  giftExpiryNotificationDays: z.number().int().min(0).max(30).optional(),
+  giftReferralEnabled: z.boolean().optional(),
+  giftMessageMaxLength: z.number().int().min(0).max(1000).optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -2026,6 +2032,11 @@ adminRouter.patch("/settings", async (req, res) => {
     ["giftSubscriptionsEnabled", "gift_subscriptions_enabled"],
     ["giftCodeExpiryHours", "gift_code_expiry_hours"],
     ["maxAdditionalSubscriptions", "max_additional_subscriptions"],
+    ["giftCodeFormatLength", "gift_code_format_length"],
+    ["giftRateLimitPerMinute", "gift_rate_limit_per_minute"],
+    ["giftExpiryNotificationDays", "gift_expiry_notification_days"],
+    ["giftReferralEnabled", "gift_referral_enabled"],
+    ["giftMessageMaxLength", "gift_message_max_length"],
   ];
   for (const [key, dbKey] of giftKeys) {
     const v = updates[key];
@@ -3367,4 +3378,296 @@ adminRouter.delete("/admins/:id", asyncRoute(async (req, res) => {
   }
   await prisma.admin.delete({ where: { id: req.params.id } });
   return res.json({ success: true });
+}));
+
+// ────── Secondary Subscriptions Admin API ──────
+
+adminRouter.get("/secondary-subscriptions", asyncRoute(async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const skip = (page - 1) * limit;
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const giftStatus = typeof req.query.giftStatus === "string" ? req.query.giftStatus : "";
+  const dateFrom = typeof req.query.dateFrom === "string" ? req.query.dateFrom : "";
+  const dateTo = typeof req.query.dateTo === "string" ? req.query.dateTo : "";
+  const sortBy = typeof req.query.sortBy === "string" ? req.query.sortBy : "createdAt";
+  const sortDir = req.query.sortDir === "asc" ? "asc" as const : "desc" as const;
+
+  const where: Prisma.SecondarySubscriptionWhereInput = {};
+  const conditions: Prisma.SecondarySubscriptionWhereInput[] = [];
+
+  // Gift status filter
+  if (giftStatus === "owned") {
+    conditions.push({ giftStatus: null, giftedToClientId: null });
+  } else if (giftStatus === "GIFT_RESERVED" || giftStatus === "GIFT_CODE_ACTIVE" || giftStatus === "GIFTED") {
+    conditions.push({ giftStatus });
+  }
+
+  // Search by owner email/telegramUsername/telegramId
+  if (search.length > 0) {
+    conditions.push({
+      OR: [
+        { owner: { email: { contains: search, mode: "insensitive" as const } } },
+        { owner: { telegramUsername: { contains: search, mode: "insensitive" as const } } },
+        { owner: { telegramId: { contains: search } } },
+        { remnawaveUuid: { contains: search } },
+        { id: { contains: search } },
+      ],
+    });
+  }
+
+  // Date range filter
+  if (dateFrom) {
+    const d = new Date(dateFrom);
+    if (!isNaN(d.getTime())) conditions.push({ createdAt: { gte: d } });
+  }
+  if (dateTo) {
+    const d = new Date(dateTo);
+    if (!isNaN(d.getTime())) conditions.push({ createdAt: { lte: d } });
+  }
+
+  if (conditions.length > 0) where.AND = conditions;
+
+  // Determine orderBy
+  const allowedSorts: Record<string, Prisma.SecondarySubscriptionOrderByWithRelationInput> = {
+    createdAt: { createdAt: sortDir },
+    updatedAt: { updatedAt: sortDir },
+    subscriptionIndex: { subscriptionIndex: sortDir },
+  };
+  const orderBy = allowedSorts[sortBy] ?? { createdAt: sortDir };
+
+  const [items, total] = await Promise.all([
+    prisma.secondarySubscription.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+      include: {
+        owner: {
+          select: { id: true, email: true, telegramId: true, telegramUsername: true },
+        },
+        giftedToClient: {
+          select: { id: true, email: true, telegramId: true, telegramUsername: true },
+        },
+        tariff: {
+          select: { id: true, name: true, durationDays: true, price: true },
+        },
+        giftCodes: {
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            giftMessage: true,
+            expiresAt: true,
+            redeemedAt: true,
+            createdAt: true,
+            redeemedBy: { select: { id: true, email: true, telegramUsername: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    }),
+    prisma.secondarySubscription.count({ where }),
+  ]);
+
+  return res.json({
+    items: items.map((s) => ({
+      ...s,
+      latestGiftCode: s.giftCodes[0] ?? null,
+      giftCodes: undefined,
+    })),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  });
+}));
+
+adminRouter.get("/secondary-subscriptions/:id", asyncRoute(async (req, res) => {
+  const sub = await prisma.secondarySubscription.findUnique({
+    where: { id: req.params.id },
+    include: {
+      owner: {
+        select: { id: true, email: true, telegramId: true, telegramUsername: true },
+      },
+      giftedToClient: {
+        select: { id: true, email: true, telegramId: true, telegramUsername: true },
+      },
+      tariff: {
+        select: { id: true, name: true, durationDays: true, price: true, category: true },
+      },
+      giftCodes: {
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          giftMessage: true,
+          expiresAt: true,
+          redeemedAt: true,
+          createdAt: true,
+          creator: { select: { id: true, email: true, telegramUsername: true } },
+          redeemedBy: { select: { id: true, email: true, telegramUsername: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+  if (!sub) return res.status(404).json({ message: "Подписка не найдена" });
+
+  // Fetch Remnawave data if UUID exists
+  let remnaData: Record<string, unknown> | null = null;
+  if (sub.remnawaveUuid && isRemnaConfigured()) {
+    try {
+      const r = await remnaGetUser(sub.remnawaveUuid);
+      if (!r.error && r.data) {
+        const raw = r.data as Record<string, unknown>;
+        remnaData = (raw.response ?? raw) as Record<string, unknown>;
+      }
+    } catch { /* skip */ }
+  }
+
+  // Fetch history
+  const history = await prisma.giftHistory.findMany({
+    where: { secondarySubscriptionId: sub.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  return res.json({ ...sub, remnaData, history });
+}));
+
+adminRouter.delete("/secondary-subscriptions/:id", asyncRoute(async (req, res) => {
+  const sub = await prisma.secondarySubscription.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, remnawaveUuid: true, ownerId: true },
+  });
+  if (!sub) return res.status(404).json({ message: "Подписка не найдена" });
+
+  // Delete Remnawave user if exists
+  if (sub.remnawaveUuid && isRemnaConfigured()) {
+    try {
+      await remnaDeleteUser(sub.remnawaveUuid);
+    } catch { /* best effort */ }
+  }
+
+  // Log event
+  await prisma.giftHistory.create({
+    data: {
+      clientId: sub.ownerId,
+      secondarySubscriptionId: sub.id,
+      eventType: "DELETED",
+      metadata: { deletedBy: "admin" },
+    },
+  });
+
+  // Cascade deletes GiftCodes via DB relation
+  await prisma.secondarySubscription.delete({ where: { id: sub.id } });
+
+  return res.json({ success: true });
+}));
+
+adminRouter.delete("/secondary-subscriptions/bulk", asyncRoute(async (req, res) => {
+  const { ids } = req.body as { ids?: string[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: "Укажите массив ids" });
+  }
+
+  const subs = await prisma.secondarySubscription.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, remnawaveUuid: true, ownerId: true },
+  });
+
+  // Delete Remnawave users
+  if (isRemnaConfigured()) {
+    await Promise.allSettled(
+      subs.filter((s) => s.remnawaveUuid).map((s) => remnaDeleteUser(s.remnawaveUuid!))
+    );
+  }
+
+  // Log events
+  await prisma.giftHistory.createMany({
+    data: subs.map((s) => ({
+      clientId: s.ownerId,
+      secondarySubscriptionId: s.id,
+      eventType: "DELETED",
+      metadata: { deletedBy: "admin", bulk: true },
+    })),
+  });
+
+  await prisma.secondarySubscription.deleteMany({ where: { id: { in: ids } } });
+
+  return res.json({ success: true, deleted: subs.length });
+}));
+
+// ────── Gift Analytics ──────
+
+adminRouter.get("/gift-analytics", asyncRoute(async (_req, res) => {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    totalSubscriptions,
+    last30Days,
+    activatedSelf,
+    gifted,
+    pendingCodes,
+    expiredCodes,
+    redeemedCodes,
+    totalCodes,
+  ] = await Promise.all([
+    prisma.secondarySubscription.count(),
+    prisma.secondarySubscription.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.secondarySubscription.count({ where: { giftStatus: null, giftedToClientId: null } }),
+    prisma.secondarySubscription.count({ where: { giftedToClientId: { not: null } } }),
+    prisma.giftCode.count({ where: { status: "ACTIVE" } }),
+    prisma.giftCode.count({ where: { status: "EXPIRED" } }),
+    prisma.giftCode.count({ where: { status: "REDEEMED" } }),
+    prisma.giftCode.count(),
+  ]);
+
+  const conversionRate = totalCodes > 0
+    ? Math.round((redeemedCodes / totalCodes) * 1000) / 10
+    : 0;
+
+  return res.json({
+    totalSubscriptions,
+    last30Days,
+    activatedSelf,
+    gifted,
+    pendingCodes,
+    expiredCodes,
+    redeemedCodes,
+    conversionRate,
+  });
+}));
+
+// ────── Admin Gift Code Creation ──────
+
+adminRouter.post("/gift-codes/create", asyncRoute(async (req, res) => {
+  const schema = z.object({
+    clientId: z.string().min(1),
+    tariffId: z.string().min(1),
+    giftMessage: z.string().max(200).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Некорректные данные", errors: parsed.error.flatten().fieldErrors });
+  }
+
+  const { clientId, tariffId, giftMessage } = parsed.data;
+
+  // Проверяем что клиент существует
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client) {
+    return res.status(404).json({ message: "Клиент не найден" });
+  }
+
+  const result = await adminCreateGiftCode(clientId, tariffId, giftMessage);
+  if (!result.ok) {
+    return res.status(result.status).json({ message: result.error });
+  }
+
+  return res.json(result.data);
 }));

@@ -728,13 +728,14 @@ export function giftSubscriptionButtons(
   const rows: InlineButton[][] = [];
   for (const sub of subscriptions) {
     const idx = sub.subscriptionIndex ?? 0;
-    const statusLabel = sub.giftStatus === "GIFTED" ? " (подарена)" : sub.giftStatus === "GIFT_CODE_ACTIVE" ? " (код создан)" : "";
+    const statusLabel = sub.giftStatus === "GIFTED" ? " (подарена)" : sub.giftStatus === "GIFT_RESERVED" ? " (код создан)" : "";
     rows.push([
       btn(`📲 Подписка #${idx}${statusLabel}`, `gift:connect:${sub.id}`, "primary", emojiIds?.connect),
     ]);
-    if (!sub.giftStatus || sub.giftStatus === "OWNED") {
+    if (!sub.giftStatus) {
       rows.push([
         btn(`🎁 Подарить #${idx}`, `gift:give:${sub.id}`, "success", emojiIds?.trial),
+        btn(`🗑 Удалить #${idx}`, `gift:delete:${sub.id}`, "danger"),
       ]);
     }
   }
@@ -744,7 +745,7 @@ export function giftSubscriptionButtons(
 
 /** После покупки доп. подписки — «Активировать себе» или «Подарить» */
 export function giftPostPurchaseButtons(
-  secondaryClientId: string,
+  subscriptionId: string,
   subscriptionIndex: number,
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
@@ -754,8 +755,8 @@ export function giftPostPurchaseButtons(
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   return {
     inline_keyboard: [
-      [btn(`✅ Активировать себе`, `gift:connect:${secondaryClientId}`, "primary", emojiIds?.connect)],
-      [btn(`🎁 Подарить`, `gift:give:${secondaryClientId}`, "success", emojiIds?.trial)],
+      [btn(`✅ Активировать себе`, `gift:connect:${subscriptionId}`, "primary", emojiIds?.connect)],
+      [btn(`🎁 Подарить`, `gift:give:${subscriptionId}`, "success", emojiIds?.trial)],
       [btn(back, "menu:gift", backSty, emojiIds?.back)],
     ],
   };

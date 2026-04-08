@@ -1716,6 +1716,37 @@ clientRouter.get("/subscription", async (req, res) => {
 });
 
 /**
+ * GET /api/client/subscription/by-uuid/:uuid — Подписка по Remnawave UUID.
+ * Используется на /cabinet/subscribe?uuid=xxx для secondary подписок.
+ */
+clientRouter.get("/subscription/by-uuid/:uuid", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
+  const clientId = (req as unknown as { clientId: string }).clientId;
+  const { uuid } = req.params;
+  if (!uuid || typeof uuid !== "string") {
+    return res.status(400).json({ subscription: null, tariffDisplayName: null, message: "UUID не указан" });
+  }
+
+  // Проверяем принадлежность: root или secondary подписка
+  const isRoot = client.remnawaveUuid === uuid;
+  if (!isRoot) {
+    const secondarySub = await prisma.secondarySubscription.findFirst({
+      where: { ownerId: clientId, remnawaveUuid: uuid },
+    });
+    if (!secondarySub) {
+      return res.status(404).json({ subscription: null, tariffDisplayName: null, message: "Подписка не найдена" });
+    }
+  }
+
+  const result = await remnaGetUser(uuid);
+  if (result.error) {
+    return res.json({ subscription: null, tariffDisplayName: null, message: result.error });
+  }
+  const tariffDisplayName = await resolveTariffDisplayName(result.data ?? null);
+  return res.json({ subscription: result.data ?? null, tariffDisplayName });
+});
+
+/**
  * GET /api/client/subscription/all — Все подписки клиента (root + secondary).
  * Возвращает массив с Remnawave-данными для каждой подписки.
  */
@@ -1757,9 +1788,9 @@ clientRouter.get("/subscription/all", async (req, res) => {
     });
   }
 
-  // 2. Secondary подписки (не зарезервированные под подарок)
-  const secondaries = await prisma.client.findMany({
-    where: { parentClientId: clientId, giftStatus: null },
+  // 2. Secondary подписки (не зарезервированные под подарок) — из SecondarySubscription
+  const secondaries = await prisma.secondarySubscription.findMany({
+    where: { ownerId: clientId, giftStatus: null },
     select: { id: true, remnawaveUuid: true, subscriptionIndex: true },
     orderBy: { subscriptionIndex: "asc" },
   });

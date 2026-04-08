@@ -50,6 +50,7 @@ services:
       REMNA_SECRET_KEY: "${REMNA_SECRET_KEY:-}"
       INIT_ADMIN_EMAIL: "${INIT_ADMIN_EMAIL:-admin@stealthnet.local}"
       INIT_ADMIN_PASSWORD: "${INIT_ADMIN_PASSWORD:-}"
+      BOT_TOKEN: "${BOT_TOKEN:-}"
     volumes:
       - /etc/ssh:/host-etc/ssh
       - /proc:/host-proc:ro
