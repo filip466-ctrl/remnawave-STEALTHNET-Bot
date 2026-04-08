@@ -328,6 +328,7 @@ export async function deleteSubscription(
 /**
  * Список всех подписок клиента (основная + дополнительные).
  * Скрытые (giftStatus = GIFT_RESERVED) не включаются.
+ * Подаренные и уже активированные у текущего клиента (giftStatus = GIFTED) — показываются.
  */
 export async function listClientSubscriptions(
   rootClientId: string,
@@ -335,7 +336,10 @@ export async function listClientSubscriptions(
   const secondaries = await prisma.secondarySubscription.findMany({
     where: {
       ownerId: rootClientId,
-      giftStatus: null, // не показываем зарезервированные под подарок
+      OR: [
+        { giftStatus: null },
+        { giftStatus: "GIFTED" },
+      ], // не показываем только зарезервированные под подарок
     },
     orderBy: { subscriptionIndex: "asc" },
   });

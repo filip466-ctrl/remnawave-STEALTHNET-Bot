@@ -198,6 +198,14 @@ export async function getSubscription(token: string): Promise<{ subscription: un
   return fetchJson("/api/client/subscription", { token });
 }
 
+/** Подписка по конкретному UUID (для secondary/gift подписок) */
+export async function getSubscriptionByUuid(
+  token: string,
+  uuid: string
+): Promise<{ subscription: unknown; tariffDisplayName?: string | null; message?: string }> {
+  return fetchJson("/api/client/subscription/by-uuid/" + encodeURIComponent(uuid), { token });
+}
+
 /** Список устройств (HWID) пользователя в Remna */
 export async function getClientDevices(token: string): Promise<{ total: number; devices: { hwid: string; platform?: string; deviceModel?: string; createdAt?: string }[] }> {
   return fetchJson("/api/client/devices", { token });

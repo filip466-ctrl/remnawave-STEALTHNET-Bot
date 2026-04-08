@@ -1224,10 +1224,9 @@ clientRouter.get("/referral-stats", async (req, res) => {
   });
   if (!c) return res.status(404).json({ message: "Not found" });
   const config = await getSystemConfig();
-  let referralPercent: number = c.referralPercent ?? 0;
-  if (referralPercent === 0) {
-    referralPercent = config.defaultReferralPercent ?? 0;
-  }
+  // Показываем фактический персональный процент клиента.
+  // Если он не задан (null), используем дефолт из системных настроек.
+  const referralPercent: number = c.referralPercent ?? (config.defaultReferralPercent ?? 0);
   const totalEarnings = await prisma.referralCredit.aggregate({
     where: { referrerId: client.id },
     _sum: { amount: true },
@@ -1788,9 +1787,16 @@ clientRouter.get("/subscription/all", async (req, res) => {
     });
   }
 
-  // 2. Secondary подписки (не зарезервированные под подарок) — из SecondarySubscription
+  // 2. Secondary подписки:
+  // - свои обычные (ownerId + giftStatus null)
+  // - полученные в подарок (giftedToClientId + giftStatus GIFTED)
   const secondaries = await prisma.secondarySubscription.findMany({
-    where: { ownerId: clientId, giftStatus: null },
+    where: {
+      OR: [
+        { ownerId: clientId, giftStatus: null },
+        { giftedToClientId: clientId, giftStatus: "GIFTED" },
+      ],
+    },
     select: { id: true, remnawaveUuid: true, subscriptionIndex: true },
     orderBy: { subscriptionIndex: "asc" },
   });

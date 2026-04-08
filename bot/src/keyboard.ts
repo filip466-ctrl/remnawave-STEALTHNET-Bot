@@ -65,6 +65,7 @@ const DEFAULT_BUTTONS: BotButtonConfig[] = [
   { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary" },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary" },
+  { id: "gift", visible: true, label: "🎁 Подарки", order: 8.5, style: "primary" },
   { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary" },
 ];
 
@@ -106,6 +107,7 @@ export function mainMenu(opts: {
   hasSupportLinks?: boolean;
   showTickets?: boolean;
   showExtraOptions?: boolean;
+  showGift?: boolean;
   /** Кнопок в ряд: 1 или 2 (по умолчанию 1) */
   buttonsPerRow?: 1 | 2;
   /** URL страницы подписки Remna (если задан — кнопка VPN ведёт туда) */
@@ -116,6 +118,9 @@ export function mainMenu(opts: {
   let list = fromConfig ? [...configButtons] : [...DEFAULT_BUTTONS];
   if (fromConfig && !list.some((b) => b.id === "devices")) {
     list.push({ id: "devices", visible: true, label: "📱 Устройства", order: 1.5, style: "primary" });
+  }
+  if (fromConfig && opts.showGift === true && !list.some((b) => b.id === "gift")) {
+    list.push({ id: "gift", visible: true, label: "🎁 Подарки", order: 8.5, style: "primary" });
   }
   list = list
     .filter((b) => b.visible)
@@ -128,6 +133,7 @@ export function mainMenu(opts: {
       if (b.id === "tickets") return opts.showTickets === true && !!opts.appUrl?.trim();
       if (b.id === "support") return !!opts.hasSupportLinks;
       if (b.id === "extra_options") return opts.showExtraOptions === true;
+      if (b.id === "gift") return opts.showGift === true;
       return true;
     })
     .sort((a, b) => a.order - b.order);

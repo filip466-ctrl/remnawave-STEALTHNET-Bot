@@ -16,9 +16,7 @@ import {
   Cpu,
   Gift,
   Send,
-  Clock,
   CheckCircle,
-  XCircle,
   TrendingUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

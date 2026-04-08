@@ -3407,9 +3407,14 @@ adminRouter.get("/secondary-subscriptions", asyncRoute(async (req, res) => {
   if (search.length > 0) {
     conditions.push({
       OR: [
+        { owner: { id: { equals: search } } },
         { owner: { email: { contains: search, mode: "insensitive" as const } } },
         { owner: { telegramUsername: { contains: search, mode: "insensitive" as const } } },
         { owner: { telegramId: { contains: search } } },
+        { giftedToClient: { id: { equals: search } } },
+        { giftedToClient: { email: { contains: search, mode: "insensitive" as const } } },
+        { giftedToClient: { telegramUsername: { contains: search, mode: "insensitive" as const } } },
+        { giftedToClient: { telegramId: { contains: search } } },
         { remnawaveUuid: { contains: search } },
         { id: { contains: search } },
       ],

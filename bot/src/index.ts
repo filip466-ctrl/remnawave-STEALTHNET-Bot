@@ -940,6 +940,7 @@ bot.command("start", async (ctx) => {
       showVpn: Boolean(vpnUrl),
       showProxy,
       showSingbox,
+      showGift: config?.giftSubscriptionsEnabled === true,
       appUrl,
       botButtons: config?.botButtons ?? null,
       botBackLabel: config?.botBackLabel ?? null,
@@ -1592,6 +1593,7 @@ bot.on("callback_query:data", async (ctx) => {
         showVpn: Boolean(vpnUrl),
         showProxy,
         showSingbox,
+        showGift: config?.giftSubscriptionsEnabled === true,
         appUrl,
         botButtons: config?.botButtons ?? null,
         botBackLabel: config?.botBackLabel ?? null,
@@ -2847,7 +2849,9 @@ bot.on("callback_query:data", async (ctx) => {
       }
       const linkSite = appUrl ? `${appUrl}/cabinet/register?ref=${encodeURIComponent(client.referralCode)}` : null;
       const linkBot = `https://t.me/${BOT_USERNAME || "bot"}?start=ref_${client.referralCode}`;
-      const p1 = (client.referralPercent != null && client.referralPercent > 0) ? client.referralPercent : (config?.defaultReferralPercent ?? 0);
+      // Показываем фактический персональный процент клиента.
+      // Фолбэк на дефолт только если персональный не задан (null/undefined).
+      const p1 = client.referralPercent ?? (config?.defaultReferralPercent ?? 0);
       const p2 = config?.referralPercentLevel2 ?? 0;
       const p3 = config?.referralPercentLevel3 ?? 0;
       let rest = `${_t("referral.title", lang)}\n\n${_t("referral.description", lang)}\n\n`;
@@ -3003,11 +3007,42 @@ bot.on("callback_query:data", async (ctx) => {
         // Потом получаем URL
         const result = await api.getGiftSubscriptionUrl(token, subscriptionId);
         const appUrl2 = config?.publicAppUrl?.replace(/\/$/, "") ?? null;
-        const subUrl = appUrl2 ? `${appUrl2}/sub/${result.uuid}` : `Подписка UUID: ${result.uuid}`;
+
+        // Если включена Remna-страница подписки — отдаём remna subscriptionUrl.
+        if (config?.useRemnaSubscriptionPage) {
+          const byUuid = await api.getSubscriptionByUuid(token, result.uuid);
+          const remnaUrl = getSubscriptionUrl(byUuid.subscription);
+          if (!remnaUrl) {
+            await editMessageContent(
+              ctx,
+              "❌ Не удалось получить ссылку Remna для этой подписки.",
+              backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds),
+            );
+            return;
+          }
+          await editMessageContent(
+            ctx,
+            `📲 Ссылка на подписку:\n\n${remnaUrl}`,
+            openSubscribePageMarkup(appUrl2 ?? "", config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, remnaUrl),
+          );
+          return;
+        }
+
+        // Иначе показываем ссылку + кнопку "Подключиться" в мини-апп на нашу страницу
+        // подключения для конкретной secondary-подписки.
+        const webUrl = appUrl2 ? `${appUrl2}/cabinet/subscribe?uuid=${encodeURIComponent(result.uuid)}` : null;
+        const buttons = webUrl
+          ? {
+              inline_keyboard: [
+                [{ text: "📲 Подключиться", web_app: { url: webUrl } }],
+                [{ text: config?.botBackLabel ?? "← Назад", callback_data: "menu:gift" }],
+              ],
+            }
+          : giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds);
         await editMessageContent(
           ctx,
-          `📲 Ссылка на подписку:\n\n${subUrl}`,
-          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          `📲 Ссылка на подписку:\n\n${webUrl ?? `Подписка UUID: ${result.uuid}`}`,
+          buttons,
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка получения ссылки";

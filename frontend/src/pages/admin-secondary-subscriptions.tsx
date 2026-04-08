@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/auth";
 import {
   api,
@@ -90,6 +91,8 @@ const EVENT_LABELS: Record<string, { icon: React.ReactNode; label: string }> = {
 export function AdminSecondarySubscriptionsPage() {
   const { state } = useAuth();
   const token = state.accessToken!;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search")?.trim() ?? "";
   
   const [data, setData] = useState<AdminSecondarySubscriptionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,9 +100,10 @@ export function AdminSecondarySubscriptionsPage() {
   const [filters, setFilters] = useState<AdminSecondarySubscriptionFilters>({
     page: 1,
     limit: 20,
+    search: initialSearch || undefined,
   });
   
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(initialSearch);
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -140,7 +144,14 @@ export function AdminSecondarySubscriptionsPage() {
   }, [fetchItems]);
 
   const handleSearch = () => {
-    setFilters((prev) => ({ ...prev, search: searchInput || undefined, page: 1 }));
+    const nextSearch = searchInput.trim();
+    setFilters((prev) => ({ ...prev, search: nextSearch || undefined, page: 1 }));
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (nextSearch) p.set("search", nextSearch);
+      else p.delete("search");
+      return p;
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -154,6 +165,11 @@ export function AdminSecondarySubscriptionsPage() {
   const handleResetFilters = () => {
     setSearchInput("");
     setFilters({ page: 1, limit: 20 });
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("search");
+      return p;
+    });
   };
 
   const toggleSelectAll = () => {

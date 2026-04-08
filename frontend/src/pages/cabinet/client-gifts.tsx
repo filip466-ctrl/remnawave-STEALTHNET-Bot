@@ -202,18 +202,28 @@ export function ClientGiftsPage() {
     }
   };
 
-  const handleGetUrl = async (subscriptionId: string) => {
-    if (!token) return;
+  const handleGetUrl = async (subscription: { id: string; giftStatus: string | null }) => {
+    const subscriptionId = subscription.id;
     setActionLoading(`url-${subscriptionId}`);
     try {
-      const res = await api.giftGetSubscriptionUrl(token, subscriptionId);
-      const appUrl = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
-      const link = `${appUrl}/sub/${res.uuid}`;
+      const activeCode = codes.find(
+        (c) => c.secondarySubscriptionId === subscriptionId && c.status === "ACTIVE"
+      );
+      if (!activeCode) {
+        if (subscription.giftStatus === "GIFTED") {
+          alert("Эта подписка уже подарена. Ссылка недоступна.");
+        } else {
+          alert("Сначала создайте подарочный код кнопкой «Подарить», затем появится ссылка.");
+        }
+        return;
+      }
+      const appUrl =
+        config?.publicAppUrl?.replace(/\/$/, "") ||
+        (typeof window !== "undefined" ? window.location.origin : "");
+      const link = `${appUrl}/gift/${activeCode.code}`;
       await navigator.clipboard.writeText(link);
       setCopiedId(`url-${subscriptionId}`);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Ошибка получения ссылки");
     } finally {
       setActionLoading(null);
     }
@@ -340,7 +350,7 @@ export function ClientGiftsPage() {
                             variant="secondary" 
                             size="sm" 
                             className="flex-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all border-none shadow-none"
-                            onClick={() => handleGetUrl(sub.id)}
+                            onClick={() => handleGetUrl(sub)}
                             disabled={actionLoading === `url-${sub.id}`}
                           >
                             {actionLoading === `url-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : copiedId === `url-${sub.id}` ? <Check className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
