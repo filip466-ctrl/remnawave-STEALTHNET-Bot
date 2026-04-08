@@ -298,13 +298,6 @@ export function ClientOnboardingPage() {
                 >
                   {passwordLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Далее <ChevronRight className="h-5 w-5" /></>}
                 </Button>
-                <button
-                  type="button"
-                  onClick={() => goTo("2fa")}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Пропустить этот шаг
-                </button>
               </motion.div>
             )}
 
