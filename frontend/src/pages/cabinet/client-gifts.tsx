@@ -1,13 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail, XCircle, Trash, History } from "lucide-react";
+import { 
+  Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, 
+  Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail, 
+  XCircle, Trash, History, ChevronDown, ChevronUp
+} from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
 import { api, type PublicTariff, type PublicTariffCategory } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 function formatMoney(amount: number, currency: string = "usd") {
   return new Intl.NumberFormat("ru-RU", {
@@ -55,9 +58,6 @@ export function ClientGiftsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Tab state
-  const [activeTab, setActiveTab] = useState<string>("subscriptions");
-
   // Buy Dialog State
   const [buyDialogOpen, setBuyDialogOpen] = useState(false);
   const [tariffs, setTariffs] = useState<PublicTariff[]>([]);
@@ -79,6 +79,7 @@ export function ClientGiftsPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -97,10 +98,6 @@ export function ClientGiftsPage() {
     }
   }, [token]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const fetchHistory = useCallback(async (page: number = 1) => {
     if (!token) return;
     setHistoryLoading(true);
@@ -117,10 +114,12 @@ export function ClientGiftsPage() {
   }, [token]);
 
   useEffect(() => {
-    if (activeTab === "history") {
-      fetchHistory(historyPage);
-    }
-  }, [activeTab, historyPage, fetchHistory]);
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    fetchHistory(historyPage);
+  }, [historyPage, fetchHistory]);
 
   const loadTariffs = async () => {
     if (tariffs.length > 0) return;
@@ -146,6 +145,7 @@ export function ClientGiftsPage() {
     try {
       await api.giftBuySubscription(token, tariffId);
       await fetchData();
+      fetchHistory(1);
       refreshProfile().catch(() => {});
       setBuyDialogOpen(false);
     } catch (err) {
@@ -161,7 +161,7 @@ export function ClientGiftsPage() {
     try {
       await api.giftCreateCode(token, subscriptionId);
       await fetchData();
-      setActiveTab("codes");
+      fetchHistory(1);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Ошибка создания кода");
     } finally {
@@ -176,6 +176,7 @@ export function ClientGiftsPage() {
     try {
       await api.giftCancelCode(token, codeId);
       await fetchData();
+      fetchHistory(1);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Ошибка отмены кода");
     } finally {
@@ -194,6 +195,7 @@ export function ClientGiftsPage() {
       setRedeemSuccess("Код успешно активирован!");
       setRedeemCode("");
       await fetchData();
+      fetchHistory(1);
       refreshProfile().catch(() => {});
     } catch (err) {
       setRedeemError(err instanceof Error ? err.message : "Ошибка активации");
@@ -235,6 +237,7 @@ export function ClientGiftsPage() {
     try {
       await api.giftActivateForSelf(token, subscriptionId);
       await fetchData();
+      fetchHistory(1);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Ошибка активации");
     } finally {
@@ -251,10 +254,12 @@ export function ClientGiftsPage() {
   const maxSubs = config?.maxAdditionalSubscriptions ?? 5;
   const currentSubs = subscriptions.length;
   const canBuyMore = currentSubs < maxSubs;
+  const giftedCount = subscriptions.filter(s => s.giftStatus === "GIFTED").length;
+  const activeCodesCount = codes.filter(c => c.status === "ACTIVE").length;
 
   if (loading && subscriptions.length === 0 && codes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[200px] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       </div>
@@ -262,350 +267,405 @@ export function ClientGiftsPage() {
   }
 
   return (
-    <div className="space-y-6 w-full min-w-0 pb-10">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
+    <div className="space-y-8 w-full min-w-0 pb-12">
+      {/* SECTION 1: HERO */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="min-w-0"
+        transition={{ duration: 0.4 }}
+        className="relative overflow-hidden rounded-3xl bg-card/40 backdrop-blur-2xl border border-border/50 p-8 sm:p-10 shadow-xl"
       >
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Подарки</h1>
-        <p className="text-muted-foreground text-sm mt-1 truncate">
-          Дарите VPN своим друзьям или близким
-        </p>
-      </motion.div>
-
-      {error && (
-        <div className="rounded-lg bg-destructive/15 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-lg bg-muted/40 p-1 border border-border/50 rounded-xl mb-6">
-          <TabsTrigger value="subscriptions" className="rounded-lg text-xs sm:text-sm">Подписки</TabsTrigger>
-          <TabsTrigger value="codes" className="rounded-lg text-xs sm:text-sm">Подарить</TabsTrigger>
-          <TabsTrigger value="redeem" className="rounded-lg text-xs sm:text-sm">Получить</TabsTrigger>
-          <TabsTrigger value="history" className="rounded-lg text-xs sm:text-sm">История</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="subscriptions" className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-sm text-muted-foreground">
-              У вас {currentSubs} из {maxSubs} доп. подписок
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/20 blur-[80px] pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-blue-500/10 blur-[80px] pointer-events-none -ml-20 -mb-20" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Подарки</h1>
+            <p className="mt-3 text-[16px] text-muted-foreground max-w-xl leading-relaxed">
+              Покупайте подписки VPN для друзей или активируйте вторую подписку для себя
             </p>
-            {canBuyMore && (
-              <Button onClick={handleOpenBuy} size="sm" className="rounded-xl shadow-md gap-2" variant="secondary">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Купить ещё</span>
-              </Button>
-            )}
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AnimatePresence mode="popLayout">
-              {subscriptions.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="col-span-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2rem] border border-dashed border-border/50 flex flex-col items-center justify-center text-center gap-3 bg-muted/20"
-                >
-                  <Package className="w-8 h-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">У вас пока нет дополнительных подписок.</p>
-                  {canBuyMore && (
-                    <Button onClick={handleOpenBuy} variant="outline" className="mt-2 rounded-xl">
-                      Приобрести
-                    </Button>
-                  )}
-                </motion.div>
-              ) : (
-                subscriptions.map((sub, i) => {
-                  const isGifted = sub.giftStatus === "GIFTED";
-                  const isReserved = sub.giftStatus === "GIFT_RESERVED";
-                  return (
-                    <motion.div
-                      key={sub.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.3, delay: i * 0.05 }}
-                      className="flex flex-col p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors hover:bg-muted/60 dark:hover:bg-white/10"
-                    >
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary shrink-0 border border-primary/10 shadow-inner">
-                          <Package className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-foreground truncate">Подписка #{sub.subscriptionIndex}</h3>
-                          <p className="text-xs text-muted-foreground">
-                            {isGifted ? "Подарена (активна)" : isReserved ? "Код создан (ожидает)" : "Доступна"}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2 mt-auto">
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="secondary" 
-                            size="sm" 
-                            className="flex-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all border-none shadow-none"
-                            onClick={() => handleGetUrl(sub)}
-                            disabled={actionLoading === `url-${sub.id}`}
-                          >
-                            {actionLoading === `url-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : copiedId === `url-${sub.id}` ? <Check className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-                            {copiedId === `url-${sub.id}` ? "Скопировано" : "Ссылка"}
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            className="flex-1 rounded-xl shadow-md gap-2"
-                            onClick={() => handleCreateCode(sub.id)}
-                            disabled={isGifted || isReserved || actionLoading === `create-${sub.id}`}
-                          >
-                            {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gift className="w-4 h-4 mr-2" />}
-                            <span className="truncate">{isGifted ? "Подарено" : isReserved ? "Код создан" : "Подарить"}</span>
-                          </Button>
-                        </div>
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="w-full rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-all border-none shadow-none font-semibold"
-                          onClick={() => handleActivateForSelf(sub.id)}
-                          disabled={isGifted || actionLoading === `activate-${sub.id}`}
-                        >
-                          {actionLoading === `activate-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                          Активировать себе
-                        </Button>
-                      </div>
-                    </motion.div>
-                  );
-                })
-              )}
-            </AnimatePresence>
+          <div className="flex flex-col gap-3 shrink-0 min-w-[240px] bg-background/40 p-4 rounded-2xl border border-border/50">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm text-muted-foreground">Доступно подписок</span>
+              <span className="text-sm font-bold">{currentSubs} из {maxSubs}</span>
+            </div>
+            <Button onClick={handleOpenBuy} disabled={!canBuyMore} className="w-full rounded-xl shadow-md gap-2" size="lg">
+              <Plus className="w-5 h-5" />
+              Купить подписку
+            </Button>
           </div>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="codes" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <AnimatePresence mode="popLayout">
-              {codes.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2rem] border border-dashed border-border/50 flex flex-col items-center justify-center text-center gap-3 bg-muted/20"
-                >
-                  <Gift className="w-8 h-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">Вы пока не создали ни одного подарочного кода.</p>
-                </motion.div>
-              ) : (
-                codes.map((c, i) => {
-                  const isActive = c.status === "ACTIVE";
-                  const isRedeemed = c.status === "REDEEMED";
-                  
-                  return (
-                    <motion.div
-                      key={c.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.3, delay: i * 0.05 }}
-                      className="relative p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 overflow-hidden flex flex-col sm:flex-row gap-4 items-start sm:items-center"
-                    >
-                      <div className="flex-1 min-w-0 w-full space-y-2">
-                        <div className="flex items-center justify-between sm:justify-start gap-3">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isActive ? 'bg-green-500/10 text-green-500' : isRedeemed ? 'bg-blue-500/10 text-blue-500' : 'bg-muted text-muted-foreground'}`}>
-                            {isActive ? "Активен" : isRedeemed ? "Активирован" : "Отменён"}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {new Date(c.createdAt).toLocaleDateString("ru-RU")}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <code className="text-lg sm:text-xl font-mono font-bold tracking-wider text-foreground bg-background/50 px-3 py-1.5 rounded-xl border border-border/50">{c.code}</code>
-                          {isActive && (
-                            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" onClick={() => copyCode(c.code, c.id)}>
-                              {copiedId === `code-${c.id}` ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {isActive && (
-                        <div className="w-full sm:w-auto mt-2 sm:mt-0">
-                          <Button 
-                            variant="destructive" 
-                            size="sm" 
-                            className="w-full sm:w-auto rounded-xl shadow-sm bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border-none"
-                            onClick={() => handleCancelCode(c.id)}
-                            disabled={actionLoading === `cancel-${c.id}`}
-                          >
-                            {actionLoading === `cancel-${c.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <X className="w-4 h-4 mr-2" />}
-                            Отменить
-                          </Button>
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })
-              )}
-            </AnimatePresence>
+        {error && (
+          <div className="mt-6 rounded-lg bg-destructive/15 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+            {error}
           </div>
-        </TabsContent>
+        )}
+      </motion.section>
 
-        <TabsContent value="redeem" className="space-y-0">
-          <motion.div
+      {/* SECTION 2: ACTION CARDS ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* Card 1: Redeem Code */}
+          <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 relative overflow-hidden max-w-xl mx-auto mt-8"
+            transition={{ delay: 0.1 }}
+            className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg p-6 sm:p-8 flex flex-col relative overflow-hidden"
           >
-            <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-primary/10 blur-[60px] pointer-events-none" />
-            
-            <div className="relative z-10 flex flex-col items-center text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-inner border border-primary/20">
-                <Gift className="w-8 h-8" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] pointer-events-none" />
+            <div className="flex items-center gap-4 mb-6 relative z-10">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Gift className="h-6 w-6" />
               </div>
-              <h2 className="text-xl font-bold text-foreground">Активация подарка</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                У вас есть подарочный код? Введите его ниже, чтобы получить подписку.
-              </p>
+              <div>
+                <h2 className="text-xl font-bold">Активировать код</h2>
+                <p className="text-sm text-muted-foreground">У вас есть подарочный код?</p>
+              </div>
             </div>
-
-            <form onSubmit={handleRedeem} className="relative z-10 space-y-4">
-              <div className="relative">
-                <Input 
-                  value={redeemCode}
-                  onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
-                  placeholder="CODE-XXXX-XXXX"
-                  className="h-14 text-center font-mono text-lg tracking-widest rounded-2xl border-primary/20 bg-background/50 focus-visible:ring-primary/30 uppercase"
-                />
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full h-12 rounded-2xl shadow-lg shadow-primary/20 font-bold" 
-                disabled={redeemLoading || !redeemCode.trim()}
-              >
+            
+            <form onSubmit={handleRedeem} className="flex flex-col gap-3 mt-auto relative z-10">
+              <Input 
+                value={redeemCode}
+                onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+                placeholder="CODE-XXXX-XXXX"
+                className="h-12 text-center font-mono text-base tracking-widest rounded-xl border-border/50 bg-background/50 focus-visible:ring-primary/30 uppercase"
+              />
+              <Button type="submit" className="h-12 rounded-xl shadow-md font-bold" disabled={redeemLoading || !redeemCode.trim()}>
                 {redeemLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-5 h-5 mr-2" />}
                 Активировать
               </Button>
+              <AnimatePresence>
+                {redeemError && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                    <div className="mt-2 p-3 rounded-xl bg-destructive/10 text-destructive text-sm font-medium text-center">
+                      {redeemError}
+                    </div>
+                  </motion.div>
+                )}
+                {redeemSuccess && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                    <div className="mt-2 p-3 rounded-xl bg-green-500/10 text-green-500 text-sm font-medium text-center flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> {redeemSuccess}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </form>
-
-            <AnimatePresence>
-              {redeemError && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-4">
-                  <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm font-medium text-center">
-                    {redeemError}
-                  </div>
-                </motion.div>
-              )}
-              {redeemSuccess && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-4">
-                  <div className="p-3 rounded-xl bg-green-500/10 text-green-500 text-sm font-medium text-center flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" /> {redeemSuccess}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
-        </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
-          {historyLoading && historyItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Загрузка истории…</p>
-            </div>
-          ) : historyItems.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2rem] border border-dashed border-border/50 flex flex-col items-center justify-center text-center gap-3 bg-muted/20"
-            >
-              <History className="w-8 h-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">История пуста</p>
-            </motion.div>
-          ) : (
-            <>
-              <div className="space-y-3 pl-4 border-l-2 border-border/30 dark:border-white/10 ml-3">
-                <AnimatePresence mode="popLayout">
-                  {historyItems.map((item, i) => {
-                    const ev = HISTORY_EVENT_MAP[item.eventType] ?? { icon: <Clock className="w-4 h-4" />, label: item.eventType, color: "bg-muted text-muted-foreground" };
-                    const meta = item.metadata as Record<string, string> | null;
-                    const timeAgo = formatTimeAgo(item.createdAt);
-
-                    return (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -8 }}
-                        transition={{ duration: 0.25, delay: i * 0.04 }}
-                        className="relative -ml-[21px] flex items-start gap-3 group"
-                      >
-                        <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm border border-border/50 dark:border-white/10 ${ev.color}`}>
-                          {ev.icon}
-                        </div>
-                        <div className="flex-1 p-3 sm:p-4 rounded-xl bg-muted/40 border border-border/50 dark:bg-white/5 dark:border-white/5 transition-colors group-hover:bg-muted/60 dark:group-hover:bg-white/10">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <span className="text-sm font-medium text-foreground">{ev.label}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo}</span>
-                          </div>
-                          {meta && Object.keys(meta).length > 0 && (
-                            <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
-                              {meta.code && <span className="font-mono bg-background/50 px-1.5 py-0.5 rounded border border-border/30">{meta.code}</span>}
-                              {meta.tariffName && <span className="ml-1">{meta.tariffName}</span>}
-                              {meta.recipientUsername && <span className="ml-1">→ @{meta.recipientUsername}</span>}
-                              {meta.senderUsername && <span className="ml-1">от @{meta.senderUsername}</span>}
-                              {meta.giftMessage && (
-                                <p className="italic opacity-70 mt-1 border-l-2 border-primary/30 pl-2">"{meta.giftMessage}"</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-
-              {historyTotal > 10 && (
-                <div className="flex items-center justify-center gap-3 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl bg-muted/30 border-border/50"
-                    disabled={historyPage <= 1 || historyLoading}
-                    onClick={() => setHistoryPage((p) => p - 1)}
-                  >
-                    ← Назад
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    {historyPage} / {Math.ceil(historyTotal / 10)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl bg-muted/30 border-border/50"
-                    disabled={historyPage >= Math.ceil(historyTotal / 10) || historyLoading}
-                    onClick={() => setHistoryPage((p) => p + 1)}
-                  >
-                    Вперед →
-                  </Button>
+          {/* Card 3: Stats */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg p-6 sm:p-8"
+          >
+            <h2 className="text-xl font-bold mb-6">Статистика</h2>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4 bg-background/40 p-4 rounded-2xl border border-border/50">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+                  <Package className="h-5 w-5" />
                 </div>
-              )}
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Всего подписок</p>
+                  <p className="text-[15px] font-semibold text-foreground">{subscriptions.length}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 bg-background/40 p-4 rounded-2xl border border-border/50">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
+                  <Send className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Подарено</p>
+                  <p className="text-[15px] font-semibold text-foreground">{giftedCount}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 bg-background/40 p-4 rounded-2xl border border-border/50">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-500/10 text-green-500">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Активные коды</p>
+                  <p className="text-[15px] font-semibold text-foreground">{activeCodesCount}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Card 2: History Timeline */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-7 rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg p-6 sm:p-8 flex flex-col"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <History className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">История</h2>
+                <p className="text-sm text-muted-foreground">Последние действия</p>
+              </div>
+            </div>
+            {historyTotal > 4 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowFullHistory(!showFullHistory)}
+                className="rounded-xl text-primary hover:text-primary hover:bg-primary/10"
+              >
+                {showFullHistory ? "Скрыть" : "Показать всё"}
+                {showFullHistory ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+              </Button>
+            )}
+          </div>
+          
+          <div className="flex-1">
+            {historyLoading && historyItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Загрузка истории…</p>
+              </div>
+            ) : historyItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center gap-3 border border-dashed border-border/50 rounded-2xl bg-muted/20">
+                <History className="w-8 h-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">История пуста</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4 pl-4 border-l-2 border-border/30 dark:border-white/10 ml-3">
+                  <AnimatePresence mode="popLayout">
+                    {historyItems.slice(0, showFullHistory ? undefined : 4).map((item, i) => {
+                      const ev = HISTORY_EVENT_MAP[item.eventType] ?? { icon: <Clock className="w-4 h-4" />, label: item.eventType, color: "bg-muted text-muted-foreground" };
+                      const meta = item.metadata as Record<string, string> | null;
+                      const timeAgo = formatTimeAgo(item.createdAt);
+
+                      return (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -8 }}
+                          transition={{ duration: 0.25, delay: i * 0.04 }}
+                          className="relative -ml-[25px] flex items-start gap-4 group"
+                        >
+                          <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border border-border/50 dark:border-white/10 ${ev.color} bg-background`}>
+                            {ev.icon}
+                          </div>
+                          <div className="flex-1 p-4 rounded-2xl bg-background/40 border border-border/50 transition-colors group-hover:bg-background/60">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="text-[15px] font-semibold text-foreground">{ev.label}</span>
+                              <span className="text-[11px] font-medium text-muted-foreground shrink-0 bg-muted/50 px-2 py-0.5 rounded-md">{timeAgo}</span>
+                            </div>
+                            {meta && Object.keys(meta).length > 0 && (
+                              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                                {meta.code && <span className="font-mono bg-muted/50 px-1.5 py-0.5 rounded border border-border/30 text-foreground">{meta.code}</span>}
+                                {meta.tariffName && <span className="ml-2 font-medium">{meta.tariffName}</span>}
+                                {meta.recipientUsername && <span className="ml-2">→ @{meta.recipientUsername}</span>}
+                                {meta.senderUsername && <span className="ml-2">от @{meta.senderUsername}</span>}
+                                {meta.giftMessage && (
+                                  <p className="italic opacity-80 mt-2 border-l-2 border-primary/30 pl-2">"{meta.giftMessage}"</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+                {showFullHistory && historyTotal > 10 && (
+                  <div className="flex items-center justify-center gap-3 pt-6">
+                    <Button variant="outline" size="sm" className="rounded-xl border-border/50" disabled={historyPage <= 1 || historyLoading} onClick={() => setHistoryPage((p) => p - 1)}>
+                      ← Назад
+                    </Button>
+                    <span className="text-xs font-medium text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg">
+                      {historyPage} / {Math.ceil(historyTotal / 10)}
+                    </span>
+                    <Button variant="outline" size="sm" className="rounded-xl border-border/50" disabled={historyPage >= Math.ceil(historyTotal / 10) || historyLoading} onClick={() => setHistoryPage((p) => p + 1)}>
+                      Вперед →
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* SECTION 3: SUBSCRIPTIONS */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold tracking-tight">Мои подписки</h2>
+        </div>
+        
+        {subscriptions.length === 0 ? (
+          <div className="p-8 sm:p-12 rounded-3xl border border-dashed border-border/50 flex flex-col items-center justify-center text-center gap-4 bg-muted/10">
+            <Package className="w-10 h-10 text-muted-foreground/40" />
+            <p className="text-muted-foreground">У вас пока нет дополнительных подписок.</p>
+            {canBuyMore && (
+              <Button onClick={handleOpenBuy} className="mt-2 rounded-xl shadow-md gap-2" size="lg">
+                <Plus className="w-5 h-5" />
+                Приобрести
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AnimatePresence mode="popLayout">
+              {subscriptions.map((sub, i) => {
+                const isGifted = sub.giftStatus === "GIFTED";
+                const isReserved = sub.giftStatus === "GIFT_RESERVED";
+                const activeCode = codes.find(c => c.secondarySubscriptionId === sub.id && c.status === "ACTIVE");
+
+                return (
+                  <motion.div
+                    key={sub.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg p-6 sm:p-8 flex flex-col gap-6 relative overflow-hidden"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground">Подписка #{sub.subscriptionIndex}</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-[240px]">
+                          {isGifted ? "Эту подписку вы подарили." : isReserved ? "Для подписки создан код." : "Доступна для подарка или активации себе."}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${isGifted ? 'bg-purple-500/15 text-purple-500 border border-purple-500/20' : isReserved ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20' : 'bg-green-500/15 text-green-500 border border-green-500/20'}`}>
+                        {isGifted ? "Подарена" : isReserved ? "Код создан" : "Доступна"}
+                      </span>
+                    </div>
+
+                    {activeCode && (
+                      <div className="bg-background/40 p-4 rounded-2xl border border-border/50 flex items-center justify-between gap-3">
+                        <code className="text-lg font-mono font-bold tracking-wider text-foreground">{activeCode.code}</code>
+                        <Button variant="ghost" size="icon" onClick={() => copyCode(activeCode.code, activeCode.id)} className="h-9 w-9 rounded-xl hover:bg-muted">
+                          {copiedId === `code-${activeCode.id}` ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
+                      <Button 
+                        className="rounded-xl shadow-md w-full gap-2"
+                        onClick={() => handleCreateCode(sub.id)}
+                        disabled={isGifted || isReserved || actionLoading === `create-${sub.id}`}
+                      >
+                        {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
+                        Подарить
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        className="rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border-none shadow-none w-full gap-2"
+                        onClick={() => handleGetUrl(sub)}
+                        disabled={!activeCode || actionLoading === `url-${sub.id}`}
+                      >
+                        {actionLoading === `url-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : copiedId === `url-${sub.id}` ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                        Ссылка
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        className="rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-semibold border-none shadow-none w-full gap-2"
+                        onClick={() => handleActivateForSelf(sub.id)}
+                        disabled={isGifted || actionLoading === `activate-${sub.id}`}
+                      >
+                        {actionLoading === `activate-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                        Активировать себе
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border-none shadow-none w-full gap-2"
+                        onClick={() => activeCode && handleCancelCode(activeCode.id)}
+                        disabled={!activeCode || actionLoading === `cancel-${activeCode.id}`}
+                      >
+                        {activeCode && actionLoading === `cancel-${activeCode.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                        Отменить код
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 4: GIFT CODES */}
+      {codes.length > 0 && (
+        <div className="space-y-6 pt-4">
+          <h2 className="text-2xl font-bold tracking-tight">Все подарочные коды</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence mode="popLayout">
+              {codes.map((c, i) => {
+                const isActive = c.status === "ACTIVE";
+                const isRedeemed = c.status === "REDEEMED";
+                
+                return (
+                  <motion.div
+                    key={c.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: i * 0.05 }}
+                    className={`rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg p-6 flex flex-col gap-4 ${!isActive ? 'opacity-60 grayscale-[0.2]' : ''}`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-green-500/15 text-green-500' : isRedeemed ? 'bg-blue-500/15 text-blue-500' : 'bg-muted text-muted-foreground'}`}>
+                        {isActive ? "Активен" : isRedeemed ? "Активирован" : "Отменён"}
+                      </span>
+                      <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 bg-background/40 px-2 py-1 rounded-lg border border-border/30">
+                        <Clock className="w-3 h-3" /> {new Date(c.createdAt).toLocaleDateString("ru-RU")}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-center py-4 bg-background/40 rounded-2xl border border-border/50">
+                      <code className="text-[17px] sm:text-lg font-mono font-bold tracking-widest text-foreground">
+                        {c.code}
+                      </code>
+                    </div>
+                    
+                    {isActive && (
+                      <div className="grid grid-cols-2 gap-3 mt-auto">
+                        <Button 
+                          variant="secondary" 
+                          className="rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border-none shadow-none gap-2"
+                          onClick={() => copyCode(c.code, c.id)}
+                        >
+                          {copiedId === `code-${c.id}` ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          Копировать
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          className="rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border-none shadow-none gap-2"
+                          onClick={() => handleCancelCode(c.id)}
+                          disabled={actionLoading === `cancel-${c.id}`}
+                        >
+                          {actionLoading === `cancel-${c.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                          Отменить
+                        </Button>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* Buy Dialog */}
       <Dialog open={buyDialogOpen} onOpenChange={setBuyDialogOpen}>
         <DialogContent className="max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-0 overflow-hidden bg-background/80 backdrop-blur-3xl border-white/10" showCloseButton={false}>
           <div className="p-6 sm:p-8 space-y-6">
-            <DialogHeader className="text-center sm:text-center space-y-2">
+            <DialogHeader className="text-center space-y-2">
               <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2 shadow-inner border border-primary/20">
                 <Plus className="w-6 h-6" />
               </div>
@@ -616,28 +676,28 @@ export function ClientGiftsPage() {
             </DialogHeader>
 
             {buyError && (
-              <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm text-center">
+              <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm text-center font-medium">
                 {buyError}
               </div>
             )}
 
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
               {tariffs.length === 0 ? (
-                <div className="flex justify-center p-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                <div className="flex justify-center p-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : (
                 tariffs.map((t) => (
                   <div key={t.id} className="flex flex-col p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="font-bold text-foreground truncate">{t.name}</div>
-                      <div className="font-bold text-primary shrink-0 ml-2">{formatMoney(t.price, currency)}</div>
+                      <div className="font-bold text-foreground truncate text-base">{t.name}</div>
+                      <div className="font-bold text-primary shrink-0 ml-2 text-base">{formatMoney(t.price, currency)}</div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {t.durationDays} дн.</span>
+                    <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4">
+                      <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {t.durationDays} дн.</span>
                     </div>
                     <Button 
                       onClick={() => handleBuy(t.id)} 
                       disabled={buyLoading || (client?.balance ?? 0) < t.price}
-                      className="w-full rounded-xl font-semibold shadow-md"
+                      className="w-full rounded-xl font-bold shadow-md h-11"
                     >
                       {buyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                       {(client?.balance ?? 0) < t.price ? "Недостаточно средств" : `Купить за ${formatMoney(t.price, currency)}`}
@@ -647,12 +707,12 @@ export function ClientGiftsPage() {
               )}
             </div>
 
-            <DialogFooter className="flex-col sm:flex-col gap-2 pt-2 border-t border-white/10 mt-6">
-              <div className="flex justify-between items-center w-full px-2 mb-2 text-sm">
+            <DialogFooter className="flex-col sm:flex-col gap-2 pt-4 border-t border-white/10 mt-6">
+              <div className="flex justify-between items-center w-full px-2 mb-3 text-sm">
                 <span className="text-muted-foreground">Ваш баланс:</span>
-                <span className="font-bold text-foreground">{formatMoney(client?.balance ?? 0, currency)}</span>
+                <span className="font-bold text-foreground text-base">{formatMoney(client?.balance ?? 0, currency)}</span>
               </div>
-              <Button variant="ghost" onClick={() => setBuyDialogOpen(false)} className="w-full rounded-xl">
+              <Button variant="ghost" onClick={() => setBuyDialogOpen(false)} className="w-full rounded-xl font-semibold h-11">
                 Отмена
               </Button>
             </DialogFooter>
