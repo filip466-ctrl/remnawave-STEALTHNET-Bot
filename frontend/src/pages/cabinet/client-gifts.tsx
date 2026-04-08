@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, 
   Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail, 
-  XCircle, Trash, History, ChevronDown, ChevronUp
+  XCircle, Trash, History, ChevronDown, ChevronUp, User
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -35,14 +35,14 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 const HISTORY_EVENT_MAP: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  PURCHASED: { icon: <ShoppingCart className="w-4 h-4" />, label: "Подписка куплена", color: "bg-blue-500/15 text-blue-500" },
-  ACTIVATED_SELF: { icon: <CheckCircle2 className="w-4 h-4" />, label: "Добавлена в профиль", color: "bg-green-500/15 text-green-500" },
-  CODE_CREATED: { icon: <Gift className="w-4 h-4" />, label: "Подарочный код создан", color: "bg-purple-500/15 text-purple-500" },
-  GIFT_SENT: { icon: <Send className="w-4 h-4" />, label: "Подарок отправлен", color: "bg-indigo-500/15 text-indigo-500" },
-  GIFT_RECEIVED: { icon: <Mail className="w-4 h-4" />, label: "Подарок получен", color: "bg-emerald-500/15 text-emerald-500" },
-  CODE_CANCELLED: { icon: <XCircle className="w-4 h-4" />, label: "Код отменён", color: "bg-red-500/15 text-red-500" },
-  CODE_EXPIRED: { icon: <Clock className="w-4 h-4" />, label: "Код истёк", color: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400" },
-  DELETED: { icon: <Trash className="w-4 h-4" />, label: "Подписка удалена", color: "bg-red-500/15 text-red-500" },
+  PURCHASED: { icon: <ShoppingCart className="w-5 h-5" />, label: "Подписка куплена", color: "text-blue-500 border-blue-500/20 bg-blue-500/10" },
+  ACTIVATED_SELF: { icon: <CheckCircle2 className="w-5 h-5" />, label: "Добавлена в профиль", color: "text-green-500 border-green-500/20 bg-green-500/10" },
+  CODE_CREATED: { icon: <Gift className="w-5 h-5" />, label: "Подарочный код создан", color: "text-purple-500 border-purple-500/20 bg-purple-500/10" },
+  GIFT_SENT: { icon: <Send className="w-5 h-5" />, label: "Подарок отправлен", color: "text-indigo-500 border-indigo-500/20 bg-indigo-500/10" },
+  GIFT_RECEIVED: { icon: <Mail className="w-5 h-5" />, label: "Подарок получен", color: "text-emerald-500 border-emerald-500/20 bg-emerald-500/10" },
+  CODE_CANCELLED: { icon: <XCircle className="w-5 h-5" />, label: "Код отменён", color: "text-red-500 border-red-500/20 bg-red-500/10" },
+  CODE_EXPIRED: { icon: <Clock className="w-5 h-5" />, label: "Код истёк", color: "text-yellow-600 dark:text-yellow-400 border-yellow-500/20 bg-yellow-500/10" },
+  DELETED: { icon: <Trash className="w-5 h-5" />, label: "Подписка удалена", color: "text-red-500 border-red-500/20 bg-red-500/10" },
 };
 
 export function ClientGiftsPage() {
@@ -290,15 +290,15 @@ export function ClientGiftsPage() {
               Покупайте подписки VPN для друзей или активируйте вторую подписку для себя
             </p>
           </div>
-          <div className="flex flex-col gap-3 shrink-0 min-w-[240px] bg-background/40 p-4 rounded-2xl border border-border/50">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-muted-foreground">Доступно подписок</span>
-              <span className="text-sm font-bold">{currentSubs} из {maxSubs}</span>
-            </div>
-            <Button onClick={handleOpenBuy} disabled={!canBuyMore} className="w-full rounded-xl shadow-md gap-2" size="lg">
+          <div className="flex flex-col items-start sm:items-end gap-3 shrink-0 sm:min-w-[240px]">
+            <Button onClick={handleOpenBuy} disabled={!canBuyMore} className="w-full sm:w-auto h-14 px-8 rounded-2xl shadow-lg hover:shadow-primary/25 transition-all text-base font-bold gap-2">
               <Plus className="w-5 h-5" />
               Купить подписку
             </Button>
+            <div className="flex items-center justify-center sm:justify-end gap-2 text-sm text-muted-foreground font-medium px-4 py-2.5 rounded-xl bg-background/30 backdrop-blur-md border border-border/40 shadow-sm w-full sm:w-auto">
+              <Package className="w-4 h-4 opacity-70" />
+              <span>Доступно слотов: <strong className="text-foreground">{currentSubs} из {maxSubs}</strong></span>
+            </div>
           </div>
         </div>
 
@@ -443,39 +443,62 @@ export function ClientGiftsPage() {
               </div>
             ) : (
               <>
-                <div className="space-y-4 pl-4 border-l-2 border-border/30 dark:border-white/10 ml-3">
+                <div className="space-y-4">
                   <AnimatePresence mode="popLayout">
                     {historyItems.slice(0, showFullHistory ? undefined : 4).map((item, i) => {
-                      const ev = HISTORY_EVENT_MAP[item.eventType] ?? { icon: <Clock className="w-4 h-4" />, label: item.eventType, color: "bg-muted text-muted-foreground" };
+                      const ev = HISTORY_EVENT_MAP[item.eventType] ?? { icon: <Clock className="w-5 h-5" />, label: item.eventType, color: "text-muted-foreground bg-muted/20 border-muted/30" };
                       const meta = item.metadata as Record<string, string> | null;
                       const timeAgo = formatTimeAgo(item.createdAt);
 
                       return (
                         <motion.div
                           key={item.id}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -8 }}
-                          transition={{ duration: 0.25, delay: i * 0.04 }}
-                          className="relative -ml-[25px] flex items-start gap-4 group"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.3, delay: i * 0.05 }}
+                          className="group relative flex flex-col sm:flex-row gap-4 p-4 sm:p-5 rounded-[1.5rem] bg-background/50 backdrop-blur-xl border border-border/50 shadow-sm transition-all duration-300 hover:bg-card hover:shadow-md hover:border-border/80"
                         >
-                          <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border border-border/50 dark:border-white/10 ${ev.color} bg-background`}>
+                          <div className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-[1rem] sm:rounded-[1.25rem] bg-background shadow-inner transition-transform group-hover:scale-105 duration-300 border ${ev.color}`}>
                             {ev.icon}
                           </div>
-                          <div className="flex-1 p-4 rounded-2xl bg-background/40 border border-border/50 transition-colors group-hover:bg-background/60">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <span className="text-[15px] font-semibold text-foreground">{ev.label}</span>
-                              <span className="text-[11px] font-medium text-muted-foreground shrink-0 bg-muted/50 px-2 py-0.5 rounded-md">{timeAgo}</span>
+                          
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                              <span className="text-[16px] sm:text-[17px] font-bold text-foreground tracking-tight">{ev.label}</span>
+                              <span className="text-[12px] font-semibold text-muted-foreground/80 bg-background/50 px-2.5 py-1 rounded-lg whitespace-nowrap self-start sm:self-auto border border-border/30">{timeAgo}</span>
                             </div>
+                            
                             {meta && Object.keys(meta).length > 0 && (
-                              <div className="text-xs text-muted-foreground space-y-1 mt-2">
-                                {meta.code && <span className="font-mono bg-muted/50 px-1.5 py-0.5 rounded border border-border/30 text-foreground">{meta.code}</span>}
-                                {meta.tariffName && <span className="ml-2 font-medium">{meta.tariffName}</span>}
-                                {meta.recipientUsername && <span className="ml-2">→ @{meta.recipientUsername}</span>}
-                                {meta.senderUsername && <span className="ml-2">от @{meta.senderUsername}</span>}
-                                {meta.giftMessage && (
-                                  <p className="italic opacity-80 mt-2 border-l-2 border-primary/30 pl-2">"{meta.giftMessage}"</p>
+                              <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                                {meta.code && (
+                                  <span className="font-mono bg-primary/10 text-primary px-2.5 py-1.5 rounded-xl border border-primary/20 shadow-sm">{meta.code}</span>
                                 )}
+                                {meta.tariffName && (
+                                  <span className="flex items-center bg-muted/40 text-muted-foreground px-2.5 py-1.5 rounded-xl border border-border/30">
+                                    <Package className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                                    {meta.tariffName}
+                                  </span>
+                                )}
+                                {meta.recipientUsername && (
+                                  <span className="flex items-center bg-blue-500/10 text-blue-500 dark:text-blue-400 px-2.5 py-1.5 rounded-xl border border-blue-500/20">
+                                    <User className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                                    → @{meta.recipientUsername}
+                                  </span>
+                                )}
+                                {meta.senderUsername && (
+                                  <span className="flex items-center bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 px-2.5 py-1.5 rounded-xl border border-emerald-500/20">
+                                    <User className="w-3.5 h-3.5 mr-1.5 opacity-70" />
+                                    от @{meta.senderUsername}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            
+                            {meta?.giftMessage && (
+                              <div className="mt-3.5 relative pl-4 py-2.5 pr-3 rounded-r-2xl bg-muted/30 border border-l-0 border-border/30 text-muted-foreground/90 italic text-[13px] leading-relaxed">
+                                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-full bg-primary/40"></div>
+                                "{meta.giftMessage}"
                               </div>
                             )}
                           </div>
