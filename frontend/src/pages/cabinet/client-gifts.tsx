@@ -284,7 +284,7 @@ export function ClientGiftsPage() {
               <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner border border-primary/20">
                 <Gift className="h-7 w-7" />
               </div>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl text-foreground">Подарки</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Подарки</h1>
             </div>
             <p className="text-[16px] text-muted-foreground max-w-xl leading-relaxed">
               Покупайте подписки VPN для друзей или активируйте вторую подписку для себя
