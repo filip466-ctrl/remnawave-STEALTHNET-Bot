@@ -355,7 +355,9 @@ export async function listClientSubscriptions(
 
 /**
  * Список ВСЕХ подписок клиента включая GIFT_RESERVED (для страницы управления подарками).
- * Подписки со статусом ACTIVATED_SELF исключаются — они уже «свои» и не участвуют в подарках.
+ * Подписки со статусом ACTIVATED_SELF и GIFTED исключаются:
+ * - ACTIVATED_SELF — уже «свои», не участвуют в подарках
+ * - GIFTED — ownerId перезаписан на получателя, подписка уже показывается на дашборде
  */
 export async function listAllClientSubscriptions(
   rootClientId: string,
@@ -367,7 +369,6 @@ export async function listAllClientSubscriptions(
         { giftStatus: null },
         { giftStatus: "" },
         { giftStatus: "GIFT_RESERVED" },
-        { giftStatus: "GIFTED" },
       ],
     },
     orderBy: { subscriptionIndex: "asc" },
