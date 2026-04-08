@@ -1262,6 +1262,10 @@ export const api = {
     return request("/client/set-password", { method: "POST", body: JSON.stringify(data), token });
   },
 
+  async clientCompleteOnboarding(token: string): Promise<{ message: string }> {
+    return request("/client/complete-onboarding", { method: "POST", token });
+  },
+
   /** Запросить код для привязки Telegram через бота (без авторизации по токену не нужен) */
   async clientLinkTelegramRequest(token: string): Promise<{ code: string; expiresAt: string; botUsername: string | null }> {
     return request("/client/link-telegram-request", { method: "POST", token });

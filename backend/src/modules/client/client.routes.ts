@@ -1079,10 +1079,19 @@ clientRouter.post("/set-password", requireClientAuth, async (req, res) => {
   const newPasswordHash = await hashPassword(body.data.newPassword);
   await prisma.client.update({
     where: { id: client.id },
-    data: { passwordHash: newPasswordHash, onboardingCompleted: true },
+    data: { passwordHash: newPasswordHash },
   });
 
   return res.json({ message: "Пароль установлен" });
+});
+
+clientRouter.post("/complete-onboarding", requireClientAuth, async (req, res) => {
+  const client = (req as unknown as { client: { id: string } }).client;
+  await prisma.client.update({
+    where: { id: client.id },
+    data: { onboardingCompleted: true },
+  });
+  return res.json({ message: "Onboarding завершён" });
 });
 
 const updateProfileSchema = z.object({

@@ -95,7 +95,6 @@ export function ClientOnboardingPage() {
     setPasswordLoading(true);
     try {
       await api.clientSetPassword(token, { newPassword });
-      await refreshProfile();
       goTo("2fa");
     } catch (e) {
       setPasswordError(e instanceof Error ? e.message : "Ошибка");
@@ -110,6 +109,7 @@ export function ClientOnboardingPage() {
     setTwoFaLoading(true);
     try {
       await api.client2FAConfirm(token, twoFaCode);
+      await api.clientCompleteOnboarding(token);
       await refreshProfile();
       goTo("done");
     } catch (e) {
@@ -120,6 +120,8 @@ export function ClientOnboardingPage() {
   }
 
   async function handleSkip2FA() {
+    if (!token) return;
+    await api.clientCompleteOnboarding(token);
     await refreshProfile();
     goTo("done");
   }
