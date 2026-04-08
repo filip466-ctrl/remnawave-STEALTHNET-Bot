@@ -3684,3 +3684,215 @@ adminRouter.post("/gift-codes/create", asyncRoute(async (req, res) => {
 
   return res.json(result.data);
 }));
+
+// ——— Tour Steps (конструктор тура) ———
+
+const tourStepIdSchema = z.object({ id: z.string().min(1) });
+
+const TOUR_PLACEMENTS = ["top", "bottom", "left", "right", "center"] as const;
+const TOUR_MOODS = ["wave", "point", "happy", "think"] as const;
+const TOUR_MASCOTS = ["girl-1", "girl-2", "girl-3", "boy-1"] as const;
+
+const createTourStepSchema = z.object({
+  target: z.string().min(1).max(500),
+  targetLabel: z.string().min(1).max(255),
+  title: z.string().min(1).max(500),
+  content: z.string().min(1).max(5000),
+  videoUrl: z.string().url().max(1000).nullable().optional(),
+  placement: z.enum(TOUR_PLACEMENTS).optional(),
+  mascotId: z.enum(TOUR_MASCOTS).optional(),
+  mood: z.enum(TOUR_MOODS).optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const updateTourStepSchema = z.object({
+  target: z.string().min(1).max(500).optional(),
+  targetLabel: z.string().min(1).max(255).optional(),
+  title: z.string().min(1).max(500).optional(),
+  content: z.string().min(1).max(5000).optional(),
+  videoUrl: z.string().url().max(1000).nullable().optional(),
+  placement: z.enum(TOUR_PLACEMENTS).optional(),
+  mascotId: z.enum(TOUR_MASCOTS).optional(),
+  mood: z.enum(TOUR_MOODS).optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const reorderTourStepsSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().min(1),
+    sortOrder: z.number().int(),
+  })),
+});
+
+function tourStepToJson(s: {
+  id: string; target: string; targetLabel: string; title: string; content: string;
+  videoUrl: string | null; placement: string; mascotId: string; mood: string;
+  sortOrder: number; isActive: boolean; createdAt: Date; updatedAt: Date;
+}) {
+  return {
+    id: s.id,
+    target: s.target,
+    targetLabel: s.targetLabel,
+    title: s.title,
+    content: s.content,
+    videoUrl: s.videoUrl,
+    placement: s.placement,
+    mascotId: s.mascotId,
+    mood: s.mood,
+    sortOrder: s.sortOrder,
+    isActive: s.isActive,
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+  };
+}
+
+adminRouter.get("/tour-steps", asyncRoute(async (_req, res) => {
+  const steps = await prisma.tourStep.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return res.json({ items: steps.map(tourStepToJson) });
+}));
+
+adminRouter.post("/tour-steps", asyncRoute(async (req, res) => {
+  const body = createTourStepSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
+
+  const created = await prisma.tourStep.create({
+    data: {
+      target: body.data.target,
+      targetLabel: body.data.targetLabel,
+      title: body.data.title,
+      content: body.data.content,
+      videoUrl: body.data.videoUrl ?? null,
+      placement: body.data.placement ?? "bottom",
+      mascotId: body.data.mascotId ?? "girl-1",
+      mood: body.data.mood ?? "point",
+      sortOrder: body.data.sortOrder ?? 0,
+      isActive: body.data.isActive ?? true,
+    },
+  });
+  return res.status(201).json(tourStepToJson(created));
+}));
+
+// IMPORTANT: /reorder MUST be before /:id
+adminRouter.patch("/tour-steps/reorder", asyncRoute(async (req, res) => {
+  const body = reorderTourStepsSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
+
+  await prisma.$transaction(
+    body.data.items.map(item =>
+      prisma.tourStep.update({ where: { id: item.id }, data: { sortOrder: item.sortOrder } })
+    )
+  );
+  return res.json({ success: true });
+}));
+
+adminRouter.patch("/tour-steps/:id", asyncRoute(async (req, res) => {
+  const idParse = tourStepIdSchema.safeParse({ id: req.params.id });
+  if (!idParse.success) return res.status(400).json({ message: "Invalid id" });
+
+  const body = updateTourStepSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
+
+  const data: Record<string, unknown> = {};
+  if (body.data.target !== undefined) data.target = body.data.target;
+  if (body.data.targetLabel !== undefined) data.targetLabel = body.data.targetLabel;
+  if (body.data.title !== undefined) data.title = body.data.title;
+  if (body.data.content !== undefined) data.content = body.data.content;
+  if (body.data.videoUrl !== undefined) data.videoUrl = body.data.videoUrl;
+  if (body.data.placement !== undefined) data.placement = body.data.placement;
+  if (body.data.mascotId !== undefined) data.mascotId = body.data.mascotId;
+  if (body.data.mood !== undefined) data.mood = body.data.mood;
+  if (body.data.sortOrder !== undefined) data.sortOrder = body.data.sortOrder;
+  if (body.data.isActive !== undefined) data.isActive = body.data.isActive;
+
+  const updated = await prisma.tourStep.update({
+    where: { id: idParse.data.id },
+    data,
+  });
+  return res.json(tourStepToJson(updated));
+}));
+
+adminRouter.delete("/tour-steps/:id", asyncRoute(async (req, res) => {
+  const idParse = tourStepIdSchema.safeParse({ id: req.params.id });
+  if (!idParse.success) return res.status(400).json({ message: "Invalid id" });
+
+  await prisma.tourStep.delete({ where: { id: idParse.data.id } });
+  return res.json({ success: true });
+}));
+
+adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
+  // Удаляем все существующие шаги
+  await prisma.tourStep.deleteMany();
+
+  const defaults = [
+    {
+      target: "body",
+      targetLabel: "Приветствие",
+      title: "Добро пожаловать! 👋",
+      content: "Привет! Это твой личный кабинет STEALTHNET. Давай я покажу, что тут есть!",
+      placement: "center",
+      mascotId: "girl-1",
+      mood: "wave",
+      sortOrder: 0,
+    },
+    {
+      target: '[data-tour="subscription"]',
+      targetLabel: "Подписка",
+      title: "Твоя подписка",
+      content: "Здесь ты видишь статус своей VPN-подписки, оставшиеся дни и трафик.",
+      placement: "bottom",
+      mascotId: "girl-1",
+      mood: "point",
+      sortOrder: 1,
+    },
+    {
+      target: '[data-tour="balance"]',
+      targetLabel: "Баланс",
+      title: "Твой баланс",
+      content: "Тут отображается баланс аккаунта. Пополняй и оплачивай тарифы!",
+      placement: "left",
+      mascotId: "girl-1",
+      mood: "point",
+      sortOrder: 2,
+    },
+    {
+      target: '[data-tour="tariffs"]',
+      targetLabel: "Тарифы",
+      title: "Тарифы и планы",
+      content: "Выбирай подходящий тариф — у нас есть варианты на любой вкус и кошелёк.",
+      placement: "right",
+      mascotId: "girl-1",
+      mood: "think",
+      sortOrder: 3,
+    },
+    {
+      target: '[data-tour="referrals"]',
+      targetLabel: "Рефералы",
+      title: "Реферальная программа",
+      content: "Приглашай друзей и получай бонусы! До 3 уровней реферальных наград.",
+      placement: "right",
+      mascotId: "girl-1",
+      mood: "point",
+      sortOrder: 4,
+    },
+    {
+      target: "body",
+      targetLabel: "Завершение",
+      title: "Всё готово! 🎉",
+      content: "Теперь ты знаешь основные разделы кабинета. Удачного использования STEALTHNET!",
+      placement: "center",
+      mascotId: "girl-1",
+      mood: "happy",
+      sortOrder: 5,
+    },
+  ];
+
+  const created = await prisma.$transaction(
+    defaults.map(step => prisma.tourStep.create({ data: step }))
+  );
+
+  return res.json({ items: created.map(tourStepToJson) });
+}));

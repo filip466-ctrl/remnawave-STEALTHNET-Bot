@@ -37,6 +37,7 @@ import { AdminSecondarySubscriptionsPage } from "@/pages/admin-secondary-subscri
 import { ProxyPage } from "@/pages/proxy";
 import { SingboxPage } from "@/pages/singbox";
 import LanguagesPage from "@/pages/languages";
+import { TourConstructorPage } from "@/pages/tour-constructor";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { CabinetLayout } from "@/pages/cabinet/cabinet-layout";
 import { ClientLoginPage } from "@/pages/cabinet/client-login";
@@ -219,6 +220,7 @@ function AppRoutes() {
         <Route path="api-docs" element={<ForceChangePassword><ApiDocsPage /></ForceChangePassword>} />
         <Route path="geo-map" element={<ForceChangePassword><GeoMapPage /></ForceChangePassword>} />
         <Route path="secondary-subscriptions" element={<ForceChangePassword><AdminSecondarySubscriptionsPage /></ForceChangePassword>} />
+        <Route path="tour-constructor" element={<ForceChangePassword><TourConstructorPage /></ForceChangePassword>} />
       </Route>
       {/* Онбординг — вне CabinetLayout (без навбара) */}
       <Route

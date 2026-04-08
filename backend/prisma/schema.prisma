@@ -732,3 +732,21 @@ model TelegramAuthToken {
   @@index([expiresAt])
   @@map("telegram_auth_tokens")
 }
+
+model TourStep {
+  id          String   @id @default(cuid())
+  target      String   // CSS selector: '[data-tour="subscription"]' or 'body'
+  targetLabel String   @map("target_label") // Human-readable: "Подписка", "Баланс"
+  title       String   // Tooltip title: "Ваша подписка"
+  content     String   @db.Text // Tooltip body text
+  videoUrl    String?  @map("video_url") // Optional YouTube/video embed URL
+  placement   String   @default("bottom") // top | bottom | left | right | center
+  mascotId    String   @default("girl-1") @map("mascot_id") // girl-1 | girl-2 | girl-3 | boy-1
+  mood        String   @default("point") // wave | point | happy | think
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tour_steps")
+}

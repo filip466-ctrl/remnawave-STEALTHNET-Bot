@@ -940,6 +940,31 @@ export const api = {
     return request(`/admin/tariff-categories/${id}`, { method: "DELETE", token });
   },
 
+  // Tour Steps (admin)
+  async getTourSteps(token: string): Promise<{ items: TourStepRecord[] }> {
+    return request("/admin/tour-steps", { token });
+  },
+
+  async createTourStep(token: string, payload: CreateTourStepPayload): Promise<TourStepRecord> {
+    return request("/admin/tour-steps", { method: "POST", body: JSON.stringify(payload), token });
+  },
+
+  async updateTourStep(token: string, id: string, payload: UpdateTourStepPayload): Promise<TourStepRecord> {
+    return request(`/admin/tour-steps/${id}`, { method: "PATCH", body: JSON.stringify(payload), token });
+  },
+
+  async deleteTourStep(token: string, id: string): Promise<{ success: boolean }> {
+    return request(`/admin/tour-steps/${id}`, { method: "DELETE", token });
+  },
+
+  async reorderTourSteps(token: string, items: { id: string; sortOrder: number }[]): Promise<{ success: boolean }> {
+    return request("/admin/tour-steps/reorder", { method: "PATCH", body: JSON.stringify({ items }), token });
+  },
+
+  async seedDefaultTourSteps(token: string): Promise<{ items: TourStepRecord[] }> {
+    return request("/admin/tour-steps/seed-defaults", { method: "POST", token });
+  },
+
   async getTariffs(token: string, categoryId?: string): Promise<{ items: TariffRecord[] }> {
     const q = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
     return request(`/admin/tariffs${q}`, { token });
@@ -1092,6 +1117,11 @@ export const api = {
 
   async getPublicTariffs(): Promise<{ items: PublicTariffCategory[] }> {
     return request("/public/tariffs");
+  },
+
+  /** Шаги тура (публичный, без авторизации) */
+  async getClientTourSteps(): Promise<{ items: ClientTourStep[] }> {
+    return request("/client/tour-steps");
   },
 
   /** Публичный список тарифов прокси по категориям */
@@ -2841,6 +2871,52 @@ export type CreatePromoCodePayload = {
 };
 
 export type UpdatePromoCodePayload = Partial<CreatePromoCodePayload>;
+
+// ——— Tour Steps ———
+
+export interface TourStepRecord {
+  id: string;
+  target: string;
+  targetLabel: string;
+  title: string;
+  content: string;
+  videoUrl: string | null;
+  placement: string;
+  mascotId: string;
+  mood: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTourStepPayload {
+  target: string;
+  targetLabel: string;
+  title: string;
+  content: string;
+  videoUrl?: string | null;
+  placement?: string;
+  mascotId?: string;
+  mood?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export type UpdateTourStepPayload = Partial<CreateTourStepPayload>;
+
+export interface ClientTourStep {
+  id: string;
+  target: string;
+  targetLabel: string;
+  title: string;
+  content: string;
+  videoUrl: string | null;
+  placement: string;
+  mascotId: string;
+  mood: string;
+  sortOrder: number;
+}
 
 export interface GeoMapNode {
   uuid: string;

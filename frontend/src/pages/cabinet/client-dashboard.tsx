@@ -34,6 +34,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
+import { DashboardTour } from "@/components/tour/dashboard-tour";
+
 function formatDate(s: string | null) {
   if (!s) return "—";
   try {
@@ -123,6 +125,7 @@ export function ClientDashboardPage() {
   const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
   const [autoRenewLoading, setAutoRenewLoading] = useState(false);
+  const [runTour, setRunTour] = useState(false);
 
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
@@ -192,6 +195,14 @@ export function ClientDashboardPage() {
 
   // Auto-redeem pending gift code (saved by /gift/:code page before redirect to login/register)
   const [giftRedeemMessage, setGiftRedeemMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  useEffect(() => {
+    if (!token || loading || isMiniapp) return;
+    if (!localStorage.getItem("stealthnet_tour_completed")) {
+      // Delay slightly so layout can render
+      setTimeout(() => setRunTour(true), 500);
+    }
+  }, [token, loading, isMiniapp]);
+
   useEffect(() => {
     if (!token || loading) return;
     const pendingCode = localStorage.getItem("stealthnet_pending_gift");
@@ -611,6 +622,15 @@ export function ClientDashboardPage() {
   // DESKTOP LAYOUT
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+      {!isMiniapp && runTour && (
+        <DashboardTour 
+          run={runTour} 
+          onComplete={() => {
+            setRunTour(false);
+            localStorage.setItem("stealthnet_tour_completed", "true");
+          }} 
+        />
+      )}
       {/* Hero + CTA */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
@@ -686,7 +706,7 @@ export function ClientDashboardPage() {
       {/* Cards grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {/* Подписка / тариф */}
-        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1 flex flex-col">
+        <Card data-tour="subscription" className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1 flex flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-3 text-xl text-foreground">
               <div className="p-2.5 bg-primary/20 rounded-xl">
@@ -773,7 +793,7 @@ export function ClientDashboardPage() {
         </Card>
 
         {/* Баланс + пополнение */}
-        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+        <Card data-tour="balance" className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-3 text-xl text-foreground">
               <div className="p-2.5 bg-primary/20 rounded-xl">

@@ -3914,3 +3914,30 @@ publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
   }
 });
 
+// ——— Tour Steps (публичные, без авторизации) ———
+clientRouter.get("/tour-steps", async (_req, res) => {
+  try {
+    const steps = await prisma.tourStep.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return res.json({
+      items: steps.map(s => ({
+        id: s.id,
+        target: s.target,
+        targetLabel: s.targetLabel,
+        title: s.title,
+        content: s.content,
+        videoUrl: s.videoUrl,
+        placement: s.placement,
+        mascotId: s.mascotId,
+        mood: s.mood,
+        sortOrder: s.sortOrder,
+      })),
+    });
+  } catch (e) {
+    console.error("GET /tour-steps error:", e);
+    return res.status(500).json({ message: "Ошибка загрузки шагов тура" });
+  }
+});
+

@@ -591,8 +591,14 @@ function CabinetShell() {
           <nav className="flex items-center gap-1 flex-wrap justify-center flex-1">
             {visibleNav.map(({ to, label, icon: Icon }) => {
               const active = location.pathname === to;
+              const dataTourMap: Record<string, string> = {
+                "/cabinet/tariffs": "tariffs",
+                "/cabinet/referral": "referrals"
+              };
+              const tourAttr = dataTourMap[to];
+
               return (
-                <Link key={to} to={to}>
+                <Link key={to} to={to} data-tour={tourAttr}>
                   <Button
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
