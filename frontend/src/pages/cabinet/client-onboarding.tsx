@@ -95,6 +95,7 @@ export function ClientOnboardingPage() {
     setPasswordLoading(true);
     try {
       await api.clientSetPassword(token, { newPassword });
+      await refreshProfile();
       goTo("2fa");
     } catch (e) {
       setPasswordError(e instanceof Error ? e.message : "Ошибка");

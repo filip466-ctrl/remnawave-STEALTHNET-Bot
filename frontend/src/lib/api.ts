@@ -2683,6 +2683,8 @@ export interface ClientProfile {
   autoRenewTariffId?: string | null;
   /** Название привязанного способа оплаты ЮKassa (например "Банковская карта *4444") */
   yookassaPaymentMethodTitle?: string | null;
+  /** Завершён ли онбоардинг (установлен ли пароль для email-регистрации) */
+  onboardingCompleted?: boolean;
 }
 
 export interface ClientAuthResponse {

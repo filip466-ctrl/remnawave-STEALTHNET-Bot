@@ -95,7 +95,9 @@ function RequireClientAuth({ children }: { children: React.ReactNode }) {
   if (!state.token) {
     return <Navigate to="/cabinet/login" replace />;
   }
-  if (state.isNewTelegramUser && location.pathname !== "/cabinet/onboarding") {
+  // Проверяем серверный флаг onboardingCompleted ИЛИ эфемерный isNewTelegramUser
+  const needsOnboarding = state.client?.onboardingCompleted === false || state.isNewTelegramUser;
+  if (needsOnboarding && location.pathname !== "/cabinet/onboarding") {
     return <Navigate to="/cabinet/onboarding" replace />;
   }
   return <>{children}</>;
@@ -103,7 +105,8 @@ function RequireClientAuth({ children }: { children: React.ReactNode }) {
 
 function RequireOnboarding({ children }: { children: React.ReactNode }) {
   const { state } = useClientAuth();
-  if (!state.isNewTelegramUser) {
+  const needsOnboarding = state.client?.onboardingCompleted === false || state.isNewTelegramUser;
+  if (!needsOnboarding) {
     return <Navigate to="/cabinet/dashboard" replace />;
   }
   return <>{children}</>;
