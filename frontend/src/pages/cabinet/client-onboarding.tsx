@@ -201,9 +201,9 @@ export function ClientOnboardingPage() {
                   transition={{ delay: 0.25 }}
                   className="text-muted-foreground mb-1"
                 >
-                  Аккаунт создан через Telegram
+                  {client?.telegramUsername ? "Аккаунт создан через Telegram" : "Аккаунт успешно создан"}
                 </motion.p>
-                {client?.telegramUsername && (
+                {client?.telegramUsername ? (
                   <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -212,7 +212,16 @@ export function ClientOnboardingPage() {
                   >
                     @{client.telegramUsername}
                   </motion.span>
-                )}
+                ) : client?.email ? (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-primary font-bold text-lg mb-4"
+                  >
+                    {client.email}
+                  </motion.span>
+                ) : null}
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
