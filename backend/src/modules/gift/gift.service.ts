@@ -128,9 +128,8 @@ export async function createAdditionalSubscription(
     };
   }
 
-  // Определяем индекс
-  const index = await getNextSubscriptionIndex(rootClientId);
-  const username = secondaryRemnaUsername(rootClient, index);
+  // Определяем базовый индекс
+  let index = await getNextSubscriptionIndex(rootClientId);
 
   // Создаём пользователя в Remnawave (без telegramId/email — избегаем конфликтов уникальности)
   const trafficLimitBytes = tariff.trafficLimitBytes != null ? Number(tariff.trafficLimitBytes) : 0;
@@ -140,20 +139,47 @@ export async function createAdditionalSubscription(
   const trafficLimitStrategy =
     trafficResetMode === "monthly" ? "MONTH" : trafficResetMode === "monthly_rolling" ? "MONTH_ROLLING" : "NO_RESET";
 
-  const createRes = await remnaCreateUser({
-    username,
-    trafficLimitBytes,
-    trafficLimitStrategy,
-    expireAt,
-    hwidDeviceLimit: tariff.deviceLimit ?? undefined,
-    activeInternalSquads: tariff.internalSquadUuids,
-    // НЕ передаём telegramId и email — это вторичная подписка
-  });
+  // Retry с инкрементом индекса — если username уже занят в Remnawave
+  // (может случиться при рассинхронизации DB ↔ Remnawave)
+  const MAX_ATTEMPTS = 5;
+  let remnaUuid: string | undefined;
+  let username = "";
 
-  const remnaUuid = extractRemnaUuid(createRes.data);
-  if (!remnaUuid) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    username = secondaryRemnaUsername(rootClient, index);
+
+    const createRes = await remnaCreateUser({
+      username,
+      trafficLimitBytes,
+      trafficLimitStrategy,
+      expireAt,
+      hwidDeviceLimit: tariff.deviceLimit ?? undefined,
+      activeInternalSquads: tariff.internalSquadUuids,
+    });
+
+    remnaUuid = extractRemnaUuid(createRes.data) ?? undefined;
+    if (remnaUuid) break;
+
+    // Если username занят — пробуем следующий индекс
+    const isUsernameTaken =
+      createRes.status === 400 &&
+      typeof createRes.error === "string" &&
+      createRes.error.toLowerCase().includes("already exists");
+
+    if (isUsernameTaken) {
+      console.warn(`[gift] Username "${username}" already exists in Remnawave, retrying with index ${index + 1}`);
+      index++;
+      continue;
+    }
+
+    // Другая ошибка — прекращаем
     console.error("[gift] Remna createUser failed for secondary:", createRes.error, createRes.status);
     return { ok: false, error: "Ошибка создания VPN-пользователя", status: 502 };
+  }
+
+  if (!remnaUuid) {
+    console.error(`[gift] Failed to create Remnawave user after ${MAX_ATTEMPTS} attempts for root ${rootClientId}`);
+    return { ok: false, error: "Ошибка создания VPN-пользователя (все имена заняты)", status: 502 };
   }
 
   // Создаём дочернюю запись Client
@@ -163,7 +189,6 @@ export async function createAdditionalSubscription(
       subscriptionIndex: index,
       remnawaveUuid: remnaUuid,
       role: "CLIENT",
-      // email, telegramId, passwordHash — null (secondary не имеет собственных credentials)
     },
   });
 

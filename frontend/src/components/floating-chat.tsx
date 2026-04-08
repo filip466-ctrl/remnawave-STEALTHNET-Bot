@@ -476,9 +476,9 @@ export function FloatingChat() {
     setIsScrolled(e.currentTarget.scrollTop > 100);
   };
 
-  // Poll for support unread count
+  // Poll for support unread count (skip if tickets are disabled to avoid 404)
   const refreshUnread = () => {
-    if (!token) return;
+    if (!token || !config?.ticketsEnabled) return;
     api.getUnreadTicketsCount(token).then((r) => {
       setSupportUnread(r.count);
     }).catch(() => {});
@@ -488,7 +488,7 @@ export function FloatingChat() {
     refreshUnread();
     const intervalId = window.setInterval(refreshUnread, 15000); // Poll every 15s
     return () => window.clearInterval(intervalId);
-  }, [token]);
+  }, [token, config?.ticketsEnabled]);
 
   // Скрываем кнопку чата когда открыт любой Dialog (Radix)
   useEffect(() => {

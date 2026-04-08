@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, Send, Link as LinkIcon, CheckCircle2 } from "lucide-react";
+import { Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, Send, Link as LinkIcon, CheckCircle2, Play } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
 import { api, type PublicTariff, type PublicTariffCategory } from "@/lib/api";
@@ -168,6 +168,20 @@ export function ClientGiftsPage() {
     }
   };
 
+  const handleActivateForSelf = async (secondaryClientId: string) => {
+    if (!token) return;
+    setActionLoading(`activate-${secondaryClientId}`);
+    try {
+      const res = await api.giftGetSubscriptionUrl(token, secondaryClientId);
+      const appUrl = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+      window.location.href = `${appUrl}/sub/${res.uuid}`;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Ошибка активации");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const copyCode = async (code: string, id: string) => {
     await navigator.clipboard.writeText(code);
     setCopiedId(`code-${id}`);
@@ -268,26 +282,38 @@ export function ClientGiftsPage() {
                         </div>
                       </div>
                       
-                      <div className="flex gap-2 mt-auto">
+                      <div className="flex flex-col gap-2 mt-auto">
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="flex-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all border-none shadow-none"
+                            onClick={() => handleGetUrl(sub.id)}
+                            disabled={actionLoading === `url-${sub.id}`}
+                          >
+                            {actionLoading === `url-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : copiedId === `url-${sub.id}` ? <Check className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
+                            {copiedId === `url-${sub.id}` ? "Скопировано" : "Ссылка"}
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="flex-1 rounded-xl shadow-md gap-2"
+                            onClick={() => handleCreateCode(sub.id)}
+                            disabled={isGifted || actionLoading === `create-${sub.id}`}
+                          >
+                            {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gift className="w-4 h-4 mr-2" />}
+                            <span className="truncate">{isGifted ? "Подарено" : "Подарить"}</span>
+                          </Button>
+                        </div>
                         <Button 
                           variant="secondary" 
                           size="sm" 
-                          className="flex-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all border-none shadow-none"
-                          onClick={() => handleGetUrl(sub.id)}
-                          disabled={actionLoading === `url-${sub.id}`}
+                          className="w-full rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-all border-none shadow-none font-semibold"
+                          onClick={() => handleActivateForSelf(sub.id)}
+                          disabled={isGifted || actionLoading === `activate-${sub.id}`}
                         >
-                          {actionLoading === `url-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : copiedId === `url-${sub.id}` ? <Check className="w-4 h-4 mr-2" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-                          {copiedId === `url-${sub.id}` ? "Скопировано" : "Ссылка"}
-                        </Button>
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          className="flex-1 rounded-xl shadow-md gap-2"
-                          onClick={() => handleCreateCode(sub.id)}
-                          disabled={isGifted || actionLoading === `create-${sub.id}`}
-                        >
-                          {actionLoading === `create-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gift className="w-4 h-4 mr-2" />}
-                          <span className="truncate">{isGifted ? "Подарено" : "Подарить"}</span>
+                          {actionLoading === `activate-${sub.id}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                          Активировать себе
                         </Button>
                       </div>
                     </motion.div>

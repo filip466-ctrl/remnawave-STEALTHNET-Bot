@@ -975,6 +975,20 @@ export const api = {
     return request("/client/subscription", { token });
   },
 
+  /** Все подписки клиента (root + secondary) с Remnawave-данными */
+  async clientAllSubscriptions(token: string): Promise<{
+    items: Array<{
+      type: "root" | "secondary";
+      id: string;
+      subscriptionIndex: number | null;
+      subscription: unknown;
+      tariffDisplayName: string;
+      remnawaveUuid: string | null;
+    }>;
+  }> {
+    return request("/client/subscription/all", { token });
+  },
+
   async clientPayments(token: string): Promise<{ items: ClientPayment[] }> {
     return request("/client/payments", { token });
   },

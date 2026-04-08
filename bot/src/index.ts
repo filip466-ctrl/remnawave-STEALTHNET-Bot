@@ -36,6 +36,7 @@ import {
   giftMenuButtons,
   giftSubscriptionButtons,
   giftCodeResultButtons,
+  giftPostPurchaseButtons,
   giftCodesListButtons,
   giftTariffButtons,
   giftPaymentButtons,
@@ -2961,8 +2962,8 @@ bot.on("callback_query:data", async (ctx) => {
         const result = await api.buyGiftSubscription(token, { tariffId });
         await editMessageContent(
           ctx,
-          `✅ Дополнительная подписка создана! Подписка #${result.subscriptionIndex}`,
-          giftCodeResultButtons(config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
+          `✅ Дополнительная подписка создана!\n\nПодписка #${result.subscriptionIndex}\n\nВы можете активировать её на своём аккаунте или подарить другу.`,
+          giftPostPurchaseButtons(result.secondaryClientId, result.subscriptionIndex, config?.botBackLabel ?? null, innerStyles, innerEmojiIds),
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";

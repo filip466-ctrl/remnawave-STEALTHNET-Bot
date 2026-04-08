@@ -1715,6 +1715,72 @@ clientRouter.get("/subscription", async (req, res) => {
   return res.json({ subscription: result.data ?? null, tariffDisplayName });
 });
 
+/**
+ * GET /api/client/subscription/all — Все подписки клиента (root + secondary).
+ * Возвращает массив с Remnawave-данными для каждой подписки.
+ */
+clientRouter.get("/subscription/all", async (req, res) => {
+  const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
+  const clientId = (req as unknown as { clientId: string }).clientId;
+
+  type SubInfo = {
+    type: "root" | "secondary";
+    id: string;
+    subscriptionIndex: number | null;
+    subscription: unknown;
+    tariffDisplayName: string;
+    remnawaveUuid: string | null;
+  };
+
+  const items: SubInfo[] = [];
+
+  // 1. Root подписка
+  if (client.remnawaveUuid) {
+    const rootResult = await remnaGetUser(client.remnawaveUuid);
+    let rootTariff = await resolveTariffDisplayName(rootResult.data ?? null);
+    if (rootTariff === "Тест" || rootTariff === "Тариф не выбран") {
+      const lastPaidTariff = await prisma.payment.findFirst({
+        where: { clientId, status: "PAID", tariffId: { not: null } },
+        orderBy: { paidAt: "desc" },
+        select: { tariff: { select: { name: true } } },
+      });
+      const name = lastPaidTariff?.tariff?.name?.trim();
+      if (name) rootTariff = name;
+    }
+    items.push({
+      type: "root",
+      id: clientId,
+      subscriptionIndex: 0,
+      subscription: rootResult.data ?? null,
+      tariffDisplayName: rootTariff,
+      remnawaveUuid: client.remnawaveUuid,
+    });
+  }
+
+  // 2. Secondary подписки (не зарезервированные под подарок)
+  const secondaries = await prisma.client.findMany({
+    where: { parentClientId: clientId, giftStatus: null },
+    select: { id: true, remnawaveUuid: true, subscriptionIndex: true },
+    orderBy: { subscriptionIndex: "asc" },
+  });
+
+  for (const sec of secondaries) {
+    if (!sec.remnawaveUuid) continue;
+    const secResult = await remnaGetUser(sec.remnawaveUuid);
+    const secTariff = await resolveTariffDisplayName(secResult.data ?? null);
+    items.push({
+      type: "secondary",
+      id: sec.id,
+      subscriptionIndex: sec.subscriptionIndex,
+      subscription: secResult.data ?? null,
+      tariffDisplayName: secTariff,
+      remnawaveUuid: sec.remnawaveUuid,
+    });
+  }
+
+  return res.json({ items });
+});
+
 /** GET /api/client/devices — список устройств (HWID) пользователя в Remna */
 clientRouter.get("/devices", async (req, res) => {
   const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;

@@ -742,6 +742,25 @@ export function giftSubscriptionButtons(
   return { inline_keyboard: rows };
 }
 
+/** После покупки доп. подписки — «Активировать себе» или «Подарить» */
+export function giftPostPurchaseButtons(
+  secondaryClientId: string,
+  subscriptionIndex: number,
+  backLabel?: string | null,
+  innerStyles?: InnerButtonStyles,
+  emojiIds?: InnerEmojiIds
+): InlineMarkup {
+  const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
+  const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
+  return {
+    inline_keyboard: [
+      [btn(`✅ Активировать себе`, `gift:connect:${secondaryClientId}`, "primary", emojiIds?.connect)],
+      [btn(`🎁 Подарить`, `gift:give:${secondaryClientId}`, "success", emojiIds?.trial)],
+      [btn(back, "menu:gift", backSty, emojiIds?.back)],
+    ],
+  };
+}
+
 /** Результат создания подарочного кода — только кнопка назад */
 export function giftCodeResultButtons(
   backLabel?: string | null,
