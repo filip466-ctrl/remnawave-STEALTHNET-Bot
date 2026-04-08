@@ -22,14 +22,8 @@ export function startAbandonedAccountsCleanup() {
 
       if (abandoned.length === 0) return;
 
-      // Удаляем связанные записи, затем самих клиентов
+      // Все связанные записи удаляются каскадно (onDelete: Cascade в схеме)
       const ids = abandoned.map((c) => c.id);
-
-      await prisma.referralCredit.deleteMany({ where: { clientId: { in: ids } } });
-      await prisma.promoActivation.deleteMany({ where: { clientId: { in: ids } } });
-      await prisma.promoCodeUsage.deleteMany({ where: { clientId: { in: ids } } });
-      await prisma.payment.deleteMany({ where: { clientId: { in: ids } } });
-      await prisma.giftHistory.deleteMany({ where: { clientId: { in: ids } } });
 
       const deleted = await prisma.client.deleteMany({
         where: { id: { in: ids } },
