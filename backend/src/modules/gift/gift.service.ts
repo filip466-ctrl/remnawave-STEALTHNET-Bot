@@ -362,7 +362,11 @@ export async function listAllClientSubscriptions(
   const secondaries = await prisma.secondarySubscription.findMany({
     where: {
       ownerId: rootClientId,
-      giftStatus: { not: "ACTIVATED_SELF" },
+      OR: [
+        { giftStatus: null },
+        { giftStatus: "GIFT_RESERVED" },
+        { giftStatus: "GIFTED" },
+      ],
     },
     orderBy: { subscriptionIndex: "asc" },
   });
