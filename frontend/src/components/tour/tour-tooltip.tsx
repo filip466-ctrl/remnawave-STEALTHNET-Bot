@@ -33,7 +33,7 @@ export function TourTooltip({
       className="flex w-[400px] max-w-[90vw] z-[10000] overflow-hidden rounded-3xl border border-white/10 bg-background/80 shadow-2xl backdrop-blur-2xl"
     >
       {/* Content Side */}
-      <div className={`flex flex-1 flex-col justify-between p-6 ${mascot ? "w-[60%]" : "w-full"}`}>
+      <div className={`flex flex-1 flex-col justify-between p-6 ${mascot ? "w-[60%] min-h-[220px]" : "w-full"}`}>
         <div className="space-y-3">
           {/* Step dots indicator */}
           <div className="flex gap-1.5 mb-2">
@@ -116,12 +116,12 @@ export function TourTooltip({
 
       {/* Mascot Side — PNG image */}
       {mascot && (
-        <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-2 pt-4 overflow-hidden border-l border-white/5">
+        <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-2 pt-4 overflow-hidden border-l border-white/5 max-h-[280px]">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
           <img
             src={mascot.imageUrl}
             alt={mascot.name}
-            className="max-h-full max-w-full object-contain drop-shadow-lg z-10"
+            className="max-h-[200px] max-w-full object-contain drop-shadow-lg z-10"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         </div>

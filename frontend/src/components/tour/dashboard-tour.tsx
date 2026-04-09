@@ -259,8 +259,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       }}
       styles={{
         overlay: {
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
         },
       }}
       onEvent={handleEvent}
