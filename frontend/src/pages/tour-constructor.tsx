@@ -5,27 +5,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+const CABINET_ROUTES = [
+  { value: "", label: "Текущая страница" },
+  { value: "/cabinet/dashboard", label: "Дашборд" },
+  { value: "/cabinet/tariffs", label: "Тарифы" },
+  { value: "/cabinet/referral", label: "Рефералы" },
+  { value: "/cabinet/profile", label: "Профиль" },
+  { value: "/cabinet/custom-build", label: "Кастомная сборка" },
+  { value: "/cabinet/extra-options", label: "Доп. опции" },
+  { value: "/cabinet/proxy", label: "Прокси" },
+  { value: "/cabinet/singbox", label: "SingBox" },
+  { value: "/cabinet/tickets", label: "Поддержка" },
+  { value: "/cabinet/gifts", label: "Подарки" },
+];
+
 const TOUR_TARGETS = [
-  { id: "welcome", target: "body", label: "Приветствие", icon: "👋", defaultPlacement: "center", description: "Приветственное сообщение", previewImage: null },
-  { id: "subscription", target: '[data-tour="subscription"]', label: "Подписка", icon: "🔑", defaultPlacement: "bottom", description: "Карточка подписки", previewImage: "/tour-targets/subscription.png" },
-  { id: "balance", target: '[data-tour="balance"]', label: "Баланс", icon: "💰", defaultPlacement: "left", description: "Карточка баланса", previewImage: "/tour-targets/balance.png" },
-  { id: "tariffs", target: '[data-tour="tariffs"]', label: "Тарифы", icon: "📦", defaultPlacement: "right", description: "Раздел тарифов в навигации", previewImage: "/tour-targets/tariffs.png" },
-  { id: "referrals", target: '[data-tour="referrals"]', label: "Рефералы", icon: "👥", defaultPlacement: "right", description: "Реферальная программа", previewImage: "/tour-targets/referrals.png" },
-  { id: "custom-build", target: '[data-tour="custom-build"]', label: "Кастомная сборка", icon: "🛠️", defaultPlacement: "right", description: "Кастомная конфигурация VPN", previewImage: "/tour-targets/custom-build.png" },
-  { id: "extra-options", target: '[data-tour="extra-options"]', label: "Дополнительные опции", icon: "⚡", defaultPlacement: "right", description: "Прокси, доп. устройства и др.", previewImage: "/tour-targets/extra-options.png" },
-  { id: "proxy", target: '[data-tour="proxy"]', label: "Прокси", icon: "🌐", defaultPlacement: "right", description: "Прокси-доступ", previewImage: "/tour-targets/proxy.png" },
-  { id: "singbox", target: '[data-tour="singbox"]', label: "SingBox", icon: "🔐", defaultPlacement: "right", description: "Доступ через SingBox", previewImage: "/tour-targets/singbox.png" },
-  { id: "support", target: '[data-tour="support"]', label: "Поддержка", icon: "💬", defaultPlacement: "right", description: "Система поддержки", previewImage: "/tour-targets/support.png" },
-  { id: "gifts", target: '[data-tour="gifts"]', label: "Подарки", icon: "🎁", defaultPlacement: "right", description: "Подарочные коды", previewImage: "/tour-targets/gifts.png" },
-  { id: "profile", target: '[data-tour="profile"]', label: "Профиль", icon: "👤", defaultPlacement: "right", description: "Настройки профиля", previewImage: "/tour-targets/profile.png" },
-  { id: "dashboard", target: '[data-tour="dashboard"]', label: "Дашборд", icon: "📊", defaultPlacement: "bottom", description: "Кнопка дашборда", previewImage: "/tour-targets/dashboard.png" },
-  { id: "farewell", target: "body", label: "Завершение", icon: "✨", defaultPlacement: "center", description: "Прощальное сообщение", previewImage: null },
+  { id: "welcome", target: "body", label: "Приветствие", icon: "👋", defaultPlacement: "center", description: "Приветственное сообщение", previewImage: null, defaultRoute: null },
+  { id: "subscription", target: '[data-tour="subscription"]', label: "Подписка", icon: "🔑", defaultPlacement: "bottom", description: "Карточка подписки", previewImage: "/tour-targets/subscription.png", defaultRoute: "/cabinet/dashboard" },
+  { id: "balance", target: '[data-tour="balance"]', label: "Баланс", icon: "💰", defaultPlacement: "left", description: "Карточка баланса", previewImage: "/tour-targets/balance.png", defaultRoute: "/cabinet/dashboard" },
+  { id: "tariffs-nav", target: '[data-tour="tariffs"]', label: "Тарифы (навигация)", icon: "📦", defaultPlacement: "right", description: "Кнопка тарифов в навигации", previewImage: "/tour-targets/tariffs.png", defaultRoute: null },
+  { id: "tariff-list", target: '[data-tour="tariff-list"]', label: "Список тарифов", icon: "🏷️", defaultPlacement: "top", description: "Список тарифов на странице", previewImage: "/tour-targets/tariff-list.png", defaultRoute: "/cabinet/tariffs" },
+  { id: "referrals-nav", target: '[data-tour="referrals"]', label: "Рефералы (навигация)", icon: "👥", defaultPlacement: "right", description: "Кнопка рефералов в навигации", previewImage: "/tour-targets/referrals.png", defaultRoute: null },
+  { id: "referral-stats", target: '[data-tour="referral-stats"]', label: "Статистика рефералов", icon: "📊", defaultPlacement: "bottom", description: "Блок статистики на странице рефералов", previewImage: "/tour-targets/referral-stats.png", defaultRoute: "/cabinet/referral" },
+  { id: "referral-link", target: '[data-tour="referral-link"]', label: "Реферальная ссылка", icon: "🔗", defaultPlacement: "top", description: "Блок ссылок на странице рефералов", previewImage: "/tour-targets/referral-link.png", defaultRoute: "/cabinet/referral" },
+  { id: "profile-nav", target: '[data-tour="profile"]', label: "Профиль (навигация)", icon: "👤", defaultPlacement: "right", description: "Кнопка профиля в навигации", previewImage: "/tour-targets/profile.png", defaultRoute: null },
+  { id: "profile-settings", target: '[data-tour="profile-settings"]', label: "Настройки профиля", icon: "⚙️", defaultPlacement: "top", description: "Карточка личных данных", previewImage: "/tour-targets/profile-settings.png", defaultRoute: "/cabinet/profile" },
+  { id: "password-change", target: '[data-tour="password-change"]', label: "Смена пароля", icon: "🔐", defaultPlacement: "top", description: "Карточка безопасности", previewImage: "/tour-targets/password-change.png", defaultRoute: "/cabinet/profile" },
+  { id: "custom-build", target: '[data-tour="custom-build"]', label: "Кастомная сборка", icon: "🛠️", defaultPlacement: "right", description: "Кастомная конфигурация VPN", previewImage: "/tour-targets/custom-build.png", defaultRoute: null },
+  { id: "extra-options", target: '[data-tour="extra-options"]', label: "Дополнительные опции", icon: "⚡", defaultPlacement: "right", description: "Прокси, доп. устройства и др.", previewImage: "/tour-targets/extra-options.png", defaultRoute: null },
+  { id: "proxy", target: '[data-tour="proxy"]', label: "Прокси", icon: "🌐", defaultPlacement: "right", description: "Прокси-доступ", previewImage: "/tour-targets/proxy.png", defaultRoute: null },
+  { id: "singbox", target: '[data-tour="singbox"]', label: "SingBox", icon: "🔐", defaultPlacement: "right", description: "Доступ через SingBox", previewImage: "/tour-targets/singbox.png", defaultRoute: null },
+  { id: "support", target: '[data-tour="support"]', label: "Поддержка", icon: "💬", defaultPlacement: "right", description: "Система поддержки", previewImage: "/tour-targets/support.png", defaultRoute: null },
+  { id: "gifts", target: '[data-tour="gifts"]', label: "Подарки", icon: "🎁", defaultPlacement: "right", description: "Подарочные коды", previewImage: "/tour-targets/gifts.png", defaultRoute: null },
+  { id: "dashboard-nav", target: '[data-tour="dashboard"]', label: "Дашборд (навигация)", icon: "📊", defaultPlacement: "bottom", description: "Кнопка дашборда", previewImage: "/tour-targets/dashboard.png", defaultRoute: null },
+  { id: "farewell", target: "body", label: "Завершение", icon: "✨", defaultPlacement: "center", description: "Прощальное сообщение", previewImage: null, defaultRoute: null },
 ];
 
 function SortableStepRow({
@@ -100,6 +119,12 @@ function SortableStepRow({
           <span className="text-[11px] text-muted-foreground/80 truncate mt-0.5 flex items-center gap-1.5 font-medium">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/40" />
             {step.targetLabel}
+            {step.route && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-[9px] font-bold border border-blue-500/20">
+                <Navigation className="w-2.5 h-2.5" />
+                {CABINET_ROUTES.find(r => r.value === step.route)?.label || step.route}
+              </span>
+            )}
           </span>
         </div>
         
@@ -202,6 +227,7 @@ export function TourConstructorPage() {
   const [editMascotId, setEditMascotId] = useState<string | null>(null);
   const [editMood, setEditMood] = useState("wave");
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editRoute, setEditRoute] = useState<string>("");
 
   // Upload state
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -241,6 +267,7 @@ export function TourConstructorPage() {
       setEditMascotId(selectedStep.mascotId);
       setEditMood(selectedStep.mood);
       setEditIsActive(selectedStep.isActive);
+      setEditRoute(selectedStep.route || "");
     }
   }, [selectedStepId, selectedStep]);
 
@@ -284,6 +311,7 @@ export function TourConstructorPage() {
         mood: "wave",
         isActive: true,
         sortOrder: steps.length,
+        route: targetDef.defaultRoute || null,
       });
       setSteps([...steps, newStep]);
       setSelectedStepId(newStep.id);
@@ -306,6 +334,7 @@ export function TourConstructorPage() {
         mascotId: editMascotId,
         mood: editMood,
         isActive: editIsActive,
+        route: editRoute || null,
       });
       setSteps(steps.map(s => s.id === updated.id ? updated : s));
     } catch (e) {
@@ -793,6 +822,32 @@ export function TourConstructorPage() {
                       <option value="center">По центру экрана (без привязки)</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Route Navigation */}
+                <div className="space-y-4 pt-6 border-t border-white/5 relative group/select">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] pointer-events-none rounded-full" />
+                  <Label className="text-[10px] font-bold text-foreground/70 uppercase tracking-[0.15em] ml-1 flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <Navigation className="w-3.5 h-3.5" />
+                    </div>
+                    Маршрут (вкладка)
+                  </Label>
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-emerald-500/20 blur-md rounded-xl opacity-0 group-hover/select:opacity-100 transition-opacity" />
+                    <select
+                      value={editRoute}
+                      onChange={e => setEditRoute(e.target.value)}
+                      className="relative flex h-12 w-full rounded-xl border border-white/10 bg-background/60 backdrop-blur-sm px-4 py-2 text-sm hover:border-emerald-500/30 focus:border-emerald-500/50 focus:bg-background focus:outline-none transition-all appearance-none font-medium cursor-pointer shadow-sm"
+                    >
+                      {CABINET_ROUTES.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 ml-1 leading-relaxed">
+                    Если шаг находится на другой вкладке — тур автоматически перейдёт на неё перед показом
+                  </p>
                 </div>
 
                 {/* Mascot Gallery */}

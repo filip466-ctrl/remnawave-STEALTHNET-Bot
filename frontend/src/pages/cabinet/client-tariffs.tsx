@@ -630,6 +630,7 @@ export function ClientTariffsPage() {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
             className="space-y-8 max-w-6xl mx-auto"
+            data-tour="tariff-list"
           >
             <div className="flex flex-col gap-2">
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">{t("cabinet.tariffs.title")}</h1>

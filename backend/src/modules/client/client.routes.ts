@@ -988,6 +988,7 @@ clientRouter.get("/tour-steps", async (_req, res) => {
         content: s.content,
         videoUrl: s.videoUrl,
         placement: s.placement,
+        route: s.route,
         mascotId: s.mascotId,
         mood: s.mood,
         sortOrder: s.sortOrder,

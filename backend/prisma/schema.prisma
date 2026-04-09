@@ -741,6 +741,7 @@ model TourStep {
   content     String   @db.Text // Tooltip body text
   videoUrl    String?  @map("video_url") @db.VarChar(1000) // YouTube URL or /api/uploads/videos/xxx.mp4
   placement   String   @default("bottom") // top | bottom | left | right | center
+  route       String?  @db.VarChar(255) // Cabinet route: "/cabinet/dashboard", "/cabinet/tariffs", null = current page
   mascotId    String?  @map("mascot_id") // FK to TourMascot or null
   mood        String   @default("point") // wave | point | happy | think
   sortOrder   Int      @default(0) @map("sort_order")

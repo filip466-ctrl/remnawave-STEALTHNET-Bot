@@ -13,6 +13,7 @@ export function TourTooltip({
   size,
   isLastStep,
   primaryProps,
+  backProps,
   skipProps,
   tooltipProps,
   tourSteps,
@@ -80,16 +81,28 @@ export function TourTooltip({
 
         {/* Buttons */}
         <div className="mt-6 flex items-center justify-between gap-3">
-          {!isLastStep && (
-            <Button
-              {...skipProps}
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-foreground h-9 px-3"
-            >
-              Пропустить
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {index > 0 && (
+              <Button
+                {...backProps}
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground h-9 px-3"
+              >
+                ← Назад
+              </Button>
+            )}
+            {!isLastStep && (
+              <Button
+                {...skipProps}
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground h-9 px-3"
+              >
+                Пропустить
+              </Button>
+            )}
+          </div>
           
           <Button
             {...primaryProps}

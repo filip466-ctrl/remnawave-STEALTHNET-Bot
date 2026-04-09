@@ -14,6 +14,7 @@ import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/c
 import { cn } from "@/lib/utils";
 import { FloatingChat } from "@/components/floating-chat";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DashboardTour } from "@/components/tour/dashboard-tour";
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("ru-RU", {
@@ -729,8 +730,25 @@ export function CabinetLayout() {
 function CabinetShellWithMiniapp() {
   const isMiniapp = useIsMiniapp();
   const isMobile = useIsMobile();
+  const { state } = useClientAuth();
+  const [runTour, setRunTour] = useState(false);
+
+  useEffect(() => {
+    if (!state.token) return;
+    if (!localStorage.getItem("stealthnet_tour_completed")) {
+      setTimeout(() => setRunTour(true), 500);
+    }
+  }, [state.token]);
+
   return (
     <IsMiniappContext.Provider value={isMiniapp || isMobile}>
+      <DashboardTour
+        run={runTour}
+        onComplete={() => {
+          setRunTour(false);
+          localStorage.setItem("stealthnet_tour_completed", "true");
+        }}
+      />
       <CabinetShell />
     </IsMiniappContext.Provider>
   );

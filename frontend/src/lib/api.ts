@@ -2941,6 +2941,7 @@ export interface TourStepRecord {
   content: string;
   videoUrl: string | null;
   placement: string;
+  route: string | null;
   mascotId: string | null;
   mood: string;
   sortOrder: number;
@@ -2957,6 +2958,7 @@ export interface CreateTourStepPayload {
   content: string;
   videoUrl?: string | null;
   placement?: string;
+  route?: string | null;
   mascotId?: string | null;
   mood?: string;
   sortOrder?: number;
@@ -2973,6 +2975,7 @@ export interface ClientTourStep {
   content: string;
   videoUrl: string | null;
   placement: string;
+  route: string | null;
   mascotId: string | null;
   mood: string;
   sortOrder: number;
