@@ -122,6 +122,7 @@ export function TourTooltip({
             src={mascot.imageUrl}
             alt={mascot.name}
             className="max-h-full max-w-full object-contain drop-shadow-lg z-10"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         </div>
       )}

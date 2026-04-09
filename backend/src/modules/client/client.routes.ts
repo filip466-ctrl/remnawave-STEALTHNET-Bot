@@ -976,7 +976,7 @@ clientRouter.get("/tour-steps", async (_req, res) => {
   try {
     const steps = await prisma.tourStep.findMany({
       where: { isActive: true },
-      include: { mascot: true },
+      include: { mascot: { include: { emotions: true } } },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     return res.json({
@@ -992,7 +992,10 @@ clientRouter.get("/tour-steps", async (_req, res) => {
         mascotId: s.mascotId,
         mood: s.mood,
         sortOrder: s.sortOrder,
-        mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl } : null,
+        mascot: s.mascot ? {
+          id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl,
+          emotions: s.mascot.emotions.map(e => ({ id: e.id, mood: e.mood, imageUrl: e.imageUrl })),
+        } : null,
       })),
     });
   } catch (e) {
@@ -1869,7 +1872,7 @@ clientRouter.get("/subscription/all", async (req, res) => {
 clientRouter.get("/devices", async (req, res) => {
   const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
   if (!client.remnawaveUuid) {
-    return res.status(400).json({ message: "Подписка не привязана" });
+    return res.json({ total: 0, devices: [] });
   }
   const result = await remnaGetUserHwidDevices(client.remnawaveUuid);
   if (result.error) {
