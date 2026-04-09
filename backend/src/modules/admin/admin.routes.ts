@@ -3773,6 +3773,7 @@ adminRouter.post("/tour-steps", asyncRoute(async (req, res) => {
       content: body.data.content,
       videoUrl: body.data.videoUrl ?? null,
       placement: body.data.placement ?? "bottom",
+      route: body.data.route ?? null,
       mascotId: body.data.mascotId ?? null,
       mood: body.data.mood ?? "point",
       sortOrder: body.data.sortOrder ?? 0,
@@ -3810,6 +3811,7 @@ adminRouter.patch("/tour-steps/:id", asyncRoute(async (req, res) => {
   if (body.data.content !== undefined) data.content = body.data.content;
   if (body.data.videoUrl !== undefined) data.videoUrl = body.data.videoUrl;
   if (body.data.placement !== undefined) data.placement = body.data.placement;
+  if (body.data.route !== undefined) data.route = body.data.route;
   if (body.data.mascotId !== undefined) data.mascotId = body.data.mascotId;
   if (body.data.mood !== undefined) data.mood = body.data.mood;
   if (body.data.sortOrder !== undefined) data.sortOrder = body.data.sortOrder;
