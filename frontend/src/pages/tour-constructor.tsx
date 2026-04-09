@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/auth";
 import { api, type TourStepRecord, type TourMascotRecord, type PublicConfig } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff, ArrowLeft } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -188,9 +189,29 @@ function PaletteItem({
   isDisabled: boolean;
 }) {
   const [showPreview, setShowPreview] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (showPreview && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const tooltipWidth = 280;
+      const gap = 16;
+      let left = rect.right + gap;
+      
+      // Flip to left side if overflowing right edge
+      if (left + tooltipWidth > window.innerWidth) {
+        left = rect.left - tooltipWidth - gap;
+      }
+      
+      setTooltipPos({ top: rect.top, left });
+    } else {
+      setTooltipPos(null);
+    }
+  }, [showPreview]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <motion.div 
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -222,15 +243,16 @@ function PaletteItem({
         )}
       </motion.div>
 
-      {/* Preview tooltip on hover */}
-      <AnimatePresence>
-        {showPreview && target.previewImage && (
+      {/* Preview tooltip on hover via Portal */}
+      {showPreview && target.previewImage && tooltipPos && createPortal(
+        <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, x: 15, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 10, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute left-full top-0 ml-4 z-50 pointer-events-none"
+            style={{ top: tooltipPos.top, left: tooltipPos.left }}
+            className="fixed z-[9999] pointer-events-none"
           >
             <div className="w-[280px] rounded-2xl overflow-hidden border border-white/10 bg-background/95 backdrop-blur-xl shadow-2xl">
               <img
@@ -247,8 +269,9 @@ function PaletteItem({
               </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
@@ -550,18 +573,9 @@ export function TourConstructorPage() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        {!selectedStepId ? (
-          <motion.div 
-            key="main-view"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-1 gap-6 overflow-hidden min-h-0"
-          >
-            {/* Left Panel - Palette */}
-            <div className="flex-1 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
+      <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
+        {/* Left Panel - Palette */}
+        <div className="flex-1 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background/20 to-transparent pointer-events-none rounded-[2rem] opacity-50 group-hover/panel:opacity-100 transition-opacity duration-700" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
           
@@ -656,29 +670,13 @@ export function TourConstructorPage() {
           )}
         </div>
 
-          </motion.div>
-        ) : (
-          <motion.div
-            key="settings-view"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] overflow-y-auto flex flex-col shadow-2xl relative group/editor"
-          >
-            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-background/20 to-primary/5 pointer-events-none rounded-[2rem] opacity-50 group-hover/editor:opacity-100 transition-opacity duration-700" />
-            <div className="absolute top-[20%] right-[-10%] w-48 h-48 bg-purple-500/10 blur-[60px] pointer-events-none rounded-full" />
-            
-            {/* Back button */}
-            <div className="p-4 border-b border-white/5 sticky top-0 bg-background/80 backdrop-blur-xl z-50 flex items-center">
-              <Button variant="ghost" onClick={() => setSelectedStepId(null)} className="text-foreground/80 hover:text-foreground font-semibold">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Назад к конструктору
-              </Button>
-            </div>
+        {/* Settings Panel */}
+        <div className="flex-1 bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] overflow-y-auto flex flex-col shadow-2xl relative group/editor">
+          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-background/20 to-primary/5 pointer-events-none rounded-[2rem] opacity-50 group-hover/editor:opacity-100 transition-opacity duration-700" />
+          <div className="absolute top-[20%] right-[-10%] w-48 h-48 bg-purple-500/10 blur-[60px] pointer-events-none rounded-full" />
 
-            {selectedStep ? (
-              <div className="p-7 max-w-4xl mx-auto w-full flex flex-col gap-7 relative z-10">
+          {selectedStep ? (
+            <div className="p-7 max-w-4xl mx-auto w-full flex flex-col gap-7 relative z-10">
               <div className="flex items-center justify-between pb-5 border-b border-white/5">
                 <div className="flex flex-col gap-1.5">
                   <h2 className="font-bold text-2xl tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 drop-shadow-sm flex items-center gap-2.5">
@@ -1081,7 +1079,7 @@ export function TourConstructorPage() {
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }} 
               animate={{ opacity: 1, scale: 1 }} 
-              className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground relative z-10"
+              className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground relative z-10 p-7"
             >
               <div className="relative w-32 h-32 mb-8 flex items-center justify-center group/empty cursor-default">
                 <div className="absolute inset-0 bg-purple-500/20 blur-[40px] rounded-full animate-pulse group-hover/empty:bg-purple-500/30 transition-colors" />
@@ -1094,9 +1092,8 @@ export function TourConstructorPage() {
               <p className="text-sm max-w-[260px] leading-relaxed text-muted-foreground/80">Выберите любой шаг в цепочке слева, чтобы настроить его параметры и внешний вид</p>
             </motion.div>
           )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }
