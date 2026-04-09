@@ -43,7 +43,7 @@ const TOUR_TARGETS = [
   { id: "extra-options", target: '[data-tour="extra-options"]', label: "Дополнительные опции", icon: "⚡", defaultPlacement: "right", description: "Прокси, доп. устройства и др.", previewImage: "/tour-targets/extra-options.png", defaultRoute: null },
   { id: "proxy", target: '[data-tour="proxy"]', label: "Прокси", icon: "🌐", defaultPlacement: "right", description: "Прокси-доступ", previewImage: "/tour-targets/proxy.png", defaultRoute: null },
   { id: "singbox", target: '[data-tour="singbox"]', label: "SingBox", icon: "🔐", defaultPlacement: "right", description: "Доступ через SingBox", previewImage: "/tour-targets/singbox.png", defaultRoute: null },
-  { id: "support", target: '[data-tour="support"]', label: "Поддержка", icon: "💬", defaultPlacement: "right", description: "Система поддержки", previewImage: "/tour-targets/support.png", defaultRoute: null },
+  { id: "messages", target: '[data-tour="floating-chat"]', label: "Сообщения", icon: "💬", defaultPlacement: "left", description: "Плавающий чат (AI + поддержка)", previewImage: null, defaultRoute: null },
   { id: "gifts", target: '[data-tour="gifts"]', label: "Подарки", icon: "🎁", defaultPlacement: "right", description: "Подарочные коды", previewImage: "/tour-targets/gifts.png", defaultRoute: null },
   { id: "dashboard-nav", target: '[data-tour="dashboard"]', label: "Дашборд (навигация)", icon: "📊", defaultPlacement: "bottom", description: "Кнопка дашборда", previewImage: "/tour-targets/dashboard.png", defaultRoute: null },
   { id: "farewell", target: "body", label: "Завершение", icon: "✨", defaultPlacement: "center", description: "Прощальное сообщение", previewImage: null, defaultRoute: null },
@@ -58,7 +58,6 @@ const DISABLED_TARGET_CHECKS: Record<string, ConfigCheck> = {
   "extra-options": (c) => !c.sellOptionsEnabled,
   "proxy": (c) => !c.showProxyEnabled,
   "singbox": (c) => !c.showSingboxEnabled,
-  "support": () => true, // tickets tab is always hidden
   "gifts": (c) => !c.giftSubscriptionsEnabled,
 };
 

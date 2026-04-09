@@ -33,7 +33,6 @@ const DISABLED_BY_TOUR_ATTR: Record<string, ConfigCheck> = {
   "extra-options": (c) => !c.sellOptionsEnabled,
   "proxy": (c) => !c.showProxyEnabled,
   "singbox": (c) => !c.showSingboxEnabled,
-  "support": () => true, // tickets tab is always hidden
   "gifts": (c) => !c.giftSubscriptionsEnabled,
 };
 
@@ -42,7 +41,6 @@ const DISABLED_BY_ROUTE: Record<string, ConfigCheck> = {
   "/cabinet/extra-options": (c) => !c.sellOptionsEnabled,
   "/cabinet/proxy": (c) => !c.showProxyEnabled,
   "/cabinet/singbox": (c) => !c.showSingboxEnabled,
-  "/cabinet/tickets": () => true,
   "/cabinet/gifts": (c) => !c.giftSubscriptionsEnabled,
 };
 
@@ -79,6 +77,21 @@ function waitForRouteSettled(callback: () => void) {
   requestAnimationFrame(() => {
     setTimeout(callback, 300);
   });
+}
+
+/**
+ * If the target step points at [data-tour="floating-chat"],
+ * dispatch a custom event so FloatingChat opens itself.
+ * Returns a small delay (ms) the caller should wait before showing the step,
+ * so the chat panel has time to animate open.
+ */
+function ensureFloatingChatOpen(step: TourStepWithRoute): number {
+  const target = typeof step.target === "string" ? step.target : "";
+  if (target.includes('floating-chat')) {
+    window.dispatchEvent(new CustomEvent("tour:open-chat"));
+    return 400; // wait for chat open animation
+  }
+  return 0;
 }
 
 export function DashboardTour({ run, onComplete }: DashboardTourProps) {
@@ -173,8 +186,16 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
     // Let React Router mount the new route, then resume
     // joyride's targetWaitTimeout handles waiting for the actual element
     waitForRouteSettled(() => {
-      setStepIndex(idx);
-      setIsRunning(true);
+      const delay = ensureFloatingChatOpen(steps[idx]);
+      if (delay > 0) {
+        setTimeout(() => {
+          setStepIndex(idx);
+          setIsRunning(true);
+        }, delay);
+      } else {
+        setStepIndex(idx);
+        setIsRunning(true);
+      }
     });
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -232,9 +253,13 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
           setIsRunning(false);
           navigate(nextStep.route);
         } else {
-          // Same route — update stepIndex synchronously.
-          // joyride v3's targetWaitTimeout handles element appearance.
-          setStepIndex(nextIndex);
+          // Same route — open floating chat if needed, then update stepIndex.
+          const delay = ensureFloatingChatOpen(nextStep);
+          if (delay > 0) {
+            setTimeout(() => setStepIndex(nextIndex), delay);
+          } else {
+            setStepIndex(nextIndex);
+          }
         }
       }
     },

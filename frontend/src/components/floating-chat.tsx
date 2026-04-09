@@ -455,6 +455,15 @@ export function FloatingChat() {
     if (!aiChatEnabled && activeChat === "ai") setActiveChat("support");
   }, [aiChatEnabled, activeChat]);
 
+  // Tour integration: programmatically open chat when tour requests it
+  useEffect(() => {
+    const handleTourOpen = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener("tour:open-chat", handleTourOpen);
+    return () => window.removeEventListener("tour:open-chat", handleTourOpen);
+  }, []);
+
   const [aiChats, setAiChats] = useState<Message[]>(() => getInitialAiMessage("Сервис"));
   useEffect(() => {
     setAiChats((prev) => {
@@ -592,6 +601,7 @@ export function FloatingChat() {
           {isOpen && (
             <motion.div
               key="chat-panel"
+              data-tour="floating-chat"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
