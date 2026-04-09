@@ -70,13 +70,14 @@ function isStepDisabled(step: TourStepWithRoute, config: PublicConfig): boolean 
 
 /**
  * Waits for the React route transition to settle before resuming.
- * Uses a short fixed delay — joyride v3's `targetWaitTimeout` handles
- * waiting for the actual DOM element to appear.
+ * Uses a longer delay to let React Router fully mount the new route's
+ * component tree — joyride's `targetWaitTimeout` then handles the element.
  */
 function waitForRouteSettled(callback: () => void) {
-  // Give React Router time to mount the new route's component tree
+  // Give React Router time to mount the new route's component tree.
+  // 80ms was too short for heavier pages — 300ms is safer.
   requestAnimationFrame(() => {
-    setTimeout(callback, 80);
+    setTimeout(callback, 300);
   });
 }
 
@@ -185,8 +186,11 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       // Persist controls ref for use in the navigation effect
       controlsRef.current = controls;
 
-      // Tour finished or skipped
+      // Tour finished or skipped — but NOT if we're mid-navigation.
+      // When we set `run=false` for a cross-route transition, Joyride fires
+      // FINISHED/SKIPPED which would kill the tour permanently. Ignore it.
       if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+        if (navigatingRef.current || pendingStepRef.current !== null) return;
         setIsRunning(false);
         onComplete();
         return;
@@ -221,10 +225,11 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
 
         // Check if we need to navigate to a different route
         if (nextStep.route && nextStep.route !== location.pathname) {
-          // Cross-route transition: stop → navigate → resume in effect
-          setIsRunning(false);
+          // Cross-route transition: mark navigating FIRST (refs are sync),
+          // then stop joyride. The location.pathname effect resumes the tour.
           navigatingRef.current = true;
           pendingStepRef.current = nextIndex;
+          setIsRunning(false);
           navigate(nextStep.route);
         } else {
           // Same route — update stepIndex synchronously.
