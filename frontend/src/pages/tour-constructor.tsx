@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -550,9 +550,18 @@ export function TourConstructorPage() {
         </div>
       )}
 
-      <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
-        {/* Left Panel - Palette */}
-        <div className="w-[280px] shrink-0 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
+      <AnimatePresence mode="wait">
+        {!selectedStepId ? (
+          <motion.div 
+            key="main-view"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-1 gap-6 overflow-hidden min-h-0"
+          >
+            {/* Left Panel - Palette */}
+            <div className="flex-1 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background/20 to-transparent pointer-events-none rounded-[2rem] opacity-50 group-hover/panel:opacity-100 transition-opacity duration-700" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
           
@@ -647,13 +656,29 @@ export function TourConstructorPage() {
           )}
         </div>
 
-        {/* Right Panel - Step Editor */}
-        <div className="w-[420px] shrink-0 bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] overflow-y-auto flex flex-col shadow-2xl relative group/editor">
-          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-background/20 to-primary/5 pointer-events-none rounded-[2rem] opacity-50 group-hover/editor:opacity-100 transition-opacity duration-700" />
-          <div className="absolute top-[20%] right-[-10%] w-48 h-48 bg-purple-500/10 blur-[60px] pointer-events-none rounded-full" />
-          
-          {selectedStep ? (
-            <div className="p-7 flex flex-col gap-7 relative z-10">
+          </motion.div>
+        ) : (
+          <motion.div
+            key="settings-view"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className="flex-1 bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] overflow-y-auto flex flex-col shadow-2xl relative group/editor"
+          >
+            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-background/20 to-primary/5 pointer-events-none rounded-[2rem] opacity-50 group-hover/editor:opacity-100 transition-opacity duration-700" />
+            <div className="absolute top-[20%] right-[-10%] w-48 h-48 bg-purple-500/10 blur-[60px] pointer-events-none rounded-full" />
+            
+            {/* Back button */}
+            <div className="p-4 border-b border-white/5 sticky top-0 bg-background/80 backdrop-blur-xl z-50 flex items-center">
+              <Button variant="ghost" onClick={() => setSelectedStepId(null)} className="text-foreground/80 hover:text-foreground font-semibold">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Назад к конструктору
+              </Button>
+            </div>
+
+            {selectedStep ? (
+              <div className="p-7 max-w-4xl mx-auto w-full flex flex-col gap-7 relative z-10">
               <div className="flex items-center justify-between pb-5 border-b border-white/5">
                 <div className="flex flex-col gap-1.5">
                   <h2 className="font-bold text-2xl tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 drop-shadow-sm flex items-center gap-2.5">
@@ -1069,8 +1094,9 @@ export function TourConstructorPage() {
               <p className="text-sm max-w-[260px] leading-relaxed text-muted-foreground/80">Выберите любой шаг в цепочке слева, чтобы настроить его параметры и внешний вид</p>
             </motion.div>
           )}
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
