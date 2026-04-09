@@ -41,7 +41,7 @@ export const uploadMascotImage = multer({
   },
 });
 
-// ——— Video upload (MP4/WEBM, max 50MB) ———
+// ——— Video upload (MP4/WEBM, max 150MB) ———
 const videoStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIRS.videos),
   filename: (_req, file, cb) => cb(null, makeFilename(file.originalname)),
@@ -49,7 +49,7 @@ const videoStorage = multer.diskStorage({
 
 export const uploadVideo = multer({
   storage: videoStorage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 150 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [".mp4", ".webm"];
     const ext = path.extname(file.originalname).toLowerCase();

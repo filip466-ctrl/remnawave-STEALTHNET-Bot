@@ -48,7 +48,7 @@ app.use("/api/webhooks/cryptopay", express.raw({ type: "application/json" }), cr
 app.use("/api/webhooks/heleket", express.raw({ type: "application/json" }), heleketWebhooksRouter);
 
 // Лимит 5MB для настроек с логотипом и favicon (data URL)
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "200mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // ——— Защита от накрутки аккаунтов и перебора ———
