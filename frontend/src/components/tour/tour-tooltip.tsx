@@ -1,8 +1,6 @@
 import { TooltipRenderProps } from "react-joyride";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { TourMascot, type MascotMood } from "./tour-mascot";
-import { MASCOT_REGISTRY } from "./tour-mascot-registry";
 import type { ClientTourStep } from "@/lib/api";
 
 interface TourTooltipProps extends TooltipRenderProps {
@@ -19,15 +17,10 @@ export function TourTooltip({
   tooltipProps,
   tourSteps,
 }: TourTooltipProps) {
-  // Get mood and mascot from API step data, or fallback to defaults
   const currentStep = tourSteps?.[index];
-  const mood: MascotMood = (currentStep?.mood as MascotMood) ?? (
-    index === 0 ? "wave" : isLastStep ? "happy" : index === 3 ? "think" : "point"
-  );
-
-  // Dynamically resolve mascot character from the registry based on step config
-  const mascotId = currentStep?.mascotId ?? "girl-1";
-  const MascotComponent = MASCOT_REGISTRY[mascotId]?.component ?? TourMascot;
+  const mascot = currentStep?.mascot ?? null;
+  const videoUrl = currentStep?.videoUrl ?? null;
+  const isUploadedVideo = videoUrl?.startsWith("/api/uploads/") ?? false;
 
   return (
     <motion.div
@@ -39,7 +32,7 @@ export function TourTooltip({
       className="flex w-[400px] max-w-[90vw] z-[10000] overflow-hidden rounded-3xl border border-white/10 bg-background/80 shadow-2xl backdrop-blur-2xl"
     >
       {/* Content Side */}
-      <div className="flex flex-1 flex-col justify-between p-6 w-[60%]">
+      <div className={`flex flex-1 flex-col justify-between p-6 ${mascot ? "w-[60%]" : "w-full"}`}>
         <div className="space-y-3">
           {/* Step dots indicator */}
           <div className="flex gap-1.5 mb-2">
@@ -64,14 +57,23 @@ export function TourTooltip({
           </div>
 
           {/* Video embed if present */}
-          {currentStep?.videoUrl && (
+          {videoUrl && (
             <div className="mt-2 aspect-video rounded-lg overflow-hidden border border-border/30">
-              <iframe
-                src={currentStep.videoUrl}
-                className="w-full h-full"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
+              {isUploadedVideo ? (
+                <video
+                  src={videoUrl}
+                  className="w-full h-full object-cover"
+                  controls
+                  preload="metadata"
+                />
+              ) : (
+                <iframe
+                  src={videoUrl}
+                  className="w-full h-full"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              )}
             </div>
           )}
         </div>
@@ -99,13 +101,17 @@ export function TourTooltip({
         </div>
       </div>
 
-      {/* Mascot Side */}
-      <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-0 pt-4 overflow-hidden border-l border-white/5">
-        {/* Subtle decorative background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-        
-        <MascotComponent mood={mood} className="drop-shadow-lg z-10" />
-      </div>
+      {/* Mascot Side — PNG image */}
+      {mascot && (
+        <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-0 pt-4 overflow-hidden border-l border-white/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+          <img
+            src={mascot.imageUrl}
+            alt={mascot.name}
+            className="max-h-full max-w-full object-contain drop-shadow-lg z-10"
+          />
+        </div>
+      )}
     </motion.div>
   );
 }

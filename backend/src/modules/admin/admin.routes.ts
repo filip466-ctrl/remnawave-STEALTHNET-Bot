@@ -47,6 +47,7 @@ import { distributeReferralRewards } from "../referral/referral.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
 import { runBroadcast, getBroadcastRecipientsCount } from "../broadcast/broadcast.service.js";
+import { uploadMascotImage, uploadVideo, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
 import {
   notifyAdminsAboutSupportReply,
   notifyAdminsAboutTicketStatusChange,
@@ -3691,16 +3692,15 @@ const tourStepIdSchema = z.object({ id: z.string().min(1) });
 
 const TOUR_PLACEMENTS = ["top", "bottom", "left", "right", "center"] as const;
 const TOUR_MOODS = ["wave", "point", "happy", "think"] as const;
-const TOUR_MASCOTS = ["girl-1", "girl-2", "girl-3", "boy-1"] as const;
 
 const createTourStepSchema = z.object({
   target: z.string().min(1).max(500),
   targetLabel: z.string().min(1).max(255),
   title: z.string().min(1).max(500),
   content: z.string().min(1).max(5000),
-  videoUrl: z.string().url().max(1000).nullable().optional(),
+  videoUrl: z.string().max(1000).nullable().optional(),
   placement: z.enum(TOUR_PLACEMENTS).optional(),
-  mascotId: z.enum(TOUR_MASCOTS).optional(),
+  mascotId: z.string().max(100).nullable().optional(),
   mood: z.enum(TOUR_MOODS).optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
@@ -3711,9 +3711,9 @@ const updateTourStepSchema = z.object({
   targetLabel: z.string().min(1).max(255).optional(),
   title: z.string().min(1).max(500).optional(),
   content: z.string().min(1).max(5000).optional(),
-  videoUrl: z.string().url().max(1000).nullable().optional(),
+  videoUrl: z.string().max(1000).nullable().optional(),
   placement: z.enum(TOUR_PLACEMENTS).optional(),
-  mascotId: z.enum(TOUR_MASCOTS).optional(),
+  mascotId: z.string().max(100).nullable().optional(),
   mood: z.enum(TOUR_MOODS).optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
@@ -3728,8 +3728,9 @@ const reorderTourStepsSchema = z.object({
 
 function tourStepToJson(s: {
   id: string; target: string; targetLabel: string; title: string; content: string;
-  videoUrl: string | null; placement: string; mascotId: string; mood: string;
+  videoUrl: string | null; placement: string; mascotId: string | null; mood: string;
   sortOrder: number; isActive: boolean; createdAt: Date; updatedAt: Date;
+  mascot?: { id: string; name: string; imageUrl: string; isBuiltIn: boolean } | null;
 }) {
   return {
     id: s.id,
@@ -3743,6 +3744,7 @@ function tourStepToJson(s: {
     mood: s.mood,
     sortOrder: s.sortOrder,
     isActive: s.isActive,
+    mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl, isBuiltIn: s.mascot.isBuiltIn } : null,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -3750,6 +3752,7 @@ function tourStepToJson(s: {
 
 adminRouter.get("/tour-steps", asyncRoute(async (_req, res) => {
   const steps = await prisma.tourStep.findMany({
+    include: { mascot: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return res.json({ items: steps.map(tourStepToJson) });
@@ -3767,11 +3770,12 @@ adminRouter.post("/tour-steps", asyncRoute(async (req, res) => {
       content: body.data.content,
       videoUrl: body.data.videoUrl ?? null,
       placement: body.data.placement ?? "bottom",
-      mascotId: body.data.mascotId ?? "girl-1",
+      mascotId: body.data.mascotId ?? null,
       mood: body.data.mood ?? "point",
       sortOrder: body.data.sortOrder ?? 0,
       isActive: body.data.isActive ?? true,
     },
+    include: { mascot: true },
   });
   return res.status(201).json(tourStepToJson(created));
 }));
@@ -3811,6 +3815,7 @@ adminRouter.patch("/tour-steps/:id", asyncRoute(async (req, res) => {
   const updated = await prisma.tourStep.update({
     where: { id: idParse.data.id },
     data,
+    include: { mascot: true },
   });
   return res.json(tourStepToJson(updated));
 }));
@@ -3827,6 +3832,9 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
   // Удаляем все существующие шаги
   await prisma.tourStep.deleteMany();
 
+  // Берём первого встроенного маскота (если есть)
+  const builtIn = await prisma.tourMascot.findFirst({ where: { isBuiltIn: true } });
+
   const defaults = [
     {
       target: "body",
@@ -3834,7 +3842,7 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Добро пожаловать! 👋",
       content: "Привет! Это твой личный кабинет STEALTHNET. Давай я покажу, что тут есть!",
       placement: "center",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "wave",
       sortOrder: 0,
     },
@@ -3844,7 +3852,7 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Твоя подписка",
       content: "Здесь ты видишь статус своей VPN-подписки, оставшиеся дни и трафик.",
       placement: "bottom",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "point",
       sortOrder: 1,
     },
@@ -3854,7 +3862,7 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Твой баланс",
       content: "Тут отображается баланс аккаунта. Пополняй и оплачивай тарифы!",
       placement: "left",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "point",
       sortOrder: 2,
     },
@@ -3864,7 +3872,7 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Тарифы и планы",
       content: "Выбирай подходящий тариф — у нас есть варианты на любой вкус и кошелёк.",
       placement: "right",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "think",
       sortOrder: 3,
     },
@@ -3874,9 +3882,59 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Реферальная программа",
       content: "Приглашай друзей и получай бонусы! До 3 уровней реферальных наград.",
       placement: "right",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "point",
       sortOrder: 4,
+    },
+    {
+      target: '[data-tour="custom-build"]',
+      targetLabel: "Кастомная сборка",
+      title: "Кастомная сборка 🛠️",
+      content: "Здесь можно настроить свою уникальную конфигурацию VPN — под свои задачи.",
+      placement: "right",
+      mascotId: builtIn?.id ?? null,
+      mood: "point",
+      sortOrder: 5,
+    },
+    {
+      target: '[data-tour="extra-options"]',
+      targetLabel: "Дополнительные опции",
+      title: "Дополнительные опции ⚡",
+      content: "Прокси, дополнительные устройства, расширенные настройки — всё здесь.",
+      placement: "right",
+      mascotId: builtIn?.id ?? null,
+      mood: "think",
+      sortOrder: 6,
+    },
+    {
+      target: '[data-tour="support"]',
+      targetLabel: "Поддержка",
+      title: "Нужна помощь? 💬",
+      content: "Если что-то не работает — напиши в поддержку, мы поможем!",
+      placement: "right",
+      mascotId: builtIn?.id ?? null,
+      mood: "wave",
+      sortOrder: 7,
+    },
+    {
+      target: '[data-tour="gifts"]',
+      targetLabel: "Подарки",
+      title: "Подарки 🎁",
+      content: "Дари VPN друзьям! Создай подарочный код и отправь.",
+      placement: "right",
+      mascotId: builtIn?.id ?? null,
+      mood: "happy",
+      sortOrder: 8,
+    },
+    {
+      target: '[data-tour="profile"]',
+      targetLabel: "Профиль",
+      title: "Твой профиль 👤",
+      content: "Здесь можно сменить язык, валюту, пароль и другие настройки.",
+      placement: "right",
+      mascotId: builtIn?.id ?? null,
+      mood: "point",
+      sortOrder: 9,
     },
     {
       target: "body",
@@ -3884,9 +3942,9 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
       title: "Всё готово! 🎉",
       content: "Теперь ты знаешь основные разделы кабинета. Удачного использования STEALTHNET!",
       placement: "center",
-      mascotId: "girl-1",
+      mascotId: builtIn?.id ?? null,
       mood: "happy",
-      sortOrder: 5,
+      sortOrder: 10,
     },
   ];
 
@@ -3894,5 +3952,93 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
     defaults.map(step => prisma.tourStep.create({ data: step }))
   );
 
-  return res.json({ items: created.map(tourStepToJson) });
+  return res.json({ items: created.map(s => tourStepToJson({ ...s, mascot: builtIn && s.mascotId === builtIn.id ? builtIn : null })) });
+}));
+
+// ——————————————————————————————————————————————————————————
+// Tour Mascots CRUD
+// ——————————————————————————————————————————————————————————
+
+adminRouter.get("/tour-mascots", asyncRoute(async (_req, res) => {
+  const mascots = await prisma.tourMascot.findMany({
+    orderBy: [{ isBuiltIn: "desc" }, { createdAt: "asc" }],
+  });
+  return res.json({ items: mascots.map(m => ({ id: m.id, name: m.name, imageUrl: m.imageUrl, isBuiltIn: m.isBuiltIn, createdAt: m.createdAt.toISOString() })) });
+}));
+
+adminRouter.post("/tour-mascots", uploadMascotImage.single("image"), asyncRoute(async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: "Изображение не загружено" });
+
+  const name = typeof req.body.name === "string" && req.body.name.trim() ? req.body.name.trim() : "Маскот";
+
+  const mascot = await prisma.tourMascot.create({
+    data: {
+      name,
+      imageUrl: mascotUrl(req.file.filename),
+      isBuiltIn: false,
+    },
+  });
+
+  return res.status(201).json({ id: mascot.id, name: mascot.name, imageUrl: mascot.imageUrl, isBuiltIn: mascot.isBuiltIn, createdAt: mascot.createdAt.toISOString() });
+}));
+
+adminRouter.delete("/tour-mascots/:id", asyncRoute(async (req, res) => {
+  const id = req.params.id;
+  const mascot = await prisma.tourMascot.findUnique({ where: { id } });
+  if (!mascot) return res.status(404).json({ message: "Маскот не найден" });
+  if (mascot.isBuiltIn) return res.status(400).json({ message: "Нельзя удалить встроенного маскота" });
+
+  // Убираем mascotId у шагов, использующих этого маскота
+  await prisma.tourStep.updateMany({ where: { mascotId: id }, data: { mascotId: null } });
+  await prisma.tourMascot.delete({ where: { id } });
+
+  // Удаляем файл
+  const filename = mascot.imageUrl.split("/").pop();
+  if (filename) removeUploadedFile(`mascots/${filename}`);
+
+  return res.json({ success: true });
+}));
+
+// ——————————————————————————————————————————————————————————
+// Tour Step — Video Upload
+// ——————————————————————————————————————————————————————————
+
+adminRouter.post("/tour-steps/:id/video", uploadVideo.single("video"), asyncRoute(async (req, res) => {
+  const id = req.params.id;
+  const step = await prisma.tourStep.findUnique({ where: { id } });
+  if (!step) return res.status(404).json({ message: "Шаг не найден" });
+
+  if (!req.file) return res.status(400).json({ message: "Видео не загружено" });
+
+  // Удаляем старый файл если это был загруженный файл
+  if (step.videoUrl?.startsWith("/api/uploads/videos/")) {
+    const oldFilename = step.videoUrl.split("/").pop();
+    if (oldFilename) removeUploadedFile(`videos/${oldFilename}`);
+  }
+
+  const updated = await prisma.tourStep.update({
+    where: { id },
+    data: { videoUrl: videoUploadUrl(req.file.filename) },
+    include: { mascot: true },
+  });
+  return res.json(tourStepToJson(updated));
+}));
+
+adminRouter.delete("/tour-steps/:id/video", asyncRoute(async (req, res) => {
+  const id = req.params.id;
+  const step = await prisma.tourStep.findUnique({ where: { id } });
+  if (!step) return res.status(404).json({ message: "Шаг не найден" });
+
+  // Удаляем файл если это был загруженный файл
+  if (step.videoUrl?.startsWith("/api/uploads/videos/")) {
+    const oldFilename = step.videoUrl.split("/").pop();
+    if (oldFilename) removeUploadedFile(`videos/${oldFilename}`);
+  }
+
+  const updated = await prisma.tourStep.update({
+    where: { id },
+    data: { videoUrl: null },
+    include: { mascot: true },
+  });
+  return res.json(tourStepToJson(updated));
 }));

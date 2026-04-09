@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -128,6 +129,12 @@ app.use("/api/gift/public", giftPublicLimiter);
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", version: "3.2.7" });
 });
+
+// Статика для загруженных файлов (маскоты, видео)
+app.use("/api/uploads", express.static(path.join("/app/uploads"), {
+  maxAge: "30d",
+  immutable: true,
+}));
 
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);

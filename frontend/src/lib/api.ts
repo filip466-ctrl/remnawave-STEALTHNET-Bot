@@ -965,6 +965,55 @@ export const api = {
     return request("/admin/tour-steps/seed-defaults", { method: "POST", token });
   },
 
+  // Tour Mascots (admin)
+  async getTourMascots(token: string): Promise<{ items: TourMascotRecord[] }> {
+    return request("/admin/tour-mascots", { token });
+  },
+
+  async uploadTourMascot(token: string, name: string, image: File): Promise<TourMascotRecord> {
+    const form = new FormData();
+    form.append("name", name);
+    form.append("image", image, image.name);
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_BASE}/admin/tour-mascots`, { method: "POST", headers, body: form });
+    const text = await res.text();
+    let data: unknown;
+    try { data = text ? JSON.parse(text) : undefined; } catch { throw new Error(res.statusText || "Request failed"); }
+    if (res.status === 401 && token && tokenRefreshFn) {
+      const newToken = await tokenRefreshFn();
+      if (newToken) return api.uploadTourMascot(newToken, name, image);
+    }
+    if (!res.ok) { throw new Error((data as { message?: string })?.message ?? res.statusText); }
+    return data as TourMascotRecord;
+  },
+
+  async deleteTourMascot(token: string, id: string): Promise<{ success: boolean }> {
+    return request(`/admin/tour-mascots/${id}`, { method: "DELETE", token });
+  },
+
+  // Tour Step Video Upload (admin)
+  async uploadTourStepVideo(token: string, stepId: string, video: File): Promise<TourStepRecord> {
+    const form = new FormData();
+    form.append("video", video, video.name);
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_BASE}/admin/tour-steps/${stepId}/video`, { method: "POST", headers, body: form });
+    const text = await res.text();
+    let data: unknown;
+    try { data = text ? JSON.parse(text) : undefined; } catch { throw new Error(res.statusText || "Request failed"); }
+    if (res.status === 401 && token && tokenRefreshFn) {
+      const newToken = await tokenRefreshFn();
+      if (newToken) return api.uploadTourStepVideo(newToken, stepId, video);
+    }
+    if (!res.ok) { throw new Error((data as { message?: string })?.message ?? res.statusText); }
+    return data as TourStepRecord;
+  },
+
+  async deleteTourStepVideo(token: string, stepId: string): Promise<TourStepRecord> {
+    return request(`/admin/tour-steps/${stepId}/video`, { method: "DELETE", token });
+  },
+
   async getTariffs(token: string, categoryId?: string): Promise<{ items: TariffRecord[] }> {
     const q = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
     return request(`/admin/tariffs${q}`, { token });
@@ -2872,6 +2921,16 @@ export type CreatePromoCodePayload = {
 
 export type UpdatePromoCodePayload = Partial<CreatePromoCodePayload>;
 
+// ——— Tour Mascots ———
+
+export interface TourMascotRecord {
+  id: string;
+  name: string;
+  imageUrl: string;
+  isBuiltIn: boolean;
+  createdAt: string;
+}
+
 // ——— Tour Steps ———
 
 export interface TourStepRecord {
@@ -2882,12 +2941,13 @@ export interface TourStepRecord {
   content: string;
   videoUrl: string | null;
   placement: string;
-  mascotId: string;
+  mascotId: string | null;
   mood: string;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  mascot: TourMascotRecord | null;
 }
 
 export interface CreateTourStepPayload {
@@ -2897,7 +2957,7 @@ export interface CreateTourStepPayload {
   content: string;
   videoUrl?: string | null;
   placement?: string;
-  mascotId?: string;
+  mascotId?: string | null;
   mood?: string;
   sortOrder?: number;
   isActive?: boolean;
@@ -2913,9 +2973,10 @@ export interface ClientTourStep {
   content: string;
   videoUrl: string | null;
   placement: string;
-  mascotId: string;
+  mascotId: string | null;
   mood: string;
   sortOrder: number;
+  mascot: TourMascotRecord | null;
 }
 
 export interface GeoMapNode {

@@ -403,6 +403,20 @@ function resolveNavItems(allNavItems: { to: string; label: string; icon: typeof 
 const MAX_VISIBLE_NAV = 4;
 const MAX_VISIBLE_DESKTOP = 5;
 
+/** Маппинг route → data-tour атрибут для тура */
+const ROUTE_TOUR_MAP: Record<string, string> = {
+  "/cabinet/dashboard": "dashboard",
+  "/cabinet/tariffs": "tariffs",
+  "/cabinet/custom-build": "custom-build",
+  "/cabinet/extra-options": "extra-options",
+  "/cabinet/proxy": "proxy",
+  "/cabinet/singbox": "singbox",
+  "/cabinet/referral": "referrals",
+  "/cabinet/tickets": "support",
+  "/cabinet/gifts": "gifts",
+  "/cabinet/profile": "profile",
+};
+
 function MobileCabinetShell() {
   const location = useLocation();
   const { t } = useTranslation();
@@ -467,6 +481,7 @@ function MobileCabinetShell() {
               <Link
                 key={to}
                 to={to}
+                data-tour={ROUTE_TOUR_MAP[to]}
                 className={cn(
                   "flex flex-col items-center justify-center gap-0.5 py-1 px-1 h-14 flex-1 min-w-0 max-w-[5rem] rounded-xl transition-all duration-300",
                   active ? "bg-primary/20 text-primary shadow-sm scale-105" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground hover:scale-105"
@@ -591,10 +606,7 @@ function CabinetShell() {
           <nav className="flex items-center gap-1 flex-wrap justify-center flex-1">
             {visibleNav.map(({ to, label, icon: Icon }) => {
               const active = location.pathname === to;
-              const dataTourMap: Record<string, string> = {
-                "/cabinet/tariffs": "tariffs",
-                "/cabinet/referral": "referrals"
-              };
+              const dataTourMap = ROUTE_TOUR_MAP;
               const tourAttr = dataTourMap[to];
 
               return (

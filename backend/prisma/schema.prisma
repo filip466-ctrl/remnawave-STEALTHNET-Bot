@@ -739,14 +739,28 @@ model TourStep {
   targetLabel String   @map("target_label") // Human-readable: "Подписка", "Баланс"
   title       String   // Tooltip title: "Ваша подписка"
   content     String   @db.Text // Tooltip body text
-  videoUrl    String?  @map("video_url") // Optional YouTube/video embed URL
+  videoUrl    String?  @map("video_url") @db.VarChar(1000) // YouTube URL or /api/uploads/videos/xxx.mp4
   placement   String   @default("bottom") // top | bottom | left | right | center
-  mascotId    String   @default("girl-1") @map("mascot_id") // girl-1 | girl-2 | girl-3 | boy-1
+  mascotId    String?  @map("mascot_id") // FK to TourMascot or null
   mood        String   @default("point") // wave | point | happy | think
   sortOrder   Int      @default(0) @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  mascot TourMascot? @relation(fields: [mascotId], references: [id], onDelete: SetNull)
+
   @@map("tour_steps")
+}
+
+model TourMascot {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(100) // "Мика", "Рин", "Custom 1"
+  imageUrl  String   @map("image_url") @db.VarChar(500) // /api/uploads/mascots/xxx.png or built-in path
+  isBuiltIn Boolean  @default(false) @map("is_built_in") // true = нельзя удалить
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tourSteps TourStep[]
+
+  @@map("tour_mascots")
 }
