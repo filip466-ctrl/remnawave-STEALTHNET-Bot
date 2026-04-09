@@ -756,12 +756,25 @@ model TourStep {
 
 model TourMascot {
   id        String   @id @default(cuid())
-  name      String   @db.VarChar(100) // "Мика", "Рин", "Custom 1"
-  imageUrl  String   @map("image_url") @db.VarChar(500) // /api/uploads/mascots/xxx.png or built-in path
+  name      String   @db.VarChar(100) // "AEGIS", "Техно-тян", "Custom 1"
+  imageUrl  String   @map("image_url") @db.VarChar(500) // /api/uploads/mascots/xxx.png — дефолтное изображение
   isBuiltIn Boolean  @default(false) @map("is_built_in") // true = нельзя удалить
   createdAt DateTime @default(now()) @map("created_at")
 
   tourSteps TourStep[]
+  emotions  MascotEmotion[]
 
   @@map("tour_mascots")
+}
+
+model MascotEmotion {
+  id       String @id @default(cuid())
+  mascotId String @map("mascot_id")
+  mood     String @db.VarChar(50) // wave | point | happy | think
+  imageUrl String @map("image_url") @db.VarChar(500) // /api/uploads/mascots/{hash}.png
+
+  mascot TourMascot @relation(fields: [mascotId], references: [id], onDelete: Cascade)
+
+  @@unique([mascotId, mood]) // Одна эмоция на перса = один PNG
+  @@map("mascot_emotions")
 }

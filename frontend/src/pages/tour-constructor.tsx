@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/auth";
-import { api, type TourStepRecord, type TourMascotRecord, type PublicConfig } from "@/lib/api";
+import { api, type TourStepRecord, type TourMascotRecord, type PublicConfig, type MascotEmotionRecord } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff, BookOpen, ArrowLeft, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -165,7 +165,7 @@ function SortableStepRow({
         
         {step.mascot && (
           <div className="shrink-0 p-0.5 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/20 shadow-sm relative">
-            <img src={step.mascot.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-background/50" />
+            <img src={step.mascot.emotions?.find(e => e.mood === step.mood)?.imageUrl || step.mascot.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-background/50" />
             <div className="absolute -bottom-0.5 -right-0.5 text-[10px] bg-background rounded-full p-0.5 border border-white/10">✨</div>
           </div>
         )}
@@ -301,9 +301,11 @@ export function TourConstructorPage() {
 
   // Upload state
   const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [uploadingMascot, setUploadingMascot] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const mascotInputRef = useRef<HTMLInputElement>(null);
+
+  const [view, setView] = useState<"constructor" | "library">("constructor");
+  const [selectedLibraryCharacterId, setSelectedLibraryCharacterId] = useState<string | null>(null);
+  const [editCharacterName, setEditCharacterName] = useState("");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -488,18 +490,73 @@ export function TourConstructorPage() {
     }
   };
 
-  // Mascot upload handler
-  const handleMascotUpload = async (file: File) => {
+  // Library handlers
+  const handleCreateMascot = async () => {
     if (!token) return;
-    setUploadingMascot(true);
+    setSaving(true);
     try {
-      const name = file.name.replace(/\.[^.]+$/, "").slice(0, 50) || "Новый персонаж";
-      const mascot = await api.uploadTourMascot(token, name, file);
+      const mascot = await api.uploadTourMascot(token, "Новый персонаж");
       setMascots([...mascots, mascot]);
+      setSelectedLibraryCharacterId(mascot.id);
+      setEditCharacterName(mascot.name);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка загрузки персонажа");
+      setError(e instanceof Error ? e.message : "Ошибка создания персонажа");
     } finally {
-      setUploadingMascot(false);
+      setSaving(false);
+    }
+  };
+
+  const handleRenameMascot = async (id: string, newName: string) => {
+    if (!token || !newName.trim()) return;
+    const char = mascots.find(m => m.id === id);
+    if (!char || char.name === newName) return;
+    try {
+      const updated = await api.updateTourMascot(token, id, newName);
+      setMascots(mascots.map(m => m.id === id ? updated : m));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка переименования персонажа");
+    }
+  };
+
+  const handleUploadEmotion = async (mascotId: string, mood: string, file: File) => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      const newEmotion = await api.uploadMascotEmotion(token, mascotId, mood, file);
+      setMascots(mascots.map(m => {
+        if (m.id === mascotId) {
+          const emotions = m.emotions || [];
+          const filtered = emotions.filter(e => e.mood !== mood);
+          return { ...m, emotions: [...filtered, newEmotion] };
+        }
+        return m;
+      }));
+      // If we just uploaded the currently edited mood for the selected mascot in step editor
+      if (editMascotId === mascotId && editMood === mood) {
+         // It should update automatically since selectedMascot comes from state
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки эмоции");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteEmotion = async (mascotId: string, emotionId: string) => {
+    if (!token || !confirm("Удалить эту эмоцию?")) return;
+    setSaving(true);
+    try {
+      await api.deleteMascotEmotion(token, mascotId, emotionId);
+      setMascots(mascots.map(m => {
+        if (m.id === mascotId) {
+          return { ...m, emotions: (m.emotions || []).filter(e => e.id !== emotionId) };
+        }
+        return m;
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка удаления эмоции");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -567,6 +624,15 @@ export function TourConstructorPage() {
         
         <div className="relative z-10 flex items-center gap-3">
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              onClick={() => setView("library")}
+              className="rounded-2xl shrink-0 h-12 px-6 shadow-[0_0_20px_rgba(var(--primary),0.2)] hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] transition-all duration-300 border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary font-bold backdrop-blur-xl overflow-hidden relative group"
+            >
+              <BookOpen className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+              Библиотека персонажей
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button 
               onClick={handleClearAll} 
               disabled={saving || steps.length === 0}
@@ -598,6 +664,157 @@ export function TourConstructorPage() {
         </div>
       )}
 
+      {view === "library" ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="flex-1 flex flex-col bg-background/50 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-6 relative z-10 pb-4 border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" className="rounded-xl hover:bg-white/5" onClick={() => { setView("constructor"); setSelectedLibraryCharacterId(null); }}>
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Назад в конструктор
+              </Button>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
+                Библиотека персонажей
+                <span className="text-xs bg-primary/20 text-primary px-2.5 py-1 rounded-full border border-primary/20 font-bold">
+                  {mascots.length}
+                </span>
+              </h2>
+            </div>
+            <Button onClick={handleCreateMascot} disabled={saving} className="rounded-xl h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-[0_0_15px_rgba(var(--primary),0.3)] transition-all hover:scale-105 hover:shadow-[0_0_25px_rgba(var(--primary),0.5)]">
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-2" />}
+              Новый персонаж
+            </Button>
+          </div>
+
+          <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
+            {/* Left Side: Grid */}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-10">
+                {mascots.map(m => (
+                  <div 
+                    key={m.id} 
+                    onClick={() => { setSelectedLibraryCharacterId(m.id); setEditCharacterName(m.name); }}
+                    className={`cursor-pointer rounded-[1.5rem] p-4 flex flex-col items-center justify-center gap-3 border transition-all duration-300 hover:scale-105 ${selectedLibraryCharacterId === m.id ? "bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary),0.2)]" : "bg-card/40 border-white/10 hover:bg-card/80 hover:border-white/20"}`}
+                  >
+                    <div className="w-16 h-16 rounded-2xl bg-background/50 flex items-center justify-center border border-white/5 shadow-inner overflow-hidden relative">
+                      {m.emotions?.[0]?.imageUrl ? (
+                        <img src={m.emotions[0].imageUrl} alt={m.name} className="w-12 h-12 object-contain" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
+                          <ImagePlus className="w-8 h-8 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center w-full">
+                      <p className="text-sm font-bold text-foreground/90 truncate w-full px-1">{m.name}</p>
+                      <p className="text-[10px] font-medium text-muted-foreground mt-0.5 bg-background/50 inline-block px-2 py-0.5 rounded-full border border-white/5">{m.emotions?.length || 0} эмоций</p>
+                    </div>
+                  </div>
+                ))}
+                
+                {mascots.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center text-center text-muted-foreground py-20">
+                    <div className="w-20 h-20 rounded-full bg-muted/20 border border-white/5 flex items-center justify-center mb-4">
+                      <BookOpen className="w-10 h-10 text-muted-foreground/40" />
+                    </div>
+                    <p className="font-semibold text-foreground/70 mb-1">Библиотека пуста</p>
+                    <p className="text-xs text-muted-foreground/50">Добавьте своего первого персонажа</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Side: Detail Panel */}
+            {selectedLibraryCharacterId && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="w-[380px] shrink-0 bg-background/40 rounded-[1.5rem] border border-white/5 p-6 flex flex-col shadow-inner overflow-y-auto custom-scrollbar"
+              >
+                {(() => {
+                  const selectedChar = mascots.find(m => m.id === selectedLibraryCharacterId);
+                  if (!selectedChar) return null;
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5 shrink-0">
+                        <div className="relative group/name flex-1 mr-4">
+                          <Input 
+                            value={editCharacterName} 
+                            onChange={e => setEditCharacterName(e.target.value)}
+                            onBlur={() => handleRenameMascot(selectedChar.id, editCharacterName)}
+                            onKeyDown={e => e.key === "Enter" && handleRenameMascot(selectedChar.id, editCharacterName)}
+                            className="text-lg font-bold bg-transparent border-transparent hover:bg-white/5 focus:bg-background/80 pr-8 shadow-none h-10 focus-visible:ring-1 focus-visible:ring-primary/50"
+                            placeholder="Имя персонажа"
+                          />
+                          <Pencil className="w-4 h-4 text-muted-foreground/50 absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover/name:opacity-100 pointer-events-none transition-opacity" />
+                        </div>
+                        {!selectedChar.isBuiltIn && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteMascot(selectedChar.id)} className="text-destructive/70 hover:text-destructive hover:bg-destructive/10 shrink-0 h-9 w-9 rounded-xl transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-bold text-foreground/70 uppercase tracking-[0.15em] ml-1">Эмоции персонажа</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          {[
+                            { id: "wave", icon: "👋", label: "Привет" },
+                            { id: "point", icon: "👉", label: "Указывает" },
+                            { id: "happy", icon: "😄", label: "Радость" },
+                            { id: "think", icon: "🤔", label: "Думает" }
+                          ].map(mood => {
+                            const emotion: MascotEmotionRecord | undefined = selectedChar.emotions?.find(e => e.mood === mood.id);
+                            return (
+                              <div key={mood.id} className="relative group/emotion rounded-[1.25rem] border border-white/10 bg-background/30 p-4 flex flex-col items-center justify-center aspect-square hover:bg-background/50 hover:border-white/20 transition-all hover:shadow-lg">
+                                <div className="absolute top-2.5 left-2.5 text-lg" title={mood.label}>{mood.icon}</div>
+                                {emotion ? (
+                                  <>
+                                    <img src={emotion.imageUrl} alt={mood.id} className="w-[60px] h-[60px] object-contain mt-3 drop-shadow-md group-hover/emotion:scale-110 transition-transform" />
+                                    <button 
+                                      onClick={() => handleDeleteEmotion(selectedChar.id, emotion.id)}
+                                      className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover/emotion:opacity-100 transition-all hover:scale-110 shadow-lg z-10 hover:bg-destructive/90"
+                                      title="Удалить эмоцию"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full mt-3 group/uploadbox">
+                                    <div className="w-10 h-10 rounded-full bg-muted/30 flex items-center justify-center mb-2 group-hover/uploadbox:bg-primary/10 group-hover/uploadbox:text-primary transition-colors border border-white/5">
+                                      <Upload className="w-4 h-4 text-muted-foreground/60 group-hover/uploadbox:text-primary transition-colors" />
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground font-medium group-hover/uploadbox:text-primary transition-colors text-center leading-tight">Загрузить<br/>PNG</span>
+                                    <input 
+                                      type="file" 
+                                      accept="image/png" 
+                                      className="hidden" 
+                                      onChange={e => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleUploadEmotion(selectedChar.id, mood.id, file);
+                                        e.target.value = "";
+                                      }} 
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+      ) : (
       <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
         {/* Left Panel - Palette */}
         <div className="w-[340px] shrink-0 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
@@ -730,7 +947,7 @@ export function TourConstructorPage() {
                     <>
                       <div className="absolute w-32 h-32 bg-primary/10 rounded-full blur-[40px] animate-pulse pointer-events-none" />
                       <motion.img 
-                        key={selectedMascot.id}
+                        key={`${selectedMascot.id}-${editMood}`}
                         initial={{ scale: 0.8, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
                         transition={{ 
@@ -738,7 +955,7 @@ export function TourConstructorPage() {
                           opacity: { duration: 0.3 },
                           y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
                         }}
-                        src={selectedMascot.imageUrl} 
+                        src={selectedMascot.emotions?.find(e => e.mood === editMood)?.imageUrl || selectedMascot.imageUrl} 
                         alt={selectedMascot.name} 
                         className="max-h-[140px] max-w-full object-contain drop-shadow-[0_15px_25px_rgba(var(--primary),0.4)] z-10"
                       />
@@ -949,7 +1166,7 @@ export function TourConstructorPage() {
                   </p>
                 </div>
 
-                {/* Mascot Gallery */}
+                {/* Mascot Selection */}
                 <div className="space-y-4 pt-6 border-t border-white/5 relative">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[40px] pointer-events-none rounded-full" />
                   <div className="flex items-center justify-between">
@@ -957,17 +1174,16 @@ export function TourConstructorPage() {
                       <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
                         <Sparkles className="w-3.5 h-3.5" />
                       </div>
-                      Маскот / Стикер
+                      Персонаж
                     </Label>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-8 px-3 rounded-lg text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 shadow-sm transition-all hover:shadow-[0_0_10px_rgba(var(--primary),0.2)]"
-                      onClick={() => mascotInputRef.current?.click()}
-                      disabled={uploadingMascot}
+                      onClick={() => setView("library")}
                     >
-                      {uploadingMascot ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5 mr-1.5" />}
-                      Загрузить новый
+                      <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+                      Открыть библиотеку
                     </Button>
                   </div>
                   
@@ -987,87 +1203,74 @@ export function TourConstructorPage() {
                       <span className={`text-[9px] font-medium tracking-wide uppercase ${editMascotId === null ? "text-primary/80" : "text-muted-foreground/50"}`}>Скрыть</span>
                     </button>
                     
-                    {mascots.map(m => (
-                      <div key={m.id} className="relative group">
-                        <button
-                          onClick={() => setEditMascotId(m.id)}
-                          className={`h-[4.5rem] w-full flex flex-col items-center justify-center rounded-xl border transition-all overflow-hidden relative ${
-                            editMascotId === m.id 
-                              ? "ring-2 ring-primary/50 border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
-                              : "bg-background/40 border-white/5 hover:bg-background/80 hover:border-white/10"
-                          }`}
-                          title={m.name}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent z-0" />
-                          <img
-                            src={m.imageUrl}
-                            alt={m.name}
-                            className={`w-10 h-10 object-contain relative z-10 transition-transform duration-300 ${editMascotId === m.id ? "scale-110 drop-shadow-md" : "group-hover:scale-110"}`}
-                          />
-                          <span className={`absolute bottom-1 w-full text-[9px] font-medium text-center truncate px-1 z-10 ${editMascotId === m.id ? "text-primary/90" : "text-muted-foreground/70"}`}>
-                            {m.name}
-                          </span>
-                        </button>
-                        {/* Delete button for custom mascots */}
-                        {!m.isBuiltIn && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteMascot(m.id); }}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-xs hover:scale-110 hover:bg-destructive/90 shadow-md z-20"
-                            title="Удалить"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <input
-                    ref={mascotInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleMascotUpload(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-4 pt-6 border-t border-white/5 relative group/mood">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[40px] pointer-events-none rounded-full" />
-                  <Label className="text-[10px] font-bold text-foreground/70 uppercase tracking-[0.15em] ml-1 flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                      <Layers className="w-3.5 h-3.5" />
-                    </div>
-                    Эмоция персонажа
-                  </Label>
-                  <div className="grid grid-cols-4 gap-3 relative z-10">
-                    {[
-                      { id: "wave", icon: "👋", label: "Привет", color: "from-blue-500/20" },
-                      { id: "point", icon: "👉", label: "Указывает", color: "from-emerald-500/20" },
-                      { id: "happy", icon: "😄", label: "Радость", color: "from-orange-500/20" },
-                      { id: "think", icon: "🤔", label: "Думает", color: "from-purple-500/20" }
-                    ].map(mood => (
+                    {mascots.filter(m => m.emotions && m.emotions.length > 0).map(m => (
                       <button
-                        key={mood.id}
-                        onClick={() => setEditMood(mood.id)}
-                        className={`h-14 flex flex-col items-center justify-center rounded-2xl border transition-all duration-300 relative overflow-hidden group/btn ${
-                          editMood === mood.id 
-                            ? "ring-2 ring-primary/60 border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.2)] scale-[1.02]" 
-                            : "bg-background/40 border-white/10 hover:bg-background/80 hover:border-white/20 hover:scale-105 hover:shadow-lg"
+                        key={m.id}
+                        onClick={() => {
+                          setEditMascotId(m.id);
+                          if (m.emotions?.[0]) setEditMood(m.emotions[0].mood);
+                        }}
+                        className={`h-[4.5rem] w-full flex flex-col items-center justify-center rounded-xl border transition-all overflow-hidden relative ${
+                          editMascotId === m.id 
+                            ? "ring-2 ring-primary/50 border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.1)]" 
+                            : "bg-background/40 border-white/5 hover:bg-background/80 hover:border-white/10"
                         }`}
-                        title={mood.label}
+                        title={m.name}
                       >
-                        <div className={`absolute inset-0 bg-gradient-to-b ${mood.color} to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity`} />
-                        <span className={`text-2xl transition-transform duration-500 relative z-10 ${editMood === mood.id ? "scale-125 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "group-hover/btn:-translate-y-1 group-hover/btn:scale-110"}`}>
-                          {mood.icon}
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent z-0" />
+                        <img
+                          src={m.emotions?.[0]?.imageUrl}
+                          alt={m.name}
+                          className={`w-10 h-10 object-contain relative z-10 transition-transform duration-300 ${editMascotId === m.id ? "scale-110 drop-shadow-md" : "group-hover:scale-110"}`}
+                        />
+                        <span className={`absolute bottom-1 w-full text-[9px] font-medium text-center truncate px-1 z-10 ${editMascotId === m.id ? "text-primary/90" : "text-muted-foreground/70"}`}>
+                          {m.name}
                         </span>
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {editMascotId && (
+                  <div className="space-y-4 pt-6 border-t border-white/5 relative group/mood">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[40px] pointer-events-none rounded-full" />
+                    <Label className="text-[10px] font-bold text-foreground/70 uppercase tracking-[0.15em] ml-1 flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                        <Layers className="w-3.5 h-3.5" />
+                      </div>
+                      Эмоция
+                    </Label>
+                    <div className="grid grid-cols-4 gap-3 relative z-10">
+                      {selectedMascot?.emotions?.map(emotion => {
+                        const moodDef = [
+                          { id: "wave", icon: "👋", label: "Привет", color: "from-blue-500/20" },
+                          { id: "point", icon: "👉", label: "Указывает", color: "from-emerald-500/20" },
+                          { id: "happy", icon: "😄", label: "Радость", color: "from-orange-500/20" },
+                          { id: "think", icon: "🤔", label: "Думает", color: "from-purple-500/20" }
+                        ].find(m => m.id === emotion.mood);
+
+                        if (!moodDef) return null;
+
+                        return (
+                          <button
+                            key={emotion.id}
+                            onClick={() => setEditMood(emotion.mood)}
+                            className={`h-16 flex flex-col items-center justify-center rounded-2xl border transition-all duration-300 relative overflow-hidden group/btn ${
+                              editMood === emotion.mood 
+                                ? "ring-2 ring-primary/60 border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.2)] scale-[1.02]" 
+                                : "bg-background/40 border-white/10 hover:bg-background/80 hover:border-white/20 hover:scale-105 hover:shadow-lg"
+                            }`}
+                            title={moodDef.label}
+                          >
+                            <div className={`absolute inset-0 bg-gradient-to-b ${moodDef.color} to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity`} />
+                            <img src={emotion.imageUrl} alt={emotion.mood} className="w-10 h-10 object-contain relative z-10 drop-shadow-md group-hover/btn:scale-110 transition-transform duration-300" />
+                            <div className="absolute top-1.5 right-1.5 text-[12px] z-10 opacity-70 group-hover/btn:opacity-100 transition-opacity">{moodDef.icon}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between p-5 mt-4 rounded-2xl bg-gradient-to-r from-background/60 to-background/20 backdrop-blur-md border border-white/10 shadow-inner group/switch hover:border-white/20 transition-all hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
                   <div className="flex items-center gap-4">
@@ -1119,6 +1322,7 @@ export function TourConstructorPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

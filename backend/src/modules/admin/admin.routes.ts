@@ -3732,7 +3732,7 @@ function tourStepToJson(s: {
   id: string; target: string; targetLabel: string; title: string; content: string;
   videoUrl: string | null; placement: string; route: string | null; mascotId: string | null; mood: string;
   sortOrder: number; isActive: boolean; createdAt: Date; updatedAt: Date;
-  mascot?: { id: string; name: string; imageUrl: string; isBuiltIn: boolean } | null;
+  mascot?: { id: string; name: string; imageUrl: string; isBuiltIn: boolean; emotions?: { id: string; mood: string; imageUrl: string }[] } | null;
 }) {
   return {
     id: s.id,
@@ -3747,7 +3747,7 @@ function tourStepToJson(s: {
     mood: s.mood,
     sortOrder: s.sortOrder,
     isActive: s.isActive,
-    mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl, isBuiltIn: s.mascot.isBuiltIn } : null,
+    mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl, isBuiltIn: s.mascot.isBuiltIn, emotions: (s.mascot.emotions ?? []).map(e => ({ id: e.id, mood: e.mood, imageUrl: e.imageUrl })) } : null,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -3755,7 +3755,7 @@ function tourStepToJson(s: {
 
 adminRouter.get("/tour-steps", asyncRoute(async (_req, res) => {
   const steps = await prisma.tourStep.findMany({
-    include: { mascot: true },
+    include: { mascot: { include: { emotions: true } } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return res.json({ items: steps.map(tourStepToJson) });
@@ -3778,7 +3778,7 @@ adminRouter.post("/tour-steps", asyncRoute(async (req, res) => {
       sortOrder: body.data.sortOrder ?? 0,
       isActive: body.data.isActive ?? true,
     },
-    include: { mascot: true },
+    include: { mascot: { include: { emotions: true } } },
   });
   return res.status(201).json(tourStepToJson(created));
 }));
@@ -3818,7 +3818,7 @@ adminRouter.patch("/tour-steps/:id", asyncRoute(async (req, res) => {
   const updated = await prisma.tourStep.update({
     where: { id: idParse.data.id },
     data,
-    include: { mascot: true },
+    include: { mascot: { include: { emotions: true } } },
   });
   return res.json(tourStepToJson(updated));
 }));
@@ -3997,25 +3997,51 @@ adminRouter.post("/tour-steps/seed-defaults", asyncRoute(async (_req, res) => {
 
 adminRouter.get("/tour-mascots", asyncRoute(async (_req, res) => {
   const mascots = await prisma.tourMascot.findMany({
+    include: { emotions: true },
     orderBy: [{ isBuiltIn: "desc" }, { createdAt: "asc" }],
   });
-  return res.json({ items: mascots.map(m => ({ id: m.id, name: m.name, imageUrl: m.imageUrl, isBuiltIn: m.isBuiltIn, createdAt: m.createdAt.toISOString() })) });
+  return res.json({ items: mascots.map(m => ({
+    id: m.id, name: m.name, imageUrl: m.imageUrl, isBuiltIn: m.isBuiltIn, createdAt: m.createdAt.toISOString(),
+    emotions: m.emotions.map(e => ({ id: e.id, mood: e.mood, imageUrl: e.imageUrl })),
+  })) });
 }));
 
 adminRouter.post("/tour-mascots", uploadMascotImage.single("image"), asyncRoute(async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: "Изображение не загружено" });
-
   const name = typeof req.body.name === "string" && req.body.name.trim() ? req.body.name.trim() : "Маскот";
+  const imageUrl = req.file ? mascotUrl(req.file.filename) : "";
 
   const mascot = await prisma.tourMascot.create({
     data: {
       name,
-      imageUrl: mascotUrl(req.file.filename),
+      imageUrl,
       isBuiltIn: false,
     },
+    include: { emotions: true },
   });
 
-  return res.status(201).json({ id: mascot.id, name: mascot.name, imageUrl: mascot.imageUrl, isBuiltIn: mascot.isBuiltIn, createdAt: mascot.createdAt.toISOString() });
+  return res.status(201).json({
+    id: mascot.id, name: mascot.name, imageUrl: mascot.imageUrl, isBuiltIn: mascot.isBuiltIn,
+    createdAt: mascot.createdAt.toISOString(), emotions: [],
+  });
+}));
+
+adminRouter.patch("/tour-mascots/:id", asyncRoute(async (req, res) => {
+  const id = req.params.id;
+  const mascot = await prisma.tourMascot.findUnique({ where: { id } });
+  if (!mascot) return res.status(404).json({ message: "Маскот не найден" });
+
+  const name = typeof req.body.name === "string" && req.body.name.trim() ? req.body.name.trim() : undefined;
+  const updated = await prisma.tourMascot.update({
+    where: { id },
+    data: { ...(name ? { name } : {}) },
+    include: { emotions: true },
+  });
+
+  return res.json({
+    id: updated.id, name: updated.name, imageUrl: updated.imageUrl, isBuiltIn: updated.isBuiltIn,
+    createdAt: updated.createdAt.toISOString(),
+    emotions: updated.emotions.map(e => ({ id: e.id, mood: e.mood, imageUrl: e.imageUrl })),
+  });
 }));
 
 adminRouter.delete("/tour-mascots/:id", asyncRoute(async (req, res) => {
@@ -4032,6 +4058,65 @@ adminRouter.delete("/tour-mascots/:id", asyncRoute(async (req, res) => {
   const filename = mascot.imageUrl.split("/").pop();
   if (filename) removeUploadedFile(`mascots/${filename}`);
 
+  return res.json({ success: true });
+}));
+
+// ——————————————————————————————————————————————————————————
+// Tour Mascot Emotions CRUD
+// ——————————————————————————————————————————————————————————
+
+const validMoods = ["wave", "point", "happy", "think"] as const;
+
+adminRouter.post("/tour-mascots/:id/emotions", uploadMascotImage.single("image"), asyncRoute(async (req, res) => {
+  const mascotId = req.params.id;
+  const mascot = await prisma.tourMascot.findUnique({ where: { id: mascotId } });
+  if (!mascot) return res.status(404).json({ message: "Маскот не найден" });
+  if (!req.file) return res.status(400).json({ message: "Изображение не загружено" });
+
+  const mood = typeof req.body.mood === "string" ? req.body.mood.trim() : "";
+  if (!validMoods.includes(mood as typeof validMoods[number])) {
+    removeUploadedFile(`mascots/${req.file.filename}`);
+    return res.status(400).json({ message: `Недопустимая эмоция. Доступные: ${validMoods.join(", ")}` });
+  }
+
+  // Если уже есть такая эмоция — заменяем файл
+  const existing = await prisma.mascotEmotion.findUnique({ where: { mascotId_mood: { mascotId, mood } } });
+  if (existing) {
+    const oldFilename = existing.imageUrl.split("/").pop();
+    if (oldFilename) removeUploadedFile(`mascots/${oldFilename}`);
+
+    const updated = await prisma.mascotEmotion.update({
+      where: { id: existing.id },
+      data: { imageUrl: mascotUrl(req.file.filename) },
+    });
+    return res.json({ id: updated.id, mood: updated.mood, imageUrl: updated.imageUrl });
+  }
+
+  const emotion = await prisma.mascotEmotion.create({
+    data: {
+      mascotId,
+      mood,
+      imageUrl: mascotUrl(req.file.filename),
+    },
+  });
+
+  // Если это первая эмоция — установить как дефолтную картинку маскота
+  if (!mascot.imageUrl) {
+    await prisma.tourMascot.update({ where: { id: mascotId }, data: { imageUrl: mascotUrl(req.file.filename) } });
+  }
+
+  return res.status(201).json({ id: emotion.id, mood: emotion.mood, imageUrl: emotion.imageUrl });
+}));
+
+adminRouter.delete("/tour-mascots/:id/emotions/:emotionId", asyncRoute(async (req, res) => {
+  const { id: mascotId, emotionId } = req.params;
+  const emotion = await prisma.mascotEmotion.findFirst({ where: { id: emotionId, mascotId } });
+  if (!emotion) return res.status(404).json({ message: "Эмоция не найдена" });
+
+  const filename = emotion.imageUrl.split("/").pop();
+  if (filename) removeUploadedFile(`mascots/${filename}`);
+
+  await prisma.mascotEmotion.delete({ where: { id: emotionId } });
   return res.json({ success: true });
 }));
 
@@ -4055,7 +4140,7 @@ adminRouter.post("/tour-steps/:id/video", uploadVideo.single("video"), asyncRout
   const updated = await prisma.tourStep.update({
     where: { id },
     data: { videoUrl: videoUploadUrl(req.file.filename) },
-    include: { mascot: true },
+    include: { mascot: { include: { emotions: true } } },
   });
   return res.json(tourStepToJson(updated));
 }));
@@ -4074,7 +4159,7 @@ adminRouter.delete("/tour-steps/:id/video", asyncRoute(async (req, res) => {
   const updated = await prisma.tourStep.update({
     where: { id },
     data: { videoUrl: null },
-    include: { mascot: true },
+    include: { mascot: { include: { emotions: true } } },
   });
   return res.json(tourStepToJson(updated));
 }));

@@ -970,10 +970,10 @@ export const api = {
     return request("/admin/tour-mascots", { token });
   },
 
-  async uploadTourMascot(token: string, name: string, image: File): Promise<TourMascotRecord> {
+  async uploadTourMascot(token: string, name: string, image?: File): Promise<TourMascotRecord> {
     const form = new FormData();
     form.append("name", name);
-    form.append("image", image, image.name);
+    if (image) form.append("image", image, image.name);
     const headers = new Headers();
     headers.set("Authorization", `Bearer ${token}`);
     const res = await fetch(`${API_BASE}/admin/tour-mascots`, { method: "POST", headers, body: form });
@@ -990,6 +990,32 @@ export const api = {
 
   async deleteTourMascot(token: string, id: string): Promise<{ success: boolean }> {
     return request(`/admin/tour-mascots/${id}`, { method: "DELETE", token });
+  },
+
+  async updateTourMascot(token: string, id: string, name: string): Promise<TourMascotRecord> {
+    return request(`/admin/tour-mascots/${id}`, { method: "PATCH", token, body: JSON.stringify({ name }) });
+  },
+
+  async uploadMascotEmotion(token: string, mascotId: string, mood: string, image: File): Promise<MascotEmotionRecord> {
+    const form = new FormData();
+    form.append("mood", mood);
+    form.append("image", image, image.name);
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_BASE}/admin/tour-mascots/${mascotId}/emotions`, { method: "POST", headers, body: form });
+    const text = await res.text();
+    let data: unknown;
+    try { data = text ? JSON.parse(text) : undefined; } catch { throw new Error(res.statusText || "Request failed"); }
+    if (res.status === 401 && token && tokenRefreshFn) {
+      const newToken = await tokenRefreshFn();
+      if (newToken) return api.uploadMascotEmotion(newToken, mascotId, mood, image);
+    }
+    if (!res.ok) { throw new Error((data as { message?: string })?.message ?? res.statusText); }
+    return data as MascotEmotionRecord;
+  },
+
+  async deleteMascotEmotion(token: string, mascotId: string, emotionId: string): Promise<{ success: boolean }> {
+    return request(`/admin/tour-mascots/${mascotId}/emotions/${emotionId}`, { method: "DELETE", token });
   },
 
   // Tour Step Video Upload (admin)
@@ -2923,12 +2949,19 @@ export type UpdatePromoCodePayload = Partial<CreatePromoCodePayload>;
 
 // ——— Tour Mascots ———
 
+export interface MascotEmotionRecord {
+  id: string;
+  mood: string;
+  imageUrl: string;
+}
+
 export interface TourMascotRecord {
   id: string;
   name: string;
   imageUrl: string;
   isBuiltIn: boolean;
   createdAt: string;
+  emotions: MascotEmotionRecord[];
 }
 
 // ——— Tour Steps ———
