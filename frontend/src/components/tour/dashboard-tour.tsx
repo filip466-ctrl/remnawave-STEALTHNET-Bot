@@ -129,7 +129,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
             placement: s.placement as Step["placement"],
             title: s.title,
             content: s.content,
-            disableBeacon: true,
+            skipBeacon: true,
             route: s.route,
           })),
         );
@@ -254,6 +254,14 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
         blockTargetInteraction: true,
         buttons: ["back", "close", "primary", "skip"],
         targetWaitTimeout: 3000,
+        spotlightRadius: 16,
+        zIndex: 10000,
+      }}
+      styles={{
+        overlay: {
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+        },
       }}
       onEvent={handleEvent}
       tooltipComponent={(props: TooltipRenderProps) => (

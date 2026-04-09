@@ -80,7 +80,7 @@ export function TourTooltip({
         </div>
 
         {/* Buttons */}
-        <div className="mt-6 flex items-center justify-between gap-3">
+        <div className="mt-8 pb-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {index > 0 && (
               <Button
@@ -116,7 +116,7 @@ export function TourTooltip({
 
       {/* Mascot Side — PNG image */}
       {mascot && (
-        <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-0 pt-4 overflow-hidden border-l border-white/5">
+        <div className="relative flex w-[40%] shrink-0 items-end justify-center bg-primary/5 pb-2 pt-4 overflow-hidden border-l border-white/5">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
           <img
             src={mascot.imageUrl}
