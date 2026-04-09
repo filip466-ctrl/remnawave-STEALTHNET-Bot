@@ -600,7 +600,7 @@ export function TourConstructorPage() {
 
       <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
         {/* Left Panel - Palette */}
-        <div className="w-[280px] shrink-0 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
+        <div className="w-[340px] shrink-0 flex flex-col bg-background/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 overflow-y-auto shadow-2xl relative group/panel">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background/20 to-transparent pointer-events-none rounded-[2rem] opacity-50 group-hover/panel:opacity-100 transition-opacity duration-700" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
           
