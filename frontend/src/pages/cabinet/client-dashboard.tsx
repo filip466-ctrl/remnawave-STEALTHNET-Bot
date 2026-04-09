@@ -196,12 +196,12 @@ export function ClientDashboardPage() {
   // Auto-redeem pending gift code (saved by /gift/:code page before redirect to login/register)
   const [giftRedeemMessage, setGiftRedeemMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   useEffect(() => {
-    if (!token || loading || isMiniapp) return;
+    if (!token || loading) return;
     if (!localStorage.getItem("stealthnet_tour_completed")) {
       // Delay slightly so layout can render
       setTimeout(() => setRunTour(true), 500);
     }
-  }, [token, loading, isMiniapp]);
+  }, [token, loading]);
 
   useEffect(() => {
     if (!token || loading) return;
@@ -304,6 +304,15 @@ export function ClientDashboardPage() {
   if (isMiniapp) {
     return (
       <div className="w-full min-w-0 overflow-hidden space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {runTour && (
+          <DashboardTour 
+            run={runTour} 
+            onComplete={() => {
+              setRunTour(false);
+              localStorage.setItem("stealthnet_tour_completed", "true");
+            }} 
+          />
+        )}
         {(paymentMessage === "success" || paymentMessage === "success_topup" || paymentMessage === "success_tariff") && (
           <div className="rounded-xl bg-green-500/15 backdrop-blur-md border border-green-500/30 px-4 py-3 text-sm font-medium text-green-700 dark:text-green-400 shadow-sm">
             {paymentMessage === "success_topup"
@@ -622,7 +631,7 @@ export function ClientDashboardPage() {
   // DESKTOP LAYOUT
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
-      {!isMiniapp && runTour && (
+      {runTour && (
         <DashboardTour 
           run={runTour} 
           onComplete={() => {

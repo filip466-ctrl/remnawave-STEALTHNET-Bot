@@ -971,6 +971,35 @@ clientRouter.get("/yoomoney/callback", async (req, res) => {
   return res.redirect(302, redirectOk);
 });
 
+// ——— Tour Steps (публичные, без авторизации — ПЕРЕД requireClientAuth!) ———
+clientRouter.get("/tour-steps", async (_req, res) => {
+  try {
+    const steps = await prisma.tourStep.findMany({
+      where: { isActive: true },
+      include: { mascot: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return res.json({
+      items: steps.map(s => ({
+        id: s.id,
+        target: s.target,
+        targetLabel: s.targetLabel,
+        title: s.title,
+        content: s.content,
+        videoUrl: s.videoUrl,
+        placement: s.placement,
+        mascotId: s.mascotId,
+        mood: s.mood,
+        sortOrder: s.sortOrder,
+        mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl } : null,
+      })),
+    });
+  } catch (e) {
+    console.error("GET /tour-steps error:", e);
+    return res.status(500).json({ message: "Ошибка загрузки шагов тура" });
+  }
+});
+
 clientRouter.use(requireClientAuth);
 
 // ——— 2FA (TOTP) ———
@@ -3914,32 +3943,5 @@ publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
   }
 });
 
-// ——— Tour Steps (публичные, без авторизации) ———
-clientRouter.get("/tour-steps", async (_req, res) => {
-  try {
-    const steps = await prisma.tourStep.findMany({
-      where: { isActive: true },
-      include: { mascot: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    });
-    return res.json({
-      items: steps.map(s => ({
-        id: s.id,
-        target: s.target,
-        targetLabel: s.targetLabel,
-        title: s.title,
-        content: s.content,
-        videoUrl: s.videoUrl,
-        placement: s.placement,
-        mascotId: s.mascotId,
-        mood: s.mood,
-        sortOrder: s.sortOrder,
-        mascot: s.mascot ? { id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl } : null,
-      })),
-    });
-  } catch (e) {
-    console.error("GET /tour-steps error:", e);
-    return res.status(500).json({ message: "Ошибка загрузки шагов тура" });
-  }
-});
+
 
