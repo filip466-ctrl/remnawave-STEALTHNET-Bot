@@ -1,4 +1,3 @@
-import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type MascotMood = "wave" | "point" | "happy" | "think";

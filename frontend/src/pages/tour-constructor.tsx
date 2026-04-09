@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth";
 import { api, type TourStepRecord } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Plus, Sparkles, Save, X } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";

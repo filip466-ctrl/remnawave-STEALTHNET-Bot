@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Joyride, { Step } from "react-joyride";
+import { Joyride, Step, type EventData, type TooltipRenderProps } from "react-joyride";
 import { TourTooltip } from "./tour-tooltip";
 import { api, type ClientTourStep } from "@/lib/api";
 
@@ -25,7 +25,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
             placement: s.placement as Step["placement"],
             title: s.title,
             content: s.content,
-            disableBeacon: true,
+            skipBeacon: true,
           }))
         );
       })
@@ -38,7 +38,6 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
     return () => { cancelled = true; };
   }, []);
 
-  // Don't render tour if no steps loaded or still loading
   if (loading || steps.length === 0) return null;
 
   return (
@@ -46,26 +45,20 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       steps={steps}
       run={run}
       continuous={true}
-      showSkipButton={true}
-      disableOverlayClose={true}
-      spotlightClicks={false}
-      callback={(data) => {
+      options={{
+        overlayClickAction: false,
+        blockTargetInteraction: true,
+        buttons: ["back", "close", "primary", "skip"],
+      }}
+      onEvent={(data: EventData) => {
         const { status } = data;
         if (status === "finished" || status === "skipped") {
           onComplete();
         }
       }}
-      tooltipComponent={(props) => (
+      tooltipComponent={(props: TooltipRenderProps) => (
         <TourTooltip {...props} tourSteps={tourSteps} />
       )}
-      styles={{
-        options: {
-          zIndex: 10000,
-        },
-      }}
-      floaterProps={{
-        disableAnimation: true,
-      }}
     />
   );
 }
