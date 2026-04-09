@@ -976,7 +976,7 @@ clientRouter.get("/tour-steps", async (_req, res) => {
   try {
     const steps = await prisma.tourStep.findMany({
       where: { isActive: true },
-      include: { mascot: { include: { emotions: true } } },
+      include: { mascot: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     return res.json({
@@ -994,7 +994,6 @@ clientRouter.get("/tour-steps", async (_req, res) => {
         sortOrder: s.sortOrder,
         mascot: s.mascot ? {
           id: s.mascot.id, name: s.mascot.name, imageUrl: s.mascot.imageUrl,
-          emotions: s.mascot.emotions.map(e => ({ id: e.id, mood: e.mood, imageUrl: e.imageUrl })),
         } : null,
       })),
     });
