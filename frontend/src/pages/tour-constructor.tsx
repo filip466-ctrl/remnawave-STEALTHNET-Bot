@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type TourStepRecord, type TourMascotRecord } from "@/lib/api";
+import { api, type TourStepRecord, type TourMascotRecord, type PublicConfig } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation } from "lucide-react";
+import { Loader2, GripVertical, Trash2, Sparkles, Save, X, Upload, Film, ImagePlus, Eye, Map, Layers, Zap, ArrowRight, PlayCircle, LayoutTemplate, Navigation, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -47,18 +47,46 @@ const TOUR_TARGETS = [
   { id: "farewell", target: "body", label: "Завершение", icon: "✨", defaultPlacement: "center", description: "Прощальное сообщение", previewImage: null, defaultRoute: null },
 ];
 
+// ── Disabled-tab detection for admin constructor ───────────────────
+// Maps TOUR_TARGETS.id to a function that returns true when the tab is DISABLED.
+type ConfigCheck = (c: PublicConfig) => boolean;
+
+const DISABLED_TARGET_CHECKS: Record<string, ConfigCheck> = {
+  "custom-build": (c) => !c.customBuildConfig,
+  "extra-options": (c) => !c.sellOptionsEnabled,
+  "proxy": (c) => !c.showProxyEnabled,
+  "singbox": (c) => !c.showSingboxEnabled,
+  "support": () => true, // tickets tab is always hidden
+  "gifts": (c) => !c.giftSubscriptionsEnabled,
+};
+
+/** Check if a TOUR_TARGETS.id corresponds to a disabled tab */
+function isTargetDisabled(targetId: string, config: PublicConfig | null): boolean {
+  if (!config) return false;
+  const check = DISABLED_TARGET_CHECKS[targetId];
+  return check ? check(config) : false;
+}
+
+/** Get the target id from a TourStepRecord's target selector */
+function getTargetId(target: string): string | null {
+  const def = TOUR_TARGETS.find((t) => t.target === target);
+  return def?.id ?? null;
+}
+
 function SortableStepRow({
   step,
   isSelected,
   onSelect,
   index,
   totalSteps,
+  isDisabled,
 }: {
   step: TourStepRecord;
   isSelected: boolean;
   onSelect: () => void;
   index: number;
   totalSteps: number;
+  isDisabled: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: step.id,
@@ -125,6 +153,12 @@ function SortableStepRow({
                 {CABINET_ROUTES.find(r => r.value === step.route)?.label || step.route}
               </span>
             )}
+            {isDisabled && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-[9px] font-bold border border-amber-500/20" title="Эта вкладка отключена в настройках — шаг будет пропущен в туре">
+                <EyeOff className="w-2.5 h-2.5" />
+                Вкладка отключена
+              </span>
+            )}
           </span>
         </div>
         
@@ -147,9 +181,11 @@ function SortableStepRow({
 function PaletteItem({
   target,
   onClick,
+  isDisabled,
 }: {
   target: typeof TOUR_TARGETS[0];
   onClick: () => void;
+  isDisabled: boolean;
 }) {
   const [showPreview, setShowPreview] = useState(false);
 
@@ -161,7 +197,11 @@ function PaletteItem({
         onClick={onClick}
         onMouseEnter={() => setShowPreview(true)}
         onMouseLeave={() => setShowPreview(false)}
-        className="bg-card/40 hover:bg-card/80 backdrop-blur-md border border-white/10 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(var(--primary),0.2)] rounded-xl p-3 cursor-pointer transition-all flex items-center gap-3 group relative overflow-hidden"
+        className={`backdrop-blur-md border rounded-xl p-3 cursor-pointer transition-all flex items-center gap-3 group relative overflow-hidden ${
+          isDisabled
+            ? "bg-card/20 border-amber-500/20 hover:border-amber-500/40 opacity-70 hover:opacity-90"
+            : "bg-card/40 hover:bg-card/80 border-white/10 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(var(--primary),0.2)]"
+        }`}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-background/50 border border-white/5 text-xl shadow-inner group-hover:scale-110 group-hover:rotate-3 transition-transform relative z-10">
@@ -170,6 +210,12 @@ function PaletteItem({
         <div className="flex flex-col flex-1 min-w-0 relative z-10">
           <span className="font-semibold text-sm truncate text-foreground/90 group-hover:text-foreground">{target.label}</span>
           <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">{target.description}</span>
+          {isDisabled && (
+            <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-amber-400">
+              <EyeOff className="w-2.5 h-2.5" />
+              Вкладка отключена
+            </span>
+          )}
         </div>
         {target.previewImage && (
           <Eye className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary/70 shrink-0 transition-colors relative z-10" />
@@ -213,6 +259,7 @@ export function TourConstructorPage() {
 
   const [steps, setSteps] = useState<TourStepRecord[]>([]);
   const [mascots, setMascots] = useState<TourMascotRecord[]>([]);
+  const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -239,12 +286,14 @@ export function TourConstructorPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const [stepsRes, mascotsRes] = await Promise.all([
+      const [stepsRes, mascotsRes, configRes] = await Promise.all([
         api.getTourSteps(token),
         api.getTourMascots(token),
+        api.getPublicConfig().catch(() => null),
       ]);
       setSteps(stepsRes.items);
       setMascots(mascotsRes.items);
+      if (configRes) setPublicConfig(configRes);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally {
@@ -521,6 +570,7 @@ export function TourConstructorPage() {
                 key={t.id}
                 target={t}
                 onClick={() => handleCreateStep(t)}
+                isDisabled={isTargetDisabled(t.id, publicConfig)}
               />
             ))}
           </div>
@@ -586,6 +636,7 @@ export function TourConstructorPage() {
                           onSelect={() => setSelectedStepId(s.id)}
                           index={index}
                           totalSteps={steps.length}
+                          isDisabled={isTargetDisabled(getTargetId(s.target) ?? "", publicConfig)}
                         />
                       </motion.div>
                     ))}

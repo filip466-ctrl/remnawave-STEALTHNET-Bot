@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Joyride, Step, type EventData, type TooltipRenderProps } from "react-joyride";
+import {
+  Joyride,
+  EVENTS,
+  STATUS,
+  Step,
+  type Controls,
+  type EventData,
+  type TooltipRenderProps,
+} from "react-joyride";
 import { TourTooltip } from "./tour-tooltip";
-import { api, type ClientTourStep } from "@/lib/api";
+import { api, type ClientTourStep, type PublicConfig } from "@/lib/api";
+import { useCabinetConfig } from "@/contexts/cabinet-config";
 
 interface DashboardTourProps {
   run: boolean;
@@ -13,40 +22,71 @@ interface TourStepWithRoute extends Step {
   route?: string | null;
 }
 
-/**
- * Waits for a DOM element matching the selector to appear.
- * For "body" target — resolves immediately after a short delay.
- */
-function waitForElement(
-  selector: string,
-  callback: () => void,
-  maxAttempts = 30,
-  intervalMs = 150,
-) {
-  if (selector === "body") {
-    setTimeout(callback, 100);
-    return;
+// ── Disabled-tab detection ─────────────────────────────────────────
+// Maps data-tour attribute values AND cabinet routes to config checks.
+// Returns true when the corresponding tab is DISABLED (hidden from user).
+
+type ConfigCheck = (c: PublicConfig) => boolean;
+
+const DISABLED_BY_TOUR_ATTR: Record<string, ConfigCheck> = {
+  "custom-build": (c) => !c.customBuildConfig,
+  "extra-options": (c) => !c.sellOptionsEnabled,
+  "proxy": (c) => !c.showProxyEnabled,
+  "singbox": (c) => !c.showSingboxEnabled,
+  "support": () => true, // tickets tab is always hidden
+  "gifts": (c) => !c.giftSubscriptionsEnabled,
+};
+
+const DISABLED_BY_ROUTE: Record<string, ConfigCheck> = {
+  "/cabinet/custom-build": (c) => !c.customBuildConfig,
+  "/cabinet/extra-options": (c) => !c.sellOptionsEnabled,
+  "/cabinet/proxy": (c) => !c.showProxyEnabled,
+  "/cabinet/singbox": (c) => !c.showSingboxEnabled,
+  "/cabinet/tickets": () => true,
+  "/cabinet/gifts": (c) => !c.giftSubscriptionsEnabled,
+};
+
+/** Extract `data-tour` value from selectors like `[data-tour="subscription"]` */
+function extractTourAttr(target: string): string | null {
+  const m = target.match(/\[data-tour="([^"]+)"\]/);
+  return m ? m[1] : null;
+}
+
+/** Returns true if the step targets a tab that is currently disabled in config. */
+function isStepDisabled(step: TourStepWithRoute, config: PublicConfig): boolean {
+  // Check by route
+  if (step.route) {
+    const routeCheck = DISABLED_BY_ROUTE[step.route];
+    if (routeCheck?.(config)) return true;
   }
-  let attempts = 0;
-  const interval = setInterval(() => {
-    attempts++;
-    if (document.querySelector(selector)) {
-      clearInterval(interval);
-      setTimeout(callback, 200);
-    } else if (attempts >= maxAttempts) {
-      clearInterval(interval);
-      // Element never appeared — skip forward anyway
-      callback();
-    }
-  }, intervalMs);
+  // Check by data-tour attribute in the target selector
+  const attr = extractTourAttr(step.target as string);
+  if (attr) {
+    const attrCheck = DISABLED_BY_TOUR_ATTR[attr];
+    if (attrCheck?.(config)) return true;
+  }
+  return false;
+}
+
+/**
+ * Waits for the React route transition to settle before resuming.
+ * Uses a short fixed delay — joyride v3's `targetWaitTimeout` handles
+ * waiting for the actual DOM element to appear.
+ */
+function waitForRouteSettled(callback: () => void) {
+  // Give React Router time to mount the new route's component tree
+  requestAnimationFrame(() => {
+    setTimeout(callback, 80);
+  });
 }
 
 export function DashboardTour({ run, onComplete }: DashboardTourProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const config = useCabinetConfig();
 
-  const [steps, setSteps] = useState<TourStepWithRoute[]>([]);
-  const [tourSteps, setTourSteps] = useState<ClientTourStep[]>([]);
+  const [allSteps, setAllSteps] = useState<TourStepWithRoute[]>([]);
+  const [allTourSteps, setAllTourSteps] = useState<ClientTourStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [stepIndex, setStepIndex] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -54,6 +94,25 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
   // Track whether we're mid-navigation so the location effect fires correctly
   const navigatingRef = useRef(false);
   const pendingStepRef = useRef<number | null>(null);
+  // Store joyride controls for programmatic navigation after route change
+  const controlsRef = useRef<Controls | null>(null);
+  // Track last user action to know direction for TARGET_NOT_FOUND skipping
+  const lastActionRef = useRef<string>("next");
+
+  // ── Filter out steps targeting disabled tabs ─────────────────────
+  const { steps, tourSteps } = useMemo(() => {
+    if (!config) return { steps: allSteps, tourSteps: allTourSteps };
+
+    const enabledIndices: number[] = [];
+    allSteps.forEach((s, i) => {
+      if (!isStepDisabled(s, config)) enabledIndices.push(i);
+    });
+
+    return {
+      steps: enabledIndices.map((i) => allSteps[i]),
+      tourSteps: enabledIndices.map((i) => allTourSteps[i]),
+    };
+  }, [allSteps, allTourSteps, config]);
 
   // ── Load steps from API ──────────────────────────────────────────
   useEffect(() => {
@@ -62,8 +121,8 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       .getClientTourSteps()
       .then((data) => {
         if (cancelled) return;
-        setTourSteps(data.items);
-        setSteps(
+        setAllTourSteps(data.items);
+        setAllSteps(
           data.items.map((s) => ({
             target: s.target,
             placement: s.placement as Step["placement"],
@@ -101,36 +160,55 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
     }
   }, [run, loading, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── After navigation completes, wait for target then resume ──────
+  // ── After navigation completes, wait for route to settle then resume ──
   useEffect(() => {
     if (!navigatingRef.current || pendingStepRef.current === null) return;
     navigatingRef.current = false;
 
     const idx = pendingStepRef.current;
     pendingStepRef.current = null;
-    const currentStep = steps[idx];
-    if (!currentStep) return;
+    if (idx < 0 || idx >= steps.length) return;
 
-    setStepIndex(idx);
-    waitForElement(currentStep.target as string, () => {
+    // Let React Router mount the new route, then resume
+    // joyride's targetWaitTimeout handles waiting for the actual element
+    waitForRouteSettled(() => {
+      setStepIndex(idx);
       setIsRunning(true);
     });
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Joyride event handler (controlled mode) ─────────────────────
+  // ── Joyride event handler (controlled mode, v3 API) ──────────────
   const handleEvent = useCallback(
-    (data: EventData) => {
+    (data: EventData, controls: Controls) => {
       const { action, index, status, type } = data;
 
+      // Persist controls ref for use in the navigation effect
+      controlsRef.current = controls;
+
       // Tour finished or skipped
-      if (status === "finished" || status === "skipped") {
+      if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
         setIsRunning(false);
         onComplete();
         return;
       }
 
-      if (type === "step:after") {
-        const nextIndex = action === "prev" ? index - 1 : index + 1;
+      // Target not found — skip in the direction the user was going
+      if (type === EVENTS.TARGET_NOT_FOUND) {
+        const direction = lastActionRef.current === "prev" ? -1 : 1;
+        const skipTo = index + direction;
+        if (skipTo >= 0 && skipTo < steps.length) {
+          setStepIndex(skipTo);
+        } else {
+          setIsRunning(false);
+          onComplete();
+        }
+        return;
+      }
+
+      if (type === EVENTS.STEP_AFTER) {
+        const isPrev = action === "prev";
+        lastActionRef.current = isPrev ? "prev" : "next";
+        const nextIndex = isPrev ? index - 1 : index + 1;
 
         // Bounds check
         if (nextIndex < 0 || nextIndex >= steps.length) {
@@ -143,16 +221,15 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
 
         // Check if we need to navigate to a different route
         if (nextStep.route && nextStep.route !== location.pathname) {
+          // Cross-route transition: stop → navigate → resume in effect
           setIsRunning(false);
           navigatingRef.current = true;
           pendingStepRef.current = nextIndex;
           navigate(nextStep.route);
         } else {
-          // Same route — just advance the step index
-          // Wait a tick for the target to be available (e.g. animations)
-          waitForElement(nextStep.target as string, () => {
-            setStepIndex(nextIndex);
-          });
+          // Same route — update stepIndex synchronously.
+          // joyride v3's targetWaitTimeout handles element appearance.
+          setStepIndex(nextIndex);
         }
       }
     },
@@ -171,6 +248,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
         overlayClickAction: false,
         blockTargetInteraction: true,
         buttons: ["back", "close", "primary", "skip"],
+        targetWaitTimeout: 3000,
       }}
       onEvent={handleEvent}
       tooltipComponent={(props: TooltipRenderProps) => (
