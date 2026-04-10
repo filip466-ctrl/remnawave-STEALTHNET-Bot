@@ -1606,6 +1606,26 @@ bot.on("callback_query:data", async (ctx) => {
       if (config?.botAdminTelegramIds?.includes(String(userId))) {
         backMarkup.inline_keyboard.push([{ text: "⚙️ Панель админа", callback_data: "admin:menu" }]);
       }
+
+      // If current message is text-only (no photo/animation) but logo is configured,
+      // delete the text message and re-send the main menu with the logo image.
+      const cbMsg = ctx.callbackQuery?.message;
+      const cbHasPhoto = cbMsg && typeof cbMsg === "object" && "photo" in cbMsg && Array.isArray((cbMsg as { photo: unknown[] }).photo) && (cbMsg as { photo: unknown[] }).photo.length > 0;
+      const cbHasAnimation = cbMsg && typeof cbMsg === "object" && "animation" in cbMsg && (cbMsg as { animation: unknown }).animation != null;
+      const media = logoToMediaSource(config?.logoBot);
+      if (!cbHasPhoto && !cbHasAnimation && media && ctx.chat?.id) {
+        await ctx.deleteMessage().catch(() => {});
+        const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
+        const captionEntities = text.length > TELEGRAM_CAPTION_MAX && entities ? entities.filter((e) => e.offset + e.length <= TELEGRAM_CAPTION_MAX - 3) : entities;
+        const opts = { caption, caption_entities: captionEntities?.length ? captionEntities : undefined, reply_markup: backMarkup };
+        if (media.isGif) {
+          await bot.api.sendAnimation(ctx.chat.id, media.source, opts);
+        } else {
+          await bot.api.sendPhoto(ctx.chat.id, media.source, opts);
+        }
+        return;
+      }
+
       await editMessageContent(ctx, text, backMarkup, entities);
       return;
     }

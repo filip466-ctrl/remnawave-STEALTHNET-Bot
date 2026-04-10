@@ -8,6 +8,11 @@ import { getSystemConfig } from "../client/client.service.js";
 import { proxyFetch } from "../proxy-util/proxy-fetch.js";
 import { getProxyUrl } from "../proxy-util/get-proxy-url.js";
 
+/** Inline keyboard with a single "Back to menu" button for client notifications. */
+function backToMenuMarkup(backLabel?: string | null): Record<string, unknown> {
+  return { inline_keyboard: [[{ text: backLabel || "◀️ В меню", callback_data: "menu:main" }]] };
+}
+
 type AdminNotificationEventType = "balance_topup" | "tariff_payment" | "new_client" | "new_ticket";
 
 type AdminNotificationPreferenceRow = {
@@ -18,7 +23,12 @@ type AdminNotificationPreferenceRow = {
   notifyNewTicket: boolean;
 };
 
-export async function sendTelegramToUser(telegramId: string, text: string, messageThreadId?: number | null): Promise<void> {
+export async function sendTelegramToUser(
+  telegramId: string,
+  text: string,
+  messageThreadId?: number | null,
+  replyMarkup?: Record<string, unknown>,
+): Promise<void> {
   const config = await getSystemConfig();
   const token = config.telegramBotToken?.trim();
   if (!token) {
@@ -36,6 +46,7 @@ export async function sendTelegramToUser(telegramId: string, text: string, messa
     disable_web_page_preview: true,
   };
   if (messageThreadId) payload.message_thread_id = messageThreadId;
+  if (replyMarkup) payload.reply_markup = replyMarkup;
   try {
     const proxy = await getProxyUrl("telegram");
     const res = await proxyFetch(url, {
@@ -132,7 +143,8 @@ export async function notifyBalanceToppedUp(clientId: string, amount: number, cu
   if (!client) return;
   if (client.telegramId) {
     const textForClient = `✅ <b>Баланс пополнен</b> на ${formatMoney(amount, currency)}.\nВаш баланс: ${formatMoney(client.balance ?? 0, currency)}`;
-    await sendTelegramToUser(client.telegramId, textForClient);
+    const config = await getSystemConfig();
+    await sendTelegramToUser(client.telegramId, textForClient, null, backToMenuMarkup(config.botBackLabel));
   }
   const clientLabel = formatClientLabel(client);
   const lines = [
@@ -165,7 +177,8 @@ export async function notifyTariffActivated(clientId: string, paymentId: string)
   const tariffName = payment?.tariff?.name?.trim() || "Тариф";
   if (client.telegramId) {
     const textClient = `✅ <b>Тариф «${escapeHtml(tariffName)}»</b> оплачен и активирован.\n\nМожете подключаться к VPN.`;
-    await sendTelegramToUser(client.telegramId, textClient);
+    const cfg = await getSystemConfig();
+    await sendTelegramToUser(client.telegramId, textClient, null, backToMenuMarkup(cfg.botBackLabel));
   }
   const clientLabel = formatClientLabel(client);
   const lines = [
@@ -377,7 +390,8 @@ export async function notifyProxySlotsCreated(clientId: string, slotIds: string[
   }
   text += "Скопируйте строку в настройки прокси вашего приложения.";
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 /**
@@ -411,14 +425,16 @@ export async function notifySingboxSlotsCreated(clientId: string, slotIds: strin
   }
   text += "Скопируйте ссылку в приложение (v2rayN, Nekoray, Shadowrocket и др.).";
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 export async function notifyAutoRenewSuccess(clientId: string, tariffName: string, amount: number, currency: string): Promise<void> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
   if (!client?.telegramId) return;
   const text = `🔄 <b>Автопродление успешно</b>\n\nТариф «${escapeHtml(tariffName)}» был автоматически продлен. Списано: ${formatMoney(amount, currency)}.`;
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 export async function notifyAutoRenewFailed(clientId: string, tariffName: string, reason: "balance" | "error"): Promise<void> {
@@ -432,7 +448,8 @@ export async function notifyAutoRenewFailed(clientId: string, tariffName: string
     text += "\nПричина: системная ошибка. Все попытки исчерпаны.\n\n";
     text += "💡 <i>Обратитесь в поддержку или попробуйте продлить тариф вручную.</i>";
   }
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 /**
@@ -466,7 +483,8 @@ export async function notifyAutoRenewYookassaSuccess(
   }
   text += `.`;
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 /**
@@ -486,7 +504,8 @@ export async function notifyAutoRenewYookassaFailed(
     `Причина: ${escapeHtml(error)}\n\n` +
     `💡 <i>Попробуйте пополнить баланс или оплатить тариф вручную.</i>`;
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 /**
@@ -515,7 +534,8 @@ export async function notifyAutoRenewUpcoming(
     `⚠️ Не хватает <b>${formatMoney(Math.max(0, deficit), currency)}</b> для автопродления.\n` +
     `💡 <i>Пополните баланс, чтобы подписка продлилась автоматически.</i>`;
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }
 
 /**
@@ -544,5 +564,6 @@ export async function notifyAutoRenewRetry(
     (retriesLeft > 0 ? `. Осталось попыток: <b>${retriesLeft}</b>.` : `. Это была последняя попытка.`) +
     `\n\n💡 <i>Пополните баланс, чтобы автопродление сработало при следующей проверке.</i>`;
 
-  await sendTelegramToUser(client.telegramId, text);
+  const cfg = await getSystemConfig();
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
 }

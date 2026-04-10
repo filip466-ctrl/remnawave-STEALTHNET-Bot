@@ -556,7 +556,7 @@ export function AdminSecondarySubscriptionsPage() {
       </motion.div>
 
       <Dialog open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl p-0 overflow-hidden sm:rounded-[2rem]">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl p-0 sm:rounded-[2rem] [&>button]:z-50">
           <div className="absolute top-0 right-0 w-[500px] h-[300px] bg-primary/10 blur-[100px] pointer-events-none rounded-full" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[300px] bg-purple-500/10 blur-[100px] pointer-events-none rounded-full" />
           
@@ -767,7 +767,7 @@ export function AdminSecondarySubscriptionsPage() {
       </Dialog>
 
       <Dialog open={createOpen} onOpenChange={(open) => { if (!open) setCreateOpen(false); }}>
-        <DialogContent className="sm:max-w-lg bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl p-0 overflow-hidden sm:rounded-[2rem]">
+        <DialogContent className="sm:max-w-lg bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl p-0 sm:rounded-[2rem] [&>button]:z-50">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] pointer-events-none rounded-full" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[80px] pointer-events-none rounded-full" />
           

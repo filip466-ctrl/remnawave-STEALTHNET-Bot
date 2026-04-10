@@ -730,7 +730,9 @@ export function LandingPage({ config }: { config: PublicConfig }) {
                       <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">{pulseTitle}</p>
                     </div>
                     <Button className="h-12 rounded-full px-5 text-white" style={primaryButtonStyle} asChild>
-                      <Link to={lc.showTariffs ? "#tariffs" : buildLink("/cabinet/register")}>{lc.showTariffs ? buttonWatchTariffs : buttonStart}</Link>
+                      {lc.showTariffs
+                        ? <a href="#tariffs">{buttonWatchTariffs}</a>
+                        : <Link to={buildLink("/cabinet/register")}>{buttonStart}</Link>}
                     </Button>
                   </div>
                 </div>
