@@ -396,6 +396,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       // Tour finished or skipped — but NOT if we're mid-navigation.
       if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
         if (navigatingRef.current || pendingStepRef.current !== null) return;
+        window.dispatchEvent(new Event("tour:hide-gift-mocks"));
         setIsRunning(false);
         onComplete();
         return;
@@ -421,12 +422,22 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
 
         // Bounds check
         if (nextIndex < 0 || nextIndex >= steps.length) {
+          window.dispatchEvent(new Event("tour:hide-gift-mocks"));
           setIsRunning(false);
           onComplete();
           return;
         }
 
         const nextStep = steps[nextIndex];
+        const currentTarget = typeof steps[index]?.target === "string" ? steps[index].target : "";
+        const nextTarget = typeof nextStep.target === "string" ? nextStep.target : "";
+
+        // Toggle gift mock subscriptions based on entering/leaving the gifts-subscriptions step
+        if (nextTarget.includes('gifts-subscriptions') && !currentTarget.includes('gifts-subscriptions')) {
+          window.dispatchEvent(new Event("tour:show-gift-mocks"));
+        } else if (currentTarget.includes('gifts-subscriptions') && !nextTarget.includes('gifts-subscriptions')) {
+          window.dispatchEvent(new Event("tour:hide-gift-mocks"));
+        }
 
         // Check if we need to navigate via overflow menu first
         if (tryOverflowNavigation(nextStep, nextIndex)) {

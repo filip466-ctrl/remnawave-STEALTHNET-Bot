@@ -45,6 +45,10 @@ const TOUR_TARGETS = [
   { id: "singbox", target: '[data-tour="singbox"]', label: "SingBox", icon: "🔐", defaultPlacement: "right", description: "Доступ через SingBox", previewImage: "/tour-targets/singbox.png", defaultRoute: null },
   { id: "messages", target: '[data-tour="floating-chat"]', label: "Сообщения", icon: "💬", defaultPlacement: "left", description: "Плавающий чат (AI + поддержка)", previewImage: null, defaultRoute: null },
   { id: "gifts", target: '[data-tour="gifts"]', label: "Подарки", icon: "🎁", defaultPlacement: "right", description: "Подарочные коды", previewImage: "/tour-targets/gifts.png", defaultRoute: null },
+  { id: "gifts-buy-button", target: '[data-tour="gifts-buy-button"]', label: "Купить подарок", icon: "🛒", defaultPlacement: "bottom", description: "Кнопка покупки подписки в подарок", previewImage: null, defaultRoute: "/cabinet/gifts" },
+  { id: "gifts-redeem", target: '[data-tour="gifts-redeem"]', label: "Активировать код", icon: "🎫", defaultPlacement: "bottom", description: "Форма активации подарочного кода", previewImage: null, defaultRoute: "/cabinet/gifts" },
+  { id: "gifts-subscriptions", target: '[data-tour="gifts-subscriptions"]', label: "Мои подписки", icon: "📋", defaultPlacement: "top", description: "Список дополнительных подписок", previewImage: null, defaultRoute: "/cabinet/gifts" },
+  { id: "gifts-history", target: '[data-tour="gifts-history"]', label: "История подарков", icon: "📜", defaultPlacement: "top", description: "История действий с подарками", previewImage: null, defaultRoute: "/cabinet/gifts" },
   { id: "dashboard-nav", target: '[data-tour="dashboard"]', label: "Дашборд (навигация)", icon: "📊", defaultPlacement: "bottom", description: "Кнопка дашборда", previewImage: "/tour-targets/dashboard.png", defaultRoute: null },
   { id: "farewell", target: "body", label: "Завершение", icon: "✨", defaultPlacement: "center", description: "Прощальное сообщение", previewImage: null, defaultRoute: null },
 ];
