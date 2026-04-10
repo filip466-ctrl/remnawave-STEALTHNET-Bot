@@ -84,6 +84,28 @@ function isMobileViewport(): boolean {
 }
 
 /**
+ * Scroll the target element into the visible viewport BEFORE Joyride tries to
+ * detect it.  In Telegram Mini App the scroll container may differ from the
+ * browser default, so we explicitly scroll the element into view and wait for
+ * the animation to settle.
+ */
+async function scrollTargetIntoView(target: string): Promise<void> {
+  const el = document.querySelector(target);
+  if (!el) return;
+
+  const rect = el.getBoundingClientRect();
+  const inViewport =
+    rect.top >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+
+  if (!inViewport) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Wait for scroll animation to settle
+    await new Promise<void>((r) => setTimeout(r, 450));
+  }
+}
+
+/**
  * Waits for the React route transition to settle before resuming.
  * Uses a longer delay on mobile to let React Router fully mount the new
  * route's component tree — joyride's `targetWaitTimeout` then handles
@@ -308,6 +330,11 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
             content: s.content,
             skipBeacon: true,
             route: s.route,
+            // Scroll the target into the viewport BEFORE Joyride checks visibility.
+            // Fixes steps being skipped in Telegram Mini App where the scroll
+            // container may differ from a regular browser viewport.
+            before: () => scrollTargetIntoView(s.target),
+            beforeTimeout: 6000,
           })),
         );
       })
@@ -414,16 +441,8 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
         return;
       }
 
-      // Target not found — skip the step (official controlled-mode pattern).
-      // targetWaitTimeout (5 s) already gave the element time to appear;
-      // if it's still missing, advance to the next step.
+      // Target not found — skip the step.
       if (type === EVENTS.TARGET_NOT_FOUND) {
-        // Last-resort: try scrolling in case the element exists but is off-screen
-        const step = steps[index];
-        if (step) {
-          const el = document.querySelector(step.target as string);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
         const direction = lastActionRef.current === "prev" ? -1 : 1;
         const skipTo = index + direction;
         if (skipTo >= 0 && skipTo < steps.length) {
