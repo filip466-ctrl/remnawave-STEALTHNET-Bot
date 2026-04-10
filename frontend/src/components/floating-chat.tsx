@@ -458,6 +458,8 @@ export function FloatingChat() {
   // Tour integration: programmatically open chat when tour requests it
   useEffect(() => {
     const handleTourOpen = () => {
+      // On mobile, don't open the chat panel — tour retargets to the FAB button
+      if (window.innerWidth < 768) return;
       setIsOpen(true);
     };
     window.addEventListener("tour:open-chat", handleTourOpen);
@@ -729,7 +731,7 @@ export function FloatingChat() {
         </AnimatePresence>
 
         {/* Toggle button */}
-        <div className={cn("relative group", isOpen && "hidden sm:block")}>
+        <div data-tour="floating-chat-button" className={cn("relative group", isOpen && "hidden sm:block")}>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
