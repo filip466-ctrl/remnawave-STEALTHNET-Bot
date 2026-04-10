@@ -84,28 +84,6 @@ function isMobileViewport(): boolean {
 }
 
 /**
- * Scroll the target element into the visible viewport BEFORE Joyride tries to
- * detect it.  In Telegram Mini App the scroll container may differ from the
- * browser default, so we explicitly scroll the element into view and wait for
- * the animation to settle.
- */
-async function scrollTargetIntoView(target: string): Promise<void> {
-  const el = document.querySelector(target);
-  if (!el) return;
-
-  const rect = el.getBoundingClientRect();
-  const inViewport =
-    rect.top >= 0 &&
-    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
-
-  if (!inViewport) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Wait for scroll animation to settle
-    await new Promise<void>((r) => setTimeout(r, 450));
-  }
-}
-
-/**
  * Waits for the React route transition to settle before resuming.
  * Uses a longer delay on mobile to let React Router fully mount the new
  * route's component tree — joyride's `targetWaitTimeout` then handles
@@ -325,11 +303,6 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
             content: s.content,
             skipBeacon: true,
             route: s.route,
-            // Scroll the target into the viewport BEFORE Joyride checks visibility.
-            // Fixes steps being skipped in Telegram Mini App where the scroll
-            // container may differ from a regular browser viewport.
-            before: () => scrollTargetIntoView(s.target),
-            beforeTimeout: 6000,
           })),
         );
       })
@@ -513,6 +486,7 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
           targetWaitTimeout: 5000,
           spotlightRadius: 16,
           zIndex: 10000,
+          scrollOffset: 80,
         }}
         styles={{
           overlay: {
