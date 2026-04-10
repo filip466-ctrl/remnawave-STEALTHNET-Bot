@@ -226,14 +226,9 @@ function OverflowHint({ navAttr, onNavigated }: OverflowHintProps) {
 
   return (
     <>
-      {/* Dark overlay behind the dialog */}
+      {/* Tooltip arrow + label — sits above Dialog (z-50) */}
       <div
-        className="fixed inset-0 z-[9999] bg-black/60 pointer-events-none"
-        style={{ backdropFilter: "blur(1px)" }}
-      />
-      {/* Tooltip arrow + label */}
-      <div
-        className="fixed z-[10002] pointer-events-none"
+        className="fixed z-[60] pointer-events-none"
         style={{ top: pos.top - 44, left: pos.left, transform: "translateX(-50%)" }}
       >
         <div className="bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-xl shadow-xl whitespace-nowrap animate-bounce">
@@ -254,7 +249,7 @@ function ensureOverflowStyles() {
   style.textContent = `
     .tour-overflow-highlight {
       position: relative;
-      z-index: 10001 !important;
+      z-index: 2 !important;
       box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.2);
       border-radius: 0.75rem;
       animation: tour-overflow-pulse 1.5s ease-in-out infinite;
@@ -369,6 +364,9 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
     if (!navigatingRef.current || pendingStepRef.current === null) return;
     navigatingRef.current = false;
 
+    // Clean up overflow hint if it was showing
+    setOverflowHint(null);
+
     const idx = pendingStepRef.current;
     pendingStepRef.current = null;
     if (idx < 0 || idx >= steps.length) return;
@@ -391,15 +389,10 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
   // When user clicks a nav item in overflow menu, the route changes.
   // We detect that here and resume the tour.
   const handleOverflowNavigated = useCallback(() => {
-    const hint = overflowHint;
     setOverflowHint(null);
-    if (!hint) return;
-
-    // The Link already navigated — wait for the new route to settle
-    navigatingRef.current = true;
-    pendingStepRef.current = hint.pendingStepIndex;
-    // location.pathname effect will resume the tour
-  }, [overflowHint]);
+    // navigatingRef + pendingStepRef are already set in tryOverflowNavigation.
+    // The location.pathname effect handles resuming the tour.
+  }, []);
 
   /**
    * Try to navigate to a step via the overflow menu.
@@ -415,8 +408,13 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       // Check if the nav button is hidden in overflow
       if (!isNavButtonInOverflow(nextStep.route)) return false;
 
-      // Pause Joyride and show overflow hint
+      // Pause Joyride and prepare for navigation BEFORE the user clicks.
+      // This avoids a race condition where the Link navigates immediately
+      // but handleOverflowNavigated fires 50ms later — by then the
+      // location.pathname effect has already checked (and missed) the refs.
       setIsRunning(false);
+      navigatingRef.current = true;
+      pendingStepRef.current = nextIndex;
       window.dispatchEvent(new CustomEvent("tour:open-more-menu"));
       setTimeout(() => {
         setOverflowHint({ navAttr, pendingStepIndex: nextIndex });
