@@ -273,8 +273,6 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
   const controlsRef = useRef<Controls | null>(null);
   // Track last user action to know direction for TARGET_NOT_FOUND skipping
   const lastActionRef = useRef<string>("next");
-  // Retry counter for TARGET_NOT_FOUND
-  const retryCountRef = useRef(0);
 
   // Inject overflow highlight CSS once
   useEffect(() => { ensureOverflowStyles(); }, []);
@@ -416,29 +414,16 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
         return;
       }
 
-      // Target not found — retry before skipping
+      // Target not found — skip the step (official controlled-mode pattern).
+      // targetWaitTimeout (5 s) already gave the element time to appear;
+      // if it's still missing, advance to the next step.
       if (type === EVENTS.TARGET_NOT_FOUND) {
-        const count = retryCountRef.current;
-        if (count < 3) {
-          retryCountRef.current = count + 1;
-          // Try scrolling to the element if it exists but is off-screen
-          const step = steps[index];
-          if (step) {
-            const el = document.querySelector(step.target as string);
-            if (el) {
-              el.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-          }
-          // Re-trigger current step after a delay
-          setIsRunning(false);
-          setTimeout(() => {
-            setStepIndex(index);
-            setIsRunning(true);
-          }, 600);
-          return;
+        // Last-resort: try scrolling in case the element exists but is off-screen
+        const step = steps[index];
+        if (step) {
+          const el = document.querySelector(step.target as string);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-        // After retries exhausted — skip in the direction the user was going
-        retryCountRef.current = 0;
         const direction = lastActionRef.current === "prev" ? -1 : 1;
         const skipTo = index + direction;
         if (skipTo >= 0 && skipTo < steps.length) {
@@ -451,9 +436,6 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
       }
 
       if (type === EVENTS.STEP_AFTER) {
-        // Reset retry counter on successful step
-        retryCountRef.current = 0;
-
         const isPrev = action === "prev";
         lastActionRef.current = isPrev ? "prev" : "next";
         const nextIndex = isPrev ? index - 1 : index + 1;
