@@ -115,28 +115,6 @@ function ensureFloatingChatOpen(step: TourStepWithRoute): number {
   return 400;
 }
 
-/**
- * Check if a nav-button for the given route is currently visible in the
- * bottom/top nav bar, or hidden inside the overflow "More" menu.
- * Returns true when the button is NOT visible (i.e. in overflow or absent).
- */
-function isNavButtonInOverflow(route: string): boolean {
-  const attr = ROUTE_TO_NAV_ATTR[route];
-  if (!attr) return false;
-  // On the visible nav bar, links with data-tour are rendered directly.
-  // Inside the Dialog/dropdown they also now have data-tour, but they're
-  // inside an element with role="dialog" or the desktop dropdown.
-  // Strategy: look for the element in the bottom-nav / top-nav (not inside dialog).
-  const allEls = document.querySelectorAll(`[data-tour="${attr}"]`);
-  for (const el of allEls) {
-    // Skip elements inside a dialog (overflow menu)
-    if (el.closest("[role='dialog']") || el.closest(".tour-overflow-dropdown")) continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return false; // visible in nav bar
-  }
-  return true; // not visible — in overflow
-}
-
 // ── OverflowHint component ─────────────────────────────────────────
 // Mini-tooltip "Нажми сюда" shown over a nav item inside the overflow menu.
 
@@ -373,24 +351,35 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
    */
   const tryOverflowNavigation = useCallback(
     (nextStep: TourStepWithRoute, nextIndex: number): boolean => {
-      if (!nextStep.route || nextStep.route === location.pathname) return false;
+      // Extract the tour attribute from the step's target selector
+      const targetAttr = extractTourAttr(nextStep.target as string);
+      if (!targetAttr) return false;
 
-      const navAttr = ROUTE_TO_NAV_ATTR[nextStep.route];
-      if (!navAttr) return false;
+      // Only handle nav buttons (values present in ROUTE_TO_NAV_ATTR)
+      const isNavButton = Object.values(ROUTE_TO_NAV_ATTR).includes(targetAttr);
+      if (!isNavButton) return false;
 
-      // Check if the nav button is hidden in overflow
-      if (!isNavButtonInOverflow(nextStep.route)) return false;
+      // Check if this nav button is visible in the nav bar or hidden in overflow
+      const allEls = document.querySelectorAll(`[data-tour="${targetAttr}"]`);
+      let visibleInNav = false;
+      for (const el of allEls) {
+        if (el.closest("[role='dialog']") || el.closest(".tour-overflow-dropdown"))
+          continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          visibleInNav = true;
+          break;
+        }
+      }
+      if (visibleInNav) return false; // visible in nav bar — Joyride can handle it
 
-      // Pause Joyride and prepare for navigation BEFORE the user clicks.
-      // This avoids a race condition where the Link navigates immediately
-      // but handleOverflowNavigated fires 50ms later — by then the
-      // location.pathname effect has already checked (and missed) the refs.
+      // Nav button is in overflow — open menu and show hint
       setIsRunning(false);
       navigatingRef.current = true;
       pendingStepRef.current = nextIndex;
       window.dispatchEvent(new CustomEvent("tour:open-more-menu"));
       setTimeout(() => {
-        setOverflowHint({ navAttr, pendingStepIndex: nextIndex });
+        setOverflowHint({ navAttr: targetAttr, pendingStepIndex: nextIndex });
       }, 400); // wait for Dialog open animation
       return true;
     },
