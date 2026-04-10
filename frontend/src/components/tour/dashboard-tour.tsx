@@ -439,6 +439,11 @@ export function DashboardTour({ run, onComplete }: DashboardTourProps) {
           window.dispatchEvent(new Event("tour:hide-gift-mocks"));
         }
 
+        // Close floating chat when leaving the floating-chat step
+        if (currentTarget.includes('floating-chat') && !nextTarget.includes('floating-chat')) {
+          window.dispatchEvent(new Event("tour:close-chat"));
+        }
+
         // Check if we need to navigate via overflow menu first
         if (tryOverflowNavigation(nextStep, nextIndex)) {
           return; // Overflow flow takes over
