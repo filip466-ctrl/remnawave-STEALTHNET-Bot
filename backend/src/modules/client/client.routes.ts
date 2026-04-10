@@ -2615,6 +2615,9 @@ clientRouter.post("/yoomoney/process-payment", async (req, res) => {
     select: { balance: true },
   });
 
+  const { distributeReferralRewards } = await import("../referral/referral.service.js");
+  await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] yoomoney process-payment:", e));
+
   return res.json({ message: "Баланс пополнен", newBalance: updated.balance });
 });
 
