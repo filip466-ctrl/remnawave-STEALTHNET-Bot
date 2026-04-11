@@ -3406,6 +3406,13 @@ adminRouter.get("/secondary-subscriptions", asyncRoute(async (req, res) => {
         { giftStatus: "ACTIVATED_SELF" },
       ],
     });
+  } else if (giftStatus === "null") {
+    conditions.push({
+      OR: [
+        { giftStatus: null, giftedToClientId: null },
+        { giftStatus: "", giftedToClientId: null },
+      ],
+    });
   } else if (giftStatus === "ACTIVATED_SELF") {
     conditions.push({ giftStatus: "ACTIVATED_SELF" });
   } else if (giftStatus === "GIFT_RESERVED" || giftStatus === "GIFT_CODE_ACTIVE" || giftStatus === "GIFTED") {
