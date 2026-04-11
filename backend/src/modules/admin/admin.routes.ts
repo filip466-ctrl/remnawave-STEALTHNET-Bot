@@ -652,18 +652,18 @@ adminRouter.get("/clients", async (req, res) => {
       }),
       prisma.client.count({ where: whereClause }),
     ]);
-    let items: ((typeof clients)[number] & { activeNode?: string | null })[] = clients;
+    let items: ((typeof clients)[number] & { activeNode?: string | null; onlineAt?: string | null })[] = clients;
 
-    // Попробуем обогатить клиентов информацией об активной ноде Remna (если Remna настроен)
+    // Попробуем обогатить клиентов информацией об активной ноде и onlineAt из Remna
     if (isRemnaConfigured()) {
       const withRemna = clients.filter((c) => c.remnawaveUuid);
-      const map: Record<string, string | null> = {};
+      const map: Record<string, { activeNode: string | null; onlineAt: string | null }> = {};
       await Promise.all(
         withRemna.map(async (c) => {
           try {
             const resRemna = await remnaGetUser(c.remnawaveUuid!);
             if (resRemna.error || !resRemna.data) {
-              map[c.id] = null;
+              map[c.id] = { activeNode: null, onlineAt: null };
               return;
             }
             const raw = resRemna.data as Record<string, unknown>;
@@ -680,15 +680,19 @@ adminRouter.get("/clients", async (req, res) => {
                 label = (first.name || first.uuid || "").trim() || null;
               }
             }
-            map[c.id] = label;
+            // Извлекаем onlineAt из userTraffic
+            const traffic = resp.userTraffic as Record<string, unknown> | undefined;
+            const onlineAt = typeof traffic?.onlineAt === "string" ? traffic.onlineAt : null;
+            map[c.id] = { activeNode: label, onlineAt };
           } catch {
-            map[c.id] = null;
+            map[c.id] = { activeNode: null, onlineAt: null };
           }
         })
       );
       items = clients.map((c) => ({
         ...c,
-        activeNode: map[c.id] ?? null,
+        activeNode: map[c.id]?.activeNode ?? null,
+        onlineAt: map[c.id]?.onlineAt ?? null,
       }));
     }
 
@@ -697,6 +701,53 @@ adminRouter.get("/clients", async (req, res) => {
     console.error("GET /admin/clients error:", e);
     const msg = e instanceof Error ? e.message : String(e);
     return res.status(500).json({ message: "Ошибка загрузки клиентов. Выполните: cd backend && npx prisma db push", error: msg });
+  }
+});
+
+/**
+ * POST /api/admin/clients/online-statuses
+ * Лёгкий эндпоинт для поллинга онлайн-статусов клиентов.
+ * Принимает { uuids: string[] } (remnawaveUuid), возвращает { [uuid]: { onlineAt: string | null } }
+ */
+adminRouter.post("/clients/online-statuses", async (req, res) => {
+  try {
+    const { uuids } = req.body as { uuids?: string[] };
+    if (!Array.isArray(uuids) || uuids.length === 0) {
+      return res.json({});
+    }
+    // Ограничим до 100 uuid за запрос
+    const limited = uuids.slice(0, 100);
+    const result: Record<string, { onlineAt: string | null }> = {};
+
+    if (!isRemnaConfigured()) {
+      for (const uuid of limited) result[uuid] = { onlineAt: null };
+      return res.json(result);
+    }
+
+    await Promise.all(
+      limited.map(async (uuid) => {
+        try {
+          const resRemna = await remnaGetUser(uuid);
+          if (resRemna.error || !resRemna.data) {
+            result[uuid] = { onlineAt: null };
+            return;
+          }
+          const raw = resRemna.data as Record<string, unknown>;
+          const resp = (raw.response ?? raw) as Record<string, unknown>;
+          const traffic = resp.userTraffic as Record<string, unknown> | undefined;
+          result[uuid] = {
+            onlineAt: typeof traffic?.onlineAt === "string" ? traffic.onlineAt : null,
+          };
+        } catch {
+          result[uuid] = { onlineAt: null };
+        }
+      })
+    );
+
+    return res.json(result);
+  } catch (e) {
+    console.error("POST /admin/clients/online-statuses error:", e);
+    return res.status(500).json({ message: "Ошибка получения статусов" });
   }
 });
 

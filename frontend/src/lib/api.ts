@@ -470,6 +470,18 @@ export const api = {
     return request(`/admin/clients?${sp.toString()}`, { token });
   },
 
+  /** Лёгкий поллинг онлайн-статусов: принимает массив remnawaveUuid, возвращает { [uuid]: { onlineAt } } */
+  async getClientsOnlineStatuses(
+    token: string,
+    uuids: string[]
+  ): Promise<Record<string, { onlineAt: string | null }>> {
+    return request("/admin/clients/online-statuses", {
+      method: "POST",
+      body: JSON.stringify({ uuids }),
+      token,
+    });
+  },
+
   async getClient(token: string, id: string): Promise<ClientRecord> {
     return request(`/admin/clients/${id}`, { token });
   },
@@ -1929,6 +1941,8 @@ export interface ClientRecord {
   _count?: { referrals: number };
   /** Активная нода Remna (если есть) */
   activeNode?: string | null;
+  /** Время последнего подключения к VPN (ISO timestamp) */
+  onlineAt?: string | null;
 }
 
 export type UpdateClientPayload = {
