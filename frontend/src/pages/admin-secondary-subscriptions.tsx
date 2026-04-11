@@ -42,6 +42,9 @@ import {
 function giftStatusBadge(status: string | null): { label: string; className: string } {
   switch (status) {
     case null:
+    case "":
+      return { label: "Доступна", className: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shadow-sm backdrop-blur-md" };
+    case "ACTIVATED_SELF":
       return { label: "Своя", className: "bg-green-500/15 text-green-400 border border-green-500/20 shadow-sm backdrop-blur-md" };
     case "GIFT_RESERVED":
       return { label: "Резерв", className: "bg-amber-500/15 text-amber-400 border border-amber-500/20 shadow-sm backdrop-blur-md" };
@@ -340,7 +343,8 @@ export function AdminSecondarySubscriptionsPage() {
                   onChange={(e) => handleFilterChange("giftStatus", e.target.value || undefined)}
                 >
                   <option value="" className="bg-background text-foreground">Все</option>
-                  <option value="null" className="bg-background text-foreground">Своя (не подарена)</option>
+                  <option value="null" className="bg-background text-foreground">Доступна</option>
+                  <option value="ACTIVATED_SELF" className="bg-background text-foreground">Своя</option>
                   <option value="GIFT_RESERVED" className="bg-background text-foreground">Резерв</option>
                   <option value="GIFT_CODE_ACTIVE" className="bg-background text-foreground">Код активен</option>
                   <option value="GIFTED" className="bg-background text-foreground">Подарена</option>

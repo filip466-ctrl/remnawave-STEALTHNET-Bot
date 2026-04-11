@@ -1849,14 +1849,14 @@ clientRouter.get("/subscription/all", async (req, res) => {
         { giftedToClientId: clientId, giftStatus: "GIFTED" },
       ],
     },
-    select: { id: true, remnawaveUuid: true, subscriptionIndex: true },
+    select: { id: true, remnawaveUuid: true, subscriptionIndex: true, tariff: { select: { name: true } } },
     orderBy: { subscriptionIndex: "asc" },
   });
 
   for (const sec of secondaries) {
     if (!sec.remnawaveUuid) continue;
     const secResult = await remnaGetUser(sec.remnawaveUuid);
-    const secTariff = await resolveTariffDisplayName(secResult.data ?? null);
+    const secTariff = sec.tariff?.name ?? await resolveTariffDisplayName(secResult.data ?? null);
     items.push({
       type: "secondary",
       id: sec.id,
