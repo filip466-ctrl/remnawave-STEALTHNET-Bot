@@ -1843,8 +1843,6 @@ clientRouter.get("/subscription/all", async (req, res) => {
   const secondaries = await prisma.secondarySubscription.findMany({
     where: {
       OR: [
-        { ownerId: clientId, giftStatus: null },
-        { ownerId: clientId, giftStatus: "" },
         { ownerId: clientId, giftStatus: "ACTIVATED_SELF" },
         { giftedToClientId: clientId, giftStatus: "GIFTED" },
       ],
