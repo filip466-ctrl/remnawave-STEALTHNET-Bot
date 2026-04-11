@@ -306,18 +306,9 @@ export function ClientsPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={loadClients} 
-            disabled={loading} 
-            className="gap-1.5 bg-white/5 hover:bg-white/10 border-white/10 rounded-xl transition-all"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-            <span className="hidden sm:inline">{t("admin.common.refresh")}</span>
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" onClick={loadClients} disabled={loading} className="h-8 w-8 rounded-full hover:bg-white/10">
+          <RefreshCw className={cn("h-4 w-4 text-muted-foreground transition-transform", loading && "animate-[spin_1.5s_linear_infinite] text-primary drop-shadow-[0_0_5px_rgba(var(--primary),0.5)]")} />
+        </Button>
       </motion.div>
 
       {/* FILTERS */}
@@ -662,37 +653,41 @@ function ClientEditModal({
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl sm:rounded-[2rem]">
-        <DialogHeader className="px-6 pt-6 pb-0 text-left">
-          <DialogTitle className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="truncate">{editing.email || editing.telegramUsername ? `@${editing.telegramUsername}` : editing.telegramId || "Клиент"}</span>
-                {editing.remnawaveUuid && (
-                  <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium", statusInfo.color)}>
-                    {statusInfo.label}
-                  </span>
-                )}
-                {editing.isBlocked && (
-                  <span className="inline-flex items-center rounded-full bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 px-2 py-0.5 text-[11px] font-medium">
-                    {t("admin.clients.is_blocked")}
-                  </span>
-                )}
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background/80 backdrop-blur-3xl border-white/10 shadow-2xl sm:rounded-[2rem] [&>button]:z-50">
+        <div className="absolute top-0 right-0 w-[500px] h-[300px] bg-primary/10 blur-[100px] pointer-events-none rounded-full" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[300px] bg-purple-500/10 blur-[100px] pointer-events-none rounded-full" />
+        <div className="p-6 border-b border-white/10 relative z-10 bg-white/5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-inner shrink-0">
+                <User className="h-6 w-6 text-primary" />
               </div>
-              <div className="text-xs text-muted-foreground font-normal mt-0.5">
-                {t("admin.clients.created")} {new Date(editing.createdAt).toLocaleString("ru")}
-                {remnaUser?.shortUuid && <> &middot; <code className="text-[10px]">{remnaUser.shortUuid}</code></>}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="truncate">{editing.email || editing.telegramUsername ? `@${editing.telegramUsername}` : editing.telegramId || "Клиент"}</span>
+                  {editing.remnawaveUuid && (
+                    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium", statusInfo.color)}>
+                      {statusInfo.label}
+                    </span>
+                  )}
+                  {editing.isBlocked && (
+                    <span className="inline-flex items-center rounded-full bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 px-2 py-0.5 text-[11px] font-medium">
+                      {t("admin.clients.is_blocked")}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t("admin.clients.created")} {new Date(editing.createdAt).toLocaleString("ru")}
+                  {remnaUser?.shortUuid && <> &middot; <code className="text-[10px]">{remnaUser.shortUuid}</code></>}
+                </div>
               </div>
-            </div>
-          </DialogTitle>
-          <DialogDescription className="sr-only">{t("admin.clients.modal_title")}</DialogDescription>
-        </DialogHeader>
+            </DialogTitle>
+            <DialogDescription className="sr-only">{t("admin.clients.modal_title")}</DialogDescription>
+          </DialogHeader>
+        </div>
 
         {editing.remnawaveUuid && remnaUser && (
-          <div className="px-6 pt-4">
+          <div className="px-6 pt-4 relative z-10">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="rounded-[1.5rem] bg-gradient-to-br from-white/5 to-white/10 border border-white/10 p-5 space-y-1.5 hover:bg-white/10 transition-colors">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("admin.clients.traffic")}</div>
@@ -739,22 +734,22 @@ function ClientEditModal({
           </div>
         )}
 
-        <div className="px-6 pt-4 pb-6">
+        <div className="px-6 pt-4 pb-6 relative z-10">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full flex flex-wrap">
-              <TabsTrigger value="profile" className="gap-1.5 text-xs">
+            <TabsList className="w-full flex flex-wrap bg-black/20 border border-white/5 rounded-xl p-1">
+              <TabsTrigger value="profile" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
                 <User className="h-3.5 w-3.5" /> {t("admin.clients.info")}
               </TabsTrigger>
               {editing.remnawaveUuid && (
                 <>
-                  <TabsTrigger value="remna" className="gap-1.5 text-xs">
+                  <TabsTrigger value="remna" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
                     <Settings className="h-3.5 w-3.5" /> {t("admin.clients.remna")}
                   </TabsTrigger>
-                  <TabsTrigger value="devices" className="gap-1.5 text-xs">
+                  <TabsTrigger value="devices" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
                     <Smartphone className="h-3.5 w-3.5" /> {t("admin.clients.devices")}
                     {devicesTotal > 0 && <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">{devicesTotal}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="actions" className="gap-1.5 text-xs">
+                  <TabsTrigger value="actions" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
                     <Activity className="h-3.5 w-3.5" /> {t("admin.clients.actions")}
                   </TabsTrigger>
                 </>
@@ -944,7 +939,13 @@ function ClientEditModal({
                 </div>
 
                 {actionMessage && <p className="text-sm text-muted-foreground">{actionMessage}</p>}
-                <Button onClick={onSave} disabled={saving}>{saving ? t("admin.clients.saving") : t("admin.clients.save_profile")}</Button>
+                <Button 
+                  onClick={onSave} 
+                  disabled={saving} 
+                  className="rounded-xl bg-primary hover:bg-primary/90 shadow-md shadow-primary/20 border border-primary/30 transition-all"
+                >
+                  {saving ? t("admin.clients.saving") : t("admin.clients.save_profile")}
+                </Button>
 
                 <hr />
                 <div>
@@ -973,7 +974,7 @@ function ClientEditModal({
                     </p>
                   )}
                   <Button
-                    variant="outline" size="sm" className="mt-2"
+                    variant="outline" size="sm" className="mt-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-all"
                     onClick={onSetPassword}
                     disabled={savingPassword || !passwordForm.newPassword || passwordForm.newPassword.length < 8}
                   >
@@ -1096,7 +1097,7 @@ function ClientEditModal({
                         />
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="mt-3" onClick={onSaveRemnaLimits} disabled={saving}>
+                    <Button variant="outline" size="sm" className="mt-3 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-all" onClick={onSaveRemnaLimits} disabled={saving}>
                       {t("admin.clients.apply_limits")}
                     </Button>
                   </div>
@@ -1199,31 +1200,31 @@ function ClientEditModal({
                   <h3 className="font-semibold text-sm">{t("admin.clients.quick_actions")}</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Button
-                      variant="outline" className="justify-start gap-2"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.subscription_revoked"), () => api.clientRemnaRevokeSubscription(token, editing.id))}
                     >
                       <Ticket className="h-4 w-4" /> {t("admin.clients.revoke_subscription")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      variant="outline" className="justify-start gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 rounded-xl transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.disabled"), () => api.clientRemnaDisable(token, editing.id))}
                     >
                       <Ban className="h-4 w-4" /> {t("admin.clients.disable_in_remna")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2 text-green-700 dark:text-green-400 border-green-500/30 hover:bg-green-500/10"
+                      variant="outline" className="justify-start gap-2 text-green-700 dark:text-green-400 border-green-500/30 hover:bg-green-500/10 rounded-xl transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.enabled"), () => api.clientRemnaEnable(token, editing.id))}
                     >
                       <ShieldCheck className="h-4 w-4" /> {t("admin.clients.enable_in_remna")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.traffic_reset_done"), () => api.clientRemnaResetTraffic(token, editing.id))}
                     >
                       <Wifi className="h-4 w-4" /> {t("admin.clients.reset_traffic")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
                       onClick={() => { loadRemnaUser(); loadDevices(); loadUsage(); }}
                     >
                       <RefreshCw className="h-4 w-4" /> {t("admin.clients.refresh_data")}
