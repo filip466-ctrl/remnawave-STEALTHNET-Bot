@@ -454,11 +454,20 @@ export function AdminSecondarySubscriptionsPage() {
                           : "hover:bg-white/5 hover:border-l-primary/30"
                       )}
                       onClick={(e) => {
-                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('[data-row-checkbox-zone]')) return;
                         openDetail(item.id);
                       }}
                     >
-                      <td className="px-5 py-4 text-center relative z-10">
+                      <td
+                        data-row-checkbox-zone
+                        className="px-5 py-4 text-center relative z-10 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                          toggleSelect(item.id);
+                        }}
+                      >
                         <Checkbox
                           className={cn("border-white/20 transition-all", isSelected && "border-primary bg-primary text-primary-foreground")}
                           checked={isSelected}

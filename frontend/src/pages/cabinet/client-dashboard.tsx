@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 
 function formatDate(s: string | null) {
@@ -220,6 +221,34 @@ export function ClientDashboardPage() {
       console.error("Failed to toggle auto-renew", err);
     } finally {
       setAutoRenewLoading(false);
+    }
+  }
+
+  const [autoRenewPromoInput, setAutoRenewPromoInput] = useState("");
+  const [autoRenewPromoLoading, setAutoRenewPromoLoading] = useState(false);
+  const [autoRenewPromoError, setAutoRenewPromoError] = useState<string | null>(null);
+  const [autoRenewPromoSaved, setAutoRenewPromoSaved] = useState(false);
+
+  useEffect(() => {
+    setAutoRenewPromoInput(client?.autoRenewPromoCode ?? "");
+    setAutoRenewPromoError(null);
+    setAutoRenewPromoSaved(false);
+  }, [client?.autoRenewPromoCode]);
+
+  async function saveAutoRenewPromo(code: string | null) {
+    if (!token) return;
+    setAutoRenewPromoError(null);
+    setAutoRenewPromoSaved(false);
+    setAutoRenewPromoLoading(true);
+    try {
+      await api.clientUpdateAutoRenew(token, { promoCode: code });
+      await refreshProfile();
+      setAutoRenewPromoSaved(true);
+      setTimeout(() => setAutoRenewPromoSaved(false), 2000);
+    } catch (e) {
+      setAutoRenewPromoError(e instanceof Error ? e.message : t("cabinet.dashboard.auto_renew_promo_error"));
+    } finally {
+      setAutoRenewPromoLoading(false);
     }
   }
 
@@ -599,6 +628,47 @@ export function ClientDashboardPage() {
               onCheckedChange={toggleAutoRenew}
             />
           </div>
+          {client.autoRenewEnabled && (
+            <div className="p-3 rounded-2xl bg-background/40 border border-border/50 space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {t("cabinet.dashboard.auto_renew_promo_label")}
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={autoRenewPromoInput}
+                  onChange={(e) => setAutoRenewPromoInput(e.target.value.toUpperCase())}
+                  placeholder={t("cabinet.dashboard.auto_renew_promo_placeholder")}
+                  className="h-9 bg-background/50 text-sm font-mono uppercase"
+                  disabled={autoRenewPromoLoading}
+                />
+                {client.autoRenewPromoCode && autoRenewPromoInput === client.autoRenewPromoCode ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0"
+                    disabled={autoRenewPromoLoading}
+                    onClick={() => saveAutoRenewPromo(null)}
+                  >
+                    {autoRenewPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("cabinet.dashboard.auto_renew_promo_remove")}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="h-9 shrink-0 shadow-sm"
+                    disabled={autoRenewPromoLoading || !autoRenewPromoInput.trim()}
+                    onClick={() => saveAutoRenewPromo(autoRenewPromoInput.trim())}
+                  >
+                    {autoRenewPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("cabinet.dashboard.auto_renew_promo_save")}
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {t("cabinet.dashboard.auto_renew_promo_hint")}
+              </p>
+              {autoRenewPromoError && <p className="text-[11px] font-medium text-destructive">{autoRenewPromoError}</p>}
+              {autoRenewPromoSaved && <p className="text-[11px] font-medium text-green-500">{t("cabinet.dashboard.auto_renew_promo_saved")}</p>}
+            </div>
+          )}
           <Button className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform duration-300 rounded-xl h-12 [&_svg]:self-center [&_span]:leading-none" asChild>
             <Link to="/cabinet/profile#topup" className="inline-flex w-full items-center justify-center gap-2">
               <PlusCircle className="h-5 w-5 shrink-0" />
@@ -808,6 +878,48 @@ export function ClientDashboardPage() {
                 onCheckedChange={toggleAutoRenew}
               />
             </div>
+
+            {client.autoRenewEnabled && (
+              <div className="p-4 rounded-2xl bg-background/40 border border-border/50 space-y-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t("cabinet.dashboard.auto_renew_promo_label")}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={autoRenewPromoInput}
+                    onChange={(e) => setAutoRenewPromoInput(e.target.value.toUpperCase())}
+                    placeholder={t("cabinet.dashboard.auto_renew_promo_placeholder")}
+                    className="h-10 bg-background/50 text-sm font-mono uppercase"
+                    disabled={autoRenewPromoLoading}
+                  />
+                  {client.autoRenewPromoCode && autoRenewPromoInput === client.autoRenewPromoCode ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 shrink-0"
+                      disabled={autoRenewPromoLoading}
+                      onClick={() => saveAutoRenewPromo(null)}
+                    >
+                      {autoRenewPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("cabinet.dashboard.auto_renew_promo_remove")}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-10 shrink-0 shadow-sm"
+                      disabled={autoRenewPromoLoading || !autoRenewPromoInput.trim()}
+                      onClick={() => saveAutoRenewPromo(autoRenewPromoInput.trim())}
+                    >
+                      {autoRenewPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("cabinet.dashboard.auto_renew_promo_save")}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  {t("cabinet.dashboard.auto_renew_promo_hint")}
+                </p>
+                {autoRenewPromoError && <p className="text-[11px] font-medium text-destructive">{autoRenewPromoError}</p>}
+                {autoRenewPromoSaved && <p className="text-[11px] font-medium text-green-500">{t("cabinet.dashboard.auto_renew_promo_saved")}</p>}
+              </div>
+            )}
 
             <Button variant="default" size="lg" className="w-full gap-2 shadow-lg h-14 rounded-xl text-[16px] hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" asChild>
               <Link to="/cabinet/profile#topup" className="inline-flex items-center justify-center gap-2 leading-none">

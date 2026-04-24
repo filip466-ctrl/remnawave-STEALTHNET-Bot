@@ -93,6 +93,7 @@ model Client {
   autoRenewTariffId   String?  @map("auto_renew_tariff_id")
   autoRenewRetryCount Int      @default(0) @map("auto_renew_retry_count")
   autoRenewNotifiedAt DateTime? @map("auto_renew_notified_at")
+  autoRenewPromoCode  String?  @map("auto_renew_promo_code")
   yookassaPaymentMethodId    String?  @map("yookassa_payment_method_id")
   yookassaPaymentMethodTitle String?  @map("yookassa_payment_method_title")
   createdAt           DateTime @default(now()) @map("created_at")

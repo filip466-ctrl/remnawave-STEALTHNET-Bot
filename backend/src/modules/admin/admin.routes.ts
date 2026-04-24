@@ -617,6 +617,7 @@ adminRouter.get("/clients", async (req, res) => {
           { telegramId: { contains: search } },
           { referralCode: { contains: search, mode: "insensitive" as const } },
           { id: { contains: search } },
+          { remnawaveUuid: { contains: search, mode: "insensitive" as const } },
         ],
       });
     }
@@ -944,6 +945,27 @@ adminRouter.patch("/clients/:id/remna", async (req, res) => {
   const result = await remnaUpdateUser(patchBody);
   if (result.error) return res.status(result.status >= 400 ? result.status : 500).json({ message: result.error });
   return res.json(result.data ?? {});
+});
+
+/**
+ * Отвязать клиента от Remna (обнулить remnawaveUuid).
+ *
+ * Кейс: Remna-пользователь удалён (руками в панели Remna), но клиент в нашей БД остался
+ * с «повисшим» remnawaveUuid → syncToRemna не находит его в Remna и выдаёт «fetch failed».
+ * Этот endpoint разрывает связь — клиент остаётся, но считается «без VPN»; при следующей
+ * покупке тарифа будет создан новый Remna-пользователь.
+ */
+adminRouter.post("/clients/:id/remna/unlink", async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const client = await prisma.client.findUnique({
+    where: { id: parsed.data.id },
+    select: { id: true, remnawaveUuid: true },
+  });
+  if (!client) return res.status(404).json({ message: "Клиент не найден" });
+  if (!client.remnawaveUuid) return res.status(400).json({ message: "Клиент уже не привязан к Remna" });
+  await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: null } });
+  return res.json({ ok: true });
 });
 
 adminRouter.post("/clients/:id/remna/revoke-subscription", async (req, res) => {

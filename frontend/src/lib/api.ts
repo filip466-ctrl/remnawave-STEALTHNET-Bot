@@ -514,6 +514,12 @@ export const api = {
     return request(`/admin/clients/${clientId}/remna/revoke-subscription`, { method: "POST", token });
   },
 
+  /** Отвязать клиента от Remna (remnawaveUuid = null). Клиент остаётся, связь сбрасывается —
+   *  используется если Remna-пользователь удалён руками в панели Remna и sync зависает. */
+  async clientRemnaUnlink(token: string, clientId: string): Promise<{ ok: boolean }> {
+    return request(`/admin/clients/${clientId}/remna/unlink`, { method: "POST", token });
+  },
+
   async clientRemnaDisable(token: string, clientId: string): Promise<unknown> {
     return request(`/admin/clients/${clientId}/remna/disable`, { method: "POST", token });
   },
@@ -1367,7 +1373,7 @@ export const api = {
     return request("/client/profile", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
-  async clientUpdateAutoRenew(token: string, data: { enabled?: boolean; tariffId?: string | null }): Promise<ClientProfile> {
+  async clientUpdateAutoRenew(token: string, data: { enabled?: boolean; tariffId?: string | null; promoCode?: string | null }): Promise<ClientProfile> {
     return request("/client/auto-renew", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
@@ -2804,10 +2810,14 @@ export interface ClientProfile {
   createdAt?: string;
   autoRenewEnabled?: boolean;
   autoRenewTariffId?: string | null;
+  /** Сохранённый промокод-скидка для автопродления (применяется каждый цикл cron). null = не задан. */
+  autoRenewPromoCode?: string | null;
   /** Название привязанного способа оплаты ЮKassa (например "Банковская карта *4444") */
   yookassaPaymentMethodTitle?: string | null;
   /** Завершён ли онбоардинг (установлен ли пароль для email-регистрации) */
   onboardingCompleted?: boolean;
+  /** Установлен ли пароль для входа через веб. false для юзеров, зарегистрированных через Telegram/Google/Apple без пароля. */
+  hasPassword?: boolean;
 }
 
 export interface ClientAuthResponse {

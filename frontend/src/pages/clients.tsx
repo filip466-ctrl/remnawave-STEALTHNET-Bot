@@ -24,7 +24,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Pencil, Trash2, Ban, ShieldCheck, Wifi, Ticket, KeyRound, Search,
-  Copy, Check, Smartphone, Activity, User, Users, Settings, HardDrive, Link,
+  Copy, Check, Smartphone, Activity, User, Users, Settings, HardDrive, Link, Unlink,
   RefreshCw, Loader2
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -1228,6 +1228,16 @@ function ClientEditModal({
                       onClick={() => { loadRemnaUser(); loadDevices(); loadUsage(); }}
                     >
                       <RefreshCw className="h-4 w-4" /> {t("admin.clients.refresh_data")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="justify-start gap-2 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 rounded-xl transition-all sm:col-span-2"
+                      onClick={() => {
+                        if (!confirm(t("admin.clients.unlink_remna_confirm"))) return;
+                        onRemnaAction(t("admin.clients.unlink_remna_ok"), () => api.clientRemnaUnlink(token, editing.id));
+                      }}
+                    >
+                      <Unlink className="h-4 w-4" /> {t("admin.clients.unlink_remna")}
                     </Button>
                   </div>
                   {actionMessage && <p className="text-sm text-muted-foreground mt-2">{actionMessage}</p>}
