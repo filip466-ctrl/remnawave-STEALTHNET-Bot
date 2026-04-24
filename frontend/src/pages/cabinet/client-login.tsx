@@ -41,6 +41,7 @@ export function ClientLoginPage() {
   const [tgAuthPending, setTgAuthPending] = useState(false);
   const [showTgFallback, setShowTgFallback] = useState(false);
   const [telegramBotId, setTelegramBotId] = useState<string | null>(null);
+  const [tgPreToken, setTgPreToken] = useState<string | null>(null);
   const tgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tgFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchParams] = useSearchParams();
@@ -108,53 +109,73 @@ export function ClientLoginPage() {
     };
   }, []);
 
-  const handleTelegramLogin = useCallback(async () => {
+  // Pre-fetch token заранее — на iOS Safari `window.open` ПОСЛЕ `await` теряет user gesture
+  // и не открывает Telegram. Синхронный open в обработчике клика обходит это ограничение.
+  useEffect(() => {
+    if (!telegramBotUsername) return;
+    if (tgPreToken) return;
+    if (tgAuthPending) return;
+    let cancelled = false;
+    api
+      .clientTelegramLoginToken()
+      .then(({ token }) => {
+        if (!cancelled) setTgPreToken(token);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [telegramBotUsername, tgPreToken, tgAuthPending]);
+
+  const handleTelegramLogin = useCallback(() => {
     if (!telegramBotUsername || tgAuthPending) return;
+    if (!tgPreToken) {
+      // Токен ещё не готов — пробуем ещё раз через 100мс
+      setError(t("cabinet.login.error_telegram"));
+      return;
+    }
     setError("");
     setTgAuthPending(true);
     setShowTgFallback(false);
 
-    try {
-      const { token } = await api.clientTelegramLoginToken();
+    const token = tgPreToken;
+    setTgPreToken(null); // токен использован — после поллинга получим новый
 
-      // Открываем Telegram через deep link (tg:// протокол — работает без VPN)
-      const deepLink = `tg://resolve?domain=${telegramBotUsername}&start=auth_${token}`;
-      window.open(deepLink, "_blank");
+    // Синхронный window.open в обработчике клика — сохраняет user gesture для iOS Universal Links.
+    // Сервер делает 302 на https://t.me/BOT?start=auth_TOKEN, iOS открывает Telegram-app.
+    const redirectUrl = `/api/client/auth/telegram-login-redirect?token=${encodeURIComponent(token)}`;
+    window.open(redirectUrl, "_blank", "noopener,noreferrer");
 
-      // Через 15 секунд показываем фоллбэк-кнопку (веб-версия OAuth)
-      if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
-      tgFallbackTimerRef.current = setTimeout(() => setShowTgFallback(true), 15_000);
+    // Через 15 секунд показываем фоллбэк-кнопку (веб-версия OAuth)
+    if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
+    tgFallbackTimerRef.current = setTimeout(() => setShowTgFallback(true), 15_000);
 
-      // Поллинг каждые 2 секунды
-      if (tgPollRef.current) clearInterval(tgPollRef.current);
-      let attempts = 0;
-      const maxAttempts = 150; // 5 минут
-      tgPollRef.current = setInterval(async () => {
-        attempts++;
-        if (attempts > maxAttempts) {
+    // Поллинг каждые 2 секунды
+    if (tgPollRef.current) clearInterval(tgPollRef.current);
+    let attempts = 0;
+    const maxAttempts = 150; // 5 минут
+    tgPollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        if (tgPollRef.current) clearInterval(tgPollRef.current);
+        setTgAuthPending(false);
+        setError(t("cabinet.login.error_timeout"));
+        return;
+      }
+      try {
+        const res = await api.clientTelegramLoginCheck(token);
+        if (res.confirmed) {
           if (tgPollRef.current) clearInterval(tgPollRef.current);
+          if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
+          loginByTelegramDeepLink(res);
           setTgAuthPending(false);
-          setError(t("cabinet.login.error_timeout"));
-          return;
+          navigate("/cabinet", { replace: true });
         }
-        try {
-          const res = await api.clientTelegramLoginCheck(token);
-          if (res.confirmed) {
-            if (tgPollRef.current) clearInterval(tgPollRef.current);
-            if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
-            loginByTelegramDeepLink(res);
-            setTgAuthPending(false);
-            navigate("/cabinet", { replace: true });
-          }
-        } catch {
-          // Ошибка поллинга — продолжаем
-        }
-      }, 2000);
-    } catch (err) {
-      setTgAuthPending(false);
-      setError(err instanceof Error ? err.message : t("cabinet.login.error_telegram"));
-    }
-  }, [telegramBotUsername, tgAuthPending, loginByTelegramDeepLink, navigate, t]);
+      } catch {
+        // Ошибка поллинга — продолжаем
+      }
+    }, 2000);
+  }, [telegramBotUsername, tgAuthPending, tgPreToken, loginByTelegramDeepLink, navigate, t]);
 
   // Обработка OAuth авторизации через Telegram (popup)
   const tgOAuthPopupRef = useRef<Window | null>(null);

@@ -728,6 +728,37 @@ clientAuthRouter.post("/telegram-login-token", async (_req, res) => {
   }
 });
 
+// 1.5) Native redirect: 302 на https://t.me/BOT?start=auth_TOKEN — обходит блокировку tg:// схемы на iOS Safari/Telegram WebView
+clientAuthRouter.get("/telegram-login-redirect", async (req, res) => {
+  const { token } = req.query;
+  if (typeof token !== "string" || !token.trim()) {
+    return res.status(400).send("Missing token");
+  }
+
+  try {
+    const record = await prisma.telegramAuthToken.findUnique({
+      where: { token: token.trim() },
+      select: { id: true, expiresAt: true },
+    });
+
+    if (!record) return res.status(404).send("Token not found or expired");
+    if (record.expiresAt < new Date()) {
+      await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
+      return res.status(410).send("Token expired");
+    }
+
+    const config = await getSystemConfig();
+    const botUsername = (config.telegramBotUsername ?? "").replace(/^@/, "").trim();
+    if (!botUsername) return res.status(503).send("Telegram bot not configured");
+
+    const tgUrl = `https://t.me/${encodeURIComponent(botUsername)}?start=auth_${encodeURIComponent(token.trim())}`;
+    return res.redirect(302, tgUrl);
+  } catch (err) {
+    console.error("[telegram-login-redirect] error:", err);
+    return res.status(500).send("Internal error");
+  }
+});
+
 // 2) Поллинг: проверяем, подтвердил ли пользователь токен через бота
 clientAuthRouter.get("/telegram-login-check", async (req, res) => {
   const { token } = req.query;
