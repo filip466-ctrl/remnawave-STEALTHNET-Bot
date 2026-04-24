@@ -14,6 +14,46 @@ import {
   notifyAutoRenewYookassaFailed,
 } from "../notification/telegram-notify.service.js";
 
+/**
+ * Проверить промокод для автопродления и посчитать финальную цену.
+ * Возвращает `{ finalPrice, promoCodeId }` или `{ finalPrice: basePrice, promoCodeId: null }`,
+ * если промокод невалиден/истёк/исчерпан — в автопродлении такие случаи не блокируют
+ * оплату, просто применяется полная цена.
+ */
+async function tryApplyPromoForAutoRenew(
+  clientId: string,
+  code: string | null,
+  basePrice: number,
+): Promise<{ finalPrice: number; promoCodeId: string | null }> {
+  if (!code?.trim()) return { finalPrice: basePrice, promoCodeId: null };
+  const promo = await prisma.promoCode.findUnique({ where: { code: code.trim() } });
+  if (!promo || !promo.isActive || promo.type !== "DISCOUNT") {
+    return { finalPrice: basePrice, promoCodeId: null };
+  }
+  if (promo.expiresAt && promo.expiresAt < new Date()) {
+    return { finalPrice: basePrice, promoCodeId: null };
+  }
+  if (promo.maxUses > 0) {
+    const totalUsages = await prisma.promoCodeUsage.count({ where: { promoCodeId: promo.id } });
+    if (totalUsages >= promo.maxUses) return { finalPrice: basePrice, promoCodeId: null };
+  }
+  const clientUsages = await prisma.promoCodeUsage.count({
+    where: { promoCodeId: promo.id, clientId },
+  });
+  if (clientUsages >= promo.maxUsesPerClient) return { finalPrice: basePrice, promoCodeId: null };
+
+  let finalPrice = basePrice;
+  if (promo.discountPercent && promo.discountPercent > 0) {
+    finalPrice = Math.max(0, finalPrice - finalPrice * promo.discountPercent / 100);
+  }
+  if (promo.discountFixed && promo.discountFixed > 0) {
+    finalPrice = Math.max(0, finalPrice - promo.discountFixed);
+  }
+  finalPrice = Math.round(finalPrice * 100) / 100;
+  if (finalPrice <= 0) return { finalPrice: basePrice, promoCodeId: null };
+  return { finalPrice, promoCodeId: promo.id };
+}
+
 // Run every hour at minute 0
 export function startAutoRenewScheduler() {
   cron.schedule("0 * * * *", async () => {
@@ -104,7 +144,12 @@ export async function processAutoRenewals() {
       // === Phase 2: Renewal logic ===
       // Only attempt renewal when within threshold, and not expired too long ago (3 days max)
       if (timeLeft <= renewThreshold && timeLeft >= -(3 * DAY_MS)) {
-        const tariffPrice = client.autoRenewTariff.price;
+        const baseTariffPrice = client.autoRenewTariff.price;
+
+        // Применяем сохранённый для авто-продления промокод (если задан и валиден).
+        // Невалидные/истёкшие промокоды в автопродлении игнорируем — оплачиваем полную цену.
+        const { finalPrice: tariffPrice, promoCodeId: autoRenewPromoCodeId } =
+          await tryApplyPromoForAutoRenew(client.id, client.autoRenewPromoCode, baseTariffPrice);
 
         if (client.balance >= tariffPrice) {
           // Enough balance → RENEW
@@ -128,8 +173,17 @@ export async function processAutoRenewals() {
                 provider: "balance",
                 tariffId: client.autoRenewTariff!.id,
                 paidAt: new Date(),
+                metadata: autoRenewPromoCodeId
+                  ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
+                  : null,
               },
             });
+
+            if (autoRenewPromoCodeId) {
+              await tx.promoCodeUsage.create({
+                data: { promoCodeId: autoRenewPromoCodeId, clientId: client.id },
+              });
+            }
 
             const activationRes = await activateTariffByPaymentId(payment.id);
             if (!activationRes.ok) {
@@ -148,7 +202,7 @@ export async function processAutoRenewals() {
             tariffPrice,
             client.autoRenewTariff.currency,
           );
-          console.log(`[auto-renew] Client ${client.id} successfully renewed.`);
+          console.log(`[auto-renew] Client ${client.id} successfully renewed${autoRenewPromoCodeId ? ` (promo applied, ${baseTariffPrice} → ${tariffPrice})` : ""}.`);
         } else {
           // Insufficient balance → try partial balance + YooKassa for the remainder, otherwise retry or disable
           let yookassaPaid = false;
@@ -187,7 +241,7 @@ export async function processAutoRenewals() {
                   });
                 }
 
-                return tx.payment.create({
+                const p = await tx.payment.create({
                   data: {
                     clientId: client.id,
                     orderId,
@@ -198,8 +252,19 @@ export async function processAutoRenewals() {
                     tariffId: client.autoRenewTariff!.id,
                     paidAt: new Date(),
                     externalId: autopayResult.paymentId,
+                    metadata: autoRenewPromoCodeId
+                      ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
+                      : null,
                   },
                 });
+
+                if (autoRenewPromoCodeId) {
+                  await tx.promoCodeUsage.create({
+                    data: { promoCodeId: autoRenewPromoCodeId, clientId: client.id },
+                  });
+                }
+
+                return p;
               });
 
               const activationRes = await activateTariffByPaymentId(payment.id);

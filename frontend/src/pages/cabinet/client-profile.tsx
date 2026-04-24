@@ -83,6 +83,13 @@ export function ClientProfilePage() {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   const [changePasswordSuccess, setChangePasswordSuccess] = useState(false);
+  // Установка пароля (для юзеров без пароля — зарегистрировались через Telegram/Google/Apple).
+  const [setPasswordOpen, setSetPasswordOpen] = useState(false);
+  const [setPasswordNew, setSetPasswordNew] = useState("");
+  const [setPasswordConfirm, setSetPasswordConfirm] = useState("");
+  const [setPasswordLoading, setSetPasswordLoading] = useState(false);
+  const [setPasswordError, setSetPasswordError] = useState<string | null>(null);
+  const [setPasswordSuccess, setSetPasswordSuccess] = useState(false);
 
   const client = state.client;
   const token = state.token;
@@ -239,6 +246,43 @@ export function ClientProfilePage() {
     setConfirmPassword("");
     setChangePasswordError(null);
     setChangePasswordSuccess(false);
+  }
+
+  async function submitSetPassword() {
+    if (!token) return;
+    if (setPasswordNew.length < 6) {
+      setSetPasswordError(t("cabinet.profile.change_password_error_min"));
+      return;
+    }
+    if (setPasswordNew !== setPasswordConfirm) {
+      setSetPasswordError(t("cabinet.profile.change_password_error_mismatch"));
+      return;
+    }
+    setSetPasswordError(null);
+    setSetPasswordLoading(true);
+    try {
+      await api.clientSetPassword(token, { newPassword: setPasswordNew });
+      setSetPasswordSuccess(true);
+      await refreshProfile().catch(() => {});
+      setTimeout(() => {
+        setSetPasswordOpen(false);
+        setSetPasswordSuccess(false);
+        setSetPasswordNew("");
+        setSetPasswordConfirm("");
+      }, 1500);
+    } catch (e) {
+      setSetPasswordError(e instanceof Error ? e.message : t("cabinet.profile.change_password_error"));
+    } finally {
+      setSetPasswordLoading(false);
+    }
+  }
+
+  function closeSetPassword() {
+    setSetPasswordOpen(false);
+    setSetPasswordNew("");
+    setSetPasswordConfirm("");
+    setSetPasswordError(null);
+    setSetPasswordSuccess(false);
   }
 
   useEffect(() => {
@@ -697,20 +741,37 @@ export function ClientProfilePage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
-                    <KeyRound className="w-5 h-5" />
+              {client.hasPassword === false && client.email ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-orange-500/10 text-orange-500">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">{t("cabinet.profile.password_label")}</p>
+                      <p className="font-medium text-sm truncate text-orange-500">{t("cabinet.profile.password_not_set")}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground mb-0.5">{t("cabinet.profile.password_label")}</p>
-                    <p className="font-medium text-sm truncate">{t("cabinet.profile.password_change_account")}</p>
-                  </div>
+                  <Button variant="outline" size="sm" className="shadow-sm shrink-0" onClick={() => setSetPasswordOpen(true)}>
+                    {t("cabinet.profile.password_set")}
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" className="shadow-sm shrink-0" onClick={() => setChangePasswordOpen(true)}>
-                  {t("cabinet.profile.password_change")}
-                </Button>
-              </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">{t("cabinet.profile.password_label")}</p>
+                      <p className="font-medium text-sm truncate">{t("cabinet.profile.password_change_account")}</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" className="shadow-sm shrink-0" onClick={() => setChangePasswordOpen(true)}>
+                    {t("cabinet.profile.password_change")}
+                  </Button>
+                </div>
+              )}
 
               {yookassaRecurringEnabled && client.yookassaPaymentMethodTitle && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10">
@@ -1283,6 +1344,59 @@ export function ClientProfilePage() {
                 )}
                 <Button className="w-full h-12 rounded-xl font-bold text-base shadow-lg" onClick={submitChangePassword} disabled={changePasswordLoading || !currentPassword || !newPassword || !confirmPassword}>
                   {changePasswordLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                  {t("cabinet.profile.save_password")}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Установка пароля — для юзеров без пароля (Telegram/Google/Apple) */}
+      <Dialog open={setPasswordOpen} onOpenChange={(open) => !open && closeSetPassword()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 backdrop-blur-3xl" showCloseButton={!setPasswordLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-6 shadow-inner border border-primary/20">
+              <KeyRound className="h-8 w-8" />
+            </div>
+            <DialogHeader className="p-0 flex flex-col items-center mb-6">
+              <DialogTitle className="text-2xl font-bold tracking-tight">{t("cabinet.profile.set_password_title")}</DialogTitle>
+              <DialogDescription className="text-center text-sm mt-2 max-w-[280px]">
+                {t("cabinet.profile.set_password_desc")}
+              </DialogDescription>
+            </DialogHeader>
+
+            {setPasswordSuccess ? (
+              <div className="flex flex-col items-center gap-4 py-6 animate-in fade-in scale-95 duration-300">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 text-green-500">
+                  <Check className="h-8 w-8" />
+                </div>
+                <p className="text-lg font-bold text-green-500">{t("cabinet.profile.set_password_ok")}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-3">
+                  <Input
+                    type="password"
+                    placeholder={t("cabinet.profile.new_password")}
+                    value={setPasswordNew}
+                    onChange={(e) => setSetPasswordNew(e.target.value)}
+                    className="h-12 rounded-xl"
+                    autoFocus
+                  />
+                  <Input
+                    type="password"
+                    placeholder={t("cabinet.profile.confirm_password")}
+                    value={setPasswordConfirm}
+                    onChange={(e) => setSetPasswordConfirm(e.target.value)}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                {setPasswordError && (
+                  <p className="text-sm font-medium text-destructive animate-in fade-in text-center">{setPasswordError}</p>
+                )}
+                <Button className="w-full h-12 rounded-xl font-bold text-base shadow-lg" onClick={submitSetPassword} disabled={setPasswordLoading || !setPasswordNew || !setPasswordConfirm}>
+                  {setPasswordLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                   {t("cabinet.profile.save_password")}
                 </Button>
               </div>

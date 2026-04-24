@@ -63,10 +63,29 @@ function extractCurrentSquads(data: unknown): string[] {
   return out;
 }
 
-/** Объединить сквады тарифа с текущими сквадами пользователя (тариф в приоритете, доп. сквады сохраняются). */
-function mergeSquads(tariffSquadUuids: string[], currentSquadUuids: string[]): string[] {
-  const extra = currentSquadUuids.filter((u) => !tariffSquadUuids.includes(u));
-  return [...tariffSquadUuids, ...extra];
+/**
+ * Собрать все сквады, которые относятся к каким-либо тарифам (primary-тарифы из БД).
+ * Используется чтобы отличить «тарифный» сквад от add-on-сквада (покупка опции «сервер»,
+ * подарок и т. д.). Тарифные сквады заменяются при смене тарифа, остальные сохраняются.
+ */
+async function getAllTariffSquadUuids(): Promise<Set<string>> {
+  const tariffs = await prisma.tariff.findMany({ select: { internalSquadUuids: true } });
+  const set = new Set<string>();
+  for (const t of tariffs) {
+    for (const u of t.internalSquadUuids) set.add(u);
+  }
+  return set;
+}
+
+/**
+ * Объединить сквады тарифа с текущими сквадами пользователя.
+ * Тарифные сквады старого тарифа замещаются новыми; add-on сквады (не относящиеся
+ * ни к одному тарифу — покупки опции «серверы», подарки) — сохраняются.
+ */
+async function mergeSquads(tariffSquadUuids: string[], currentSquadUuids: string[]): Promise<string[]> {
+  const allTariffSquads = await getAllTariffSquadUuids();
+  const preserved = currentSquadUuids.filter((u) => !allTariffSquads.has(u) && !tariffSquadUuids.includes(u));
+  return [...tariffSquadUuids, ...preserved];
 }
 
 export type TrafficResetMode = "no_reset" | "on_purchase" | "monthly" | "monthly_rolling";
@@ -119,7 +138,7 @@ export async function activateTariffForClient(
     const currentExpireAt = extractCurrentExpireAt(userRes.data);
     const currentSquads = extractCurrentSquads(userRes.data);
     const expireAt = calculateExpireAt(currentExpireAt, tariff.durationDays);
-    const activeInternalSquads = mergeSquads(tariff.internalSquadUuids, currentSquads);
+    const activeInternalSquads = await mergeSquads(tariff.internalSquadUuids, currentSquads);
 
     if (shouldResetTraffic) {
       await remnaResetUserTraffic(workingUuid);
@@ -180,7 +199,7 @@ export async function activateTariffForClient(
     if (!existingUuid) return { ok: false, error: "Ошибка создания пользователя VPN", status: 502 };
 
     const currentSquads = extractCurrentSquads((await remnaGetUser(existingUuid)).data);
-    const activeInternalSquads = mergeSquads(tariff.internalSquadUuids, currentSquads);
+    const activeInternalSquads = await mergeSquads(tariff.internalSquadUuids, currentSquads);
     await remnaUpdateUser({ uuid: existingUuid, expireAt, trafficLimitBytes, trafficLimitStrategy, hwidDeviceLimit, activeInternalSquads });
     await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: existingUuid } });
   }

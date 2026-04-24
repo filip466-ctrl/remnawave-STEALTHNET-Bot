@@ -28,6 +28,7 @@ import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remn
 import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured } from "../mail/mail.service.js";
 import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
 import { activateTariffForClient, activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
+import { saveRedirectAndBuildUrl } from "../payment-redirect/payment-redirect.util.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
 import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
 import { buildSingboxSlotSubscriptionLink } from "../singbox/singbox-link.js";
@@ -438,31 +439,13 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
   }
 
   const configForDefaults = await getSystemConfig();
+  // Если Remna-пользователь уже существует (например, создан ботом раньше) — используем его;
+  // иначе создаём с remnawaveUuid=null, Remna-юзер будет создан при активации триала / покупке тарифа.
+  // Это предотвращает появление «истёкшей подписки» в UI сразу после регистрации.
   let remnawaveUuid: string | null = null;
   if (isRemnaConfigured()) {
-    // Сначала проверяем — может юзер уже есть в Remna (создан ботом или предыдущей попыткой)
     const byTgRes = await remnaGetUserByTelegramId(telegramId);
     remnawaveUuid = extractRemnaUuid(byTgRes.data);
-
-    if (!remnawaveUuid) {
-      const username = remnaUsernameFromClient({
-        telegramUsername: telegramUsername ?? undefined,
-        telegramId,
-      });
-      // Без активной подписки — как при регистрации по email; доступ после триала или оплаты
-      const remnaRes = await remnaCreateUser({
-        username,
-        trafficLimitBytes: 0,
-        trafficLimitStrategy: "NO_RESET",
-        expireAt: new Date(Date.now() - 1000).toISOString(),
-        telegramId: tgUser.id,
-      });
-      remnawaveUuid = extractRemnaUuid(remnaRes.data);
-      if (remnaRes.error || remnawaveUuid == null) {
-        console.error("[Remna] create user (telegram initData) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
-        return res.status(503).json({ message: "Сервис временно недоступен. Не удалось создать учётную запись VPN. Попробуйте позже." });
-      }
-    }
   }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
@@ -504,7 +487,7 @@ clientAuthRouter.get("/me", requireClientAuth, async (req, res) => {
   const client = (req as unknown as { client: { id: string } }).client;
   const full = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, yookassaPaymentMethodTitle: true, onboardingCompleted: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, autoRenewPromoCode: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, yookassaPaymentMethodTitle: true, onboardingCompleted: true, passwordHash: true },
   });
   if (!full) return res.status(401).json({ message: "Unauthorized" });
   return res.json(toClientShape(full));
@@ -528,8 +511,10 @@ function toClientShape(c: {
   createdAt?: Date;
   autoRenewEnabled?: boolean;
   autoRenewTariffId?: string | null;
+  autoRenewPromoCode?: string | null;
   yookassaPaymentMethodTitle?: string | null;
   onboardingCompleted?: boolean;
+  passwordHash?: string | null;
 }) {
   return {
     id: c.id,
@@ -549,8 +534,10 @@ function toClientShape(c: {
     createdAt: c.createdAt ? c.createdAt.toISOString() : undefined,
     autoRenewEnabled: c.autoRenewEnabled ?? false,
     autoRenewTariffId: c.autoRenewTariffId ?? null,
+    autoRenewPromoCode: c.autoRenewPromoCode ?? null,
     yookassaPaymentMethodTitle: c.yookassaPaymentMethodTitle ?? null,
     onboardingCompleted: c.onboardingCompleted ?? true,
+    hasPassword: Boolean(c.passwordHash && c.passwordHash.trim()),
   };
 }
 
@@ -612,20 +599,12 @@ clientAuthRouter.post("/google", async (req, res) => {
   }
 
   const configForDefaults = await getSystemConfig();
+  // Если есть Remna-юзер с такой почтой — используем его; иначе оставляем remnawaveUuid=null,
+  // Remna-юзер будет создан при активации триала / покупке тарифа.
   let remnawaveUuid: string | null = null;
-  if (isRemnaConfigured()) {
-    const username = remnaUsernameFromClient({ email: googleEmail });
-    const remnaRes = await remnaCreateUser({
-      username,
-      trafficLimitBytes: 0,
-      trafficLimitStrategy: "NO_RESET",
-      expireAt: new Date(Date.now() - 1000).toISOString(),
-    });
-    remnawaveUuid = extractRemnaUuid(remnaRes.data);
-    if (remnaRes.error || remnawaveUuid == null) {
-      console.error("[Remna] create user (google) failed:", { error: remnaRes.error, data: remnaRes.data });
-      return res.status(503).json({ message: "Service temporarily unavailable" });
-    }
+  if (isRemnaConfigured() && googleEmail?.trim()) {
+    const byEmailRes = await remnaGetUserByEmail(googleEmail.trim());
+    remnawaveUuid = extractRemnaUuid(byEmailRes.data);
   }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
@@ -698,20 +677,12 @@ clientAuthRouter.post("/apple", async (req, res) => {
   }
 
   const configForDefaults = await getSystemConfig();
+  // Если есть Remna-юзер с такой почтой — используем его; иначе оставляем remnawaveUuid=null,
+  // Remna-юзер будет создан при активации триала / покупке тарифа.
   let remnawaveUuid: string | null = null;
-  if (isRemnaConfigured()) {
-    const username = remnaUsernameFromClient({ email: appleEmail });
-    const remnaRes = await remnaCreateUser({
-      username,
-      trafficLimitBytes: 0,
-      trafficLimitStrategy: "NO_RESET",
-      expireAt: new Date(Date.now() - 1000).toISOString(),
-    });
-    remnawaveUuid = extractRemnaUuid(remnaRes.data);
-    if (remnaRes.error || remnawaveUuid == null) {
-      console.error("[Remna] create user (apple) failed:", { error: remnaRes.error, data: remnaRes.data });
-      return res.status(503).json({ message: "Service temporarily unavailable" });
-    }
+  if (isRemnaConfigured() && appleEmail?.trim()) {
+    const byEmailRes = await remnaGetUserByEmail(appleEmail.trim());
+    remnawaveUuid = extractRemnaUuid(byEmailRes.data);
   }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
@@ -1156,6 +1127,7 @@ clientRouter.patch("/profile", async (req, res) => {
 const updateAutoRenewSchema = z.object({
   enabled: z.boolean().optional(),
   tariffId: z.string().nullable().optional(),
+  promoCode: z.string().max(50).nullable().optional(),
 });
 
 clientRouter.patch("/auto-renew", async (req, res) => {
@@ -1163,19 +1135,32 @@ clientRouter.patch("/auto-renew", async (req, res) => {
   const body = updateAutoRenewSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
 
-  const updates: { autoRenewEnabled?: boolean; autoRenewTariffId?: string | null } = {};
+  const updates: { autoRenewEnabled?: boolean; autoRenewTariffId?: string | null; autoRenewPromoCode?: string | null } = {};
   if (body.data.enabled !== undefined) updates.autoRenewEnabled = body.data.enabled;
   if (body.data.tariffId !== undefined) updates.autoRenewTariffId = body.data.tariffId;
+  if (body.data.promoCode !== undefined) {
+    const code = body.data.promoCode?.trim() ?? "";
+    // Пустая строка = удалить промокод из автопродления.
+    if (!code) {
+      updates.autoRenewPromoCode = null;
+    } else {
+      // Валидируем DISCOUNT-промокод прежде чем сохранять.
+      const result = await validatePromoCode(code, client.id);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      if (result.promo.type !== "DISCOUNT") return res.status(400).json({ message: "Для автопродления нужен промокод со скидкой" });
+      updates.autoRenewPromoCode = code;
+    }
+  }
 
   if (Object.keys(updates).length === 0) {
-    const current = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, createdAt: true, onboardingCompleted: true } });
+    const current = await prisma.client.findUnique({ where: { id: client.id }, select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, autoRenewPromoCode: true, createdAt: true, onboardingCompleted: true, passwordHash: true } });
     return res.json(current ? toClientShape(current) : { message: "Not found" });
   }
 
   const updated = await prisma.client.update({
     where: { id: client.id },
     data: updates,
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, createdAt: true, onboardingCompleted: true },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, autoRenewPromoCode: true, createdAt: true, onboardingCompleted: true, passwordHash: true },
   });
   return res.json(toClientShape(updated));
 });
@@ -1211,15 +1196,67 @@ clientRouter.post("/link-telegram", async (req, res) => {
   if (!tgUser) return res.status(400).json({ message: "Нет данных пользователя" });
   const telegramId = String(tgUser.id);
   const telegramUsername = tgUser.username?.trim() ?? null;
-  const other = await prisma.client.findUnique({ where: { telegramId } });
-  if (other && other.id !== client.id) {
-    return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Сначала войдите в тот аккаунт и отвяжите Telegram, либо обратитесь в поддержку." });
-  }
-  const updated = await prisma.client.update({
-    where: { id: client.id },
-    data: { telegramId, telegramUsername },
-    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, createdAt: true, onboardingCompleted: true },
+  const other = await prisma.client.findUnique({
+    where: { telegramId },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      googleId: true,
+      appleId: true,
+      remnawaveUuid: true,
+      balance: true,
+      _count: { select: { payments: true, ownedSubscriptions: true } },
+    },
   });
+  if (other && other.id !== client.id) {
+    // Проверяем: "другой" клиент — это пустой автосоздавшийся через /start в боте
+    // (нет email/OAuth/пароля, без платежей, без дополнительных подписок, нулевой баланс)?
+    // Если да — безопасно удаляем и переносим telegramId (и remnawaveUuid, если есть) на текущего.
+    const isEmptyBotClone =
+      !other.email &&
+      !other.passwordHash &&
+      !other.googleId &&
+      !other.appleId &&
+      other.balance === 0 &&
+      other._count.payments === 0 &&
+      other._count.ownedSubscriptions === 0;
+    if (!isEmptyBotClone) {
+      return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Сначала войдите в тот аккаунт и отвяжите Telegram, либо обратитесь в поддержку." });
+    }
+    // Сливаем: переносим remnawaveUuid (если есть и у нас пусто) и удаляем пустого клона.
+    const keepRemna = other.remnawaveUuid ?? null;
+    await prisma.$transaction(async (tx) => {
+      await tx.client.delete({ where: { id: other.id } });
+      await tx.client.update({
+        where: { id: client.id },
+        data: {
+          telegramId,
+          telegramUsername,
+          // Только если у текущего клиента нет своего remnawaveUuid — берём из клона.
+          ...(keepRemna ? { remnawaveUuid: { set: keepRemna } } : {}),
+        },
+      });
+    }).catch(async (e) => {
+      console.error("[link-telegram] merge failed:", e);
+      // Фолбэк: если транзакция упала, попробуем без переноса remnawaveUuid.
+      await prisma.client.update({ where: { id: client.id }, data: { telegramId, telegramUsername } });
+    });
+    // Если у текущего клиента уже был свой remnawaveUuid — не перезаписываем его клоновым.
+    const current = await prisma.client.findUnique({ where: { id: client.id }, select: { remnawaveUuid: true } });
+    if (current?.remnawaveUuid && keepRemna && current.remnawaveUuid !== keepRemna) {
+      // Уже был свой uuid, транзакция выше его перезаписала — откатываем на родной.
+      // (Это крайний edge case, нормальный путь: у текущего клиента uuid=null, клон имеет uuid, берём клоновый.)
+      await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: current.remnawaveUuid } });
+    }
+  } else {
+    await prisma.client.update({ where: { id: client.id }, data: { telegramId, telegramUsername } });
+  }
+  const updated = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, createdAt: true, onboardingCompleted: true, passwordHash: true },
+  });
+  if (!updated) return res.status(500).json({ message: "Не удалось привязать Telegram" });
   return res.json({ client: toClientShape(updated) });
 });
 
@@ -1322,6 +1359,30 @@ clientRouter.post("/trial", async (req, res) => {
   if (workingUuid) {
     const userRes = await remnaGetUser(workingUuid);
     const currentExpireAt = extractCurrentExpireAt(userRes.data);
+
+    // Защита от перезаписи платной подписки: если у клиента уже активна подписка
+    // (expireAt в будущем) с непустыми squads, которые НЕ равны [trialSquadUuid],
+    // значит действует платный/подарочный тариф. Триал не должен затирать его параметры
+    // (squads, traffic limit, device limit).
+    const resp = (userRes.data && typeof userRes.data === "object"
+      ? ((userRes.data as Record<string, unknown>).response ?? (userRes.data as Record<string, unknown>).data ?? userRes.data)
+      : null) as Record<string, unknown> | null;
+    const currentSquadsRaw = Array.isArray(resp?.activeInternalSquads) ? (resp?.activeInternalSquads as unknown[]) : [];
+    const currentSquads: string[] = [];
+    for (const s of currentSquadsRaw) {
+      const u = s && typeof s === "object" && "uuid" in s ? (s as Record<string, unknown>).uuid : s;
+      if (typeof u === "string") currentSquads.push(u);
+    }
+    const hasActivePaidSub =
+      currentExpireAt != null &&
+      currentSquads.length > 0 &&
+      !(currentSquads.length === 1 && currentSquads[0] === trialSquadUuid);
+    if (hasActivePaidSub) {
+      return res.status(400).json({
+        message: "Бесплатный тест нельзя активировать — у вас уже есть активная подписка.",
+      });
+    }
+
     const expireAt = calculateExpireAt(currentExpireAt, trialDays);
 
     const updateRes = await remnaUpdateUser({
@@ -2107,13 +2168,10 @@ clientRouter.post("/payments/platega", async (req, res) => {
     data: { externalId: result.transactionId },
   });
 
-  // Записываем использование промокода
-  if (promoCodeRecord) {
-    await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
-  }
+  const paymentUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.paymentUrl, config.publicAppUrl);
 
   return res.status(201).json({
-    paymentUrl: result.paymentUrl,
+    paymentUrl,
     orderId,
     paymentId: payment.id,
     discountApplied: promoCodeRecord ? true : false,
@@ -2218,18 +2276,25 @@ clientRouter.post("/payments/balance", async (req, res) => {
   let promoCodeRecord: { id: string } | null = null;
   if (promoCodeStr?.trim()) {
     const result = await validatePromoCode(promoCodeStr.trim(), clientRaw.id);
-    if (!result.ok) return res.status(result.status).json({ message: result.error });
-    const promo = result.promo;
-    if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+    if (!result.ok) {
+      // Истёкший или удалённый промокод не должен блокировать оплату с баланса —
+      // просто игнорируем его и считаем полную цену. Остальные ошибки (лимит,
+      // уже использован, не даёт скидку) — блокируем.
+      const isStale = result.status === 404 || /истёк|not found/i.test(result.error);
+      if (!isStale) return res.status(result.status).json({ message: result.error });
+    } else {
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
 
-    if (promo.discountPercent && promo.discountPercent > 0) {
-      finalPrice = Math.max(0, finalPrice - finalPrice * promo.discountPercent / 100);
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        finalPrice = Math.max(0, finalPrice - finalPrice * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        finalPrice = Math.max(0, finalPrice - promo.discountFixed);
+      }
+      finalPrice = Math.round(finalPrice * 100) / 100;
+      promoCodeRecord = promo;
     }
-    if (promo.discountFixed && promo.discountFixed > 0) {
-      finalPrice = Math.max(0, finalPrice - promo.discountFixed);
-    }
-    finalPrice = Math.round(finalPrice * 100) / 100;
-    promoCodeRecord = promo;
   }
 
   // Проверяем баланс
@@ -2759,10 +2824,6 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     },
   });
 
-  if (yoomoneyPromoRecord) {
-    await prisma.promoCodeUsage.create({ data: { promoCodeId: yoomoneyPromoRecord.id, clientId } });
-  }
-
   const serviceName = config.serviceName?.trim() || "STEALTHNET";
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
   const successURL = appUrl ? `${appUrl}/cabinet?yoomoney_form=success` : "";
@@ -2786,7 +2847,8 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     label: payment.id.slice(0, 64),
     successURL,
   });
-  const paymentUrl = `https://yoomoney.ru/quickpay/confirm.xml?${params.toString()}`;
+  const rawPaymentUrl = `https://yoomoney.ru/quickpay/confirm.xml?${params.toString()}`;
+  const paymentUrl = await saveRedirectAndBuildUrl(payment.id, orderId, rawPaymentUrl, config.publicAppUrl);
 
   return res.status(201).json({
     paymentId: payment.id,
@@ -3033,14 +3095,11 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       return res.status(500).json({ message: result.error });
     }
 
-    // Записываем использование промокода
-    if (promoCodeRecord) {
-      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
-    }
+    const confirmationUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.confirmationUrl, config.publicAppUrl);
 
     return res.status(201).json({
       paymentId: payment.id,
-      confirmationUrl: result.confirmationUrl,
+      confirmationUrl,
       yookassaPaymentId: result.paymentId,
     });
   } catch (err) {
@@ -3239,14 +3298,11 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
       return res.status(500).json({ message: result.error });
     }
 
-    // Записываем использование промокода
-    if (promoCodeRecord) {
-      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
-    }
+    const payUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.payUrl, config.publicAppUrl);
 
     return res.status(201).json({
       paymentId: payment.id,
-      payUrl: result.payUrl,
+      payUrl,
       miniAppPayUrl: result.miniAppPayUrl,
       webAppPayUrl: result.webAppPayUrl,
     });
@@ -3420,14 +3476,11 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
       return res.status(500).json({ message: result.error });
     }
 
-    // Записываем использование промокода
-    if (promoCodeRecord) {
-      await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId } });
-    }
+    const payUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.url, config.publicAppUrl);
 
     return res.status(201).json({
       paymentId: payment.id,
-      payUrl: result.url,
+      payUrl,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -3824,15 +3877,60 @@ publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
     await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
     return res.status(400).json({ message: "Код истёк. Запросите новый в кабинете." });
   }
-  const other = await prisma.client.findUnique({ where: { telegramId: tid } });
-  if (other && other.id !== pending.clientId) {
-    await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
-    return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Отвяжите его сначала или обратитесь в поддержку." });
-  }
-  await prisma.client.update({
-    where: { id: pending.clientId },
-    data: { telegramId: tid, telegramUsername: (telegramUsername ?? "").trim() || null },
+  const other = await prisma.client.findUnique({
+    where: { telegramId: tid },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      googleId: true,
+      appleId: true,
+      remnawaveUuid: true,
+      balance: true,
+      _count: { select: { payments: true, ownedSubscriptions: true } },
+    },
   });
+  if (other && other.id !== pending.clientId) {
+    // Кейс PabloRuss77: юзер нажал /start в боте до ввода кода → авто-создался пустой клиент с
+    // этим telegramId. Если клон пустой — безопасно сливаем (переносим telegramId и
+    // remnawaveUuid, удаляем пустого клона).
+    const isEmptyBotClone =
+      !other.email &&
+      !other.passwordHash &&
+      !other.googleId &&
+      !other.appleId &&
+      other.balance === 0 &&
+      other._count.payments === 0 &&
+      other._count.ownedSubscriptions === 0;
+    if (!isEmptyBotClone) {
+      await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+      return res.status(409).json({ message: "Этот Telegram-аккаунт уже привязан к другому аккаунту. Отвяжите его сначала или обратитесь в поддержку." });
+    }
+    const target = await prisma.client.findUnique({ where: { id: pending.clientId }, select: { remnawaveUuid: true } });
+    const newRemnaUuid = target?.remnawaveUuid ?? other.remnawaveUuid ?? null;
+    await prisma.$transaction(async (tx) => {
+      await tx.client.delete({ where: { id: other.id } });
+      await tx.client.update({
+        where: { id: pending.clientId },
+        data: {
+          telegramId: tid,
+          telegramUsername: (telegramUsername ?? "").trim() || null,
+          ...(newRemnaUuid ? { remnawaveUuid: newRemnaUuid } : {}),
+        },
+      });
+    }).catch(async (e) => {
+      console.error("[link-telegram-from-bot] merge failed:", e);
+      await prisma.client.update({
+        where: { id: pending.clientId },
+        data: { telegramId: tid, telegramUsername: (telegramUsername ?? "").trim() || null },
+      }).catch(() => {});
+    });
+  } else {
+    await prisma.client.update({
+      where: { id: pending.clientId },
+      data: { telegramId: tid, telegramUsername: (telegramUsername ?? "").trim() || null },
+    });
+  }
   await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
   return res.json({ message: "Telegram привязан" });
 });
