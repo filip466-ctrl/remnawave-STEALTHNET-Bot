@@ -218,12 +218,12 @@ function SectionHeader({
 /* ── Stat Card (glass) ── */
 
 const ACCENT_MAP = {
-  primary: { iconText: "text-primary", spark: "hsl(var(--primary))" },
-  emerald: { iconText: "text-emerald-400", spark: "#10b981" },
-  amber: { iconText: "text-amber-400", spark: "#f59e0b" },
-  red: { iconText: "text-red-400", spark: "#ef4444" },
-  violet: { iconText: "text-violet-400", spark: "#a78bfa" },
-  cyan: { iconText: "text-cyan-400", spark: "#22d3ee" },
+  primary: { iconText: "text-primary", spark: "hsl(var(--primary))", glow: "hsl(var(--primary)/0.35)", iconBg: "from-primary/25 to-primary/5", bar: "from-primary to-primary/40" },
+  emerald: { iconText: "text-emerald-500 dark:text-emerald-400", spark: "#10b981", glow: "rgba(16,185,129,0.35)", iconBg: "from-emerald-500/25 to-emerald-500/5", bar: "from-emerald-500 to-emerald-500/40" },
+  amber: { iconText: "text-amber-500 dark:text-amber-400", spark: "#f59e0b", glow: "rgba(245,158,11,0.35)", iconBg: "from-amber-500/25 to-amber-500/5", bar: "from-amber-500 to-amber-500/40" },
+  red: { iconText: "text-red-500 dark:text-red-400", spark: "#ef4444", glow: "rgba(239,68,68,0.35)", iconBg: "from-red-500/25 to-red-500/5", bar: "from-red-500 to-red-500/40" },
+  violet: { iconText: "text-violet-500 dark:text-violet-400", spark: "#a78bfa", glow: "rgba(167,139,250,0.35)", iconBg: "from-violet-500/25 to-violet-500/5", bar: "from-violet-500 to-violet-500/40" },
+  cyan: { iconText: "text-cyan-500 dark:text-cyan-400", spark: "#22d3ee", glow: "rgba(34,211,238,0.35)", iconBg: "from-cyan-500/25 to-cyan-500/5", bar: "from-cyan-500 to-cyan-500/40" },
 } as const;
 
 function StatCard({
@@ -245,22 +245,42 @@ function StatCard({
 }) {
   const accent = ACCENT_MAP[accentColor];
   return (
-    <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
-      <Card className="relative overflow-hidden bg-background/60 backdrop-blur-3xl border-white/10 rounded-[2rem] p-5 shadow-xl hover:border-white/20 transition-all">
-        <div className="flex items-start justify-between gap-2">
-          <div>
+    <motion.div
+      custom={index}
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+    >
+      <Card
+        className="group relative overflow-hidden bg-background/60 backdrop-blur-3xl border-white/10 rounded-[2rem] p-5 shadow-xl hover:shadow-2xl hover:border-white/20 transition-all duration-300"
+        style={{ ["--card-glow" as string]: accent.glow }}
+      >
+        {/* Accent gradient orb in top-right */}
+        <div
+          className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full opacity-0 group-hover:opacity-60 blur-3xl transition-opacity duration-500"
+          style={{ background: `radial-gradient(circle, ${accent.glow}, transparent 70%)` }}
+        />
+        {/* Left accent bar */}
+        <div className={cn("absolute left-0 top-1/4 h-1/2 w-[3px] rounded-r-full bg-gradient-to-b opacity-70", accent.bar)} />
+        <div className="relative flex items-start justify-between gap-2">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">{title}</p>
             <div className="mt-2 text-2xl font-bold tracking-tight tabular-nums text-foreground">
               {value}
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground/80">{subtitle}</p>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary/15 to-purple-500/10 border border-white/10 flex items-center justify-center shadow-inner shrink-0">
+          <div className={cn(
+            "h-10 w-10 rounded-2xl bg-gradient-to-br border border-white/10 flex items-center justify-center shadow-inner shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3",
+            accent.iconBg,
+          )}>
             <Icon className={cn("h-5 w-5", accent.iconText)} />
           </div>
         </div>
         {sparkData && sparkData.length > 0 && (
-          <div className="mt-3 -mx-1 opacity-80">
+          <div className="relative mt-3 -mx-1 opacity-80 group-hover:opacity-100 transition-opacity">
             <Sparkline data={sparkData} color={accent.spark} height={36} width={120} />
           </div>
         )}
@@ -299,7 +319,7 @@ function ProgressBar({
           <span className="ml-2 text-[10px] text-muted-foreground/70">{percent.toFixed(1)}%</span>
         </span>
       </div>
-      <div className="h-2 bg-black/20 dark:bg-white/5 border border-white/5 rounded-full overflow-hidden">
+      <div className="h-2 bg-foreground/[0.06] dark:bg-white/5 border border-white/5 rounded-full overflow-hidden">
         <motion.div
           className={cn("h-full bg-gradient-to-r rounded-full", toneClass)}
           initial={{ width: 0 }}
@@ -343,15 +363,15 @@ function ServerStatsCard({ serverStats }: { serverStats: ServerStats }) {
             />
           )}
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <div className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3">
+            <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-3">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hostname</p>
               <p className="mt-1 font-semibold text-sm truncate">{serverStats.hostname}</p>
             </div>
-            <div className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3">
+            <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-3">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Платформа</p>
               <p className="mt-1 font-semibold text-sm truncate">{serverStats.platform} · {serverStats.arch}</p>
             </div>
-            <div className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3 col-span-2">
+            <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-3 col-span-2">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Load average</p>
               <p className="mt-1 font-semibold text-sm tabular-nums">
                 {serverStats.loadAvg.map((l) => l.toFixed(2)).join(" / ")}
@@ -463,13 +483,13 @@ function NodeCard({
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3">
+          <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-3">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Cpu className="h-3 w-3" /> CPU / RAM
             </span>
             <p className="mt-1 font-semibold text-sm tabular-nums">{formatNodeCpuRam(node)}</p>
           </div>
-          <div className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3">
+          <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-3">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Wifi className="h-3 w-3" /> Подключено
             </span>
@@ -692,22 +712,31 @@ export function DashboardPage() {
             <Activity className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/60">
+            <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-primary/80 to-foreground/60">
               {t("admin.dashboard.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{t("admin.dashboard.subtitle")}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => loadAll(true)}
-          disabled={loading || refreshing}
-          className="h-9 w-9 rounded-full hover:bg-white/10"
-          title="Обновить"
-        >
-          <RefreshCw className={cn("h-4 w-4 text-muted-foreground", refreshing && "animate-spin text-primary")} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 dark:text-emerald-400 px-3 py-1 text-[11px] font-medium backdrop-blur-md">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+            </span>
+            Live
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => loadAll(true)}
+            disabled={loading || refreshing}
+            className="h-9 w-9 rounded-full hover:bg-white/10"
+            title="Обновить"
+          >
+            <RefreshCw className={cn("h-4 w-4 text-muted-foreground", refreshing && "animate-spin text-primary")} />
+          </Button>
+        </div>
       </motion.div>
 
       {/* Manager warning */}
@@ -770,21 +799,26 @@ export function DashboardPage() {
           <Card className="relative overflow-hidden bg-background/60 backdrop-blur-3xl border-white/10 rounded-[2rem] p-6 shadow-xl">
             <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               {[
-                { label: t("admin.dashboard.total"), amount: stats?.sales.totalAmount ?? 0, count: stats?.sales.totalCount ?? 0 },
-                { label: t("admin.dashboard.today"), amount: stats?.sales.todayAmount ?? 0, count: stats?.sales.todayCount ?? 0 },
-                { label: t("admin.dashboard.7_days"), amount: stats?.sales.last7DaysAmount ?? 0, count: stats?.sales.last7DaysCount ?? 0 },
-                { label: t("admin.dashboard.30_days"), amount: stats?.sales.last30DaysAmount ?? 0, count: stats?.sales.last30DaysCount ?? 0 },
-                { label: t("admin.dashboard.90_days"), amount: sales90d as number, count: 0, isLast90: true },
+                { label: t("admin.dashboard.total"), amount: stats?.sales.totalAmount ?? 0, count: stats?.sales.totalCount ?? 0, gradient: "from-primary/15 to-primary/5", textColor: "text-primary" },
+                { label: t("admin.dashboard.today"), amount: stats?.sales.todayAmount ?? 0, count: stats?.sales.todayCount ?? 0, gradient: "from-emerald-500/15 to-emerald-500/5", textColor: "text-emerald-500 dark:text-emerald-400" },
+                { label: t("admin.dashboard.7_days"), amount: stats?.sales.last7DaysAmount ?? 0, count: stats?.sales.last7DaysCount ?? 0, gradient: "from-cyan-500/15 to-cyan-500/5", textColor: "text-cyan-500 dark:text-cyan-400" },
+                { label: t("admin.dashboard.30_days"), amount: stats?.sales.last30DaysAmount ?? 0, count: stats?.sales.last30DaysCount ?? 0, gradient: "from-violet-500/15 to-violet-500/5", textColor: "text-violet-500 dark:text-violet-400" },
+                { label: t("admin.dashboard.90_days"), amount: sales90d as number, count: 0, isLast90: true, gradient: "from-amber-500/15 to-amber-500/5", textColor: "text-amber-500 dark:text-amber-400" },
               ].map((item, i) => (
-                <div key={i} className="rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-3">
-                  <p className="text-[11px] text-muted-foreground">{item.label}</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums">
+                <motion.div
+                  key={i}
+                  whileHover={{ y: -2, scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  className={cn("relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-3 shadow-sm", item.gradient)}
+                >
+                  <p className={cn("text-[11px] font-medium", item.textColor)}>{item.label}</p>
+                  <p className="mt-1.5 text-lg font-extrabold tabular-nums tracking-tight text-foreground">
                     {stats || analyticsData ? <CountUpMoney value={item.amount} currency={defaultCurrency} /> : "—"}
                   </p>
                   <p className="text-[10px] text-muted-foreground/80 mt-0.5">
                     {item.isLast90 ? "90 days" : `${item.count} платежей`}
                   </p>
-                </div>
+                </motion.div>
               ))}
             </div>
 
@@ -793,7 +827,7 @@ export function DashboardPage() {
                 <p className="text-xs text-muted-foreground">{t("admin.dashboard.analytics_period")}</p>
                 <h3 className="text-base font-bold tracking-tight">Доход / новые пользователи</h3>
               </div>
-              <div className="flex items-center gap-1 bg-black/20 dark:bg-white/[0.02] p-1 rounded-xl border border-white/5">
+              <div className="flex items-center gap-1 bg-foreground/[0.03] dark:bg-white/[0.02] p-1 rounded-xl border border-white/5">
                 {[7, 30, 90].map((period) => {
                   const isActive = chartPeriod === period;
                   return (
@@ -814,7 +848,7 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 h-[320px] w-full rounded-2xl border border-white/5 bg-black/20 dark:bg-white/[0.02] p-4 backdrop-blur-md">
+            <div className="mt-4 h-[320px] w-full rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-4 backdrop-blur-md">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
