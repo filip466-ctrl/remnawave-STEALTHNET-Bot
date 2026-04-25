@@ -50,7 +50,7 @@ function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -286,28 +286,47 @@ export function ClientsPage() {
       <div className="fixed -z-10 bg-purple-500/10 blur-[100px] top-[20%] right-[-50px] w-[250px] h-[250px] rounded-full pointer-events-none" />
 
       {/* HEADER */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bg-background/40 backdrop-blur-3xl border border-white/10 p-6 rounded-[2rem] shadow-2xl"
+        className="relative overflow-hidden flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between bg-background/40 backdrop-blur-3xl border border-white/10 p-6 rounded-[2rem] shadow-2xl"
       >
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center shadow-inner border border-white/10">
-            <Users className="h-6 w-6 text-primary drop-shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
-          </div>
+        {/* Decorative gradient orb in corner */}
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary/20 via-purple-500/15 to-transparent blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-gradient-to-tr from-cyan-500/15 to-transparent blur-2xl pointer-events-none" />
+
+        <div className="relative flex items-center gap-4">
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 4 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/30 via-purple-500/20 to-cyan-500/15 flex items-center justify-center shadow-inner border border-white/10 shrink-0"
+          >
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 to-transparent" />
+            <Users className="relative h-7 w-7 text-primary" />
+          </motion.div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+            <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-primary to-foreground/70 dark:from-foreground dark:via-primary dark:to-foreground/60">
               {t("admin.clients.title")}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20 backdrop-blur-md">
-                Всего: {data?.total ?? 0}
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary border border-primary/20 backdrop-blur-md">
+                <Users className="h-3 w-3" />
+                Всего: <span className="tabular-nums">{data?.total ?? 0}</span>
               </span>
+              {data && data.items.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-md">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_#10b981]" />
+                  </span>
+                  Live
+                </span>
+              )}
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={loadClients} disabled={loading} className="h-8 w-8 rounded-full hover:bg-white/10">
-          <RefreshCw className={cn("h-4 w-4 text-muted-foreground transition-transform", loading && "animate-[spin_1.5s_linear_infinite] text-primary drop-shadow-[0_0_5px_rgba(var(--primary),0.5)]")} />
+        <Button variant="ghost" size="icon" onClick={loadClients} disabled={loading} className="relative h-9 w-9 rounded-full hover:bg-foreground/[0.06] dark:hover:bg-white/10">
+          <RefreshCw className={cn("h-4 w-4 text-muted-foreground transition-all", loading && "animate-[spin_1.5s_linear_infinite] text-primary")} />
         </Button>
       </motion.div>
 
@@ -321,17 +340,17 @@ export function ClientsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applySearch()}
-              className="pl-9 pr-20 bg-black/20 border-white/10 focus-visible:ring-primary/50 rounded-xl"
+              className="pl-9 pr-20 bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 focus-visible:ring-primary/50 rounded-xl"
             />
             <Button
               variant="secondary" size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-3 text-xs bg-white/10 hover:bg-white/20 text-white rounded-lg"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-3 text-xs bg-primary/15 hover:bg-primary/25 text-primary border border-primary/20 rounded-lg"
               onClick={applySearch}
             >
               {t("admin.clients.find")}
             </Button>
           </div>
-          <div className="flex items-center gap-2 bg-black/20 p-1 rounded-xl border border-white/5">
+          <div className="flex items-center gap-1 bg-foreground/[0.03] dark:bg-white/[0.02] p-1 rounded-xl border border-white/5">
             {(["all", "active", "blocked"] as const).map((f) => (
               <button
                 key={f}
@@ -340,7 +359,7 @@ export function ClientsPage() {
                   "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
                   filterBlocked === f
                     ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05] dark:hover:bg-white/5"
                 )}
               >
                 {f === "all" ? t("admin.clients.all") : f === "active" ? t("admin.clients.active") : t("admin.clients.blocked")}
@@ -372,7 +391,7 @@ export function ClientsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="text-xs uppercase bg-black/20 text-muted-foreground border-b border-white/10">
+              <thead className="text-xs uppercase bg-foreground/[0.04] dark:bg-white/[0.04] text-muted-foreground border-b border-white/10">
                 <tr>
                   <th className="px-6 py-4 rounded-tl-[2rem]">
                     <div className="h-4 w-4 rounded border border-white/20 bg-white/5" />
@@ -407,7 +426,7 @@ export function ClientsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20 text-primary border border-white/10">
-                            <User className="h-5 w-5 drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                            <User className="h-5 w-5" />
                           </div>
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
@@ -456,7 +475,7 @@ export function ClientsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEdit(c); }} title="Редактировать">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-foreground/[0.06] dark:hover:bg-white/10 hover:text-foreground" onClick={(e) => { e.stopPropagation(); openEdit(c); }} title="Редактировать">
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-500/20 text-destructive" onClick={(e) => { e.stopPropagation(); deleteClient(c); }} title="Удалить">
@@ -479,16 +498,16 @@ export function ClientsPage() {
             {page} / {totalPages}
           </span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(1)} className="h-8 w-8 p-0 rounded-lg bg-white/5 hover:bg-white/10 border-white/10">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(1)} className="h-8 w-8 p-0 rounded-lg bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border-white/10 rounded-lg">
               «
             </Button>
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 border-white/10">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-8 px-3 rounded-lg bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border-white/10 rounded-lg">
               {t("admin.common.back")}
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 border-white/10">
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 px-3 rounded-lg bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border-white/10 rounded-lg">
               {t("admin.sales.next")}
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="h-8 w-8 p-0 rounded-lg bg-white/5 hover:bg-white/10 border-white/10">
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="h-8 w-8 p-0 rounded-lg bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border-white/10 rounded-lg">
               »
             </Button>
           </div>
@@ -689,7 +708,7 @@ function ClientEditModal({
         {editing.remnawaveUuid && remnaUser && (
           <div className="px-6 pt-4 relative z-10">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-white/5 to-white/10 border border-white/10 p-5 space-y-1.5 hover:bg-white/10 transition-colors">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.05] dark:from-white/5 dark:to-white/10 border border-white/10 p-5 space-y-1.5 hover:from-foreground/[0.05] hover:to-foreground/[0.07] dark:hover:from-white/[0.08] dark:hover:to-white/[0.12] transition-colors">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("admin.clients.traffic")}</div>
                 <div className="text-lg font-bold">{formatTrafficBytes(trafficUsed)}</div>
                 {trafficLimit > 0 && (
@@ -707,19 +726,19 @@ function ClientEditModal({
                 )}
                 {trafficLimit === 0 && <div className="text-[11px] text-muted-foreground">{t("admin.clients.unlimited")}</div>}
               </div>
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-white/5 to-white/10 border border-white/10 p-5 space-y-1.5 hover:bg-white/10 transition-colors">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.05] dark:from-white/5 dark:to-white/10 border border-white/10 p-5 space-y-1.5 hover:from-foreground/[0.05] hover:to-foreground/[0.07] dark:hover:from-white/[0.08] dark:hover:to-white/[0.12] transition-colors">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("admin.clients.traffic_30d")}</div>
                 <div className="text-lg font-bold">{formatTrafficBytes(totalUsageLast30)}</div>
                 <div className="text-[11px] text-muted-foreground">{t("admin.clients.total_traffic")} {formatTrafficBytes(trafficLifetime)}</div>
               </div>
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-white/5 to-white/10 border border-white/10 p-5 space-y-1.5 hover:bg-white/10 transition-colors">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.05] dark:from-white/5 dark:to-white/10 border border-white/10 p-5 space-y-1.5 hover:from-foreground/[0.05] hover:to-foreground/[0.07] dark:hover:from-white/[0.08] dark:hover:to-white/[0.12] transition-colors">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("admin.clients.devices")}</div>
                 <div className="text-lg font-bold">{devicesTotal}</div>
                 <div className="text-[11px] text-muted-foreground">
                   {t("admin.clients.device_limit")} {remnaUser.hwidDeviceLimit != null ? remnaUser.hwidDeviceLimit : "—"}
                 </div>
               </div>
-              <div className="rounded-[1.5rem] bg-gradient-to-br from-white/5 to-white/10 border border-white/10 p-5 space-y-1.5 hover:bg-white/10 transition-colors">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.05] dark:from-white/5 dark:to-white/10 border border-white/10 p-5 space-y-1.5 hover:from-foreground/[0.05] hover:to-foreground/[0.07] dark:hover:from-white/[0.08] dark:hover:to-white/[0.12] transition-colors">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("admin.clients.status")}</div>
                 <div className="flex items-center gap-1.5">
                   <span className={cn("h-2 w-2 rounded-full", isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
@@ -736,20 +755,20 @@ function ClientEditModal({
 
         <div className="px-6 pt-4 pb-6 relative z-10">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full flex flex-wrap bg-black/20 border border-white/5 rounded-xl p-1">
-              <TabsTrigger value="profile" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
+            <TabsList className="w-full flex flex-wrap bg-foreground/[0.04] dark:bg-white/[0.04] border border-white/5 rounded-xl p-1">
+              <TabsTrigger value="profile" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
                 <User className="h-3.5 w-3.5" /> {t("admin.clients.info")}
               </TabsTrigger>
               {editing.remnawaveUuid && (
                 <>
-                  <TabsTrigger value="remna" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
+                  <TabsTrigger value="remna" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
                     <Settings className="h-3.5 w-3.5" /> {t("admin.clients.remna")}
                   </TabsTrigger>
-                  <TabsTrigger value="devices" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
+                  <TabsTrigger value="devices" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
                     <Smartphone className="h-3.5 w-3.5" /> {t("admin.clients.devices")}
                     {devicesTotal > 0 && <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-bold text-primary">{devicesTotal}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="actions" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-white/10 data-[state=active]:shadow-sm data-[state=active]:border-white/10 transition-all">
+                  <TabsTrigger value="actions" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
                     <Activity className="h-3.5 w-3.5" /> {t("admin.clients.actions")}
                   </TabsTrigger>
                 </>
@@ -826,7 +845,7 @@ function ClientEditModal({
                               : "Активна";
                         const relation = s.owner?.id === editing.id ? "Владелец" : "Получатель";
                         return (
-                          <div key={s.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-3 gap-3 transition-colors">
+                          <div key={s.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] px-4 py-3 gap-3 transition-colors">
                             <div className="min-w-0">
                               <div className="text-xs font-medium">
                                 #{s.subscriptionIndex ?? "—"} · {s.tariff?.name ?? "Тариф не указан"}
@@ -974,7 +993,7 @@ function ClientEditModal({
                     </p>
                   )}
                   <Button
-                    variant="outline" size="sm" className="mt-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-all"
+                    variant="outline" size="sm" className="mt-2 rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] shadow-sm transition-all"
                     onClick={onSetPassword}
                     disabled={savingPassword || !passwordForm.newPassword || passwordForm.newPassword.length < 8}
                   >
@@ -1097,7 +1116,7 @@ function ClientEditModal({
                         />
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="mt-3 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-all" onClick={onSaveRemnaLimits} disabled={saving}>
+                    <Button variant="outline" size="sm" className="mt-3 rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] shadow-sm transition-all" onClick={onSaveRemnaLimits} disabled={saving}>
                       {t("admin.clients.apply_limits")}
                     </Button>
                   </div>
@@ -1165,7 +1184,7 @@ function ClientEditModal({
                   {devices.length > 0 && (
                     <div className="space-y-2">
                       {devices.map((d) => (
-                        <div key={d.id || d.hwid} className="flex items-center justify-between rounded-[1.5rem] border border-white/10 bg-white/5 hover:bg-white/10 p-4 gap-3 transition-colors">
+                        <div key={d.id || d.hwid} className="flex items-center justify-between rounded-[1.5rem] border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] p-4 gap-3 transition-colors">
                           <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2">
                               <HardDrive className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -1200,7 +1219,7 @@ function ClientEditModal({
                   <h3 className="font-semibold text-sm">{t("admin.clients.quick_actions")}</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Button
-                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.subscription_revoked"), () => api.clientRemnaRevokeSubscription(token, editing.id))}
                     >
                       <Ticket className="h-4 w-4" /> {t("admin.clients.revoke_subscription")}
@@ -1218,13 +1237,13 @@ function ClientEditModal({
                       <ShieldCheck className="h-4 w-4" /> {t("admin.clients.enable_in_remna")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] transition-all"
                       onClick={() => onRemnaAction(t("admin.clients.traffic_reset_done"), () => api.clientRemnaResetTraffic(token, editing.id))}
                     >
                       <Wifi className="h-4 w-4" /> {t("admin.clients.reset_traffic")}
                     </Button>
                     <Button
-                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+                      variant="outline" className="justify-start gap-2 rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] transition-all"
                       onClick={() => { loadRemnaUser(); loadDevices(); loadUsage(); }}
                     >
                       <RefreshCw className="h-4 w-4" /> {t("admin.clients.refresh_data")}
@@ -1286,7 +1305,7 @@ function Select({
 }) {
   return (
     <select
-      className="flex h-9 w-full rounded-xl border border-white/10 bg-black/20 hover:bg-black/30 transition-colors px-3 py-1 text-sm shadow-sm"
+      className="flex h-9 w-full rounded-xl border border-white/10 bg-foreground/[0.04] dark:bg-white/[0.04] hover:bg-black/30 transition-colors px-3 py-1 text-sm shadow-sm"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
