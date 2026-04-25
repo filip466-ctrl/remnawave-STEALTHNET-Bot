@@ -384,7 +384,7 @@ export function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-foreground/10" />
                 <XAxis type="number" tick={{ fontSize: 11 }} className="text-muted-foreground" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} className="text-muted-foreground" />
-                <Tooltip content={<CustomTooltip />} formatter={(v: number | string) => [fmt(Number(v ?? 0)), "Доход"]} />
+                <Tooltip content={<CustomTooltip />} formatter={(v) => [fmt(Number(v ?? 0)), "Доход"]} />
                 <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Доход" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
