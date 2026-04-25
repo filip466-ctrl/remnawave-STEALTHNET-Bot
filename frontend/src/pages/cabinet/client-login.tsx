@@ -127,30 +127,21 @@ export function ClientLoginPage() {
     };
   }, [telegramBotUsername, tgPreToken, tgAuthPending]);
 
-  const handleTelegramLogin = useCallback(() => {
+  // onClick на <a target="_blank"> — браузер сам обработает навигацию (надёжнее window.open на iOS).
+  // Здесь только запускаем поллинг и обновляем state.
+  const handleTelegramLoginClick = useCallback(() => {
     if (!telegramBotUsername || tgAuthPending) return;
-    if (!tgPreToken) {
-      // Токен ещё не готов — пробуем ещё раз через 100мс
-      setError(t("cabinet.login.error_telegram"));
-      return;
-    }
+    if (!tgPreToken) return; // anchor disabled через href="#"
     setError("");
     setTgAuthPending(true);
     setShowTgFallback(false);
 
     const token = tgPreToken;
-    setTgPreToken(null); // токен использован — после поллинга получим новый
+    setTgPreToken(null); // после поллинга получим новый
 
-    // Синхронный window.open в обработчике клика — сохраняет user gesture для iOS Universal Links.
-    // Сервер делает 302 на https://t.me/BOT?start=auth_TOKEN, iOS открывает Telegram-app.
-    const redirectUrl = `/api/client/auth/telegram-login-redirect?token=${encodeURIComponent(token)}`;
-    window.open(redirectUrl, "_blank", "noopener,noreferrer");
-
-    // Через 15 секунд показываем фоллбэк-кнопку (веб-версия OAuth)
     if (tgFallbackTimerRef.current) clearTimeout(tgFallbackTimerRef.current);
     tgFallbackTimerRef.current = setTimeout(() => setShowTgFallback(true), 15_000);
 
-    // Поллинг каждые 2 секунды
     if (tgPollRef.current) clearInterval(tgPollRef.current);
     let attempts = 0;
     const maxAttempts = 150; // 5 минут
@@ -176,6 +167,10 @@ export function ClientLoginPage() {
       }
     }, 2000);
   }, [telegramBotUsername, tgAuthPending, tgPreToken, loginByTelegramDeepLink, navigate, t]);
+
+  const tgRedirectHref = tgPreToken
+    ? `/api/client/auth/telegram-login-redirect?token=${encodeURIComponent(tgPreToken)}`
+    : "#";
 
   // Обработка OAuth авторизации через Telegram (popup)
   const tgOAuthPopupRef = useRef<Window | null>(null);
@@ -486,24 +481,33 @@ export function ClientLoginPage() {
                   )}
                   {telegramBotUsername && (
                     <div className="space-y-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full h-11 gap-2"
-                        onClick={handleTelegramLogin}
-                        disabled={loading || tgAuthPending}
-                      >
-                        {tgAuthPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            {t("cabinet.login.telegram_pending")}
-                          </>
-                        ) : (
-                          <>
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                            {t("cabinet.login.telegram")}
-                          </>
-                        )}
+                      <Button asChild variant="outline" className="w-full h-11 gap-2">
+                        <a
+                          href={tgRedirectHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            if (loading || tgAuthPending || !tgPreToken) {
+                              e.preventDefault();
+                              return;
+                            }
+                            handleTelegramLoginClick();
+                          }}
+                          aria-disabled={loading || tgAuthPending || !tgPreToken}
+                          className={cn((loading || tgAuthPending || !tgPreToken) && "pointer-events-none opacity-50")}
+                        >
+                          {tgAuthPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              {t("cabinet.login.telegram_pending")}
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                              {t("cabinet.login.telegram")}
+                            </>
+                          )}
+                        </a>
                       </Button>
                       {showTgFallback && telegramBotId && (
                         <Button
