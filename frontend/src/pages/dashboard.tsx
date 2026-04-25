@@ -393,7 +393,7 @@ function ServerStatsCard({ serverStats }: { serverStats: ServerStats }) {
               {formatUptime(serverStats.uptimeSeconds)}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 text-[10px] font-medium">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 dark:text-emerald-400 px-3 py-1 text-[10px] font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
                 Online
               </span>
@@ -434,10 +434,10 @@ function NodeCard({
   const statusBadge = node.isDisabled
     ? "bg-gray-500/10 text-gray-400 border-gray-500/20"
     : node.isConnecting
-      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+      ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20"
       : node.isConnected
-        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-        : "bg-red-500/10 text-red-400 border-red-500/20";
+        ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20"
+        : "bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20";
 
   const dotColor = node.isDisabled
     ? "bg-gray-400"
@@ -515,7 +515,7 @@ function NodeCard({
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 bg-white/[0.02]"
+              className="flex-1 gap-2 border-emerald-500/30 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 bg-white/[0.02]"
               disabled={isBusy}
               onClick={() => onAction(node.uuid, "enable")}
             >
@@ -526,7 +526,7 @@ function NodeCard({
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 bg-white/[0.02]"
+              className="flex-1 gap-2 border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/50 bg-white/[0.02]"
               disabled={isBusy}
               onClick={() => onAction(node.uuid, "disable")}
             >
@@ -742,7 +742,7 @@ export function DashboardPage() {
       {/* Manager warning */}
       {admin?.role === "MANAGER" && (!admin.allowedSections || admin.allowedSections.length === 0) && (
         <motion.div
-          className="rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md px-4 py-3 text-sm text-amber-400"
+          className="rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md px-4 py-3 text-sm text-amber-500 dark:text-amber-400"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -753,7 +753,7 @@ export function DashboardPage() {
       {/* Error display */}
       {error && (
         <motion.div
-          className="rounded-2xl border border-red-500/30 bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-400"
+          className="rounded-2xl border border-red-500/30 bg-red-500/10 backdrop-blur-md px-4 py-3 text-sm text-red-500 dark:text-red-400"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
         >
