@@ -204,8 +204,6 @@ export function PromoCodesPage() {
     return s?.name || uuid.slice(0, 8) + "…";
   };
 
-  const typeLabel = (type: string) => type === "DISCOUNT" ? "Скидка" : "Бесплатные дни";
-
   function TypeBadge({ type }: { type: string }) {
     if (type === "DISCOUNT") {
       return (
