@@ -45,15 +45,15 @@ function giftStatusBadge(status: string | null): { label: string; className: str
     case "":
       return { label: "Доступна", className: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shadow-sm backdrop-blur-md" };
     case "ACTIVATED_SELF":
-      return { label: "Своя", className: "bg-green-500/15 text-green-400 border border-green-500/20 shadow-sm backdrop-blur-md" };
+      return { label: "Своя", className: "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 shadow-sm backdrop-blur-md" };
     case "GIFT_RESERVED":
       return { label: "Резерв", className: "bg-amber-500/15 text-amber-400 border border-amber-500/20 shadow-sm backdrop-blur-md" };
     case "GIFT_CODE_ACTIVE":
-      return { label: "Код активен", className: "bg-blue-500/15 text-blue-400 border border-blue-500/20 shadow-sm backdrop-blur-md" };
+      return { label: "Код активен", className: "bg-blue-500/15 text-blue-500 dark:text-blue-400 border border-blue-500/20 shadow-sm backdrop-blur-md" };
     case "GIFTED":
       return { label: "Подарена", className: "bg-purple-500/15 text-purple-400 border border-purple-500/20 shadow-sm backdrop-blur-md" };
     default:
-      return { label: status, className: "bg-white/10 text-muted-foreground border border-white/20 shadow-sm backdrop-blur-md" };
+      return { label: status, className: "bg-foreground/[0.06] dark:bg-white/10 text-muted-foreground border border-white/20 shadow-sm backdrop-blur-md" };
   }
 }
 
@@ -280,33 +280,49 @@ export function AdminSecondarySubscriptionsPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="rounded-[2rem] border border-white/10 bg-background/40 backdrop-blur-3xl p-6 sm:p-7 relative overflow-hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-2xl"
+        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-background/40 backdrop-blur-3xl p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-2xl"
       >
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-purple-500/5 pointer-events-none" />
+        {/* Decorative gradient orbs */}
+        <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-gradient-to-br from-primary/20 via-pink-500/15 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-tr from-cyan-500/15 to-transparent blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex items-center gap-5">
-          <div className="h-16 w-16 flex items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/10 shadow-inner">
-            <Gift className="h-8 w-8 text-primary drop-shadow-[0_0_10px_rgba(var(--primary),0.8)]" />
-          </div>
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: -4 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="relative h-16 w-16 flex items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-primary/30 via-pink-500/20 to-purple-500/15 border border-white/10 shadow-inner shrink-0"
+          >
+            <div className="absolute inset-0 rounded-[1.5rem] bg-gradient-to-br from-primary/10 to-transparent" />
+            <Gift className="relative h-8 w-8 text-primary" />
+          </motion.div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 drop-shadow-sm">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-primary to-foreground/70 dark:from-foreground dark:via-primary dark:to-foreground/60">
               Дополнительные подписки
             </h1>
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm font-medium">
-              <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-foreground/80 shadow-sm backdrop-blur-md">
-                Всего: {data?.total || 0}
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-sm font-medium">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[11px] font-semibold text-primary backdrop-blur-md">
+                <Gift className="h-3 w-3" />
+                Всего: <span className="tabular-nums">{data?.total || 0}</span>
               </span>
+              {data && data.items.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 backdrop-blur-md">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_#10b981]" />
+                  </span>
+                  Live
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         <div className="relative z-10">
-          <Button 
-            onClick={openCreateDialog} 
-            className="h-12 px-6 rounded-2xl shadow-[0_0_20px_rgba(var(--primary),0.2)] hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] transition-all duration-300 border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary font-bold backdrop-blur-xl overflow-hidden group"
+          <Button
+            onClick={openCreateDialog}
+            className="h-11 px-5 rounded-2xl gap-2 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold group"
           >
-            <Plus className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
             Создать подарок
           </Button>
         </div>
@@ -353,11 +369,11 @@ export function AdminSecondarySubscriptionsPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={handleSearch} className="h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors px-5">
+              <Button variant="secondary" onClick={handleSearch} className="h-11 rounded-xl bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border border-white/10 transition-colors px-5">
                 <Search className="mr-2 h-4 w-4" />
                 Найти
               </Button>
-              <Button variant="ghost" onClick={handleResetFilters} className="h-11 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5">
+              <Button variant="ghost" onClick={handleResetFilters} className="h-11 rounded-xl text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05] dark:hover:bg-white/5">
                 Сброс
               </Button>
             </div>
@@ -384,14 +400,14 @@ export function AdminSecondarySubscriptionsPage() {
               </Button>
             )}
           </div>
-          <Button variant="ghost" size="icon" onClick={fetchItems} disabled={loading} className="h-8 w-8 rounded-full hover:bg-white/10">
-            <RefreshCw className={cn("h-4 w-4 text-muted-foreground transition-transform", loading && "animate-[spin_1.5s_linear_infinite] text-primary drop-shadow-[0_0_5px_rgba(var(--primary),0.5)]")} />
+          <Button variant="ghost" size="icon" onClick={fetchItems} disabled={loading} className="h-8 w-8 rounded-full hover:bg-foreground/[0.06] dark:hover:bg-white/10">
+            <RefreshCw className={cn("h-4 w-4 text-muted-foreground transition-transform", loading && "animate-[spin_1.5s_linear_infinite] text-primary")} />
           </Button>
         </div>
 
         <div className="overflow-x-auto relative z-10 min-h-[200px]">
           <table className="w-full text-sm text-left">
-            <thead className="bg-black/20 border-b border-white/10">
+            <thead className="bg-foreground/[0.04] dark:bg-white/[0.04] border-b border-white/10">
               <tr>
                 <th className="px-5 py-4 w-12 text-center">
                   <Checkbox
@@ -426,7 +442,7 @@ export function AdminSecondarySubscriptionsPage() {
                 <tr>
                   <td colSpan={8} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center justify-center space-y-3">
-                      <div className="h-16 w-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-2 shadow-inner">
+                      <div className="h-16 w-16 rounded-full bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/10 flex items-center justify-center mb-2 shadow-inner">
                         <Gift className="h-8 w-8 text-muted-foreground/30" />
                       </div>
                       <span className="text-sm font-medium text-foreground/70">Подписок не найдено</span>
@@ -451,7 +467,7 @@ export function AdminSecondarySubscriptionsPage() {
                         "transition-all duration-200 group cursor-pointer border-l-[3px] border-l-transparent",
                         isSelected 
                           ? "bg-primary/10 border-l-primary/50 hover:bg-primary/15" 
-                          : "hover:bg-white/5 hover:border-l-primary/30"
+                          : "hover:bg-foreground/[0.05] dark:hover:bg-white/5 hover:border-l-primary/30"
                       )}
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
@@ -510,10 +526,10 @@ export function AdminSecondarySubscriptionsPage() {
                             </span>
                             <button
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(item.latestGiftCode!.code); }}
-                              className="w-7 h-7 rounded-md bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 hover:border-primary/30 flex items-center justify-center transition-all opacity-0 group-hover/code:opacity-100 shadow-sm"
+                              className="w-7 h-7 rounded-md bg-foreground/[0.04] dark:bg-white/5 hover:bg-primary/15 hover:text-primary border border-white/5 hover:border-primary/30 flex items-center justify-center transition-all opacity-0 group-hover/code:opacity-100 shadow-sm"
                             >
                               {copiedCode === item.latestGiftCode.code ? (
-                                <Check className="h-3.5 w-3.5 text-green-400" />
+                                <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                               ) : (
                                 <Copy className="h-3.5 w-3.5" />
                               )}
@@ -523,10 +539,10 @@ export function AdminSecondarySubscriptionsPage() {
                       </td>
                       <td className="px-5 py-4 text-right relative z-10">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 border border-white/10 hover:border-blue-500/30 transition-all shadow-sm" onClick={(e) => { e.stopPropagation(); openDetail(item.id); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl bg-foreground/[0.04] dark:bg-white/5 hover:bg-blue-500/15 hover:text-blue-400 border border-white/10 hover:border-blue-500/30 transition-all shadow-sm" onClick={(e) => { e.stopPropagation(); openDetail(item.id); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl bg-white/5 hover:bg-destructive/20 text-muted-foreground hover:text-destructive border border-white/10 hover:border-destructive/30 transition-all shadow-sm" onClick={(e) => { e.stopPropagation(); handleDeleteSingle(item.id); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl bg-foreground/[0.04] dark:bg-white/5 hover:bg-destructive/15 text-muted-foreground hover:text-destructive border border-white/10 hover:border-destructive/30 transition-all shadow-sm" onClick={(e) => { e.stopPropagation(); handleDeleteSingle(item.id); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -548,7 +564,7 @@ export function AdminSecondarySubscriptionsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-colors"
+                className="rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] shadow-sm transition-colors"
                 disabled={data.page <= 1}
                 onClick={() => setFilters((p) => ({ ...p, page: p.page! - 1 }))}
               >
@@ -557,7 +573,7 @@ export function AdminSecondarySubscriptionsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-xl border-white/10 bg-white/5 hover:bg-white/10 shadow-sm transition-colors"
+                className="rounded-xl border-white/10 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] shadow-sm transition-colors"
                 disabled={data.page >= data.totalPages}
                 onClick={() => setFilters((p) => ({ ...p, page: p.page! + 1 }))}
               >
@@ -573,7 +589,7 @@ export function AdminSecondarySubscriptionsPage() {
           <div className="absolute top-0 right-0 w-[500px] h-[300px] bg-primary/10 blur-[100px] pointer-events-none rounded-full" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[300px] bg-purple-500/10 blur-[100px] pointer-events-none rounded-full" />
           
-          <div className="p-6 border-b border-white/10 relative z-10 bg-white/5">
+          <div className="p-6 border-b border-white/10 relative z-10 bg-foreground/[0.03] dark:bg-white/5">
             <DialogHeader>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-inner">
@@ -627,15 +643,15 @@ export function AdminSecondarySubscriptionsPage() {
                     <User className="h-3.5 w-3.5 text-primary" /> Владелец
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm relative z-10">
-                    <div className="bg-white/5 border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-white/10">
+                    <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-foreground/[0.06] dark:group-hover:bg-white/10">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Telegram ID</span>
                       <span className="font-mono">{detailData.owner.telegramId || "—"}</span>
                     </div>
-                    <div className="bg-white/5 border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-white/10">
+                    <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-foreground/[0.06] dark:group-hover:bg-white/10">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Username</span>
                       <span className="font-medium text-foreground/90">{detailData.owner.telegramUsername ? `@${detailData.owner.telegramUsername}` : "—"}</span>
                     </div>
-                    <div className="bg-white/5 border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-white/10">
+                    <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4 transition-colors group-hover:bg-foreground/[0.06] dark:group-hover:bg-white/10">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Email</span>
                       <span className="font-medium text-foreground/90">{detailData.owner.email || "—"}</span>
                     </div>
@@ -645,20 +661,20 @@ export function AdminSecondarySubscriptionsPage() {
                 <div className="rounded-[1.5rem] bg-gradient-to-br from-background/80 to-background/40 backdrop-blur-xl border border-white/10 p-5 shadow-sm relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] pointer-events-none rounded-full" />
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.25em] text-foreground/80 flex items-center gap-2.5 mb-5">
-                    <Activity className="h-3.5 w-3.5 text-blue-400" /> Данные Remnawave
+                    <Activity className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" /> Данные Remnawave
                   </h3>
                   {detailData.remnaData ? (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm relative z-10">
-                      <div className="bg-white/5 border border-white/5 rounded-xl p-4">
+                      <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-2">Статус</span>
                         <span className={cn(
                           "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
-                          detailData.remnaData.status === "active" ? "bg-green-500/15 text-green-400 border border-green-500/20 shadow-sm backdrop-blur-md" : "bg-red-500/15 text-red-400 border border-red-500/20 shadow-sm backdrop-blur-md"
+                          detailData.remnaData.status === "active" ? "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 shadow-sm backdrop-blur-md" : "bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/20 shadow-sm backdrop-blur-md"
                         )}>
                           {String(detailData.remnaData.status || "unknown")}
                         </span>
                       </div>
-                      <div className="bg-white/5 border border-white/5 rounded-xl p-4">
+                      <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Истекает</span>
                         <span className="font-medium text-foreground/80">
                           {detailData.remnaData.expireAt 
@@ -666,11 +682,11 @@ export function AdminSecondarySubscriptionsPage() {
                             : "—"}
                         </span>
                       </div>
-                      <div className="bg-white/5 border border-white/5 rounded-xl p-4">
+                      <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Трафик</span>
                         <span className="font-mono text-foreground/80">{String(detailData.remnaData.usedTraffic || "0")} / {String(detailData.remnaData.trafficLimit || "∞")}</span>
                       </div>
-                      <div className="bg-white/5 border border-white/5 rounded-xl p-4">
+                      <div className="bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/5 rounded-xl p-4">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Устройства</span>
                         <span className="font-mono text-foreground/80">{String(detailData.remnaData.devices || "0")}</span>
                       </div>
@@ -690,7 +706,7 @@ export function AdminSecondarySubscriptionsPage() {
                     </h3>
                     <div className="space-y-4 relative z-10">
                       {detailData.giftCodes.map((code) => (
-                        <div key={code.id} className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm grid grid-cols-1 sm:grid-cols-2 gap-4 transition-colors hover:bg-white/10 hover:border-white/20 shadow-sm">
+                        <div key={code.id} className="p-4 bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/10 rounded-xl text-sm grid grid-cols-1 sm:grid-cols-2 gap-4 transition-colors hover:bg-foreground/[0.06] dark:hover:bg-white/10 hover:border-white/20 shadow-sm">
                           <div className="flex flex-col gap-2">
                             <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Код</span>
                             <div className="flex items-center gap-3">
@@ -699,9 +715,9 @@ export function AdminSecondarySubscriptionsPage() {
                               </span>
                               <span className={cn(
                                 "text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider",
-                                code.status === "ACTIVE" ? "bg-blue-500/15 text-blue-400 border border-blue-500/20 shadow-sm backdrop-blur-md" : 
+                                code.status === "ACTIVE" ? "bg-blue-500/15 text-blue-500 dark:text-blue-400 border border-blue-500/20 shadow-sm backdrop-blur-md" : 
                                 code.status === "REDEEMED" ? "bg-purple-500/15 text-purple-400 border border-purple-500/20 shadow-sm backdrop-blur-md" : 
-                                "bg-white/10 text-muted-foreground border border-white/20 shadow-sm backdrop-blur-md"
+                                "bg-foreground/[0.06] dark:bg-white/10 text-muted-foreground border border-white/20 shadow-sm backdrop-blur-md"
                               )}>
                                 {code.status}
                               </span>
@@ -751,10 +767,10 @@ export function AdminSecondarySubscriptionsPage() {
                             <div className="bg-background border-2 border-primary/30 rounded-full p-1.5 shadow-[0_0_10px_rgba(var(--primary),0.3)] mt-0.5 relative z-10">
                               <div className="text-foreground/80">{evData.icon}</div>
                             </div>
-                            <div className="flex-1 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-[1rem] p-4 shadow-sm">
+                            <div className="flex-1 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] transition-colors border border-white/10 rounded-[1rem] p-4 shadow-sm">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-sm font-bold text-foreground/90">{evData.label}</span>
-                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground bg-foreground/[0.04] dark:bg-white/[0.04] px-2 py-1 rounded-md border border-white/5">
                                   {new Date(event.createdAt).toLocaleString("ru-RU", { 
                                     day: '2-digit', month: '2-digit', year: 'numeric',
                                     hour: '2-digit', minute: '2-digit'
@@ -784,7 +800,7 @@ export function AdminSecondarySubscriptionsPage() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] pointer-events-none rounded-full" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[80px] pointer-events-none rounded-full" />
           
-          <div className="p-6 border-b border-white/10 relative z-10 bg-white/5">
+          <div className="p-6 border-b border-white/10 relative z-10 bg-foreground/[0.03] dark:bg-white/5">
             <DialogHeader>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/10 flex items-center justify-center shadow-inner">
@@ -814,20 +830,20 @@ export function AdminSecondarySubscriptionsPage() {
                     transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
                     className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-2"
                   >
-                    <CheckCircle2 className="h-8 w-8 text-green-400 drop-shadow-md" />
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500 dark:text-emerald-400" />
                   </motion.div>
-                  <p className="text-base font-bold text-green-400">Подарочный код создан!</p>
+                  <p className="text-base font-bold text-emerald-500 dark:text-emerald-400">Подарочный код создан!</p>
                   
                   <div className="flex items-center justify-center gap-3 bg-black/40 p-4 rounded-xl border border-white/10 shadow-inner group">
-                    <span className="font-mono text-2xl text-primary font-bold tracking-[0.2em] drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]">
+                    <span className="font-mono text-2xl text-primary font-bold tracking-[0.2em]">
                       {createResult.code}
                     </span>
                     <Button 
                       size="icon" 
-                      className="h-10 w-10 rounded-xl bg-white/5 hover:bg-primary/20 text-muted-foreground hover:text-primary border border-white/10 transition-all group-hover:border-primary/30" 
+                      className="h-10 w-10 rounded-xl bg-foreground/[0.04] dark:bg-white/5 hover:bg-primary/15 text-muted-foreground hover:text-primary border border-white/10 transition-all group-hover:border-primary/30" 
                       onClick={() => copyToClipboard(createResult.code)}
                     >
-                      {copiedCode === createResult.code ? <Check className="h-5 w-5 text-green-400" /> : <Copy className="h-5 w-5" />}
+                      {copiedCode === createResult.code ? <Check className="h-5 w-5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="h-5 w-5" />}
                     </Button>
                   </div>
                   
@@ -835,7 +851,7 @@ export function AdminSecondarySubscriptionsPage() {
                     Действует до: {new Date(createResult.expiresAt).toLocaleString("ru-RU")}
                   </p>
                 </div>
-                <Button className="w-full h-12 rounded-2xl font-bold bg-white/10 hover:bg-white/20 text-foreground border border-white/10 transition-all shadow-sm" onClick={() => setCreateOpen(false)}>
+                <Button className="w-full h-12 rounded-2xl font-bold bg-foreground/[0.05] dark:bg-white/10 hover:bg-foreground/[0.08] dark:hover:bg-white/[0.15] text-foreground border border-white/10 transition-all shadow-sm" onClick={() => setCreateOpen(false)}>
                   Закрыть
                 </Button>
               </motion.div>
@@ -874,22 +890,22 @@ export function AdminSecondarySubscriptionsPage() {
                             onKeyDown={(e) => { if (e.key === "Enter") searchClients(); }}
                           />
                         </div>
-                        <Button variant="secondary" className="h-11 rounded-xl px-4 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors" onClick={searchClients} disabled={createClientsLoading}>
+                        <Button variant="secondary" className="h-11 rounded-xl px-4 bg-foreground/[0.03] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.08] border border-white/10 transition-colors" onClick={searchClients} disabled={createClientsLoading}>
                           {createClientsLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : "Найти"}
                         </Button>
                       </div>
                       {createClients.length > 0 && (
-                        <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-black/20 divide-y divide-white/5 mt-2 custom-scrollbar shadow-inner">
+                        <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-foreground/[0.04] dark:bg-white/[0.04] divide-y divide-white/5 mt-2 custom-scrollbar shadow-inner">
                           {createClients.map((c) => (
                             <button
                               key={c.id}
-                              className="w-full text-left px-4 py-3 text-sm hover:bg-white/10 focus:bg-white/10 outline-none transition-colors flex items-center gap-3 group"
+                              className="w-full text-left px-4 py-3 text-sm hover:bg-foreground/[0.06] dark:hover:bg-white/10 focus:bg-foreground/[0.06] dark:focus:bg-white/10 outline-none transition-colors flex items-center gap-3 group"
                               onClick={() => {
                                 setCreateSelectedClient(c);
                                 setCreateClients([]);
                               }}
                             >
-                              <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/30 transition-colors">
+                              <div className="w-6 h-6 rounded-full bg-foreground/[0.03] dark:bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/30 transition-colors">
                                 <User className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <span className="font-medium text-foreground/80 group-hover:text-foreground transition-colors truncate">
@@ -924,7 +940,7 @@ export function AdminSecondarySubscriptionsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between ml-1">
                     <Label className="text-[11px] font-bold uppercase tracking-[0.1em] text-foreground/80">Сообщение</Label>
-                    <span className="text-[10px] font-bold text-muted-foreground bg-white/5 px-2 py-0.5 rounded-full border border-white/5">{createMessage.length}/200</span>
+                    <span className="text-[10px] font-bold text-muted-foreground bg-foreground/[0.04] dark:bg-white/5 px-2 py-0.5 rounded-full border border-white/5">{createMessage.length}/200</span>
                   </div>
                   <Textarea
                     placeholder="Напишите приятные слова получателю... (необязательно)"
@@ -950,9 +966,9 @@ export function AdminSecondarySubscriptionsPage() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1000 ease-in-out" />
                   {createLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin drop-shadow-md" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <Gift className="h-5 w-5 drop-shadow-md group-hover:scale-110 transition-transform" />
+                    <Gift className="h-5 w-5 group-hover:scale-110 transition-transform" />
                   )}
                   {createLoading ? "Создание..." : "Сгенерировать код"}
                 </Button>
