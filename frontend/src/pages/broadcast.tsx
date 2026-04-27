@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type BroadcastResult } from "@/lib/api";
+import { api, type BroadcastResult, type BroadcastProgress } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ export function BroadcastPage() {
   const [broadcastButtonCustomUrl, setBroadcastButtonCustomUrl] = useState("");
   const [broadcastLoading, setBroadcastLoading] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<BroadcastResult | null>(null);
+  const [broadcastProgress, setBroadcastProgress] = useState<BroadcastProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,9 +69,13 @@ export function BroadcastPage() {
     }
     setBroadcastLoading(true);
     setBroadcastResult(null);
+    setBroadcastProgress(null);
     try {
       const resolvedAction = broadcastButtonAction === "__custom_url__" ? broadcastButtonCustomUrl.trim() : broadcastButtonAction;
-      const r: BroadcastResult = await api.broadcast(
+      // Фронтенд больше не ждёт окончания рассылки в одном HTTP-запросе
+      // (для больших аудиторий упирались в таймаут) — бэкенд ставит задачу
+      // в фон и отдаёт jobId, а дальше опрашиваем статус до завершения.
+      const { jobId } = await api.broadcast(
         token,
         {
           channel: broadcastChannel,
@@ -81,8 +86,9 @@ export function BroadcastPage() {
         },
         broadcastAttachment ?? undefined
       );
-      setBroadcastResult(r);
-      if (r.ok) {
+      const finalResult = await pollBroadcastJob(jobId);
+      setBroadcastResult(finalResult);
+      if (finalResult.ok) {
         setBroadcastMessage("");
         setBroadcastSubject("");
         setBroadcastAttachment(null);
@@ -102,7 +108,42 @@ export function BroadcastPage() {
       });
     } finally {
       setBroadcastLoading(false);
+      setBroadcastProgress(null);
     }
+  }
+
+  async function pollBroadcastJob(jobId: string): Promise<BroadcastResult> {
+    // Опрашиваем до получения статуса completed/error. Ставим мягкий таймаут
+    // на 30 минут — для очень больших рассылок (60мс × тысячи TG + 200мс × email).
+    const deadline = Date.now() + 30 * 60 * 1000;
+    while (Date.now() < deadline) {
+      try {
+        const s = await api.broadcastStatus(token, jobId);
+        if (s.progress) setBroadcastProgress(s.progress);
+        if (s.status === "completed" && s.result) return s.result;
+        if (s.status === "error") {
+          return {
+            ok: false,
+            sentTelegram: s.progress?.sentTelegram ?? 0,
+            sentEmail: s.progress?.sentEmail ?? 0,
+            failedTelegram: s.progress?.failedTelegram ?? 0,
+            failedEmail: s.progress?.failedEmail ?? 0,
+            errors: [s.error || "Ошибка рассылки"],
+          };
+        }
+      } catch {
+        // сеть моргнула — повторим
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    return {
+      ok: false,
+      sentTelegram: 0,
+      sentEmail: 0,
+      failedTelegram: 0,
+      failedEmail: 0,
+      errors: ["Превышен таймаут опроса статуса. Рассылка, возможно, всё ещё идёт — проверьте позже."],
+    };
   }
 
   return (
@@ -291,8 +332,12 @@ export function BroadcastPage() {
 
           <Button type="submit" disabled={broadcastLoading || !broadcastMessage.trim()} className="gap-2 rounded-xl">
             {broadcastLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {broadcastLoading ? "Отправка…" : "Отправить рассылку"}
+            {broadcastLoading ? "Рассылка идёт…" : "Отправить рассылку"}
           </Button>
+
+          {broadcastLoading && broadcastProgress && !broadcastResult && (
+            <BroadcastProgressPanel progress={broadcastProgress} />
+          )}
 
           {broadcastResult && (
             <motion.div
@@ -330,5 +375,63 @@ export function BroadcastPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+function BroadcastProgressPanel({ progress }: { progress: BroadcastProgress }) {
+  const tgDone = progress.sentTelegram + progress.failedTelegram;
+  const emailDone = progress.sentEmail + progress.failedEmail;
+  const tgPct = progress.totalTelegram > 0 ? Math.min(100, Math.round((tgDone / progress.totalTelegram) * 100)) : 0;
+  const emailPct = progress.totalEmail > 0 ? Math.min(100, Math.round((emailDone / progress.totalEmail) * 100)) : 0;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm backdrop-blur-md space-y-3"
+    >
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <p className="font-medium">
+          Рассылка идёт{progress.currentChannel === "telegram" ? " — Telegram" : progress.currentChannel === "email" ? " — Email" : ""}…
+        </p>
+      </div>
+      {progress.totalTelegram > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" /> Telegram</span>
+            <span>
+              <strong className="text-foreground">{tgDone}</strong> / {progress.totalTelegram}
+              {progress.failedTelegram > 0 && <span className="ml-2 text-amber-500">ошибок {progress.failedTelegram}</span>}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${tgPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {progress.totalEmail > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Email</span>
+            <span>
+              <strong className="text-foreground">{emailDone}</strong> / {progress.totalEmail}
+              {progress.failedEmail > 0 && <span className="ml-2 text-amber-500">ошибок {progress.failedEmail}</span>}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-cyan-500 transition-all duration-300"
+              style={{ width: `${emailPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {progress.totalTelegram === 0 && progress.totalEmail === 0 && (
+        <p className="text-xs text-muted-foreground">Подготавливаем получателей…</p>
+      )}
+    </motion.div>
   );
 }

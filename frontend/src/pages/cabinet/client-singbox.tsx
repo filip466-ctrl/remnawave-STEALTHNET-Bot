@@ -75,6 +75,8 @@ export function ClientSingboxPage() {
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
   const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
   const [heleketEnabled, setHeleketEnabled] = useState(false);
+  const [lavaEnabled, setLavaEnabled] = useState(false);
+  const [overpayEnabled, setOverpayEnabled] = useState(false);
   const [paymentProviders, setPaymentProviders] = useState<{ id: string; label: string; sortOrder: number }[]>([]);
   const [payModal, setPayModal] = useState<SingboxTariff | null>(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -100,6 +102,8 @@ export function ClientSingboxPage() {
       setYookassaEnabled(Boolean(c.yookassaEnabled));
       setCryptopayEnabled(Boolean(c.cryptopayEnabled));
       setHeleketEnabled(Boolean(c.heleketEnabled));
+      setLavaEnabled(Boolean(c.lavaEnabled));
+      setOverpayEnabled(Boolean(c.overpayEnabled));
       setPaymentProviders(c.paymentProviders ?? []);
     }).catch(() => { });
   }, []);
@@ -211,6 +215,42 @@ export function ClientSingboxPage() {
         singboxTariffId: tariff.id,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket" });
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startLavaPayment(tariff: SingboxTariff) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.lavaCreatePayment(token, {
+        amount: tariff.price,
+        currency: tariff.currency,
+        singboxTariffId: tariff.id,
+      });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "LAVA" });
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function startOverpayPayment(tariff: SingboxTariff) {
+    if (!token) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.overpayCreatePayment(token, {
+        amount: tariff.price,
+        currency: tariff.currency,
+        singboxTariffId: tariff.id,
+      });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Overpay" });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -354,6 +394,8 @@ export function ClientSingboxPage() {
                 heleket: { bg10: "bg-orange-500/10", bg20: "group-hover:bg-orange-500/20", text: "text-orange-500" },
                 yookassa: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
                 yoomoney: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
+                lava: { bg10: "bg-sky-500/10", bg20: "group-hover:bg-sky-500/20", text: "text-sky-500" },
+                overpay: { bg10: "bg-indigo-500/10", bg20: "group-hover:bg-indigo-500/20", text: "text-indigo-500" },
               };
 
               type ProviderEntry = { id: string; enabled: boolean; onClick: () => void; label: string; icon: "crypto" | "card" };
@@ -362,6 +404,8 @@ export function ClientSingboxPage() {
                 { id: "heleket", enabled: heleketEnabled, onClick: () => startHeleketPayment(payModal), label: providerLabel("heleket", "Heleket"), icon: "crypto" },
                 { id: "yookassa", enabled: yookassaEnabled && payModal.currency.toUpperCase() === "RUB", onClick: () => startYookassaPayment(payModal), label: providerLabel("yookassa", "СБП / Карты РФ"), icon: "card" },
                 { id: "yoomoney", enabled: yoomoneyEnabled && payModal.currency.toUpperCase() === "RUB", onClick: () => startYoomoneyPayment(payModal), label: providerLabel("yoomoney", "ЮMoney / Карты"), icon: "card" },
+                { id: "lava", enabled: lavaEnabled && payModal.currency.toUpperCase() === "RUB", onClick: () => startLavaPayment(payModal), label: providerLabel("lava", "LAVA"), icon: "card" },
+                { id: "overpay", enabled: overpayEnabled, onClick: () => startOverpayPayment(payModal), label: providerLabel("overpay", "Overpay"), icon: "card" },
               ];
 
               const sortedProviders = paymentProviders.length > 0

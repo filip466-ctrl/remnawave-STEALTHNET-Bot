@@ -199,6 +199,8 @@ export function SettingsPage() {
   const [yookassaWebhookCopied, setYookassaWebhookCopied] = useState(false);
   const [cryptopayWebhookCopied, setCryptopayWebhookCopied] = useState(false);
   const [heleketWebhookCopied, setHeleketWebhookCopied] = useState(false);
+  const [lavaWebhookCopied, setLavaWebhookCopied] = useState(false);
+  const [overpayWebhookCopied, setOverpayWebhookCopied] = useState(false);
   const [defaultSubpageConfig, setDefaultSubpageConfig] = useState<SubscriptionPageConfig | null>(null);
   const [autoRenewStats, setAutoRenewStats] = useState<AutoRenewStats | null>(null);
   const defaultJourneySteps = [
@@ -583,6 +585,13 @@ export function SettingsPage() {
         cryptopayTestnet: settings.cryptopayTestnet ?? false,
         heleketMerchantId: settings.heleketMerchantId ?? null,
         heleketApiKey: settings.heleketApiKey && settings.heleketApiKey !== "********" ? settings.heleketApiKey : undefined,
+        lavaShopId: settings.lavaShopId ?? null,
+        lavaSecretKey: settings.lavaSecretKey && settings.lavaSecretKey !== "********" ? settings.lavaSecretKey : undefined,
+        lavaAdditionalKey: settings.lavaAdditionalKey && settings.lavaAdditionalKey !== "********" ? settings.lavaAdditionalKey : undefined,
+        overpayApiUrl: settings.overpayApiUrl ?? null,
+        overpayProjectId: settings.overpayProjectId ?? null,
+        overpayLogin: settings.overpayLogin ?? null,
+        overpayPassword: settings.overpayPassword && settings.overpayPassword !== "********" ? settings.overpayPassword : undefined,
         groqApiKey: settings.groqApiKey && settings.groqApiKey !== "********" ? settings.groqApiKey : undefined,
         groqModel: settings.groqModel ?? undefined,
         groqFallback1: settings.groqFallback1 ?? undefined,
@@ -2676,6 +2685,204 @@ export function SettingsPage() {
                           placeholder={t("admin.settings.heleket_key_placeholder")}
                         />
                         <p className="text-xs text-muted-foreground">{t("admin.settings.heleket_key_hint")}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <Button type="submit" disabled={saving} className="min-w-[140px]">
+                        {saving ? t("admin.settings.saving") : t("admin.settings.save")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Collapsible defaultOpen={false} className="group mt-4">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-t-lg text-left transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <CardHeader className="pointer-events-none [&_.chevron]:transition-transform [&_.chevron]:duration-200 group-data-[state=open]:[&_.chevron]:rotate-180">
+                      <div className="flex items-center justify-between pr-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-primary" />
+                          <CardTitle>LAVA</CardTitle>
+                          <span className="text-xs font-normal text-muted-foreground">{t("admin.settings.lava_desc_short")}</span>
+                        </div>
+                        <ChevronDown className="chevron h-5 w-5 shrink-0 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t("admin.settings.lava_register")}
+                      </p>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label>{t("admin.settings.lava_webhook")}</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={(settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/lava` : t("admin.settings.specify_url_hint")}
+                          className="font-mono text-sm bg-muted/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={async () => {
+                            const url = (settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/lava` : "";
+                            if (url && navigator.clipboard) {
+                              await navigator.clipboard.writeText(url);
+                              setLavaWebhookCopied(true);
+                              setTimeout(() => setLavaWebhookCopied(false), 2000);
+                            }
+                          }}
+                          disabled={!(settings.publicAppUrl ?? "").trim()}
+                          title={t("admin.settings.copy")}
+                        >
+                          {lavaWebhookCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{t("admin.settings.lava_webhook_hint")}</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.settings.lava_desc")}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t("admin.settings.lava_shop_id")}</Label>
+                        <Input
+                          value={settings.lavaShopId ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, lavaShopId: e.target.value || null } : s))}
+                          placeholder="00000000-0000-0000-0000-000000000000"
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.lava_shop_id_hint")}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("admin.settings.lava_secret_key")}</Label>
+                        <Input
+                          type="password"
+                          value={settings.lavaSecretKey ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, lavaSecretKey: e.target.value || null } : s))}
+                          placeholder={t("admin.settings.lava_secret_key_placeholder")}
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.lava_secret_key_hint")}</p>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>{t("admin.settings.lava_additional_key")}</Label>
+                        <Input
+                          type="password"
+                          value={settings.lavaAdditionalKey ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, lavaAdditionalKey: e.target.value || null } : s))}
+                          placeholder={t("admin.settings.lava_additional_key_placeholder")}
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.lava_additional_key_hint")}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <Button type="submit" disabled={saving} className="min-w-[140px]">
+                        {saving ? t("admin.settings.saving") : t("admin.settings.save")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Collapsible defaultOpen={false} className="group mt-4">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-t-lg text-left transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <CardHeader className="pointer-events-none [&_.chevron]:transition-transform [&_.chevron]:duration-200 group-data-[state=open]:[&_.chevron]:rotate-180">
+                      <div className="flex items-center justify-between pr-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-primary" />
+                          <CardTitle>Overpay</CardTitle>
+                          <span className="text-xs font-normal text-muted-foreground">{t("admin.settings.overpay_desc_short")}</span>
+                        </div>
+                        <ChevronDown className="chevron h-5 w-5 shrink-0 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t("admin.settings.overpay_register")}
+                      </p>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label>{t("admin.settings.overpay_webhook")}</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={(settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/overpay` : t("admin.settings.specify_url_hint")}
+                          className="font-mono text-sm bg-muted/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={async () => {
+                            const url = (settings.publicAppUrl ?? "").replace(/\/$/, "") ? `${(settings.publicAppUrl ?? "").replace(/\/$/, "")}/api/webhooks/overpay` : "";
+                            if (url && navigator.clipboard) {
+                              await navigator.clipboard.writeText(url);
+                              setOverpayWebhookCopied(true);
+                              setTimeout(() => setOverpayWebhookCopied(false), 2000);
+                            }
+                          }}
+                          disabled={!(settings.publicAppUrl ?? "").trim()}
+                          title={t("admin.settings.copy")}
+                        >
+                          {overpayWebhookCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{t("admin.settings.overpay_webhook_hint")}</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.settings.overpay_desc")}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>{t("admin.settings.overpay_api_url")}</Label>
+                        <Input
+                          value={settings.overpayApiUrl ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, overpayApiUrl: e.target.value || null } : s))}
+                          placeholder="https://api.overpay.io"
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.overpay_api_url_hint")}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("admin.settings.overpay_project_id")}</Label>
+                        <Input
+                          value={settings.overpayProjectId ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, overpayProjectId: e.target.value || null } : s))}
+                          placeholder="1234"
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.overpay_project_id_hint")}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("admin.settings.overpay_login")}</Label>
+                        <Input
+                          value={settings.overpayLogin ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, overpayLogin: e.target.value || null } : s))}
+                          placeholder="api-login"
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.overpay_login_hint")}</p>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>{t("admin.settings.overpay_password")}</Label>
+                        <Input
+                          type="password"
+                          value={settings.overpayPassword ?? ""}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, overpayPassword: e.target.value || null } : s))}
+                          placeholder={t("admin.settings.overpay_password_placeholder")}
+                        />
+                        <p className="text-xs text-muted-foreground">{t("admin.settings.overpay_password_hint")}</p>
                       </div>
                     </div>
                     <div className="pt-2 border-t">

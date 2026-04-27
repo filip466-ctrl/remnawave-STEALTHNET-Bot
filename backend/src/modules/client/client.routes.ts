@@ -37,6 +37,16 @@ import { getAuthUrl, exchangeCodeForToken, requestPayment, processPayment } from
 import { createYookassaPayment } from "../yookassa/yookassa.service.js";
 import { createCryptopayInvoice, isCryptopayConfigured } from "../cryptopay/cryptopay.service.js";
 import { createHeleketInvoice, isHeleketConfigured } from "../heleket/heleket.service.js";
+import { createLavaInvoice, isLavaConfigured } from "../lava/lava.service.js";
+import { createOverpayPayformOrder, isOverpayConfigured } from "../overpay/overpay.service.js";
+import { applyPersonalDiscount } from "./personal-discount.js";
+import { uploadTicketAttachment } from "../../lib/upload.js";
+import {
+  filesToAttachments,
+  serializeAttachments,
+  parseAttachments,
+  pickField,
+} from "../ticket/attachments.js";
 
 /** Извлекает текущий expireAt из ответа Remna. Возвращает Date если в будущем, иначе null. */
 function extractCurrentExpireAt(data: unknown): Date | null {
@@ -2132,6 +2142,18 @@ clientRouter.post("/payments/platega", async (req, res) => {
     return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
   }
 
+  // Персональная скидка клиента (админ мог выдать). Применяется к продуктовым
+  // оплатам (тариф/прокси/singbox/кастомный билд/опции), но НЕ к чистому пополнению.
+  const isTopupOnlyPlatega = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+  let personalDiscountPercent = 0;
+  if (!isTopupOnlyPlatega) {
+    const pd = await applyPersonalDiscount(finalAmount, clientId);
+    if (pd.personalDiscountPercent > 0) {
+      finalAmount = pd.amount;
+      personalDiscountPercent = pd.personalDiscountPercent;
+    }
+  }
+
   // Применяем промокод на скидку (не для опций по умолчанию, можно разрешить — тогда скидка с опции)
   let promoCodeRecord: { id: string } | null = null;
   if (promoCodeStr?.trim() && !extraOption) {
@@ -2186,9 +2208,15 @@ clientRouter.post("/payments/platega", async (req, res) => {
       ? `Опция ${serviceName} #${orderId}`
       : `Пополнение баланса ${serviceName} #${orderId}`;
 
-  const paymentMeta = metadataExtra
-    ? { ...metadataExtra, ...(promoCodeRecord ? { promoCodeId: promoCodeRecord.id, originalAmount: finalAmount } : {}) }
-    : (promoCodeRecord ? { promoCodeId: promoCodeRecord.id, originalAmount: originalAmount ?? finalAmount } : null);
+  const personalDiscountMeta = personalDiscountPercent > 0 ? { personalDiscountPercent } : null;
+  const paymentMetaObj: Record<string, unknown> = {};
+  if (metadataExtra) Object.assign(paymentMetaObj, metadataExtra);
+  if (promoCodeRecord) {
+    paymentMetaObj.promoCodeId = promoCodeRecord.id;
+    paymentMetaObj.originalAmount = metadataExtra ? finalAmount : (originalAmount ?? finalAmount);
+  }
+  if (personalDiscountMeta) Object.assign(paymentMetaObj, personalDiscountMeta);
+  const paymentMeta = Object.keys(paymentMetaObj).length > 0 ? paymentMetaObj : null;
   const payment = await prisma.payment.create({
     data: {
       clientId,
@@ -2258,34 +2286,40 @@ clientRouter.post("/payments/balance", async (req, res) => {
     if (!tariff || !tariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
     const clientDb = await prisma.client.findUnique({ where: { id: clientRaw.id } });
     if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
-    if (clientDb.balance < tariff.price) {
-      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${tariff.price.toFixed(2)}` });
+    // Персональная скидка админа (баланс — такой же канал оплаты, как и другие).
+    const pd = await applyPersonalDiscount(tariff.price, clientRaw.id);
+    const finalProxyPrice = pd.amount;
+    if (clientDb.balance < finalProxyPrice) {
+      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalProxyPrice.toFixed(2)}` });
     }
     const payment = await prisma.payment.create({
       data: {
         clientId: clientRaw.id,
         orderId: randomUUID(),
-        amount: tariff.price,
+        amount: finalProxyPrice,
         currency: tariff.currency.toUpperCase(),
         status: "PAID",
         provider: "balance",
         proxyTariffId: tariff.id,
         paidAt: new Date(),
+        metadata: pd.personalDiscountPercent > 0
+          ? JSON.stringify({ personalDiscountPercent: pd.personalDiscountPercent, originalPrice: tariff.price })
+          : null,
       },
     });
     const proxyResult = await createProxySlotsByPaymentId(payment.id);
     if (!proxyResult.ok) return res.status(proxyResult.status).json({ message: proxyResult.error });
     await prisma.client.update({
       where: { id: clientRaw.id },
-      data: { balance: { decrement: tariff.price } },
+      data: { balance: { decrement: finalProxyPrice } },
     });
     const { distributeReferralRewards } = await import("../referral/referral.service.js");
     await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] Error:", e));
     const { notifyProxySlotsCreated } = await import("../notification/telegram-notify.service.js");
     await notifyProxySlotsCreated(clientRaw.id, proxyResult.slotIds, tariff.name).catch(() => {});
     return res.json({
-      message: `Прокси «${tariff.name}» оплачены! Списано ${tariff.price.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
-      newBalance: clientDb.balance - tariff.price,
+      message: `Прокси «${tariff.name}» оплачены! Списано ${finalProxyPrice.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+      newBalance: clientDb.balance - finalProxyPrice,
     });
   }
 
@@ -2294,34 +2328,39 @@ clientRouter.post("/payments/balance", async (req, res) => {
     if (!tariff || !tariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
     const clientDb = await prisma.client.findUnique({ where: { id: clientRaw.id } });
     if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
-    if (clientDb.balance < tariff.price) {
-      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${tariff.price.toFixed(2)}` });
+    const pd = await applyPersonalDiscount(tariff.price, clientRaw.id);
+    const finalSingboxPrice = pd.amount;
+    if (clientDb.balance < finalSingboxPrice) {
+      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalSingboxPrice.toFixed(2)}` });
     }
     const payment = await prisma.payment.create({
       data: {
         clientId: clientRaw.id,
         orderId: randomUUID(),
-        amount: tariff.price,
+        amount: finalSingboxPrice,
         currency: tariff.currency.toUpperCase(),
         status: "PAID",
         provider: "balance",
         singboxTariffId: tariff.id,
         paidAt: new Date(),
+        metadata: pd.personalDiscountPercent > 0
+          ? JSON.stringify({ personalDiscountPercent: pd.personalDiscountPercent, originalPrice: tariff.price })
+          : null,
       },
     });
     const singboxResult = await createSingboxSlotsByPaymentId(payment.id);
     if (!singboxResult.ok) return res.status(singboxResult.status).json({ message: singboxResult.error });
     await prisma.client.update({
       where: { id: clientRaw.id },
-      data: { balance: { decrement: tariff.price } },
+      data: { balance: { decrement: finalSingboxPrice } },
     });
     const { distributeReferralRewards } = await import("../referral/referral.service.js");
     await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] Error:", e));
     const { notifySingboxSlotsCreated } = await import("../notification/telegram-notify.service.js");
     await notifySingboxSlotsCreated(clientRaw.id, singboxResult.slotIds, tariff.name).catch(() => {});
     return res.json({
-      message: `Доступы «${tariff.name}» оплачены! Списано ${tariff.price.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
-      newBalance: clientDb.balance - tariff.price,
+      message: `Доступы «${tariff.name}» оплачены! Списано ${finalSingboxPrice.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+      newBalance: clientDb.balance - finalSingboxPrice,
     });
   }
 
@@ -2344,7 +2383,13 @@ clientRouter.post("/payments/balance", async (req, res) => {
     selectedOption = { id: sorted[0].id, durationDays: sorted[0].durationDays, price: sorted[0].price };
   }
 
-  let finalPrice = selectedOption?.price ?? tariff.price;
+  const basePriceForTariff = selectedOption?.price ?? tariff.price;
+  let finalPrice = basePriceForTariff;
+
+  // Персональная скидка админа — применяется первой.
+  const pdTariff = await applyPersonalDiscount(finalPrice, clientRaw.id);
+  finalPrice = pdTariff.amount;
+  const tariffPersonalDiscount = pdTariff.personalDiscountPercent;
 
   // Промокод на скидку
   let promoCodeRecord: { id: string } | null = null;
@@ -2391,6 +2436,12 @@ clientRouter.post("/payments/balance", async (req, res) => {
 
   // Создаём запись об оплате
   const orderId = randomUUID();
+  const tariffMeta: Record<string, unknown> = {};
+  if (promoCodeRecord) Object.assign(tariffMeta, { promoCodeId: promoCodeRecord.id, originalPrice: basePriceForTariff });
+  if (tariffPersonalDiscount > 0) {
+    tariffMeta.personalDiscountPercent = tariffPersonalDiscount;
+    if (!tariffMeta.originalPrice) tariffMeta.originalPrice = basePriceForTariff;
+  }
   const payment = await prisma.payment.create({
     data: {
       clientId: clientRaw.id,
@@ -2402,7 +2453,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
       tariffId,
       tariffPriceOptionId: selectedOption?.id ?? null,
       paidAt: new Date(),
-      metadata: promoCodeRecord ? JSON.stringify({ promoCodeId: promoCodeRecord.id, originalPrice: tariff.price }) : null,
+      metadata: Object.keys(tariffMeta).length > 0 ? JSON.stringify(tariffMeta) : null,
     },
   });
 
@@ -2479,6 +2530,12 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
   }
 
   let finalPrice = amount;
+
+  // Персональная скидка админа применяется первой.
+  const pdCustom = await applyPersonalDiscount(finalPrice, clientRaw.id);
+  finalPrice = pdCustom.amount;
+  const customPersonalDiscount = pdCustom.personalDiscountPercent;
+
   let promoCodeRecord: { id: string } | null = null;
   if (parsed.data.promoCode?.trim()) {
     const result = await validatePromoCode(parsed.data.promoCode.trim(), clientRaw.id);
@@ -2511,6 +2568,7 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
       internalSquadUuids: [cfg.squadUuid],
     },
     ...(promoCodeRecord && { promoCodeId: promoCodeRecord.id, originalPrice: amount }),
+    ...(customPersonalDiscount > 0 && { personalDiscountPercent: customPersonalDiscount, originalPrice: amount }),
   });
 
   const orderId = randomUUID();
@@ -2602,8 +2660,15 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
 
   const clientDb = await prisma.client.findUnique({ where: { id: clientRaw } });
   if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
-  if (clientDb.balance < price) {
-    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${price.toFixed(2)}` });
+
+  const pdOption = await applyPersonalDiscount(price, clientDb.id);
+  const finalOptionPrice = pdOption.amount;
+  if (clientDb.balance < finalOptionPrice) {
+    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalOptionPrice.toFixed(2)}` });
+  }
+  if (pdOption.personalDiscountPercent > 0) {
+    (metadataExtra as Record<string, unknown>).personalDiscountPercent = pdOption.personalDiscountPercent;
+    (metadataExtra as Record<string, unknown>).originalPrice = price;
   }
 
   const orderId = randomUUID();
@@ -2611,7 +2676,7 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
     data: {
       clientId: clientDb.id,
       orderId,
-      amount: price,
+      amount: finalOptionPrice,
       currency: currency.toUpperCase(),
       status: "PAID",
       provider: "balance",
@@ -2628,13 +2693,13 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
 
   await prisma.client.update({
     where: { id: clientDb.id },
-    data: { balance: { decrement: price } },
+    data: { balance: { decrement: finalOptionPrice } },
   });
 
   const { distributeReferralRewards } = await import("../referral/referral.service.js");
   await distributeReferralRewards(payment.id).catch(() => {});
 
-  const newBalance = clientDb.balance - price;
+  const newBalance = clientDb.balance - finalOptionPrice;
   return res.json({
     message: "Опция применена. Списано с баланса.",
     paymentId: payment.id,
@@ -2878,8 +2943,24 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
   }
 
+  // Персональная скидка админа — на продуктовые оплаты, не на чистое пополнение.
+  const yoomoneyIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+  let yoomoneyPersonalDiscount = 0;
+  if (!yoomoneyIsTopup) {
+    const originalBeforePersonal = amountRounded;
+    const pd = await applyPersonalDiscount(amountRounded, clientId);
+    if (pd.personalDiscountPercent > 0) {
+      amountRounded = pd.amount;
+      yoomoneyPersonalDiscount = pd.personalDiscountPercent;
+      if (yoomoneyOriginalAmount == null) yoomoneyOriginalAmount = originalBeforePersonal;
+    }
+  }
+
   if (yoomoneyPromoRecord != null && yoomoneyOriginalAmount != null) {
     metadataObj = { ...metadataObj, promoCodeId: yoomoneyPromoRecord.id, originalAmount: yoomoneyOriginalAmount };
+  }
+  if (yoomoneyPersonalDiscount > 0) {
+    metadataObj = { ...metadataObj, personalDiscountPercent: yoomoneyPersonalDiscount, ...(yoomoneyOriginalAmount != null ? { originalAmount: yoomoneyOriginalAmount } : {}) };
   }
 
   const orderId = randomUUID();
@@ -3099,6 +3180,17 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
     }
 
+    // Персональная скидка админа — на продуктовые оплаты, не на чистое пополнение.
+    const yookassaIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+    if (!yookassaIsTopup) {
+      const originalBeforePersonal = amountRounded;
+      const pd = await applyPersonalDiscount(amountRounded, clientId);
+      if (pd.personalDiscountPercent > 0) {
+        amountRounded = pd.amount;
+        metadataObj = { ...metadataObj, personalDiscountPercent: pd.personalDiscountPercent, originalAmount: originalBeforePersonal };
+      }
+    }
+
     // Применяем промокод на скидку (не для опций и гибких тарифов)
     let promoCodeRecord: { id: string } | null = null;
     if (promoCode?.trim() && !extraOption && !customBuildBody) {
@@ -3106,7 +3198,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
       if (!result.ok) return res.status(result.status).json({ message: result.error });
       const promo = result.promo;
       if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
-      const originalAmount = amountRounded;
+      const originalAmount = (metadataObj as { originalAmount?: number }).originalAmount ?? amountRounded;
       if (promo.discountPercent && promo.discountPercent > 0) {
         amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
       }
@@ -3313,6 +3405,17 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
     if (!fiatSupported.includes(currencyUpper)) return res.status(400).json({ message: "Crypto Pay: поддерживаются USD, RUB, EUR и др. Укажите валюту из списка." });
     if (amountRounded < 0.5) return res.status(400).json({ message: "Минимальная сумма — 0.5" });
 
+    // Персональная скидка админа — на продуктовые оплаты, не на чистое пополнение.
+    const cryptoIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+    if (!cryptoIsTopup) {
+      const originalBeforePersonal = amountRounded;
+      const pd = await applyPersonalDiscount(amountRounded, clientId);
+      if (pd.personalDiscountPercent > 0) {
+        amountRounded = pd.amount;
+        metadataObj = { ...metadataObj, personalDiscountPercent: pd.personalDiscountPercent, originalAmount: originalBeforePersonal };
+      }
+    }
+
     // Применяем промокод на скидку (не для опций и гибких тарифов)
     let promoCodeRecord: { id: string } | null = null;
     if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
@@ -3320,7 +3423,7 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
       if (!result.ok) return res.status(result.status).json({ message: result.error });
       const promo = result.promo;
       if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
-      const originalAmount = amountRounded;
+      const originalAmount = (metadataObj as { originalAmount?: number }).originalAmount ?? amountRounded;
       if (promo.discountPercent && promo.discountPercent > 0) {
         amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
       }
@@ -3496,6 +3599,17 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
 
     if (amountRounded < 1) return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
 
+    // Персональная скидка админа — на продуктовые оплаты, не на чистое пополнение.
+    const heleketIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+    if (!heleketIsTopup) {
+      const originalBeforePersonal = amountRounded;
+      const pd = await applyPersonalDiscount(amountRounded, clientId);
+      if (pd.personalDiscountPercent > 0) {
+        amountRounded = pd.amount;
+        metadataObj = { ...metadataObj, personalDiscountPercent: pd.personalDiscountPercent, originalAmount: originalBeforePersonal };
+      }
+    }
+
     // Применяем промокод на скидку (не для опций и гибких тарифов)
     let promoCodeRecord: { id: string } | null = null;
     if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
@@ -3503,7 +3617,7 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
       if (!result.ok) return res.status(result.status).json({ message: result.error });
       const promo = result.promo;
       if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
-      const originalAmount = amountRounded;
+      const originalAmount = (metadataObj as { originalAmount?: number }).originalAmount ?? amountRounded;
       if (promo.discountPercent && promo.discountPercent > 0) {
         amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
       }
@@ -3566,6 +3680,413 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[heleket/create-payment]", message, err);
+    return res.status(500).json({ message: message || "Ошибка создания платежа" });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════
+// LAVA Business — счета (карты / СБП / СберPay) в рублях.
+// API: POST https://api.lava.ru/business/invoice/create
+// Подпись: HMAC-SHA256(JSON body, secretKey) → Signature header.
+// Валюта Lava Business — только RUB. На нерублёвый тариф — ошибка.
+// ═════════════════════════════════════════════════════════════════
+const lavaCreatePaymentSchema = z.object({
+  amount: z.number().positive().optional(),
+  currency: z.string().min(1).max(10).optional(),
+  tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
+  proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
+  promoCode: z.string().max(50).optional(),
+  extraOption: z.object({
+    kind: z.enum(["traffic", "devices", "servers"]),
+    productId: z.string().min(1),
+  }).optional(),
+  customBuild: z.object({ days: z.number().int().min(1).max(360), devices: z.number().int().min(1).max(20), trafficGb: z.number().min(0).nullable().optional() }).optional(),
+});
+clientRouter.post("/lava/create-payment", async (req, res) => {
+  try {
+    const clientId = (req as unknown as { clientId: string }).clientId;
+    const parsed = lavaCreatePaymentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Неверные параметры", errors: parsed.error.flatten() });
+    const config = await getSystemConfig();
+    const lavaConfig = {
+      shopId: (config as { lavaShopId?: string | null }).lavaShopId ?? "",
+      secretKey: (config as { lavaSecretKey?: string | null }).lavaSecretKey ?? "",
+    };
+    if (!isLavaConfigured(lavaConfig)) return res.status(503).json({ message: "Lava не настроена" });
+
+    const { amount: amountBody, currency: currencyBody, tariffId: tariffIdBody, proxyTariffId: proxyTariffIdBody, singboxTariffId: singboxTariffIdBody, promoCode: promoCodeStr, extraOption, customBuild: customBuildBody } = parsed.data;
+    let amountRounded: number;
+    let currencyUpper: string;
+    let tariffIdToStore: string | null = null;
+    let proxyTariffIdToStore: string | null = null;
+    let singboxTariffIdToStore: string | null = null;
+    let metadataObj: Record<string, unknown> = promoCodeStr ? { promoCode: promoCodeStr } : {};
+
+    if (customBuildBody) {
+      const cfg = getCustomBuildConfig(config);
+      if (!cfg) return res.status(400).json({ message: "Гибкий тариф отключён" });
+      const { days, devices, trafficGb } = customBuildBody;
+      if (days > cfg.maxDays || devices > cfg.maxDevices) {
+        return res.status(400).json({ message: `Дни: 1–${cfg.maxDays}, устройств: 1–${cfg.maxDevices}` });
+      }
+      const trafficLimitBytes =
+        cfg.trafficMode === "per_gb" && trafficGb != null && trafficGb >= 0
+          ? Math.round(trafficGb * 1024 ** 3)
+          : null;
+      amountRounded = days * cfg.pricePerDay + devices * cfg.pricePerDevice;
+      if (cfg.trafficMode === "per_gb" && trafficGb != null && trafficGb > 0) amountRounded += trafficGb * cfg.pricePerGb;
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      currencyUpper = cfg.currency.toUpperCase();
+      metadataObj = {
+        customBuild: {
+          durationDays: days,
+          deviceLimit: devices,
+          trafficLimitBytes,
+          internalSquadUuids: [cfg.squadUuid],
+        },
+      };
+    } else if (extraOption) {
+      const cfg = config as { sellOptionsEnabled?: boolean; sellOptionsTrafficEnabled?: boolean; sellOptionsTrafficProducts?: SellOptionTrafficProduct[]; sellOptionsDevicesEnabled?: boolean; sellOptionsDevicesProducts?: SellOptionDeviceProduct[]; sellOptionsServersEnabled?: boolean; sellOptionsServersProducts?: SellOptionServerProduct[] };
+      if (!cfg.sellOptionsEnabled) return res.status(400).json({ message: "Продажа опций отключена" });
+      if (extraOption.kind === "traffic") {
+        const product = cfg.sellOptionsTrafficEnabled && cfg.sellOptionsTrafficProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "traffic", trafficBytes: Math.round(product.trafficGb * 1024 ** 3) } };
+      } else if (extraOption.kind === "devices") {
+        const product = cfg.sellOptionsDevicesEnabled && cfg.sellOptionsDevicesProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "devices", deviceCount: product.deviceCount } };
+      } else {
+        const product = cfg.sellOptionsServersEnabled && cfg.sellOptionsServersProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "servers", squadUuid: product.squadUuid, ...((product.trafficGb ?? 0) > 0 && { trafficBytes: Math.round((product.trafficGb ?? 0) * 1024 ** 3) }) } };
+      }
+    } else {
+      currencyUpper = (currencyBody ?? "RUB").toUpperCase();
+      if (tariffIdBody) {
+        const tariff = await prisma.tariff.findUnique({ where: { id: tariffIdBody } });
+        if (!tariff) return res.status(400).json({ message: "Тариф не найден" });
+        tariffIdToStore = tariffIdBody;
+        amountRounded = Math.round((amountBody ?? tariff.price) * 100) / 100;
+      } else if (proxyTariffIdBody) {
+        const proxyTariff = await prisma.proxyTariff.findUnique({ where: { id: proxyTariffIdBody } });
+        if (!proxyTariff || !proxyTariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
+        proxyTariffIdToStore = proxyTariffIdBody;
+        amountRounded = Math.round((amountBody ?? proxyTariff.price) * 100) / 100;
+      } else if (singboxTariffIdBody) {
+        const singboxTariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffIdBody } });
+        if (!singboxTariff || !singboxTariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+        singboxTariffIdToStore = singboxTariffIdBody;
+        amountRounded = Math.round((amountBody ?? singboxTariff.price) * 100) / 100;
+      } else {
+        if (amountBody == null) return res.status(400).json({ message: "Укажите сумму" });
+        amountRounded = Math.round(amountBody * 100) / 100;
+      }
+    }
+
+    if (currencyUpper !== "RUB") {
+      return res.status(400).json({ message: "Lava принимает только рубли. Выберите другой метод оплаты." });
+    }
+    if (amountRounded < 1) return res.status(400).json({ message: "Минимальная сумма платежа — 1 ₽" });
+
+    // Персональная скидка админа — на продуктовые оплаты, не на чистое пополнение.
+    const lavaIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+    if (!lavaIsTopup) {
+      const originalBeforePersonal = amountRounded;
+      const pd = await applyPersonalDiscount(amountRounded, clientId);
+      if (pd.personalDiscountPercent > 0) {
+        amountRounded = pd.amount;
+        metadataObj = { ...metadataObj, personalDiscountPercent: pd.personalDiscountPercent, originalAmount: originalBeforePersonal };
+      }
+    }
+
+    // Применяем промокод на скидку (не для опций и гибких тарифов)
+    if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
+      const result = await validatePromoCode(promoCodeStr.trim(), clientId);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+      const originalAmount = (metadataObj as { originalAmount?: number }).originalAmount ?? amountRounded;
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        amountRounded = Math.max(0, amountRounded - promo.discountFixed);
+      }
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      if (amountRounded <= 0) return res.status(400).json({ message: "Итоговая сумма не может быть 0" });
+      metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
+    }
+
+    const orderId = randomUUID();
+    const payment = await prisma.payment.create({
+      data: {
+        clientId,
+        orderId,
+        amount: amountRounded,
+        currency: currencyUpper,
+        status: "PENDING",
+        provider: "lava",
+        tariffId: tariffIdToStore,
+        tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
+        proxyTariffId: proxyTariffIdToStore,
+        singboxTariffId: singboxTariffIdToStore,
+        metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
+      },
+    });
+
+    const serviceName = config.serviceName?.trim() || "STEALTHNET";
+    const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
+    const hookUrl = appUrl ? `${appUrl}/api/webhooks/lava` : undefined;
+    const successUrl = appUrl ? `${appUrl}/cabinet?lava=success` : undefined;
+    const failUrl = appUrl ? `${appUrl}/cabinet?lava=fail` : undefined;
+
+    const result = await createLavaInvoice({
+      config: lavaConfig,
+      amount: amountRounded,
+      orderId,
+      hookUrl,
+      successUrl,
+      failUrl,
+      expire: 300, // 5 часов — стандартный TTL Lava
+      comment: `${serviceName} — ${payment.id}`.slice(0, 255),
+    });
+
+    if (!result.ok) {
+      await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
+      return res.status(500).json({ message: result.error });
+    }
+
+    // Сохраняем invoiceId чтобы позже сверять с webhook'ом.
+    await prisma.payment.update({ where: { id: payment.id }, data: { externalId: result.invoiceId } });
+
+    const payUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.url, config.publicAppUrl);
+
+    return res.status(201).json({
+      paymentId: payment.id,
+      payUrl,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[lava/create-payment]", message, err);
+    return res.status(500).json({ message: message || "Ошибка создания платежа" });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════
+// Overpay — платёжная форма (карты / СБП) через композит preflight.
+// API: POST {apiUrl}/api/orders/preflight  (HTTP Basic Auth)
+// Ответ: { id, resultUrl } — URL хостовой формы, куда редиректим клиента.
+// Валюта — как указано в projectId (обычно RUB).
+// ═════════════════════════════════════════════════════════════════
+const overpayCreatePaymentSchema = z.object({
+  amount: z.number().positive().optional(),
+  currency: z.string().min(1).max(10).optional(),
+  tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
+  proxyTariffId: z.string().min(1).optional(),
+  singboxTariffId: z.string().min(1).optional(),
+  promoCode: z.string().max(50).optional(),
+  extraOption: z.object({
+    kind: z.enum(["traffic", "devices", "servers"]),
+    productId: z.string().min(1),
+  }).optional(),
+  customBuild: z.object({ days: z.number().int().min(1).max(360), devices: z.number().int().min(1).max(20), trafficGb: z.number().min(0).nullable().optional() }).optional(),
+});
+clientRouter.post("/overpay/create-payment", async (req, res) => {
+  try {
+    const clientId = (req as unknown as { clientId: string }).clientId;
+    const parsed = overpayCreatePaymentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Неверные параметры", errors: parsed.error.flatten() });
+    const config = await getSystemConfig();
+    const overpayConfig = {
+      apiUrl: (config as { overpayApiUrl?: string | null }).overpayApiUrl ?? "",
+      projectId: (config as { overpayProjectId?: string | null }).overpayProjectId ?? "",
+      login: (config as { overpayLogin?: string | null }).overpayLogin ?? "",
+      password: (config as { overpayPassword?: string | null }).overpayPassword ?? "",
+    };
+    if (!isOverpayConfigured(overpayConfig)) return res.status(503).json({ message: "Overpay не настроен" });
+
+    const {
+      amount: amountBody,
+      currency: currencyBody,
+      tariffId: tariffIdBody,
+      proxyTariffId: proxyTariffIdBody,
+      singboxTariffId: singboxTariffIdBody,
+      promoCode: promoCodeStr,
+      extraOption,
+      customBuild: customBuildBody,
+    } = parsed.data;
+    let amountRounded: number;
+    let currencyUpper: string;
+    let tariffIdToStore: string | null = null;
+    let proxyTariffIdToStore: string | null = null;
+    let singboxTariffIdToStore: string | null = null;
+    let metadataObj: Record<string, unknown> = promoCodeStr ? { promoCode: promoCodeStr } : {};
+
+    if (customBuildBody) {
+      const cfg = getCustomBuildConfig(config);
+      if (!cfg) return res.status(400).json({ message: "Гибкий тариф отключён" });
+      const { days, devices, trafficGb } = customBuildBody;
+      if (days > cfg.maxDays || devices > cfg.maxDevices) {
+        return res.status(400).json({ message: `Дни: 1–${cfg.maxDays}, устройств: 1–${cfg.maxDevices}` });
+      }
+      const trafficLimitBytes =
+        cfg.trafficMode === "per_gb" && trafficGb != null && trafficGb >= 0
+          ? Math.round(trafficGb * 1024 ** 3)
+          : null;
+      amountRounded = days * cfg.pricePerDay + devices * cfg.pricePerDevice;
+      if (cfg.trafficMode === "per_gb" && trafficGb != null && trafficGb > 0) amountRounded += trafficGb * cfg.pricePerGb;
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      currencyUpper = cfg.currency.toUpperCase();
+      metadataObj = {
+        customBuild: {
+          durationDays: days,
+          deviceLimit: devices,
+          trafficLimitBytes,
+          internalSquadUuids: [cfg.squadUuid],
+        },
+      };
+    } else if (extraOption) {
+      const cfg = config as { sellOptionsEnabled?: boolean; sellOptionsTrafficEnabled?: boolean; sellOptionsTrafficProducts?: SellOptionTrafficProduct[]; sellOptionsDevicesEnabled?: boolean; sellOptionsDevicesProducts?: SellOptionDeviceProduct[]; sellOptionsServersEnabled?: boolean; sellOptionsServersProducts?: SellOptionServerProduct[] };
+      if (!cfg.sellOptionsEnabled) return res.status(400).json({ message: "Продажа опций отключена" });
+      if (extraOption.kind === "traffic") {
+        const product = cfg.sellOptionsTrafficEnabled && cfg.sellOptionsTrafficProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "traffic", trafficBytes: Math.round(product.trafficGb * 1024 ** 3) } };
+      } else if (extraOption.kind === "devices") {
+        const product = cfg.sellOptionsDevicesEnabled && cfg.sellOptionsDevicesProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "devices", deviceCount: product.deviceCount } };
+      } else {
+        const product = cfg.sellOptionsServersEnabled && cfg.sellOptionsServersProducts?.find((p) => p.id === extraOption.productId);
+        if (!product) return res.status(400).json({ message: "Опция не найдена" });
+        amountRounded = Math.round(product.price * 100) / 100;
+        currencyUpper = product.currency.toUpperCase();
+        metadataObj = { extraOption: { kind: "servers", squadUuid: product.squadUuid, ...((product.trafficGb ?? 0) > 0 && { trafficBytes: Math.round((product.trafficGb ?? 0) * 1024 ** 3) }) } };
+      }
+    } else {
+      currencyUpper = (currencyBody ?? "RUB").toUpperCase();
+      if (tariffIdBody) {
+        const tariff = await prisma.tariff.findUnique({ where: { id: tariffIdBody } });
+        if (!tariff) return res.status(400).json({ message: "Тариф не найден" });
+        tariffIdToStore = tariffIdBody;
+        amountRounded = Math.round((amountBody ?? tariff.price) * 100) / 100;
+      } else if (proxyTariffIdBody) {
+        const proxyTariff = await prisma.proxyTariff.findUnique({ where: { id: proxyTariffIdBody } });
+        if (!proxyTariff || !proxyTariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
+        proxyTariffIdToStore = proxyTariffIdBody;
+        amountRounded = Math.round((amountBody ?? proxyTariff.price) * 100) / 100;
+      } else if (singboxTariffIdBody) {
+        const singboxTariff = await prisma.singboxTariff.findUnique({ where: { id: singboxTariffIdBody } });
+        if (!singboxTariff || !singboxTariff.enabled) return res.status(400).json({ message: "Тариф Sing-box не найден" });
+        singboxTariffIdToStore = singboxTariffIdBody;
+        amountRounded = Math.round((amountBody ?? singboxTariff.price) * 100) / 100;
+      } else {
+        if (amountBody == null) return res.status(400).json({ message: "Укажите сумму" });
+        amountRounded = Math.round(amountBody * 100) / 100;
+      }
+    }
+
+    if (amountRounded < 1) return res.status(400).json({ message: "Минимальная сумма платежа — 1" });
+
+    const overpayIsTopup = !tariffIdToStore && !proxyTariffIdToStore && !singboxTariffIdToStore && !customBuildBody && !extraOption;
+    if (!overpayIsTopup) {
+      const originalBeforePersonal = amountRounded;
+      const pd = await applyPersonalDiscount(amountRounded, clientId);
+      if (pd.personalDiscountPercent > 0) {
+        amountRounded = pd.amount;
+        metadataObj = { ...metadataObj, personalDiscountPercent: pd.personalDiscountPercent, originalAmount: originalBeforePersonal };
+      }
+    }
+
+    if (promoCodeStr?.trim() && !extraOption && !customBuildBody) {
+      const result = await validatePromoCode(promoCodeStr.trim(), clientId);
+      if (!result.ok) return res.status(result.status).json({ message: result.error });
+      const promo = result.promo;
+      if (promo.type !== "DISCOUNT") return res.status(400).json({ message: "Этот промокод не даёт скидку на оплату" });
+      const originalAmount = (metadataObj as { originalAmount?: number }).originalAmount ?? amountRounded;
+      if (promo.discountPercent && promo.discountPercent > 0) {
+        amountRounded = Math.max(0, amountRounded - amountRounded * promo.discountPercent / 100);
+      }
+      if (promo.discountFixed && promo.discountFixed > 0) {
+        amountRounded = Math.max(0, amountRounded - promo.discountFixed);
+      }
+      amountRounded = Math.round(amountRounded * 100) / 100;
+      if (amountRounded <= 0) return res.status(400).json({ message: "Итоговая сумма не может быть 0" });
+      metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
+    }
+
+    const orderId = randomUUID();
+    const payment = await prisma.payment.create({
+      data: {
+        clientId,
+        orderId,
+        amount: amountRounded,
+        currency: currencyUpper,
+        status: "PENDING",
+        provider: "overpay",
+        tariffId: tariffIdToStore,
+        tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
+        proxyTariffId: proxyTariffIdToStore,
+        singboxTariffId: singboxTariffIdToStore,
+        metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
+      },
+    });
+
+    const serviceName = config.serviceName?.trim() || "STEALTHNET";
+    const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
+    const returnUrl = appUrl ? `${appUrl}/cabinet?overpay=return` : undefined;
+
+    const clientRow = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { email: true, telegramUsername: true },
+    });
+
+    const result = await createOverpayPayformOrder({
+      config: overpayConfig,
+      amount: amountRounded,
+      currency: currencyUpper,
+      orderId,
+      description: `${serviceName} — ${payment.id}`.slice(0, 200),
+      returnUrl,
+      livetimeMinutes: 300,
+      client: clientRow
+        ? {
+            email: clientRow.email ?? null,
+            name: clientRow.telegramUsername ?? null,
+          }
+        : undefined,
+    });
+
+    if (!result.ok) {
+      await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
+      return res.status(500).json({ message: result.error });
+    }
+
+    await prisma.payment.update({ where: { id: payment.id }, data: { externalId: result.id } });
+
+    const payUrl = await saveRedirectAndBuildUrl(payment.id, orderId, result.url, config.publicAppUrl);
+
+    return res.status(201).json({
+      paymentId: payment.id,
+      payUrl,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[overpay/create-payment]", message, err);
     return res.status(500).json({ message: message || "Ошибка создания платежа" });
   }
 });
@@ -3784,19 +4305,37 @@ async function ensureTicketsEnabled(res: import("express").Response): Promise<bo
   return true;
 }
 
-const createTicketSchema = z.object({ subject: z.string().min(1).max(500), message: z.string().min(1).max(10000) });
-clientRouter.post("/tickets", async (req, res) => {
+// Создание тикета. Принимаем как JSON, так и multipart/form-data (когда прикрепляют фото).
+// Текст первого сообщения может быть пустым, если приложены картинки.
+const createTicketSchema = z.object({
+  subject: z.string().min(1).max(500),
+  message: z.string().max(10000).optional().default(""),
+});
+clientRouter.post("/tickets", uploadTicketAttachment.array("files", 5), async (req, res) => {
   if (!(await ensureTicketsEnabled(res))) return;
   const clientId = (req as unknown as { client: { id: string } }).client.id;
-  const body = createTicketSchema.safeParse(req.body);
-  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const subject = pickField(req, "subject");
+  const message = pickField(req, "message");
+  const body = createTicketSchema.safeParse({ subject, message });
+  if (!body.success) {
+    return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  }
+  const attachments = filesToAttachments(req.files as Express.Multer.File[] | undefined);
+  const trimmedMessage = body.data.message.trim();
+  if (!trimmedMessage && attachments.length === 0) {
+    return res.status(400).json({ message: "Пустое сообщение" });
+  }
   const ticket = await prisma.ticket.create({
     data: {
       clientId,
       subject: body.data.subject.trim(),
       status: "open",
       messages: {
-        create: { authorType: "client", content: body.data.message.trim() },
+        create: {
+          authorType: "client",
+          content: trimmedMessage,
+          attachments: serializeAttachments(attachments),
+        },
       },
     },
     include: { messages: true },
@@ -3805,7 +4344,8 @@ clientRouter.post("/tickets", async (req, res) => {
     ticketId: ticket.id,
     clientId,
     subject: ticket.subject,
-    firstMessage: body.data.message.trim(),
+    firstMessage: trimmedMessage,
+    attachmentsCount: attachments.length,
   }).catch(() => {});
   return res.status(201).json({
     id: ticket.id,
@@ -3813,7 +4353,13 @@ clientRouter.post("/tickets", async (req, res) => {
     status: ticket.status,
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
-    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+    messages: ticket.messages.map((m) => ({
+      id: m.id,
+      authorType: m.authorType,
+      content: m.content,
+      attachments: parseAttachments(m.attachments),
+      createdAt: m.createdAt.toISOString(),
+    })),
   });
 });
 
@@ -3864,28 +4410,56 @@ clientRouter.get("/tickets/:id", async (req, res) => {
     status: ticket.status,
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
-    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString(), isRead: m.isRead })),
+    messages: ticket.messages.map((m) => ({
+      id: m.id,
+      authorType: m.authorType,
+      content: m.content,
+      attachments: parseAttachments(m.attachments),
+      createdAt: m.createdAt.toISOString(),
+      isRead: m.isRead,
+    })),
   });
 });
 
-const replyTicketSchema = z.object({ content: z.string().min(1).max(10000) });
-clientRouter.post("/tickets/:id/messages", async (req, res) => {
+// Ответ в тикет. multipart/form-data — если приложены фото.
+const replyTicketSchema = z.object({ content: z.string().max(10000).optional().default("") });
+clientRouter.post("/tickets/:id/messages", uploadTicketAttachment.array("files", 5), async (req, res) => {
   if (!(await ensureTicketsEnabled(res))) return;
   const clientId = (req as unknown as { client: { id: string } }).client.id;
-  const body = replyTicketSchema.safeParse(req.body);
-  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const content = pickField(req, "content");
+  const body = replyTicketSchema.safeParse({ content });
+  if (!body.success) {
+    return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  }
   const ticket = await prisma.ticket.findFirst({ where: { id: req.params.id, clientId } });
   if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  const attachments = filesToAttachments(req.files as Express.Multer.File[] | undefined);
+  const trimmed = body.data.content.trim();
+  if (!trimmed && attachments.length === 0) {
+    return res.status(400).json({ message: "Пустое сообщение" });
+  }
   const msg = await prisma.ticketMessage.create({
-    data: { ticketId: ticket.id, authorType: "client", content: body.data.content.trim() },
+    data: {
+      ticketId: ticket.id,
+      authorType: "client",
+      content: trimmed,
+      attachments: serializeAttachments(attachments),
+    },
   });
   await prisma.ticket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
   notifyAdminsAboutClientTicketMessage({
     ticketId: ticket.id,
     clientId,
-    content: body.data.content.trim(),
+    content: trimmed,
+    attachmentsCount: attachments.length,
   }).catch(() => {});
-  return res.status(201).json({ id: msg.id, authorType: msg.authorType, content: msg.content, createdAt: msg.createdAt.toISOString() });
+  return res.status(201).json({
+    id: msg.id,
+    authorType: msg.authorType,
+    content: msg.content,
+    attachments: parseAttachments(msg.attachments),
+    createdAt: msg.createdAt.toISOString(),
+  });
 });
 
 // Публичный конфиг для бота, mini app, сайта (без паролей и секретов)

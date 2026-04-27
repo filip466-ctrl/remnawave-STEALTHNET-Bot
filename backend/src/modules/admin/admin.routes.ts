@@ -47,8 +47,14 @@ import { distributeReferralRewards } from "../referral/referral.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
-import { runBroadcast, getBroadcastRecipientsCount } from "../broadcast/broadcast.service.js";
-import { uploadMascotImage, uploadVideo, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
+import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob } from "../broadcast/broadcast.service.js";
+import { uploadMascotImage, uploadVideo, uploadTicketAttachment, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
+import {
+  filesToAttachments,
+  serializeAttachments,
+  parseAttachments,
+  pickField as pickTicketField,
+} from "../ticket/attachments.js";
 import {
   notifyAdminsAboutSupportReply,
   notifyAdminsAboutTicketStatusChange,
@@ -739,6 +745,7 @@ adminRouter.get("/clients", async (req, res) => {
           isBlocked: true,
           blockReason: true,
           referralPercent: true,
+          personalDiscountPercent: true,
           createdAt: true,
           _count: { select: { referrals: true } },
         },
@@ -865,6 +872,7 @@ adminRouter.get("/clients/:id", async (req, res) => {
       isBlocked: true,
       blockReason: true,
       referralPercent: true,
+      personalDiscountPercent: true,
       createdAt: true,
       _count: { select: { referrals: true } },
     },
@@ -881,6 +889,7 @@ const updateClientSchema = z.object({
   isBlocked: z.boolean().optional(),
   blockReason: z.string().nullable().optional(),
   referralPercent: z.number().min(0).max(100).nullable().optional(),
+  personalDiscountPercent: z.number().min(0).max(100).nullable().optional(),
 });
 
 adminRouter.patch("/clients/:id", async (req, res) => {
@@ -898,6 +907,7 @@ adminRouter.patch("/clients/:id", async (req, res) => {
   if (body.data.isBlocked !== undefined) updates.isBlocked = body.data.isBlocked;
   if (body.data.blockReason !== undefined) updates.blockReason = body.data.blockReason;
   if (body.data.referralPercent !== undefined) updates.referralPercent = body.data.referralPercent;
+  if (body.data.personalDiscountPercent !== undefined) updates.personalDiscountPercent = body.data.personalDiscountPercent;
   const updated = await prisma.client.update({
     where: { id: parsed.data.id },
     data: updates,
@@ -915,6 +925,7 @@ adminRouter.patch("/clients/:id", async (req, res) => {
       isBlocked: true,
       blockReason: true,
       referralPercent: true,
+      personalDiscountPercent: true,
       createdAt: true,
       _count: { select: { referrals: true } },
     },
@@ -1366,6 +1377,7 @@ const updateSettingsSchema = z.object({
   plategaSecret: z.string().max(500).nullable().optional(),
   plategaMethods: z.string().max(2000).nullable().optional(),
   paymentProvidersConfig: z.string().max(5000).nullable().optional(),
+  gramadsApiKey: z.string().max(1000).nullable().optional(),
   yoomoneyClientId: z.string().max(200).nullable().optional(),
   yoomoneyClientSecret: z.string().max(500).nullable().optional(),
   yoomoneyReceiverWallet: z.string().max(50).nullable().optional(),
@@ -1376,6 +1388,13 @@ const updateSettingsSchema = z.object({
   cryptopayTestnet: z.boolean().optional(),
   heleketMerchantId: z.string().max(500).nullable().optional(),
   heleketApiKey: z.string().max(500).nullable().optional(),
+  lavaShopId: z.string().max(200).nullable().optional(),
+  lavaSecretKey: z.string().max(500).nullable().optional(),
+  lavaAdditionalKey: z.string().max(500).nullable().optional(),
+  overpayApiUrl: z.string().max(500).nullable().optional(),
+  overpayProjectId: z.string().max(100).nullable().optional(),
+  overpayLogin: z.string().max(200).nullable().optional(),
+  overpayPassword: z.string().max(500).nullable().optional(),
   groqApiKey: z.string().max(500).nullable().optional(),
   groqModel: z.string().max(100).nullable().optional(),
   groqFallback1: z.string().max(100).nullable().optional(),
@@ -1796,6 +1815,12 @@ adminRouter.patch("/settings", async (req, res) => {
     const val = updates.paymentProvidersConfig ?? "";
     await prisma.systemSetting.upsert({ where: { key: "payment_providers_config" }, create: { key: "payment_providers_config", value: val }, update: { value: val } });
   }
+  if (updates.gramadsApiKey !== undefined) {
+    const val = updates.gramadsApiKey && updates.gramadsApiKey !== "********" ? updates.gramadsApiKey : (updates.gramadsApiKey === "" ? "" : undefined);
+    if (val !== undefined) {
+      await prisma.systemSetting.upsert({ where: { key: "gramads_api_key" }, create: { key: "gramads_api_key", value: val }, update: { value: val } });
+    }
+  }
   if (updates.yoomoneyClientId !== undefined) {
     const val = updates.yoomoneyClientId ?? "";
     await prisma.systemSetting.upsert({ where: { key: "yoomoney_client_id" }, create: { key: "yoomoney_client_id", value: val }, update: { value: val } });
@@ -1835,6 +1860,34 @@ adminRouter.patch("/settings", async (req, res) => {
   if (updates.heleketApiKey !== undefined) {
     const val = updates.heleketApiKey ?? "";
     await prisma.systemSetting.upsert({ where: { key: "heleket_api_key" }, create: { key: "heleket_api_key", value: val }, update: { value: val } });
+  }
+  if (updates.lavaShopId !== undefined) {
+    const val = updates.lavaShopId ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "lava_shop_id" }, create: { key: "lava_shop_id", value: val }, update: { value: val } });
+  }
+  if (updates.lavaSecretKey !== undefined) {
+    const val = updates.lavaSecretKey ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "lava_secret_key" }, create: { key: "lava_secret_key", value: val }, update: { value: val } });
+  }
+  if (updates.lavaAdditionalKey !== undefined) {
+    const val = updates.lavaAdditionalKey ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "lava_additional_key" }, create: { key: "lava_additional_key", value: val }, update: { value: val } });
+  }
+  if (updates.overpayApiUrl !== undefined) {
+    const val = updates.overpayApiUrl ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "overpay_api_url" }, create: { key: "overpay_api_url", value: val }, update: { value: val } });
+  }
+  if (updates.overpayProjectId !== undefined) {
+    const val = updates.overpayProjectId ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "overpay_project_id" }, create: { key: "overpay_project_id", value: val }, update: { value: val } });
+  }
+  if (updates.overpayLogin !== undefined) {
+    const val = updates.overpayLogin ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "overpay_login" }, create: { key: "overpay_login", value: val }, update: { value: val } });
+  }
+  if (updates.overpayPassword !== undefined) {
+    const val = updates.overpayPassword ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "overpay_password" }, create: { key: "overpay_password", value: val }, update: { value: val } });
   }
   if (updates.groqApiKey !== undefined) {
     const val = updates.groqApiKey ?? "";
@@ -2416,7 +2469,13 @@ adminRouter.get("/tickets/:id", asyncRoute(async (req, res) => {
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     client: ticket.client,
-    messages: ticket.messages.map((m) => ({ id: m.id, authorType: m.authorType, content: m.content, createdAt: m.createdAt.toISOString() })),
+    messages: ticket.messages.map((m) => ({
+      id: m.id,
+      authorType: m.authorType,
+      content: m.content,
+      attachments: parseAttachments(m.attachments),
+      createdAt: m.createdAt.toISOString(),
+    })),
   });
 }));
 
@@ -2437,22 +2496,41 @@ adminRouter.patch("/tickets/:id", asyncRoute(async (req, res) => {
   return res.json({ id: ticket.id, status: ticket.status });
 }));
 
-const adminTicketMessageSchema = z.object({ content: z.string().min(1).max(10000) });
-adminRouter.post("/tickets/:id/messages", asyncRoute(async (req, res) => {
-  const body = adminTicketMessageSchema.safeParse(req.body);
+// Ответ поддержки. multipart/form-data — если приложены фото.
+const adminTicketMessageSchema = z.object({ content: z.string().max(10000).optional().default("") });
+adminRouter.post("/tickets/:id/messages", uploadTicketAttachment.array("files", 5), asyncRoute(async (req, res) => {
+  const content = pickTicketField(req, "content");
+  const body = adminTicketMessageSchema.safeParse({ content });
   if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
   const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
   if (!ticket) return res.status(404).json({ message: "Тикет не найден" });
+  const attachments = filesToAttachments(req.files as Express.Multer.File[] | undefined);
+  const trimmed = body.data.content.trim();
+  if (!trimmed && attachments.length === 0) {
+    return res.status(400).json({ message: "Пустое сообщение" });
+  }
   const msg = await prisma.ticketMessage.create({
-    data: { ticketId: ticket.id, authorType: "support", content: body.data.content.trim() },
+    data: {
+      ticketId: ticket.id,
+      authorType: "support",
+      content: trimmed,
+      attachments: serializeAttachments(attachments),
+    },
   });
   await prisma.ticket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
   notifyAdminsAboutSupportReply({
     ticketId: ticket.id,
     clientId: ticket.clientId,
-    content: body.data.content.trim(),
+    content: trimmed,
+    attachmentsCount: attachments.length,
   }).catch(() => {});
-  return res.status(201).json({ id: msg.id, authorType: msg.authorType, content: msg.content, createdAt: msg.createdAt.toISOString() });
+  return res.status(201).json({
+    id: msg.id,
+    authorType: msg.authorType,
+    content: msg.content,
+    attachments: parseAttachments(msg.attachments),
+    createdAt: msg.createdAt.toISOString(),
+  });
 }));
 
 // Синхронизация с Remna
@@ -2535,7 +2613,9 @@ adminRouter.post(
       req.file && req.file.buffer
         ? { buffer: req.file.buffer, mimetype: req.file.mimetype || "application/octet-stream", originalname: req.file.originalname || "file" }
         : undefined;
-    const result = await runBroadcast({
+    // Запускаем рассылку в фоне. Для больших баз синхронная отправка
+    // упирается в таймаут nginx/браузера, хотя на бэкенде всё идёт успешно.
+    const jobId = startBroadcastJob({
       channel,
       subject: subject ?? "",
       message,
@@ -2543,7 +2623,24 @@ adminRouter.post(
       buttonText,
       buttonUrl,
     });
-    return res.json(result);
+    return res.json({ jobId });
+  })
+);
+
+adminRouter.get(
+  "/broadcast/status/:jobId",
+  asyncRoute(async (req, res) => {
+    const job = getBroadcastJob(req.params.jobId);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    return res.json({
+      id: job.id,
+      status: job.status,
+      progress: job.progress,
+      result: job.result ?? null,
+      error: job.error ?? null,
+      startedAt: job.startedAt.toISOString(),
+      finishedAt: job.finishedAt ? job.finishedAt.toISOString() : null,
+    });
   })
 );
 
@@ -3063,7 +3160,7 @@ adminRouter.get("/analytics", async (_req, res) => {
 
   // ─── Доход по провайдерам ───
   const providerSeries = Object.entries(revenueByProvider).map(([provider, amount]) => ({
-    provider: provider === "balance" ? "Баланс" : provider === "platega" ? "Platega" : provider === "cryptopay" ? "Crypto Pay" : provider === "heleket" ? "Heleket" : provider,
+    provider: provider === "balance" ? "Баланс" : provider === "platega" ? "Platega" : provider === "cryptopay" ? "Crypto Pay" : provider === "heleket" ? "Heleket" : provider === "overpay" ? "Overpay" : provider,
     amount,
   }));
 
@@ -3508,6 +3605,7 @@ export const ADMIN_ALLOWED_SECTIONS = [
   "auto-broadcast",
   "contests",
   "tour-constructor",
+  "promo-vpn", // Продвижение VPN через Gramads
   // Settings
   "settings",
   "languages",

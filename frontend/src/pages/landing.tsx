@@ -309,6 +309,8 @@ function getPaymentLabels(config: PublicConfig): string[] {
   if (config.yoomoneyEnabled) labels.add("ЮMoney");
   if (config.cryptopayEnabled) labels.add("Крипта");
   if (config.heleketEnabled) labels.add("Heleket");
+  if (config.lavaEnabled) labels.add("LAVA");
+  if (config.overpayEnabled) labels.add("Overpay");
 
   return Array.from(labels).slice(0, 4);
 }

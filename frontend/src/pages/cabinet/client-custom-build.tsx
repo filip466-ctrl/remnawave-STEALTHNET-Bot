@@ -189,6 +189,42 @@ export function ClientCustomBuildPage() {
     }
   }
 
+  async function payByLava() {
+    if (!token || !cb) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.lavaCreatePayment(token, {
+        customBuild: customBuildPayload,
+        currency: cb.currency,
+        promoCode: promoCode.trim() || undefined,
+      });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "LAVA" });
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
+  async function payByOverpay() {
+    if (!token || !cb) return;
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const res = await api.overpayCreatePayment(token, {
+        customBuild: customBuildPayload,
+        currency: cb.currency,
+        promoCode: promoCode.trim() || undefined,
+      });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Overpay" });
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : "Ошибка создания платежа");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -416,6 +452,8 @@ export function ClientCustomBuildPage() {
                   heleket: { bg10: "bg-orange-500/10", bg20: "group-hover:bg-orange-500/20", text: "text-orange-500" },
                   yookassa: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
                   yoomoney: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
+                  lava: { bg10: "bg-sky-500/10", bg20: "group-hover:bg-sky-500/20", text: "text-sky-500" },
+                  overpay: { bg10: "bg-indigo-500/10", bg20: "group-hover:bg-indigo-500/20", text: "text-indigo-500" },
                 };
 
                 type ProviderEntry = { id: string; enabled: boolean; onClick: () => void; label: string; icon: "crypto" | "card" };
@@ -424,6 +462,8 @@ export function ClientCustomBuildPage() {
                   { id: "heleket", enabled: !!config?.heleketEnabled, onClick: () => payByHeleket(), label: providerLabel("heleket", "Heleket"), icon: "crypto" },
                   { id: "yookassa", enabled: !!config?.yookassaEnabled && cb.currency.toUpperCase() === "RUB", onClick: () => payByYookassa(), label: providerLabel("yookassa", "СБП / Карты РФ"), icon: "card" },
                   { id: "yoomoney", enabled: !!config?.yoomoneyEnabled && cb.currency.toUpperCase() === "RUB", onClick: () => payByYoomoney(), label: providerLabel("yoomoney", "ЮMoney / Карты"), icon: "card" },
+                  { id: "lava", enabled: !!config?.lavaEnabled && cb.currency.toUpperCase() === "RUB", onClick: () => payByLava(), label: providerLabel("lava", "LAVA"), icon: "card" },
+                  { id: "overpay", enabled: !!config?.overpayEnabled, onClick: () => payByOverpay(), label: providerLabel("overpay", "Overpay"), icon: "card" },
                 ];
 
                 const sortedProviders = paymentProviders.length > 0

@@ -195,11 +195,18 @@ export async function notifyTariffActivated(clientId: string, paymentId: string)
   await sendTelegramToAdminsForEvent("tariff_payment", lines.join("\n"));
 }
 
+/** Человекочитаемый маркер «к сообщению приложены фото». */
+function attachmentsBadge(count?: number): string {
+  if (!count || count <= 0) return "";
+  return count === 1 ? " 📷" : ` 📷 ×${count}`;
+}
+
 export async function notifyAdminsAboutNewTicket(params: {
   ticketId: string;
   clientId: string;
   subject: string;
   firstMessage: string;
+  attachmentsCount?: number;
 }): Promise<void> {
   const [client, ticket] = await Promise.all([
     prisma.client.findUnique({
@@ -215,12 +222,12 @@ export async function notifyAdminsAboutNewTicket(params: {
   const config = await getSystemConfig();
   const clientLabel = formatClientLabel(client ?? { id: params.clientId });
   const baseUrl = (config.publicAppUrl || "").replace(/\/+$/, "");
+  const attachmentsHint = attachmentsBadge(params.attachmentsCount);
+  const previewBody = params.firstMessage || (attachmentsHint ? "(только фото)" : "");
   const preview =
-    params.firstMessage.length > 200
-      ? `${params.firstMessage.slice(0, 197)}...`
-      : params.firstMessage;
+    previewBody.length > 200 ? `${previewBody.slice(0, 197)}...` : previewBody;
   const lines = [
-    `🆕 <b>Новый тикет</b>`,
+    `🆕 <b>Новый тикет</b>${attachmentsHint}`,
     ``,
     `📋 Тема: <b>${escapeHtml(ticket.subject)}</b>`,
     `👤 Клиент: ${escapeHtml(clientLabel)}`,
@@ -236,6 +243,7 @@ export async function notifyAdminsAboutClientTicketMessage(params: {
   ticketId: string;
   clientId: string;
   content: string;
+  attachmentsCount?: number;
 }): Promise<void> {
   const [client, ticket] = await Promise.all([
     prisma.client.findUnique({
@@ -251,10 +259,12 @@ export async function notifyAdminsAboutClientTicketMessage(params: {
   const config = await getSystemConfig();
   const clientLabel = formatClientLabel(client ?? { id: params.clientId });
   const baseUrl = (config.publicAppUrl || "").replace(/\/+$/, "");
+  const attachmentsHint = attachmentsBadge(params.attachmentsCount);
+  const previewBody = params.content || (attachmentsHint ? "(только фото)" : "");
   const preview =
-    params.content.length > 200 ? `${params.content.slice(0, 197)}...` : params.content;
+    previewBody.length > 200 ? `${previewBody.slice(0, 197)}...` : previewBody;
   const lines = [
-    `💬 <b>Новое сообщение в тикете</b>`,
+    `💬 <b>Новое сообщение в тикете</b>${attachmentsHint}`,
     ``,
     `📋 Тема: <b>${escapeHtml(ticket.subject)}</b>`,
     `👤 Клиент: ${escapeHtml(clientLabel)}`,
@@ -270,6 +280,7 @@ export async function notifyAdminsAboutSupportReply(params: {
   ticketId: string;
   clientId: string;
   content: string;
+  attachmentsCount?: number;
 }): Promise<void> {
   const [client, ticket] = await Promise.all([
     prisma.client.findUnique({
@@ -285,10 +296,12 @@ export async function notifyAdminsAboutSupportReply(params: {
   const config = await getSystemConfig();
   const clientLabel = formatClientLabel(client ?? { id: params.clientId });
   const baseUrl = (config.publicAppUrl || "").replace(/\/+$/, "");
+  const attachmentsHint = attachmentsBadge(params.attachmentsCount);
+  const previewBody = params.content || (attachmentsHint ? "(только фото)" : "");
   const preview =
-    params.content.length > 200 ? `${params.content.slice(0, 197)}...` : params.content;
+    previewBody.length > 200 ? `${previewBody.slice(0, 197)}...` : previewBody;
   const lines = [
-    `✅ <b>Ответ поддержки в тикете</b>`,
+    `✅ <b>Ответ поддержки в тикете</b>${attachmentsHint}`,
     ``,
     `📋 Тема: <b>${escapeHtml(ticket.subject)}</b>`,
     `👤 Клиент: ${escapeHtml(clientLabel)}`,

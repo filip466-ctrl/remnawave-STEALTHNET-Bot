@@ -172,6 +172,7 @@ export function ClientsPage() {
       isBlocked: c.isBlocked,
       blockReason: c.blockReason ?? undefined,
       referralPercent: c.referralPercent ?? undefined,
+      personalDiscountPercent: c.personalDiscountPercent ?? undefined,
     });
     setActionMessage(null);
   }
@@ -189,6 +190,7 @@ export function ClientsPage() {
         isBlocked: editForm.isBlocked,
         blockReason: editForm.blockReason ?? null,
         referralPercent: editForm.referralPercent ?? null,
+        personalDiscountPercent: editForm.personalDiscountPercent ?? null,
       });
       setEditing(updated);
       setEditForm({});
@@ -1130,6 +1132,28 @@ function ClientEditModal({
                         }))
                       }
                       placeholder={t("admin.clients.referral_default")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      {t("admin.clients.personal_discount")}
+                      <span className="text-[11px] font-normal text-muted-foreground">
+                        {t("admin.clients.personal_discount_hint")}
+                      </span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.1"
+                      value={editForm.personalDiscountPercent ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          personalDiscountPercent: e.target.value === "" ? undefined : Number(e.target.value),
+                        }))
+                      }
+                      placeholder={t("admin.clients.personal_discount_placeholder")}
                     />
                   </div>
                   <div className="space-y-2 flex items-end gap-2">

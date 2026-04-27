@@ -5,6 +5,7 @@ import { activateTariffByPaymentId } from "../tariff/tariff-activation.service.j
 import { remnaGetUser, isRemnaConfigured } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
 import { createYookassaAutopayment } from "../yookassa/yookassa.service.js";
+import { applyPercent } from "../client/personal-discount.js";
 import {
   notifyAutoRenewSuccess,
   notifyAutoRenewFailed,
@@ -126,11 +127,18 @@ export async function processAutoRenewals() {
           !client.autoRenewNotifiedAt ||
           now - client.autoRenewNotifiedAt.getTime() > DAY_MS;
 
-        if (shouldNotify && client.balance < client.autoRenewTariff.price) {
+        // Учитываем персональную скидку, чтобы не слать «недостаточно средств», когда
+        // после скидки сумма на самом деле списалась бы без проблем.
+        const personalPctPhase1 = typeof client.personalDiscountPercent === "number" && client.personalDiscountPercent > 0
+          ? Math.min(100, client.personalDiscountPercent)
+          : 0;
+        const upcomingPrice = applyPercent(client.autoRenewTariff.price, personalPctPhase1);
+
+        if (shouldNotify && client.balance < upcomingPrice) {
           await notifyAutoRenewUpcoming(
             client.id,
             client.autoRenewTariff.name,
-            client.autoRenewTariff.price,
+            upcomingPrice,
             client.autoRenewTariff.currency,
             Math.max(0, Math.ceil(timeLeft / DAY_MS)),
           );
@@ -146,10 +154,16 @@ export async function processAutoRenewals() {
       if (timeLeft <= renewThreshold && timeLeft >= -(3 * DAY_MS)) {
         const baseTariffPrice = client.autoRenewTariff.price;
 
+        // Персональная скидка админа применяется ДО промокода.
+        const personalPct = typeof client.personalDiscountPercent === "number" && client.personalDiscountPercent > 0
+          ? Math.min(100, client.personalDiscountPercent)
+          : 0;
+        const priceAfterPersonal = applyPercent(baseTariffPrice, personalPct);
+
         // Применяем сохранённый для авто-продления промокод (если задан и валиден).
         // Невалидные/истёкшие промокоды в автопродлении игнорируем — оплачиваем полную цену.
         const { finalPrice: tariffPrice, promoCodeId: autoRenewPromoCodeId } =
-          await tryApplyPromoForAutoRenew(client.id, client.autoRenewPromoCode, baseTariffPrice);
+          await tryApplyPromoForAutoRenew(client.id, client.autoRenewPromoCode, priceAfterPersonal);
 
         if (client.balance >= tariffPrice) {
           // Enough balance → RENEW
@@ -163,6 +177,16 @@ export async function processAutoRenewals() {
               },
             });
 
+            const metaObj: Record<string, unknown> = { autoRenew: true };
+            if (autoRenewPromoCodeId) {
+              metaObj.promoCodeId = autoRenewPromoCodeId;
+              metaObj.originalPrice = baseTariffPrice;
+            }
+            if (personalPct > 0) {
+              metaObj.personalDiscountPercent = personalPct;
+              if (!metaObj.originalPrice) metaObj.originalPrice = baseTariffPrice;
+            }
+            const hasExtras = autoRenewPromoCodeId || personalPct > 0;
             const payment = await tx.payment.create({
               data: {
                 clientId: client.id,
@@ -173,9 +197,7 @@ export async function processAutoRenewals() {
                 provider: "balance",
                 tariffId: client.autoRenewTariff!.id,
                 paidAt: new Date(),
-                metadata: autoRenewPromoCodeId
-                  ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
-                  : null,
+                metadata: hasExtras ? JSON.stringify(metaObj) : null,
               },
             });
 
@@ -284,6 +306,16 @@ export async function processAutoRenewals() {
                     });
                   }
 
+                  const ypMeta: Record<string, unknown> = { autoRenew: true };
+                  if (autoRenewPromoCodeId) {
+                    ypMeta.promoCodeId = autoRenewPromoCodeId;
+                    ypMeta.originalPrice = baseTariffPrice;
+                  }
+                  if (personalPct > 0) {
+                    ypMeta.personalDiscountPercent = personalPct;
+                    if (!ypMeta.originalPrice) ypMeta.originalPrice = baseTariffPrice;
+                  }
+                  const ypHasExtras = autoRenewPromoCodeId || personalPct > 0;
                   const p = await tx.payment.create({
                     data: {
                       clientId: client.id,
@@ -295,9 +327,7 @@ export async function processAutoRenewals() {
                       tariffId: client.autoRenewTariff!.id,
                       paidAt: new Date(),
                       externalId: autopayResult.paymentId,
-                      metadata: autoRenewPromoCodeId
-                        ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
-                        : null,
+                      metadata: ypHasExtras ? JSON.stringify(ypMeta) : null,
                     },
                   });
 

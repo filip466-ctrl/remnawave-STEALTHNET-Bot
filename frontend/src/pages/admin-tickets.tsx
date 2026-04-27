@@ -1,6 +1,6 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api } from "@/lib/api";
+import { api, type TicketAttachmentDto, type TicketMessageDto } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import {
   MessageSquare, Loader2, Send, ArrowLeft, Lock, Unlock,
-  CircleDot, CircleCheck, RefreshCw, MessagesSquare,
+  CircleDot, CircleCheck, RefreshCw, MessagesSquare, Paperclip, X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,31 @@ type TicketListItem = {
   updatedAt: string;
   client: { id: string; email: string | null; telegramUsername: string | null };
 };
-type TicketMessage = { id: string; authorType: string; content: string; createdAt: string };
+type TicketMessage = TicketMessageDto;
+
+// Синхронизировано с backend (uploadTicketAttachment).
+const MAX_FILES = 5;
+const MAX_FILE_MB = 10;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+
+function AttachmentsGallery({ items }: { items: TicketAttachmentDto[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className={cn("mt-2 grid gap-1.5", items.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+      {items.map((a, i) => (
+        <a
+          key={`${a.url}-${i}`}
+          href={a.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block overflow-hidden rounded-xl border border-white/10 bg-black/5 hover:opacity-90 transition-opacity"
+        >
+          <img src={a.url} alt={a.name ?? "attachment"} className="w-full max-h-48 object-cover" loading="lazy" />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export function AdminTicketsPage() {
   const { state } = useAuth();
@@ -42,6 +66,31 @@ export function AdminTicketsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySending, setReplySending] = useState(false);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    setUploadError(null);
+    const next: File[] = [...replyFiles];
+    for (const f of Array.from(incoming)) {
+      if (next.length >= MAX_FILES) {
+        setUploadError(`Не больше ${MAX_FILES} файлов`);
+        break;
+      }
+      if (!f.type.startsWith("image/")) {
+        setUploadError("Можно прикладывать только изображения");
+        continue;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        setUploadError(`Файл больше ${MAX_FILE_MB} MB`);
+        continue;
+      }
+      next.push(f);
+    }
+    setReplyFiles(next);
+  };
 
   const loadList = () => {
     if (!token) return;
@@ -90,14 +139,19 @@ export function AdminTicketsPage() {
   }, [detailId, token]);
 
   const sendReply = () => {
-    if (!token || !detailId || !replyText.trim()) return;
+    if (!token || !detailId) return;
+    if (!replyText.trim() && replyFiles.length === 0) return;
     setReplySending(true);
+    setUploadError(null);
     api
-      .postAdminTicketMessage(token, detailId, { content: replyText.trim() })
+      .postAdminTicketMessage(token, detailId, { content: replyText.trim(), files: replyFiles })
       .then((msg) => {
         setDetail((d) => (d ? { ...d, messages: [...d.messages, msg] } : d));
         setReplyText("");
+        setReplyFiles([]);
+        if (replyInputRef.current) replyInputRef.current.value = "";
       })
+      .catch((e) => setUploadError(e instanceof Error ? e.message : "Не удалось отправить"))
       .finally(() => setReplySending(false));
   };
 
@@ -188,7 +242,8 @@ export function AdminTicketsPage() {
                     </span>
                     <span className="text-muted-foreground/80">{formatDate(m.createdAt)}</span>
                   </div>
-                  <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                  {m.content && <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>}
+                  <AttachmentsGallery items={m.attachments ?? []} />
                 </motion.div>
               );
             })}
@@ -204,8 +259,61 @@ export function AdminTicketsPage() {
                 rows={3}
                 className="resize-none rounded-xl bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 focus-visible:ring-primary/50"
               />
-              <div className="flex justify-end">
-                <Button onClick={sendReply} disabled={replySending || !replyText.trim()} size="sm" className="gap-2">
+              {replyFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {replyFiles.map((f, i) => (
+                    <div
+                      key={`${f.name}-${i}`}
+                      className="relative group flex items-center gap-2 rounded-xl border border-white/10 bg-background/60 px-2 py-1.5 backdrop-blur-md"
+                    >
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt={f.name}
+                        className="h-10 w-10 rounded-lg object-cover"
+                        onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                      />
+                      <span className="text-[11px] text-muted-foreground max-w-[140px] truncate font-medium">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                        aria-label="Удалить"
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {uploadError && (
+                <p className="text-[11px] text-destructive font-semibold">{uploadError}</p>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <input
+                  ref={replyInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addFiles(e.target.files)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => replyInputRef.current?.click()}
+                  disabled={replyFiles.length >= MAX_FILES}
+                  className="gap-2"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Фото ({replyFiles.length}/{MAX_FILES})
+                </Button>
+                <Button
+                  onClick={sendReply}
+                  disabled={replySending || (!replyText.trim() && replyFiles.length === 0)}
+                  size="sm"
+                  className="gap-2"
+                >
                   {replySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Отправить
                 </Button>
