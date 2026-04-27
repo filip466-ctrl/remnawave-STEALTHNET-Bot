@@ -97,10 +97,45 @@ function remnaStrategy(mode: TrafficResetMode): "NO_RESET" | "MONTH" | "MONTH_RO
 }
 
 /**
+ * Рассчитать pro-rata конвертацию остатка дней при смене тарифа.
+ * Возвращает количество "конвертированных" дней, которые добавляются к новой покупке.
+ *
+ * Формула: convertedDays = floor(remainingDays × oldPricePerDay / newPricePerDay)
+ *
+ * Применяется ТОЛЬКО когда:
+ * - Был активный срок (currentExpireAt в будущем)
+ * - У клиента сохранён currentPricePerDay (есть с чем сравнить)
+ * - Меняется ТАРИФ (не просто продление того же)
+ *
+ * Для одного и того же тарифа дни складываются 1:1 (без конвертации) — даже если
+ * выбрана опция с другой ставкой, юзер просто продлевает свой текущий тариф.
+ */
+function computeConvertedDays(args: {
+  remainingDays: number;
+  oldPricePerDay: number | null;
+  newPricePerDay: number;
+  isSameTariff: boolean;
+}): number {
+  const { remainingDays, oldPricePerDay, newPricePerDay, isSameTariff } = args;
+  if (remainingDays <= 0) return 0;
+  // Тот же тариф — просто стек, без конвертации
+  if (isSameTariff) return remainingDays;
+  // Нет ставки старого тарифа или нулевая новая — не можем считать, теряем остаток
+  if (oldPricePerDay == null || oldPricePerDay <= 0) return 0;
+  if (newPricePerDay <= 0) return remainingDays; // free → всё бесплатно, отдаём как есть
+  const converted = Math.floor((remainingDays * oldPricePerDay) / newPricePerDay);
+  return Math.max(0, converted);
+}
+
+/**
  * Активирует тариф для клиента в Remnawave:
  * - обновляет/создаёт пользователя с expireAt, trafficLimitBytes (в байтах), deviceLimit
  * - назначает activeInternalSquads
- * - При повторной покупке ДОБАВЛЯЕТ дни к текущему сроку подписки
+ * - При покупке другого тарифа применяет pro-rata конвертацию остатка
+ * - При покупке того же тарифа — дни просто суммируются
+ *
+ * `selectedOption` — выбранная клиентом опция (длительность + цена). Если не задана,
+ * fallback на legacy tariff.durationDays + tariff.price.
  *
  * Лимит трафика: в панели 1 ГБ = 1 ГиБ = 1024³ байт; в Remna передаём значение в байтах как есть.
  */
@@ -112,15 +147,30 @@ export async function activateTariffForClient(
     telegramId: string | null;
     telegramUsername?: string | null;
   },
-  tariff: { id?: string; durationDays: number; trafficLimitBytes: bigint | null; deviceLimit: number | null; internalSquadUuids: string[]; trafficResetMode?: string },
+  tariff: { id?: string; durationDays: number; trafficLimitBytes: bigint | null; deviceLimit: number | null; internalSquadUuids: string[]; trafficResetMode?: string; price?: number },
+  selectedOption?: { durationDays: number; price: number },
 ): Promise<ActivationResult> {
   if (!isRemnaConfigured()) return { ok: false, error: "Сервис временно недоступен", status: 503 };
+
+  // Эффективные значения из selectedOption (приоритет) или из legacy полей тарифа.
+  const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
+  const effectivePrice = selectedOption?.price ?? tariff.price ?? 0;
+  const newPricePerDay = effectiveDays > 0 ? effectivePrice / effectiveDays : 0;
 
   const trafficLimitBytes = tariff.trafficLimitBytes != null ? Number(tariff.trafficLimitBytes) : 0;
   const hwidDeviceLimit = tariff.deviceLimit ?? null;
   const resetMode: TrafficResetMode = (tariff.trafficResetMode as TrafficResetMode) || "no_reset";
   const trafficLimitStrategy = remnaStrategy(resetMode);
   const shouldResetTraffic = resetMode === "on_purchase" || resetMode === "monthly";
+
+  // Загружаем сохранённое состояние клиента для конвертации.
+  const dbClient = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { currentTariffId: true, currentPricePerDay: true },
+  });
+  const oldPricePerDay = dbClient?.currentPricePerDay ?? null;
+  const oldTariffId = dbClient?.currentTariffId ?? null;
+  const isSameTariff = !!(tariff.id && oldTariffId === tariff.id);
 
   let workingUuid = client.remnawaveUuid;
 
@@ -137,11 +187,29 @@ export async function activateTariffForClient(
     const userRes = await remnaGetUser(workingUuid);
     const currentExpireAt = extractCurrentExpireAt(userRes.data);
     const currentSquads = extractCurrentSquads(userRes.data);
-    const expireAt = calculateExpireAt(currentExpireAt, tariff.durationDays);
+
+    // Конвертация остатка при смене тарифа. Если тариф тот же — convertedDays = remainingDays
+    // (фактически calculateExpireAt(currentExpireAt, …) делает то же самое — стек).
+    // Если тариф другой — конвертируем по формуле (remaining × old$/d / new$/d).
+    let bonusDays = 0;
+    if (currentExpireAt) {
+      const remainingMs = currentExpireAt.getTime() - Date.now();
+      const remainingDays = Math.max(0, remainingMs / (24 * 60 * 60 * 1000));
+      bonusDays = computeConvertedDays({
+        remainingDays,
+        oldPricePerDay,
+        newPricePerDay,
+        isSameTariff,
+      });
+    }
+    // Итог: now + (effectiveDays + bonusDays). Если bonusDays = remainingDays (стек),
+    // эффект тот же что и calculateExpireAt(currentExpireAt, effectiveDays).
+    const totalDays = effectiveDays + bonusDays;
+    const expireAt = new Date(Date.now() + totalDays * 24 * 60 * 60 * 1000).toISOString();
+    void calculateExpireAt;
     const activeInternalSquads = await mergeSquads(tariff.internalSquadUuids, currentSquads);
 
-    // Сбрасываем трафик: либо явно указано в режиме тарифа, либо у клиента уже была
-    // активная подписка (значит покупает новый тариф / продлевает с обновлением квоты).
+    // Сбрасываем трафик: либо явно указано в режиме тарифа, либо была активная подписка.
     const hadActiveSub = currentExpireAt !== null;
     if (shouldResetTraffic || hadActiveSub) {
       await remnaResetUserTraffic(workingUuid);
@@ -173,7 +241,23 @@ export async function activateTariffForClient(
       if (existingUuid) currentExpireAt = extractCurrentExpireAt(byEmailRes.data);
     }
 
-    const expireAt = calculateExpireAt(currentExpireAt, tariff.durationDays);
+    // Применяем ту же логику конвертации для случая когда remna-юзер уже был
+    // (например создан через бота / старый клиент).
+    let bonusDays2 = 0;
+    if (currentExpireAt) {
+      const remainingMs = currentExpireAt.getTime() - Date.now();
+      const remainingDays = Math.max(0, remainingMs / (24 * 60 * 60 * 1000));
+      bonusDays2 = computeConvertedDays({
+        remainingDays,
+        oldPricePerDay,
+        newPricePerDay,
+        isSameTariff,
+      });
+    }
+    const totalDays2 = effectiveDays + bonusDays2;
+    const expireAt = currentExpireAt
+      ? new Date(Date.now() + totalDays2 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + effectiveDays * 24 * 60 * 60 * 1000).toISOString();
 
     if (!existingUuid) {
       const displayUsername = remnaUsernameFromClient({
@@ -207,13 +291,19 @@ export async function activateTariffForClient(
     await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: existingUuid } });
   }
 
-  // Сохраняем currentTariffId как Source of Truth для UI/notifications.
-  // Если активация была из customBuild — tariff.id может быть undefined; тогда не трогаем.
-  if (tariff.id) {
-    await prisma.client
-      .update({ where: { id: client.id }, data: { currentTariffId: tariff.id } })
-      .catch(() => {});
-  }
+  // Сохраняем currentTariffId + currentPricePerDay как Source of Truth.
+  // Используется для отображения названия тарифа и для конвертации при следующей смене.
+  // Если активация была из customBuild — tariff.id может быть undefined; в этом случае
+  // currentTariffId не трогаем, но currentPricePerDay всё равно обновляем (есть цена и дни).
+  await prisma.client
+    .update({
+      where: { id: client.id },
+      data: {
+        ...(tariff.id ? { currentTariffId: tariff.id } : {}),
+        currentPricePerDay: newPricePerDay > 0 ? newPricePerDay : null,
+      },
+    })
+    .catch(() => {});
 
   return { ok: true };
 }
@@ -224,7 +314,13 @@ export async function activateTariffForClient(
 export async function activateTariffByPaymentId(paymentId: string): Promise<ActivationResult> {
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    select: { tariffId: true, clientId: true, metadata: true },
+    select: {
+      tariffId: true,
+      tariffPriceOptionId: true,
+      clientId: true,
+      metadata: true,
+      tariffPriceOption: { select: { durationDays: true, price: true } },
+    },
   });
   if (!payment) {
     return { ok: false, error: "Платёж не найден", status: 404 };
@@ -247,9 +343,15 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       return { ok: false, error: "Тариф не найден", status: 404 };
     }
 
+    // Опция выбора (длительность + цена). Если в платеже сохранён tariffPriceOptionId,
+    // используем его; иначе fallback на legacy поля тарифа.
+    const selectedOption = payment.tariffPriceOption
+      ? { durationDays: payment.tariffPriceOption.durationDays, price: payment.tariffPriceOption.price }
+      : undefined;
+
     if (isAdditional) {
       const result = await createAdditionalSubscription(client.id, {
-        durationDays: tariff.durationDays,
+        durationDays: selectedOption?.durationDays ?? tariff.durationDays,
         trafficLimitBytes: tariff.trafficLimitBytes,
         deviceLimit: tariff.deviceLimit,
         internalSquadUuids: tariff.internalSquadUuids,
@@ -258,7 +360,7 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       return result.ok ? { ok: true } : { ok: false, error: result.error, status: result.status };
     }
 
-    return activateTariffForClient(client, tariff);
+    return activateTariffForClient(client, tariff, selectedOption);
   }
 
   const customBuild = parseCustomBuildMetadata(payment.metadata);

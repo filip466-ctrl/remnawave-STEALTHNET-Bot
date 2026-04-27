@@ -2023,6 +2023,7 @@ const createPlategaPaymentSchema = z.object({
   paymentMethod: z.number().int().min(2).max(13),
   description: z.string().max(500).optional(),
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
@@ -2196,6 +2197,7 @@ clientRouter.post("/payments/platega", async (req, res) => {
       status: "PENDING",
       provider: "platega",
       tariffId: tariffIdToStore,
+      tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
       proxyTariffId: proxyTariffIdToStore,
       singboxTariffId: singboxTariffIdToStore,
       metadata: paymentMeta ? JSON.stringify(paymentMeta) : null,
@@ -2237,6 +2239,7 @@ clientRouter.post("/payments/platega", async (req, res) => {
 
 const payByBalanceSchema = z.object({
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
@@ -2247,7 +2250,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
   const parsed = payByBalanceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
 
-  const { tariffId, proxyTariffId, singboxTariffId, promoCode: promoCodeStr } = parsed.data;
+  const { tariffId, tariffPriceOptionId, proxyTariffId, singboxTariffId, promoCode: promoCodeStr } = parsed.data;
 
   if (proxyTariffId) {
     const tariff = await prisma.proxyTariff.findUnique({ where: { id: proxyTariffId } });
@@ -2321,19 +2324,32 @@ clientRouter.post("/payments/balance", async (req, res) => {
     });
   }
 
-  const tariff = await prisma.tariff.findUnique({ where: { id: tariffId! } });
+  const tariff = await prisma.tariff.findUnique({
+    where: { id: tariffId! },
+    include: { priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] } },
+  });
   if (!tariff) return res.status(400).json({ message: "Тариф не найден" });
 
-  let finalPrice = tariff.price;
+  // Определяем выбранную опцию: явный priceOptionId → найти и проверить принадлежность тарифу.
+  // Если не указан — fallback на legacy (tariff.price + tariff.durationDays).
+  let selectedOption: { id: string; durationDays: number; price: number } | null = null;
+  if (tariffPriceOptionId) {
+    const opt = tariff.priceOptions.find((o) => o.id === tariffPriceOptionId);
+    if (!opt) return res.status(400).json({ message: "Опция цены не найдена в этом тарифе" });
+    selectedOption = { id: opt.id, durationDays: opt.durationDays, price: opt.price };
+  } else if (tariff.priceOptions.length > 0) {
+    // Если опции есть но не указали — берём минимальную цену по умолчанию (как в legacy)
+    const sorted = [...tariff.priceOptions].sort((a, b) => a.price - b.price);
+    selectedOption = { id: sorted[0].id, durationDays: sorted[0].durationDays, price: sorted[0].price };
+  }
+
+  let finalPrice = selectedOption?.price ?? tariff.price;
 
   // Промокод на скидку
   let promoCodeRecord: { id: string } | null = null;
   if (promoCodeStr?.trim()) {
     const result = await validatePromoCode(promoCodeStr.trim(), clientRaw.id);
     if (!result.ok) {
-      // Истёкший или удалённый промокод не должен блокировать оплату с баланса —
-      // просто игнорируем его и считаем полную цену. Остальные ошибки (лимит,
-      // уже использован, не даёт скидку) — блокируем.
       const isStale = result.status === 404 || /истёк|not found/i.test(result.error);
       if (!isStale) return res.status(result.status).json({ message: result.error });
     } else {
@@ -2358,10 +2374,11 @@ clientRouter.post("/payments/balance", async (req, res) => {
     return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalPrice.toFixed(2)}` });
   }
 
-  // Активируем тариф в Remnawave
+  // Активируем тариф в Remnawave (с конкретной выбранной опцией для конвертации)
   const activateResult = await activateTariffForClient(
     { id: clientRaw.id, remnawaveUuid: clientDb.remnawaveUuid, email: clientDb.email, telegramId: clientDb.telegramId },
     tariff,
+    selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
   );
   if (!activateResult.ok) return res.status(activateResult.status).json({ message: activateResult.error });
 
@@ -2382,6 +2399,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
       status: "PAID",
       provider: "balance",
       tariffId,
+      tariffPriceOptionId: selectedOption?.id ?? null,
       paidAt: new Date(),
       metadata: promoCodeRecord ? JSON.stringify({ promoCodeId: promoCodeRecord.id, originalPrice: tariff.price }) : null,
     },
@@ -2743,6 +2761,7 @@ const yoomoneyFormPaymentSchema = z.object({
   amount: z.number().positive().max(1e7).optional(),
   paymentType: z.enum(["PC", "AC"]), // PC = с кошелька, AC = с карты
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
@@ -2872,6 +2891,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
       status: "PENDING",
       provider: "yoomoney_form",
       tariffId: tariffIdToStore,
+      tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
       proxyTariffId: proxyTariffIdToStore,
       singboxTariffId: singboxTariffIdToStore,
       metadata: JSON.stringify(metadataObj),
@@ -2956,6 +2976,7 @@ const yookassaCreatePaymentSchema = z.object({
   amount: z.number().positive().max(1e7).optional(),
   currency: z.string().min(1).max(10).optional(),
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().optional(),
@@ -3113,6 +3134,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
         status: "PENDING",
         provider: "yookassa",
         tariffId: tariffIdToStore,
+        tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
@@ -3188,6 +3210,7 @@ const cryptopayCreatePaymentSchema = z.object({
   amount: z.number().positive().optional(),
   currency: z.string().min(1).max(10).optional(),
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
@@ -3319,6 +3342,7 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
         status: "PENDING",
         provider: "cryptopay",
         tariffId: tariffIdToStore,
+        tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
@@ -3371,6 +3395,7 @@ const heleketCreatePaymentSchema = z.object({
   amount: z.number().positive().optional(),
   currency: z.string().min(1).max(10).optional(),
   tariffId: z.string().min(1).optional(),
+  tariffPriceOptionId: z.string().min(1).optional(),
   proxyTariffId: z.string().min(1).optional(),
   singboxTariffId: z.string().min(1).optional(),
   promoCode: z.string().max(50).optional(),
@@ -3500,6 +3525,7 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
         status: "PENDING",
         provider: "heleket",
         tariffId: tariffIdToStore,
+        tariffPriceOptionId: parsed.data.tariffPriceOptionId ?? null,
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
@@ -4003,7 +4029,19 @@ publicConfigRouter.get("/subscription-page", async (_req, res) => {
   }
 });
 
-function tariffToJson(t: { id: string; name: string; description: string | null; durationDays: number; internalSquadUuids: string[]; trafficLimitBytes: bigint | null; trafficResetMode?: string; deviceLimit: number | null; price: number; currency: string }) {
+function tariffToJson(t: {
+  id: string;
+  name: string;
+  description: string | null;
+  durationDays: number;
+  internalSquadUuids: string[];
+  trafficLimitBytes: bigint | null;
+  trafficResetMode?: string;
+  deviceLimit: number | null;
+  price: number;
+  currency: string;
+  priceOptions?: { id: string; durationDays: number; price: number; sortOrder: number }[];
+}) {
   return {
     id: t.id,
     name: t.name,
@@ -4014,6 +4052,12 @@ function tariffToJson(t: { id: string; name: string; description: string | null;
     deviceLimit: t.deviceLimit,
     price: t.price,
     currency: t.currency,
+    priceOptions: (t.priceOptions ?? []).map((o) => ({
+      id: o.id,
+      durationDays: o.durationDays,
+      price: o.price,
+      sortOrder: o.sortOrder,
+    })),
   };
 }
 
@@ -4023,7 +4067,14 @@ publicConfigRouter.get("/tariffs", async (_req, res) => {
     const categoryEmojis = config.categoryEmojis ?? { ordinary: "📦", premium: "⭐" };
     const list = await prisma.tariffCategory.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      include: { tariffs: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+      include: {
+        tariffs: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          include: {
+            priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] },
+          },
+        },
+      },
     });
     return res.json({
       items: list.map((c) => {

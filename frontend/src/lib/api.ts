@@ -556,7 +556,7 @@ export const api = {
   async grantClientTariff(
     token: string,
     clientId: string,
-    payload: { tariffId: string; note?: string; createPaymentRecord?: boolean }
+    payload: { tariffId: string; tariffPriceOptionId?: string; note?: string; createPaymentRecord?: boolean }
   ): Promise<{ ok: boolean; paymentId: string | null; tariff: { id: string; name: string; durationDays: number }; message?: string }> {
     return request(`/admin/clients/${clientId}/grant-tariff`, {
       method: "POST",
@@ -1231,6 +1231,7 @@ export const api = {
       paymentMethod: number;
       description?: string;
       tariffId?: string;
+      tariffPriceOptionId?: string;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1289,7 +1290,7 @@ export const api = {
 
   async clientPayByBalance(
     token: string,
-    data: { tariffId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
+    data: { tariffId?: string; tariffPriceOptionId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
   ): Promise<{ message: string; paymentId: string; newBalance: number }> {
     return request("/client/payments/balance", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -1320,6 +1321,7 @@ export const api = {
       amount?: number;
       paymentType: "PC" | "AC";
       tariffId?: string;
+      tariffPriceOptionId?: string;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1349,6 +1351,7 @@ export const api = {
       amount?: number;
       currency?: string;
       tariffId?: string;
+      tariffPriceOptionId?: string;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1371,6 +1374,7 @@ export const api = {
       amount?: number;
       currency?: string;
       tariffId?: string;
+      tariffPriceOptionId?: string;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1388,6 +1392,7 @@ export const api = {
       amount?: number;
       currency?: string;
       tariffId?: string;
+      tariffPriceOptionId?: string;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -2781,6 +2786,13 @@ export interface TariffCategoryWithTariffs extends TariffCategoryRecord {
   tariffs: TariffRecord[];
 }
 
+export interface TariffPriceOption {
+  id: string;
+  durationDays: number;
+  price: number;
+  sortOrder: number;
+}
+
 export interface TariffRecord {
   id: string;
   categoryId: string;
@@ -2794,6 +2806,7 @@ export interface TariffRecord {
   price: number;
   currency: string;
   sortOrder: number;
+  priceOptions: TariffPriceOption[];
   createdAt: string;
   updatedAt: string;
 }
@@ -2802,7 +2815,7 @@ export type CreateTariffPayload = {
   categoryId: string;
   name: string;
   description?: string | null;
-  durationDays: number;
+  durationDays?: number;
   internalSquadUuids: string[];
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
@@ -2810,6 +2823,7 @@ export type CreateTariffPayload = {
   price?: number;
   currency?: string;
   sortOrder?: number;
+  priceOptions?: { durationDays: number; price: number }[];
 };
 
 export type UpdateTariffPayload = {
@@ -2823,6 +2837,7 @@ export type UpdateTariffPayload = {
   price?: number;
   currency?: string;
   sortOrder?: number;
+  priceOptions?: { durationDays: number; price: number }[];
 };
 
 // ——— Кабинет клиента ———
@@ -2899,7 +2914,18 @@ export interface PublicTariffCategory {
   tariffs: PublicTariff[];
 }
 
-export type PublicTariff = { id: string; name: string; description: string | null; durationDays: number; price: number; currency: string; trafficLimitBytes: number | null; trafficResetMode?: string; deviceLimit: number | null };
+export type PublicTariff = {
+  id: string;
+  name: string;
+  description: string | null;
+  durationDays: number;
+  price: number;
+  currency: string;
+  trafficLimitBytes: number | null;
+  trafficResetMode?: string;
+  deviceLimit: number | null;
+  priceOptions: TariffPriceOption[];
+};
 
 // ——— Промо-группы ———
 export interface PromoGroup {

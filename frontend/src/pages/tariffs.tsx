@@ -24,6 +24,9 @@ import {
   Layers,
   AlertTriangle,
   Sparkles,
+  Tag,
+  X,
+  TrendingDown,
 } from "lucide-react";
 import {
   DndContext,
@@ -74,6 +77,28 @@ function formatPrice(amount: number, currency: string): string {
 }
 
 type SquadOption = { uuid: string; name?: string };
+
+type PriceOptionDraft = {
+  uid: string;
+  days: number;
+  price: string;
+};
+
+const PRICE_OPTION_PRESETS = [7, 30, 90, 365];
+const MAX_PRICE_OPTIONS = 10;
+
+let __priceOptionDraftCounter = 0;
+function makeDraftUid(): string {
+  __priceOptionDraftCounter += 1;
+  return `draft-${Date.now().toString(36)}-${__priceOptionDraftCounter.toString(36)}`;
+}
+
+function parsePriceNumber(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const v = parseFloat(trimmed);
+  return Number.isFinite(v) ? v : null;
+}
 
 const inputCls = "rounded-xl bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 focus-visible:ring-primary/50";
 const selectCls = "flex h-10 w-full rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50";
@@ -281,6 +306,117 @@ function SortableTariffRow({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+    </motion.li>
+  );
+}
+
+function SortablePriceOptionRow({
+  option,
+  isOnly,
+  isBest,
+  isDuplicate,
+  currency,
+  onChangeDays,
+  onChangePrice,
+  onRemove,
+}: {
+  option: PriceOptionDraft;
+  isOnly: boolean;
+  isBest: boolean;
+  isDuplicate: boolean;
+  currency: string;
+  onChangeDays: (v: number) => void;
+  onChangePrice: (v: string) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: option.uid,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  const priceNum = parsePriceNumber(option.price);
+  const ppd = priceNum != null && option.days > 0 ? priceNum / option.days : null;
+
+  return (
+    <motion.li
+      ref={setNodeRef}
+      style={style}
+      whileHover={{ y: -1 }}
+      className={cn(
+        "relative flex items-center gap-2 rounded-xl border bg-foreground/[0.03] dark:bg-white/[0.02] backdrop-blur-md px-2.5 py-2 transition-all",
+        isBest
+          ? "border-amber-500/40 ring-1 ring-amber-500/20 shadow-[0_0_0_1px_rgba(245,158,11,0.15)]"
+          : isDuplicate
+            ? "border-amber-500/40"
+            : "border-white/10 hover:border-white/20",
+        isDragging && "opacity-90 shadow-lg z-10"
+      )}
+    >
+      <button
+        type="button"
+        className="h-8 w-7 shrink-0 cursor-grab active:cursor-grabbing rounded-lg bg-foreground/[0.04] dark:bg-white/[0.04] border border-white/10 text-muted-foreground hover:bg-foreground/[0.06] dark:hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+        {...attributes}
+        {...listeners}
+        title="Перетащите для изменения порядка"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 flex-1 items-center min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Input
+            type="number"
+            min={1}
+            max={3650}
+            step={1}
+            value={option.days}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              onChangeDays(Number.isFinite(v) && v > 0 ? v : 1);
+            }}
+            className={cn(inputCls, "h-8 text-sm px-2.5")}
+            aria-label="Длительность (дней)"
+          />
+          <span className="text-[11px] text-muted-foreground shrink-0">дн.</span>
+        </div>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            value={option.price}
+            onChange={(e) => onChangePrice(e.target.value)}
+            placeholder="0.00"
+            className={cn(inputCls, "h-8 text-sm px-2.5")}
+            aria-label="Цена"
+          />
+          <span className="text-[11px] text-muted-foreground shrink-0 uppercase">{currency}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {isBest && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 text-[10px] font-bold">
+              <Sparkles className="h-3 w-3" />
+              Best deal
+            </span>
+          )}
+          <span className="hidden sm:inline-flex items-center text-[11px] text-muted-foreground tabular-nums min-w-[60px] justify-end">
+            {ppd != null ? `${ppd.toFixed(2)}/день` : "—"}
+          </span>
+        </div>
+      </div>
+
+      {!isOnly && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="h-8 w-8 shrink-0 rounded-lg bg-foreground/[0.04] dark:bg-white/[0.04] border border-white/10 text-muted-foreground hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 flex items-center justify-center transition-colors"
+          title="Удалить опцию"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </motion.li>
   );
 }
@@ -676,40 +812,60 @@ function TariffModal({
   const tariff = isEdit ? modal.tariff : null;
   const categoryId = isEdit ? modal.category.id : modal.categoryId;
 
+  const buildInitialPriceOptions = (t: TariffRecord | null): PriceOptionDraft[] => {
+    if (t && Array.isArray(t.priceOptions) && t.priceOptions.length > 0) {
+      return [...t.priceOptions]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((p) => ({
+          uid: p.id,
+          days: p.durationDays,
+          price: String(p.price),
+        }));
+    }
+    if (t) {
+      return [
+        {
+          uid: makeDraftUid(),
+          days: t.durationDays,
+          price: String(t.price ?? 0),
+        },
+      ];
+    }
+    return [{ uid: makeDraftUid(), days: 30, price: "0" }];
+  };
+
   const [name, setName] = useState(tariff?.name ?? "");
   const [description, setDescription] = useState(tariff?.description ?? "");
-  const [durationDays, setDurationDays] = useState(tariff?.durationDays ?? 30);
+  const [priceOptions, setPriceOptions] = useState<PriceOptionDraft[]>(() => buildInitialPriceOptions(tariff));
   const [selectedSquadUuids, setSelectedSquadUuids] = useState<string[]>(tariff?.internalSquadUuids ?? []);
   const [trafficGb, setTrafficGb] = useState<string>(
     tariff?.trafficLimitBytes != null ? String((tariff.trafficLimitBytes / BYTES_PER_GB).toFixed(2)) : ""
   );
   const [trafficResetMode, setTrafficResetMode] = useState<string>(tariff?.trafficResetMode ?? "no_reset");
   const [deviceLimit, setDeviceLimit] = useState<string>(tariff?.deviceLimit != null ? String(tariff.deviceLimit) : "");
-  const [price, setPrice] = useState<string>(tariff?.price != null ? String(tariff.price) : "0");
   const [currency, setCurrency] = useState<string>((tariff?.currency ?? "usd").toLowerCase());
 
   useEffect(() => {
     if (isEdit && tariff) {
       setName(tariff.name);
       setDescription(tariff.description ?? "");
-      setDurationDays(tariff.durationDays);
+      setPriceOptions(buildInitialPriceOptions(tariff));
       setSelectedSquadUuids(tariff.internalSquadUuids);
       setTrafficGb(tariff.trafficLimitBytes != null ? String((tariff.trafficLimitBytes / BYTES_PER_GB).toFixed(2)) : "");
       setTrafficResetMode(tariff.trafficResetMode ?? "no_reset");
       setDeviceLimit(tariff.deviceLimit != null ? String(tariff.deviceLimit) : "");
-      setPrice(String(tariff.price ?? 0));
       setCurrency((tariff.currency ?? "usd").toLowerCase());
     } else {
       setName("");
       setDescription("");
-      setDurationDays(30);
+      setPriceOptions([{ uid: makeDraftUid(), days: 30, price: "0" }]);
       setSelectedSquadUuids([]);
       setTrafficGb("");
       setTrafficResetMode("no_reset");
       setDeviceLimit("");
-      setPrice("0");
       setCurrency("usd");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal, isEdit, tariff]);
 
   const [squadsOpen, setSquadsOpen] = useState(false);
@@ -741,15 +897,96 @@ function TariffModal({
         ? selectedSquadsList[0]?.name || selectedSquadsList[0]?.uuid || "1 сквад"
         : `Выбрано: ${selectedSquadUuids.length}`;
 
+  // ——— priceOptions helpers ———
+  const updatePriceOption = (uid: string, patch: Partial<Pick<PriceOptionDraft, "days" | "price">>) => {
+    setPriceOptions((prev) => prev.map((o) => (o.uid === uid ? { ...o, ...patch } : o)));
+  };
+
+  const removePriceOption = (uid: string) => {
+    setPriceOptions((prev) => (prev.length <= 1 ? prev : prev.filter((o) => o.uid !== uid)));
+  };
+
+  const addPriceOption = (days: number) => {
+    setPriceOptions((prev) => {
+      if (prev.length >= MAX_PRICE_OPTIONS) return prev;
+      return [...prev, { uid: makeDraftUid(), days, price: "" }];
+    });
+  };
+
+  const priceOptionsSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+
+  const handlePriceOptionsDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setPriceOptions((prev) => {
+      const oldIndex = prev.findIndex((o) => o.uid === active.id);
+      const newIndex = prev.findIndex((o) => o.uid === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
+  // ——— derived: лучший $/день и дубликаты дней ———
+  const pricePerDayList = priceOptions.map((o) => {
+    const p = parsePriceNumber(o.price);
+    if (p == null || o.days <= 0) return null;
+    return p / o.days;
+  });
+  const validPpd = pricePerDayList.filter((v): v is number => v != null && Number.isFinite(v));
+  const minPpd = validPpd.length > 0 ? Math.min(...validPpd) : null;
+  const bestUid =
+    minPpd != null
+      ? priceOptions[pricePerDayList.findIndex((v) => v != null && v === minPpd)]?.uid ?? null
+      : null;
+
+  const seenDays = new Set<number>();
+  const duplicateUids = new Set<string>();
+  for (const o of priceOptions) {
+    if (seenDays.has(o.days)) duplicateUids.add(o.uid);
+    else seenDays.add(o.days);
+  }
+  const hasDuplicates = duplicateUids.size > 0;
+
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !name.trim() || selectedSquadUuids.length === 0) return;
+
+    // Валидация priceOptions
+    if (priceOptions.length === 0) {
+      setValidationError("Добавьте хотя бы одну опцию цены");
+      return;
+    }
+    if (priceOptions.length > MAX_PRICE_OPTIONS) {
+      setValidationError(`Максимум ${MAX_PRICE_OPTIONS} опций`);
+      return;
+    }
+    const normalized: { durationDays: number; price: number }[] = [];
+    for (const o of priceOptions) {
+      if (!Number.isInteger(o.days) || o.days < 1 || o.days > 3650) {
+        setValidationError("Длительность опции должна быть целым числом от 1 до 3650 дней");
+        return;
+      }
+      const p = parsePriceNumber(o.price);
+      if (p == null || p < 0) {
+        setValidationError("Цена опции должна быть числом ≥ 0");
+        return;
+      }
+      normalized.push({ durationDays: o.days, price: p });
+    }
+    if (hasDuplicates) {
+      setValidationError("Опции с одинаковой длительностью не допускаются");
+      return;
+    }
+    setValidationError(null);
+
     const trafficLimitBytes =
       trafficGb.trim() !== "" ? Math.round(parseFloat(trafficGb) * BYTES_PER_GB) : null;
     const deviceLimitNum = deviceLimit.trim() !== "" ? parseInt(deviceLimit, 10) : null;
     if (deviceLimit.trim() !== "" && (isNaN(deviceLimitNum!) || deviceLimitNum! < 0)) return;
-    const priceNum = parseFloat(price);
-    if (isNaN(priceNum) || priceNum < 0) return;
 
     setSaving(true);
     try {
@@ -757,13 +994,12 @@ function TariffModal({
         const payload: UpdateTariffPayload = {
           name: name.trim(),
           description: description.trim() || null,
-          durationDays,
           internalSquadUuids: selectedSquadUuids,
           trafficLimitBytes: trafficLimitBytes ?? null,
           trafficResetMode,
           deviceLimit: deviceLimitNum ?? null,
-          price: priceNum,
           currency: currency || "usd",
+          priceOptions: normalized,
         };
         await api.updateTariff(token, tariff.id, payload);
       } else {
@@ -771,13 +1007,12 @@ function TariffModal({
           categoryId,
           name: name.trim(),
           description: description.trim() || null,
-          durationDays,
           internalSquadUuids: selectedSquadUuids,
           trafficLimitBytes: trafficLimitBytes ?? null,
           trafficResetMode,
           deviceLimit: deviceLimitNum ?? null,
-          price: priceNum,
           currency: currency || "usd",
+          priceOptions: normalized,
         };
         await api.createTariff(token, payload);
       }
@@ -825,45 +1060,101 @@ function TariffModal({
               className="flex min-h-[80px] w-full rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="tariff-days" className="text-xs text-muted-foreground">Срок (дней)</Label>
-            <Input
-              id="tariff-days"
-              type="number"
-              min={1}
-              max={3650}
-              value={durationDays}
-              onChange={(e) => setDurationDays(parseInt(e.target.value, 10) || 1)}
-              className={inputCls}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="tariff-price" className="text-xs text-muted-foreground">Цена</Label>
-              <Input
-                id="tariff-price"
-                type="number"
-                min={0}
-                step={0.01}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className={inputCls}
-              />
+          {/* Опции цен — множественные варианты длительности */}
+          <div className="rounded-2xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-white/10 flex items-center justify-center shrink-0 shadow-inner">
+                  <Tag className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold tracking-tight">Опции цен</p>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    Можно добавить несколько вариантов длительности — клиент выберет при покупке
+                  </p>
+                </div>
+              </div>
+              {minPpd != null && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 px-2.5 py-1 text-[11px] font-bold shrink-0">
+                  <TrendingDown className="h-3 w-3" />
+                  Лучшая цена/день: {formatPrice(minPpd, currency)}
+                </span>
+              )}
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="tariff-currency" className="text-xs text-muted-foreground">Валюта</Label>
-              <select
-                id="tariff-currency"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className={selectCls}
+
+            {/* Селектор валюты — компактный, рядом с опциями */}
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+              <div className="grid gap-1">
+                <Label htmlFor="tariff-currency" className="text-[11px] text-muted-foreground">Валюта</Label>
+                <select
+                  id="tariff-currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className={selectCls}
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <DndContext
+              sensors={priceOptionsSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handlePriceOptionsDragEnd}
+            >
+              <SortableContext
+                items={priceOptions.map((o) => o.uid)}
+                strategy={verticalListSortingStrategy}
               >
-                {CURRENCIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                <ul className="space-y-2">
+                  {priceOptions.map((opt) => (
+                    <SortablePriceOptionRow
+                      key={opt.uid}
+                      option={opt}
+                      isOnly={priceOptions.length === 1}
+                      isBest={opt.uid === bestUid}
+                      isDuplicate={duplicateUids.has(opt.uid)}
+                      currency={currency}
+                      onChangeDays={(v) => updatePriceOption(opt.uid, { days: v })}
+                      onChangePrice={(v) => updatePriceOption(opt.uid, { price: v })}
+                      onRemove={() => removePriceOption(opt.uid)}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
+
+            {hasDuplicates && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-500 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Найдены опции с одинаковой длительностью — оставьте только уникальные</span>
+              </div>
+            )}
+
+            {/* Пресеты */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] text-muted-foreground/80 mr-1">Быстрое добавление:</span>
+              {PRICE_OPTION_PRESETS.map((days) => (
+                <Button
+                  key={days}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addPriceOption(days)}
+                  disabled={priceOptions.length >= MAX_PRICE_OPTIONS}
+                  className="gap-1 rounded-lg h-7 px-2.5 text-[11px] border-white/10 bg-foreground/[0.04] dark:bg-white/[0.03] hover:bg-foreground/[0.06] dark:hover:bg-white/[0.06]"
+                >
+                  <Plus className="h-3 w-3" />
+                  {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}
+                </Button>
+              ))}
+              {priceOptions.length >= MAX_PRICE_OPTIONS && (
+                <span className="text-[10px] text-muted-foreground/70">Максимум {MAX_PRICE_OPTIONS} опций</span>
+              )}
             </div>
           </div>
           <div ref={squadsRef} className="relative">
@@ -963,9 +1254,19 @@ function TariffModal({
               className={inputCls}
             />
           </div>
+          {validationError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500 dark:text-red-400">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>{validationError}</span>
+            </div>
+          )}
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">Отмена</Button>
-            <Button type="submit" disabled={saving || selectedSquadUuids.length === 0} className="gap-2 rounded-xl">
+            <Button
+              type="submit"
+              disabled={saving || selectedSquadUuids.length === 0 || hasDuplicates || priceOptions.length === 0}
+              className="gap-2 rounded-xl"
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {isEdit ? "Сохранить" : "Создать"}
             </Button>

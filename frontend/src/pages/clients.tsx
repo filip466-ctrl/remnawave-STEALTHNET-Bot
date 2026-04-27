@@ -607,6 +607,8 @@ function ClientEditModal({
 
   const [tariffCategories, setTariffCategories] = useState<TariffCategoryWithTariffs[]>([]);
   const [selectedGrantTariffId, setSelectedGrantTariffId] = useState<string>("");
+  // Выбранная опция длительности из priceOptions выбранного тарифа
+  const [selectedGrantOptionId, setSelectedGrantOptionId] = useState<string>("");
   const [grantNote, setGrantNote] = useState<string>("");
   const [grantLoading, setGrantLoading] = useState(false);
   const [grantMessage, setGrantMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -673,6 +675,7 @@ function ClientEditModal({
     try {
       const res = await api.grantClientTariff(token, editing.id, {
         tariffId: selectedGrantTariffId,
+        tariffPriceOptionId: selectedGrantOptionId || undefined,
         note: grantNote.trim() || undefined,
       });
       if (res.ok) {
@@ -839,48 +842,103 @@ function ClientEditModal({
                   <p className="text-xs text-muted-foreground">
                     {t("admin.clients.grant_tariff_hint", "Активирует выбранный тариф для клиента без оплаты. Будет создана запись платежа со статусом PAID и суммой 0. Реферальные бонусы не начисляются.")}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">{t("admin.clients.grant_tariff_select", "Тариф")}</Label>
-                      <select
-                        className="w-full rounded-xl border border-input bg-background/70 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                        value={selectedGrantTariffId}
-                        onChange={(e) => setSelectedGrantTariffId(e.target.value)}
-                        disabled={grantLoading}
-                      >
-                        <option value="">{t("admin.clients.grant_tariff_choose", "— выберите тариф —")}</option>
-                        {tariffCategories.map((cat) => (
-                          <optgroup key={cat.id} label={cat.name}>
-                            {(cat.tariffs ?? []).map((tr) => (
+
+                  {/* Шаг 1: выбор тарифа */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">
+                      1. {t("admin.clients.grant_tariff_select", "Тариф")}
+                    </Label>
+                    <select
+                      className="w-full rounded-xl border border-input bg-background/70 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      value={selectedGrantTariffId}
+                      onChange={(e) => {
+                        const newId = e.target.value;
+                        setSelectedGrantTariffId(newId);
+                        // Сбрасываем выбранную опцию — будет авто-выбрана дешёвая ниже
+                        setSelectedGrantOptionId("");
+                      }}
+                      disabled={grantLoading}
+                    >
+                      <option value="">{t("admin.clients.grant_tariff_choose", "— выберите тариф —")}</option>
+                      {tariffCategories.map((cat) => (
+                        <optgroup key={cat.id} label={cat.name}>
+                          {(cat.tariffs ?? []).map((tr) => {
+                            const opts = tr.priceOptions ?? [];
+                            const minPrice = opts.length > 0 ? Math.min(...opts.map((o) => o.price)) : tr.price;
+                            return (
                               <option key={tr.id} value={tr.id}>
-                                {tr.name} · {tr.durationDays} дн.
+                                {tr.name}
                                 {tr.trafficLimitBytes != null && tr.trafficLimitBytes > 0
                                   ? ` · ${formatTrafficBytes(Number(tr.trafficLimitBytes))}`
                                   : ""}
                                 {tr.deviceLimit ? ` · ${tr.deviceLimit} устр.` : ""}
-                                {" · "}
-                                {tr.price} {tr.currency.toUpperCase()}
+                                {opts.length > 1 ? ` · от ${minPrice} ${tr.currency.toUpperCase()}` : ` · ${minPrice} ${tr.currency.toUpperCase()}`}
                               </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                        {flatTariffs.length === 0 && (
-                          <option value="" disabled>
-                            {t("admin.clients.grant_tariff_empty", "Нет доступных тарифов")}
-                          </option>
-                        )}
-                      </select>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={handleGrantTariff}
-                      disabled={!selectedGrantTariffId || grantLoading}
-                      className="gap-1.5 rounded-xl"
-                    >
-                      {grantLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                      {t("admin.clients.grant_tariff_button", "Выдать")}
-                    </Button>
+                            );
+                          })}
+                        </optgroup>
+                      ))}
+                      {flatTariffs.length === 0 && (
+                        <option value="" disabled>
+                          {t("admin.clients.grant_tariff_empty", "Нет доступных тарифов")}
+                        </option>
+                      )}
+                    </select>
                   </div>
+
+                  {/* Шаг 2: chips с опциями длительности (если несколько) */}
+                  {(() => {
+                    const selectedTariff = flatTariffs.find((tr) => tr.id === selectedGrantTariffId);
+                    const opts = selectedTariff?.priceOptions ?? [];
+                    if (!selectedTariff || opts.length === 0) return null;
+                    const sorted = [...opts].sort((a, b) => a.sortOrder - b.sortOrder || a.durationDays - b.durationDays);
+                    const minPpd = Math.min(...opts.map((o) => o.price / Math.max(1, o.durationDays)));
+                    const effectiveOptId = selectedGrantOptionId || sorted[0].id;
+                    return (
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] text-muted-foreground">
+                          2. Длительность <span className="text-muted-foreground/60">— клиент получит выбранную опцию</span>
+                        </Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {sorted.map((opt) => {
+                            const ppd = opt.price / Math.max(1, opt.durationDays);
+                            const isBest = opts.length > 1 && Math.abs(ppd - minPpd) < 0.0001;
+                            const isSelected = effectiveOptId === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                disabled={grantLoading}
+                                onClick={() => setSelectedGrantOptionId(opt.id)}
+                                className={cn(
+                                  "relative rounded-xl border p-3 text-left transition-all hover:scale-[1.02]",
+                                  isSelected
+                                    ? "bg-primary/15 border-primary shadow-md ring-1 ring-primary/30"
+                                    : "bg-background/40 border-white/10 hover:border-white/20",
+                                  grantLoading && "opacity-50 cursor-not-allowed"
+                                )}
+                              >
+                                {isBest && (
+                                  <span className="absolute -top-1.5 -right-1.5 inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur-md">
+                                    <Check className="h-2.5 w-2.5" />
+                                    Best
+                                  </span>
+                                )}
+                                <div className="font-bold text-sm tabular-nums">{opt.durationDays} дн.</div>
+                                <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                  {opt.price} {selectedTariff.currency.toUpperCase()}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground/80 tabular-nums mt-0.5">
+                                  ≈ {ppd.toFixed(2)} {selectedTariff.currency.toUpperCase()}/день
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="space-y-1">
                     <Label className="text-[11px] text-muted-foreground">{t("admin.clients.grant_tariff_note", "Комментарий (необязательно)")}</Label>
                     <Input
@@ -892,6 +950,17 @@ function ClientEditModal({
                       maxLength={500}
                     />
                   </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleGrantTariff}
+                    disabled={!selectedGrantTariffId || grantLoading}
+                    className="gap-1.5 rounded-xl w-full sm:w-auto"
+                  >
+                    {grantLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                    {t("admin.clients.grant_tariff_button", "Выдать")}
+                  </Button>
+
                   {grantMessage && (
                     <div
                       className={cn(

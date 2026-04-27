@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap, ArrowLeft, AlertTriangle, Sparkles } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import type { PublicTariffCategory } from "@/lib/api";
@@ -31,7 +31,8 @@ function formatMoney(amount: number, currency: string) {
   }).format(amount);
 }
 
-type TariffForPay = { id: string; name: string; price: number; currency: string; description?: string | null; durationDays?: number; trafficLimitBytes?: number | null; trafficResetMode?: string; deviceLimit?: number | null };
+type TariffPriceOption = { id: string; durationDays: number; price: number; sortOrder: number };
+type TariffForPay = { id: string; name: string; price: number; currency: string; description?: string | null; durationDays?: number; trafficLimitBytes?: number | null; trafficResetMode?: string; deviceLimit?: number | null; priceOptions?: TariffPriceOption[] };
 
 export function ClientTariffsPage() {
   const { t } = useTranslation();
@@ -57,6 +58,8 @@ export function ClientTariffsPage() {
   // Активная подписка пользователя (для предупреждения о сбросе трафика)
   const [activeSubInfo, setActiveSubInfo] = useState<{ hasActive: boolean; expireAt: string | null; tariffName: string | null }>({ hasActive: false, expireAt: null, tariffName: null });
   const [warnModal, setWarnModal] = useState<{ tariff: TariffForPay } | null>(null);
+  const [optionPickerModal, setOptionPickerModal] = useState<{ tariff: TariffForPay } | null>(null);
+  const [selectedPriceOptionId, setSelectedPriceOptionId] = useState<string | null>(null);
 
   // Промокод
   const [promoInput, setPromoInput] = useState("");
@@ -120,13 +123,38 @@ export function ClientTariffsPage() {
     }).catch(() => { /* not critical */ });
   }, [token]);
 
-  // Запрос на покупку тарифа: если уже есть активная подписка — сначала показываем
-  // предупреждение о сбросе трафика и продлении срока. Иначе сразу открываем PayModal.
+  // Запрос на покупку тарифа: если есть несколько priceOptions — открываем picker.
+  // Иначе если есть активная подписка — warn-modal. Иначе сразу PayModal.
   function requestBuy(tariff: TariffForPay) {
+    const opts = tariff.priceOptions ?? [];
+    if (opts.length > 1) {
+      setOptionPickerModal({ tariff });
+      return;
+    }
+    // Если ровно одна опция — берём её id, иначе сбрасываем
+    setSelectedPriceOptionId(opts.length === 1 ? opts[0].id : null);
     if (activeSubInfo.hasActive) {
       setWarnModal({ tariff });
     } else {
       setPayModal({ tariff });
+    }
+  }
+
+  // Выбор конкретной опции в picker — модифицируем tariff копию и идём дальше по flow
+  function confirmOption(option: TariffPriceOption) {
+    if (!optionPickerModal) return;
+    const baseTariff = optionPickerModal.tariff;
+    const tariffWithOption: TariffForPay = {
+      ...baseTariff,
+      durationDays: option.durationDays,
+      price: option.price,
+    };
+    setSelectedPriceOptionId(option.id);
+    setOptionPickerModal(null);
+    if (activeSubInfo.hasActive) {
+      setWarnModal({ tariff: tariffWithOption });
+    } else {
+      setPayModal({ tariff: tariffWithOption });
     }
   }
 
@@ -201,6 +229,7 @@ export function ClientTariffsPage() {
         paymentMethod: methodId,
         description: tariff.name,
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "Platega" });
@@ -218,6 +247,7 @@ export function ClientTariffsPage() {
     try {
       const res = await api.clientPayByBalance(token, {
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       setPayModal(null);
@@ -245,6 +275,7 @@ export function ClientTariffsPage() {
         amount: tariff.price,
         paymentType: "AC",
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "ЮMoney" });
@@ -268,6 +299,7 @@ export function ClientTariffsPage() {
         amount: tariff.price,
         currency: "RUB",
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.confirmationUrl) setReadyUrl({ url: res.confirmationUrl, provider: "ЮKassa" });
@@ -287,6 +319,7 @@ export function ClientTariffsPage() {
         amount: tariff.price,
         currency: tariff.currency,
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Crypto Bot" });
@@ -306,6 +339,7 @@ export function ClientTariffsPage() {
         amount: tariff.price,
         currency: tariff.currency,
         tariffId: tariff.id,
+        tariffPriceOptionId: selectedPriceOptionId ?? undefined,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket" });
@@ -723,7 +757,14 @@ export function ClientTariffsPage() {
                                 </div>
                                 <div className="flex flex-col items-center justify-center gap-2.5 shrink-0 min-w-[90px]">
                                   <span className="text-lg font-bold tabular-nums whitespace-nowrap text-foreground" title={formatMoney(tf.price, tf.currency)}>
-                                    {formatMoney(tf.price, tf.currency)}
+                                    {(() => {
+                                      const opts = tf.priceOptions ?? [];
+                                      if (opts.length > 1) {
+                                        const min = opts.reduce((a, b) => (a.price < b.price ? a : b));
+                                        return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price, tf.currency)}</>;
+                                      }
+                                      return formatMoney(tf.price, tf.currency);
+                                    })()}
                                   </span>
                                   {token ? (
                                     <Button
@@ -800,7 +841,14 @@ export function ClientTariffsPage() {
 
                             <div className="pt-4 border-t border-border/50 mt-auto flex flex-col gap-3 min-w-0">
                               <span className="text-2xl font-black tabular-nums truncate min-w-0 text-foreground text-center" title={formatMoney(tf.price, tf.currency)}>
-                                {formatMoney(tf.price, tf.currency)}
+                                {(() => {
+                                  const opts = tf.priceOptions ?? [];
+                                  if (opts.length > 1) {
+                                    const min = opts.reduce((a, b) => (a.price < b.price ? a : b));
+                                    return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price, tf.currency)}</>;
+                                  }
+                                  return formatMoney(tf.price, tf.currency);
+                                })()}
                               </span>
                               {token ? (
                                 <Button
@@ -908,6 +956,17 @@ export function ClientTariffsPage() {
                   </p>
                 </div>
               </div>
+              <div className="flex items-start gap-3">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center mt-0.5">
+                  <Sparkles className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold leading-tight">Остаток конвертируется в дни</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Остаток вашего текущего тарифа конвертируется в дни нового по соотношению цен
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -918,6 +977,99 @@ export function ClientTariffsPage() {
             <Button onClick={confirmWarnAndBuy} className="rounded-xl gap-2 bg-gradient-to-br from-primary to-primary/85 hover:from-primary/90 hover:to-primary/75">
               <CreditCard className="h-4 w-4" />
               Продолжить покупку
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Picker длительности (множественные priceOptions у тарифа) */}
+      <Dialog open={!!optionPickerModal} onOpenChange={(open) => !open && setOptionPickerModal(null)}>
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] sm:max-w-lg overflow-hidden">
+          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary/25 to-primary/10 blur-3xl pointer-events-none" />
+          <DialogHeader className="relative">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/15 border border-white/10 flex items-center justify-center shadow-inner shrink-0">
+                <Calendar className="h-6 w-6 text-primary" />
+              </div>
+              <DialogTitle className="text-xl font-bold tracking-tight">
+                Выберите длительность
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed pt-2">
+              {optionPickerModal?.tariff.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {(() => {
+            const tariff = optionPickerModal?.tariff;
+            if (!tariff) return null;
+            const opts = [...(tariff.priceOptions ?? [])].sort((a, b) =>
+              a.sortOrder !== b.sortOrder ? a.sortOrder - b.sortOrder : a.durationDays - b.durationDays
+            );
+            // Best deal — минимальная цена за день
+            let bestDealId: string | null = null;
+            if (opts.length > 1) {
+              let bestRatio = Infinity;
+              for (const o of opts) {
+                if (o.durationDays <= 0) continue;
+                const ratio = o.price / o.durationDays;
+                if (ratio < bestRatio) {
+                  bestRatio = ratio;
+                  bestDealId = o.id;
+                }
+              }
+            }
+            return (
+              <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                {opts.map((opt) => {
+                  const perDay = opt.durationDays > 0 ? opt.price / opt.durationDays : 0;
+                  const isBest = opt.id === bestDealId;
+                  return (
+                    <motion.div
+                      key={opt.id}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => confirmOption(opt)}
+                        className={cn(
+                          "w-full text-left rounded-2xl border p-4 transition-colors relative overflow-hidden",
+                          isBest
+                            ? "border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10"
+                            : "border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] hover:bg-foreground/[0.05] dark:hover:bg-white/[0.04]"
+                        )}
+                      >
+                        {isBest && (
+                          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                            <Sparkles className="h-3 w-3" />
+                            Best
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <Calendar className="h-4 w-4 text-primary shrink-0" />
+                          {opt.durationDays} {formatRuDays(opt.durationDays).replace(/^\d+\s/, "")}
+                        </div>
+                        <div className="mt-3 flex items-baseline gap-2">
+                          <span className="text-2xl font-black text-foreground tabular-nums">
+                            {formatMoney(opt.price, tariff.currency)}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-muted-foreground font-medium tabular-nums">
+                          {formatMoney(Math.round(perDay * 100) / 100, tariff.currency)}/день
+                        </div>
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          <DialogFooter className="mt-2 gap-2 sm:gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setOptionPickerModal(null)} className="rounded-xl">
+              Отмена
             </Button>
           </DialogFooter>
         </DialogContent>

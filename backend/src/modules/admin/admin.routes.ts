@@ -393,8 +393,24 @@ adminRouter.patch("/payments/:id", asyncRoute(async (req, res) => {
   });
 }));
 
-/** Сериализация тарифа для JSON (BigInt → number) */
-function tariffToJson(t: { id: string; categoryId: string; name: string; description: string | null; durationDays: number; internalSquadUuids: string[]; trafficLimitBytes: bigint | null; trafficResetMode: string; deviceLimit: number | null; price: number; currency: string; sortOrder: number; createdAt: Date; updatedAt: Date }) {
+/** Сериализация тарифа для JSON (BigInt → number) с опциями цен. */
+function tariffToJson(t: {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string | null;
+  durationDays: number;
+  internalSquadUuids: string[];
+  trafficLimitBytes: bigint | null;
+  trafficResetMode: string;
+  deviceLimit: number | null;
+  price: number;
+  currency: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  priceOptions?: { id: string; durationDays: number; price: number; sortOrder: number }[];
+}) {
   return {
     id: t.id,
     categoryId: t.categoryId,
@@ -408,6 +424,12 @@ function tariffToJson(t: { id: string; categoryId: string; name: string; descrip
     price: t.price,
     currency: t.currency,
     sortOrder: t.sortOrder,
+    priceOptions: (t.priceOptions ?? []).map((o) => ({
+      id: o.id,
+      durationDays: o.durationDays,
+      price: o.price,
+      sortOrder: o.sortOrder,
+    })),
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -509,18 +531,23 @@ adminRouter.delete("/tariff-categories/:id", async (req, res) => {
 // ——— Тарифы ———
 const tariffIdSchema = z.object({ id: z.string().min(1) });
 const TRAFFIC_RESET_MODES = ["no_reset", "on_purchase", "monthly", "monthly_rolling"] as const;
+const priceOptionInputSchema = z.object({
+  durationDays: z.number().int().min(1).max(3650),
+  price: z.number().min(0),
+});
 const createTariffSchema = z.object({
   categoryId: z.string().min(1),
   name: z.string().min(1).max(255),
   description: z.string().max(5000).nullable().optional(),
-  durationDays: z.number().int().min(1).max(3650),
+  durationDays: z.number().int().min(1).max(3650).optional(), // legacy: будет проигнорирован если priceOptions заданы
   internalSquadUuids: z.array(z.string().uuid()).min(1),
   trafficLimitBytes: z.number().int().nonnegative().nullable().optional(),
   trafficResetMode: z.enum(TRAFFIC_RESET_MODES).optional(),
   deviceLimit: z.number().int().nonnegative().nullable().optional(),
-  price: z.number().min(0).optional(),
+  price: z.number().min(0).optional(), // legacy: используется как fallback если priceOptions не заданы
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
+  priceOptions: z.array(priceOptionInputSchema).min(1).max(20).optional(),
 });
 const updateTariffSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -533,6 +560,8 @@ const updateTariffSchema = z.object({
   price: z.number().min(0).optional(),
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
+  // priceOptions: при обновлении заменяет существующие. min(1) если задано.
+  priceOptions: z.array(priceOptionInputSchema).min(1).max(20).optional(),
 });
 
 adminRouter.get("/tariffs", async (req, res) => {
@@ -541,6 +570,9 @@ adminRouter.get("/tariffs", async (req, res) => {
   const list = await prisma.tariff.findMany({
     where,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    include: {
+      priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] },
+    },
   });
   return res.json({ items: list.map(tariffToJson) });
 });
@@ -550,20 +582,47 @@ adminRouter.post("/tariffs", async (req, res) => {
   if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
   const category = await prisma.tariffCategory.findUnique({ where: { id: body.data.categoryId } });
   if (!category) return res.status(400).json({ message: "Категория не найдена" });
+
+  // Определяем legacy duration/price из priceOptions если они заданы (минимальная опция = legacy).
+  // Это нужно потому что Tariff.durationDays и Tariff.price обязательные поля схемы (NOT NULL).
+  let legacyDays = body.data.durationDays;
+  let legacyPrice = body.data.price ?? 0;
+  if (body.data.priceOptions && body.data.priceOptions.length > 0) {
+    const sorted = [...body.data.priceOptions].sort((a, b) => a.price - b.price);
+    legacyPrice = sorted[0].price;
+    legacyDays = sorted[0].durationDays;
+  }
+  if (legacyDays == null) {
+    return res.status(400).json({ message: "Не указана длительность или опции цен" });
+  }
+
   const created = await prisma.tariff.create({
     data: {
       categoryId: body.data.categoryId,
       name: body.data.name,
       description: body.data.description ?? null,
-      durationDays: body.data.durationDays,
+      durationDays: legacyDays,
       internalSquadUuids: body.data.internalSquadUuids,
       trafficLimitBytes: body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null,
       trafficResetMode: body.data.trafficResetMode ?? "no_reset",
       deviceLimit: body.data.deviceLimit ?? null,
-      price: body.data.price ?? 0,
+      price: legacyPrice,
       currency: (body.data.currency ?? "usd").toLowerCase(),
       sortOrder: body.data.sortOrder ?? 0,
+      priceOptions: body.data.priceOptions
+        ? {
+          create: body.data.priceOptions.map((o, idx) => ({
+            durationDays: o.durationDays,
+            price: o.price,
+            sortOrder: idx,
+          })),
+        }
+        : {
+          // Если priceOptions не заданы — создаём одну дефолтную из legacy полей
+          create: [{ durationDays: legacyDays, price: legacyPrice, sortOrder: 0 }],
+        },
     },
+    include: { priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] } },
   });
   return res.status(201).json(tariffToJson(created));
 });
@@ -576,17 +635,42 @@ adminRouter.patch("/tariffs/:id", async (req, res) => {
   const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; price?: number; currency?: string; sortOrder?: number } = {};
   if (body.data.name != null) data.name = body.data.name;
   if (body.data.description !== undefined) data.description = body.data.description ?? null;
-  if (body.data.durationDays != null) data.durationDays = body.data.durationDays;
   if (body.data.internalSquadUuids != null) data.internalSquadUuids = body.data.internalSquadUuids;
   if (body.data.trafficLimitBytes !== undefined) data.trafficLimitBytes = body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null;
   if (body.data.trafficResetMode !== undefined) data.trafficResetMode = body.data.trafficResetMode;
   if (body.data.deviceLimit !== undefined) data.deviceLimit = body.data.deviceLimit ?? null;
-  if (body.data.price !== undefined) data.price = body.data.price;
   if (body.data.currency !== undefined) data.currency = body.data.currency.toLowerCase();
   if (body.data.sortOrder != null) data.sortOrder = body.data.sortOrder;
-  const updated = await prisma.tariff.update({
-    where: { id: idParse.data.id },
-    data,
+  // Если priceOptions переданы — синхронизируем legacy поля с минимальной опцией.
+  if (body.data.priceOptions && body.data.priceOptions.length > 0) {
+    const sorted = [...body.data.priceOptions].sort((a, b) => a.price - b.price);
+    data.price = sorted[0].price;
+    data.durationDays = sorted[0].durationDays;
+  } else {
+    // Иначе разрешаем менять legacy поля напрямую (на случай редактирования существующих тарифов).
+    if (body.data.durationDays != null) data.durationDays = body.data.durationDays;
+    if (body.data.price !== undefined) data.price = body.data.price;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (body.data.priceOptions && body.data.priceOptions.length > 0) {
+      // Полная замена опций цен: удалить старые → создать новые (CASCADE на Payment.tariffPriceOptionId
+      // делает SET NULL, существующие платежи сохранятся, но потеряют ссылку).
+      await tx.tariffPriceOption.deleteMany({ where: { tariffId: idParse.data.id } });
+      await tx.tariffPriceOption.createMany({
+        data: body.data.priceOptions.map((o, idx) => ({
+          tariffId: idParse.data.id,
+          durationDays: o.durationDays,
+          price: o.price,
+          sortOrder: idx,
+        })),
+      });
+    }
+    return tx.tariff.update({
+      where: { id: idParse.data.id },
+      data,
+      include: { priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] } },
+    });
   });
   return res.json(tariffToJson(updated));
 });
@@ -1011,6 +1095,9 @@ adminRouter.post("/clients/:id/remna/reset-traffic", async (req, res) => {
 
 const grantTariffSchema = z.object({
   tariffId: z.string().min(1),
+  // Опционально: конкретная опция длительности из priceOptions тарифа.
+  // Если не указано — используется опция с минимальной ценой (default).
+  tariffPriceOptionId: z.string().min(1).optional(),
   note: z.string().max(500).optional(),
   createPaymentRecord: z.boolean().optional(),
 });
@@ -1028,7 +1115,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   if (!body.success) return res.status(400).json({ message: "Invalid input" });
 
   const clientId = parsed.data.id;
-  const { tariffId, note, createPaymentRecord = true } = body.data;
+  const { tariffId, tariffPriceOptionId, note, createPaymentRecord = true } = body.data;
 
   const client = await prisma.client.findUnique({
     where: { id: clientId },
@@ -1036,8 +1123,23 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   });
   if (!client) return res.status(404).json({ message: "Клиент не найден" });
 
-  const tariff = await prisma.tariff.findUnique({ where: { id: tariffId } });
+  const tariff = await prisma.tariff.findUnique({
+    where: { id: tariffId },
+    include: { priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] } },
+  });
   if (!tariff) return res.status(404).json({ message: "Тариф не найден" });
+
+  // Выбираем опцию: явный priceOptionId → найти и проверить; иначе — опция с минимальной ценой
+  // (или fallback на legacy tariff.durationDays + tariff.price если опций нет).
+  let selectedOption: { id: string; durationDays: number; price: number } | null = null;
+  if (tariffPriceOptionId) {
+    const opt = tariff.priceOptions.find((o) => o.id === tariffPriceOptionId);
+    if (!opt) return res.status(400).json({ message: "Опция цены не найдена в этом тарифе" });
+    selectedOption = { id: opt.id, durationDays: opt.durationDays, price: opt.price };
+  } else if (tariff.priceOptions.length > 0) {
+    const sorted = [...tariff.priceOptions].sort((a, b) => a.price - b.price);
+    selectedOption = { id: sorted[0].id, durationDays: sorted[0].durationDays, price: sorted[0].price };
+  }
 
   const adminId = (req as unknown as { adminId: string }).adminId;
   const now = new Date();
@@ -1055,6 +1157,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
           status: "PAID",
           provider: "admin_grant",
           tariffId: tariff.id,
+          tariffPriceOptionId: selectedOption?.id ?? null,
           paidAt: now,
           metadata: JSON.stringify({ grantedBy: adminId, note: note ?? null, kind: "admin_grant" }),
         },
@@ -1066,13 +1169,19 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
     }
   }
 
-  const activation = await activateTariffForClient(client, {
-    durationDays: tariff.durationDays,
-    trafficLimitBytes: tariff.trafficLimitBytes,
-    deviceLimit: tariff.deviceLimit,
-    internalSquadUuids: tariff.internalSquadUuids,
-    trafficResetMode: tariff.trafficResetMode ?? undefined,
-  });
+  const activation = await activateTariffForClient(
+    client,
+    {
+      id: tariff.id,
+      durationDays: selectedOption?.durationDays ?? tariff.durationDays,
+      trafficLimitBytes: tariff.trafficLimitBytes,
+      deviceLimit: tariff.deviceLimit,
+      internalSquadUuids: tariff.internalSquadUuids,
+      trafficResetMode: tariff.trafficResetMode ?? undefined,
+      price: selectedOption?.price ?? tariff.price,
+    },
+    selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
+  );
 
   if (!activation.ok) {
     if (paymentId) {
