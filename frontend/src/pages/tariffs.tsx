@@ -340,17 +340,16 @@ function SortablePriceOptionRow({
   const ppd = priceNum != null && option.days > 0 ? priceNum / option.days : null;
 
   return (
-    <motion.li
+    <li
       ref={setNodeRef}
       style={style}
-      whileHover={{ y: -1 }}
       className={cn(
-        "relative flex items-center gap-2 rounded-xl border bg-foreground/[0.03] dark:bg-white/[0.02] backdrop-blur-md px-2.5 py-2 transition-all",
+        "relative flex items-center gap-2 rounded-xl border bg-foreground/[0.03] dark:bg-white/[0.02] backdrop-blur-md px-2.5 py-2",
         isBest
           ? "border-amber-500/40 ring-1 ring-amber-500/20 shadow-[0_0_0_1px_rgba(245,158,11,0.15)]"
           : isDuplicate
             ? "border-amber-500/40"
-            : "border-white/10 hover:border-white/20",
+            : "border-white/10 hover:border-white/20 hover:-translate-y-px transition-[border-color,transform]",
         isDragging && "opacity-90 shadow-lg z-10"
       )}
     >
@@ -417,7 +416,7 @@ function SortablePriceOptionRow({
           <X className="h-3.5 w-3.5" />
         </button>
       )}
-    </motion.li>
+    </li>
   );
 }
 
@@ -906,10 +905,10 @@ function TariffModal({
     setPriceOptions((prev) => (prev.length <= 1 ? prev : prev.filter((o) => o.uid !== uid)));
   };
 
-  const addPriceOption = (days: number) => {
+  const addPriceOption = (days?: number) => {
     setPriceOptions((prev) => {
       if (prev.length >= MAX_PRICE_OPTIONS) return prev;
-      return [...prev, { uid: makeDraftUid(), days, price: "" }];
+      return [...prev, { uid: makeDraftUid(), days: days ?? 1, price: "" }];
     });
   };
 
@@ -1152,6 +1151,18 @@ function TariffModal({
                   {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}
                 </Button>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addPriceOption(undefined)}
+                disabled={priceOptions.length >= MAX_PRICE_OPTIONS}
+                className="gap-1 rounded-lg h-7 px-2.5 text-[11px] border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary"
+                title="Добавить пустую опцию для ручного заполнения"
+              >
+                <Plus className="h-3 w-3" />
+                Опция
+              </Button>
               {priceOptions.length >= MAX_PRICE_OPTIONS && (
                 <span className="text-[10px] text-muted-foreground/70">Максимум {MAX_PRICE_OPTIONS} опций</span>
               )}

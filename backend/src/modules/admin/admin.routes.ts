@@ -442,7 +442,14 @@ adminRouter.get("/tariff-categories", async (_req, res) => {
   try {
     const list = await prisma.tariffCategory.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      include: { tariffs: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+      include: {
+        tariffs: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          include: {
+            priceOptions: { orderBy: [{ sortOrder: "asc" }, { durationDays: "asc" }] },
+          },
+        },
+      },
     });
     return res.json({
       items: list.map((c) => ({

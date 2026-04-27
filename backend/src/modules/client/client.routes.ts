@@ -1835,26 +1835,23 @@ clientRouter.get("/singbox-slots", async (req, res) => {
 clientRouter.get("/subscription", async (req, res) => {
   const client = (req as unknown as { client: { id: string; remnawaveUuid: string | null } }).client;
   if (!client.remnawaveUuid) {
-    return res.json({ subscription: null, tariffDisplayName: null, message: "Подписка не привязана" });
+    return res.json({ subscription: null, tariffDisplayName: null, currentPricePerDay: null, message: "Подписка не привязана" });
   }
   const result = await remnaGetUser(client.remnawaveUuid);
   if (result.error) {
-    return res.json({ subscription: null, tariffDisplayName: null, message: result.error });
+    return res.json({ subscription: null, tariffDisplayName: null, currentPricePerDay: null, message: result.error });
   }
 
-  // Приоритет 1: currentTariffId из БД (Source of Truth — обновляется при покупке тарифа).
-  // Это решает проблему когда resolveTariffDisplayName ошибочно возвращает чужой тариф
-  // из-за add-on squads (доп. опции, подарки) в activeInternalSquads.
+  // Берём currentTariffId + currentPricePerDay (для UI отображения и для расчёта конвертации в warn-модалке)
   const dbClient = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { currentTariff: { select: { name: true } } },
+    select: { currentTariff: { select: { name: true } }, currentPricePerDay: true },
   });
   let tariffDisplayName: string;
   if (dbClient?.currentTariff?.name?.trim()) {
     tariffDisplayName = dbClient.currentTariff.name.trim();
   } else {
     tariffDisplayName = await resolveTariffDisplayName(result.data ?? null);
-    // Fallback: если по Remna «Тест»/«Тариф не выбран», но клиент когда-то оплачивал — берём из последней оплаты
     if (tariffDisplayName === "Тест" || tariffDisplayName === "Тариф не выбран") {
       const lastPaidTariff = await prisma.payment.findFirst({
         where: { clientId: client.id, status: "PAID", tariffId: { not: null } },
@@ -1865,7 +1862,11 @@ clientRouter.get("/subscription", async (req, res) => {
       if (name) tariffDisplayName = name;
     }
   }
-  return res.json({ subscription: result.data ?? null, tariffDisplayName });
+  return res.json({
+    subscription: result.data ?? null,
+    tariffDisplayName,
+    currentPricePerDay: dbClient?.currentPricePerDay ?? null,
+  });
 });
 
 /**

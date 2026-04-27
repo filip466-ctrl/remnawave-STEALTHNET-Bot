@@ -56,7 +56,7 @@ export function ClientTariffsPage() {
   const [trialError, setTrialError] = useState<string | null>(null);
 
   // Активная подписка пользователя (для предупреждения о сбросе трафика)
-  const [activeSubInfo, setActiveSubInfo] = useState<{ hasActive: boolean; expireAt: string | null; tariffName: string | null }>({ hasActive: false, expireAt: null, tariffName: null });
+  const [activeSubInfo, setActiveSubInfo] = useState<{ hasActive: boolean; expireAt: string | null; tariffName: string | null; currentPricePerDay: number | null }>({ hasActive: false, expireAt: null, tariffName: null, currentPricePerDay: null });
   const [warnModal, setWarnModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [optionPickerModal, setOptionPickerModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [selectedPriceOptionId, setSelectedPriceOptionId] = useState<string | null>(null);
@@ -119,7 +119,12 @@ export function ClientTariffsPage() {
           }
         } catch { /* ignore */ }
       }
-      setActiveSubInfo({ hasActive, expireAt, tariffName: res?.tariffDisplayName ?? null });
+      setActiveSubInfo({
+        hasActive,
+        expireAt,
+        tariffName: res?.tariffDisplayName ?? null,
+        currentPricePerDay: res?.currentPricePerDay ?? null,
+      });
     }).catch(() => { /* not critical */ });
   }, [token]);
 
@@ -743,7 +748,14 @@ export function ClientTariffsPage() {
                                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                                     <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
                                       <Calendar className="h-3 w-3 text-primary" />
-                                      {tf.durationDays} {t("cabinet.tariffs.days_short")}
+                                      {(() => {
+                                        const opts = tf.priceOptions ?? [];
+                                        if (opts.length > 1) {
+                                          const minDays = opts.reduce((min, o) => Math.min(min, o.durationDays), opts[0].durationDays);
+                                          return <>от {minDays} {t("cabinet.tariffs.days_short")}</>;
+                                        }
+                                        return <>{tf.durationDays} {t("cabinet.tariffs.days_short")}</>;
+                                      })()}
                                     </span>
                                     <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
                                       <Wifi className="h-3 w-3 text-primary" />
@@ -819,7 +831,16 @@ export function ClientTariffsPage() {
                                 <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
                                   <Calendar className="h-4 w-4 shrink-0" />
                                 </div>
-                                <span>{tf.durationDays} {t("cabinet.tariffs.days_label")}</span>
+                                <span>
+                                  {(() => {
+                                    const opts = tf.priceOptions ?? [];
+                                    if (opts.length > 1) {
+                                      const minDays = opts.reduce((min, o) => Math.min(min, o.durationDays), opts[0].durationDays);
+                                      return <>от {minDays} {t("cabinet.tariffs.days_label")}</>;
+                                    }
+                                    return <>{tf.durationDays} {t("cabinet.tariffs.days_label")}</>;
+                                  })()}
+                                </span>
                               </div>
                               <div className="flex items-center gap-3 bg-background/50 px-3 py-2 rounded-xl border border-border/50">
                                 <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
@@ -956,17 +977,57 @@ export function ClientTariffsPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center mt-0.5">
-                  <Sparkles className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold leading-tight">Остаток конвертируется в дни</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Остаток вашего текущего тарифа конвертируется в дни нового по соотношению цен
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                // Расчёт конвертированных дней (pro-rata) на лету
+                const oldPpd = activeSubInfo.currentPricePerDay;
+                const expireRaw = activeSubInfo.expireAt;
+                const newDays = warnModal?.tariff.durationDays ?? 0;
+                const newPrice = warnModal?.tariff.price ?? 0;
+                const newPpd = newDays > 0 ? newPrice / newDays : 0;
+                if (!oldPpd || !expireRaw || !newPpd || newDays === 0) {
+                  return (
+                    <div className="flex items-start gap-3">
+                      <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center mt-0.5">
+                        <Sparkles className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold leading-tight">Остаток конвертируется в дни</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Остаток вашего текущего тарифа пересчитается в дни нового по соотношению цен
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                const remainingMs = new Date(expireRaw).getTime() - Date.now();
+                const remainingDays = Math.max(0, Math.floor(remainingMs / (24 * 60 * 60 * 1000)));
+                const isSameTariff = activeSubInfo.tariffName?.trim() === warnModal?.tariff.name.trim();
+                const convertedDays = isSameTariff
+                  ? remainingDays // Тот же тариф = стек 1:1
+                  : Math.max(0, Math.floor((remainingDays * oldPpd) / newPpd));
+                const totalDays = newDays + convertedDays;
+                return (
+                  <div className="flex items-start gap-3">
+                    <div className="h-7 w-7 shrink-0 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center mt-0.5">
+                      <Sparkles className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold leading-tight">
+                        {isSameTariff ? "Остаток сохранится полностью" : "Остаток конвертируется"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Осталось <span className="font-semibold text-foreground">{remainingDays}</span> дн. по текущему тарифу.
+                        {!isSameTariff && (
+                          <> Конвертируется в <span className="font-semibold text-foreground">{convertedDays}</span> дн. нового по соотношению цен.</>
+                        )}
+                      </p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">
+                        Итого: {newDays} + {convertedDays} = {totalDays} {formatRuDays(totalDays).replace(/^\d+\s/, "")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
