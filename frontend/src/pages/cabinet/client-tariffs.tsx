@@ -99,8 +99,12 @@ export function ClientTariffsPage() {
   useEffect(() => {
     if (!token) return;
     api.clientSubscription(token).then((res) => {
-      const sub = res?.subscription as { expireAt?: string } | null;
-      const expireRaw = sub?.expireAt ?? null;
+      // Remna возвращает данные в subscription.response (или subscription напрямую)
+      const sub = res?.subscription as Record<string, unknown> | null;
+      const payload = (sub && typeof sub === "object" && sub.response && typeof sub.response === "object")
+        ? (sub.response as Record<string, unknown>)
+        : (sub ?? null);
+      const expireRaw = payload && typeof payload.expireAt === "string" ? payload.expireAt : null;
       let hasActive = false;
       let expireAt: string | null = null;
       if (expireRaw) {
