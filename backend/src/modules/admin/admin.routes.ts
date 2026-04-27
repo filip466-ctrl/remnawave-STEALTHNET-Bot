@@ -45,6 +45,7 @@ import { getServerStats, getSshConfig, updateSshConfig } from "../server/server.
 import { syncFromRemna, syncToRemna, createRemnaUsersForClientsWithoutUuid } from "../sync/sync.service.js";
 import { distributeReferralRewards } from "../referral/referral.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
+import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
 import { runBroadcast, getBroadcastRecipientsCount } from "../broadcast/broadcast.service.js";
 import { uploadMascotImage, uploadVideo, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
@@ -1008,6 +1009,91 @@ adminRouter.post("/clients/:id/remna/reset-traffic", async (req, res) => {
   return res.json(result.data ?? {});
 });
 
+const grantTariffSchema = z.object({
+  tariffId: z.string().min(1),
+  note: z.string().max(500).optional(),
+  createPaymentRecord: z.boolean().optional(),
+});
+
+/**
+ * POST /admin/clients/:id/grant-tariff
+ * Выдаёт тариф клиенту вручную (без оплаты). Создаёт запись Payment со статусом PAID,
+ * amount=0, provider="admin_grant", и активирует подписку в Remnawave.
+ * Подходит для компенсаций, бонусов, корректировок — без начисления реферальных бонусов.
+ */
+adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const body = grantTariffSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input" });
+
+  const clientId = parsed.data.id;
+  const { tariffId, note, createPaymentRecord = true } = body.data;
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, remnawaveUuid: true, email: true, telegramId: true, telegramUsername: true },
+  });
+  if (!client) return res.status(404).json({ message: "Клиент не найден" });
+
+  const tariff = await prisma.tariff.findUnique({ where: { id: tariffId } });
+  if (!tariff) return res.status(404).json({ message: "Тариф не найден" });
+
+  const adminId = (req as unknown as { adminId: string }).adminId;
+  const now = new Date();
+
+  let paymentId: string | null = null;
+  if (createPaymentRecord) {
+    const orderId = `admin-grant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const payment = await prisma.payment.create({
+        data: {
+          clientId,
+          orderId,
+          amount: 0,
+          currency: tariff.currency,
+          status: "PAID",
+          provider: "admin_grant",
+          tariffId: tariff.id,
+          paidAt: now,
+          metadata: JSON.stringify({ grantedBy: adminId, note: note ?? null, kind: "admin_grant" }),
+        },
+        select: { id: true },
+      });
+      paymentId = payment.id;
+    } catch (e) {
+      console.error("[admin/grant-tariff] Не удалось создать Payment:", e);
+    }
+  }
+
+  const activation = await activateTariffForClient(client, {
+    durationDays: tariff.durationDays,
+    trafficLimitBytes: tariff.trafficLimitBytes,
+    deviceLimit: tariff.deviceLimit,
+    internalSquadUuids: tariff.internalSquadUuids,
+    trafficResetMode: tariff.trafficResetMode ?? undefined,
+  });
+
+  if (!activation.ok) {
+    if (paymentId) {
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: { status: "FAILED", metadata: JSON.stringify({ grantedBy: adminId, note: note ?? null, kind: "admin_grant", error: activation.error }) },
+      }).catch(() => { /* ignore */ });
+    }
+    return res.status(activation.status && activation.status >= 400 ? activation.status : 500).json({
+      ok: false,
+      message: activation.error ?? "Ошибка активации тарифа",
+    });
+  }
+
+  return res.json({
+    ok: true,
+    paymentId,
+    tariff: { id: tariff.id, name: tariff.name, durationDays: tariff.durationDays },
+  });
+});
+
 const squadActionSchema = z.object({ squadUuid: z.string().uuid() });
 
 adminRouter.post("/clients/:id/remna/squads/add", async (req, res) => {
@@ -1163,6 +1249,7 @@ const updateSettingsSchema = z.object({
   plategaMerchantId: z.string().max(200).nullable().optional(),
   plategaSecret: z.string().max(500).nullable().optional(),
   plategaMethods: z.string().max(2000).nullable().optional(),
+  paymentProvidersConfig: z.string().max(5000).nullable().optional(),
   yoomoneyClientId: z.string().max(200).nullable().optional(),
   yoomoneyClientSecret: z.string().max(500).nullable().optional(),
   yoomoneyReceiverWallet: z.string().max(50).nullable().optional(),
@@ -1588,6 +1675,10 @@ adminRouter.patch("/settings", async (req, res) => {
   if (updates.plategaMethods !== undefined) {
     const val = updates.plategaMethods ?? "";
     await prisma.systemSetting.upsert({ where: { key: "platega_methods" }, create: { key: "platega_methods", value: val }, update: { value: val } });
+  }
+  if (updates.paymentProvidersConfig !== undefined) {
+    const val = updates.paymentProvidersConfig ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "payment_providers_config" }, create: { key: "payment_providers_config", value: val }, update: { value: val } });
   }
   if (updates.yoomoneyClientId !== undefined) {
     const val = updates.yoomoneyClientId ?? "";
@@ -3275,21 +3366,36 @@ adminRouter.delete("/sales-report/:paymentId", async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const ADMIN_ALLOWED_SECTIONS = [
+  // Overview
   "dashboard",
-  "remna-nodes",
+  "remna-nodes", // виджет нод Remna на дашборде
+  "analytics",
+  "sales-report",
+  "traffic-abuse",
+  "geo-map",
+  // Management
   "clients",
+  "proxy",
+  "singbox",
+  "backup",
+  "tickets",
+  // Subscription
   "tariffs",
   "promo",
   "promo-codes",
-  "analytics",
   "marketing",
-  "sales-report",
+  "referral-network",
+  "secondary-subscriptions",
+  // Tools
+  "video-instructions",
   "broadcast",
   "auto-broadcast",
-  "video-instructions",
-  "backup",
+  "contests",
+  "tour-constructor",
+  // Settings
   "settings",
   "languages",
+  "api-keys",
 ] as const;
 
 /** Список админов и менеджеров (только ADMIN). */

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2, Globe } from "lucide-react";
+import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
-import { openPaymentInBrowser } from "@/lib/open-payment-url";
+import { PayNowPanel } from "@/components/payment/pay-now-panel";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { ClientPayment } from "@/lib/api";
@@ -49,6 +49,7 @@ export function ClientProfilePage() {
   const [yookassaEnabled, setYookassaEnabled] = useState(false);
   const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
   const [heleketEnabled, setHeleketEnabled] = useState(false);
+  const [paymentProviders, setPaymentProviders] = useState<{ id: string; label: string; sortOrder: number }[]>([]);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
   const [yookassaRecurringEnabled, setYookassaRecurringEnabled] = useState(false);
   const [unlinkingPayment, setUnlinkingPayment] = useState(false);
@@ -57,6 +58,7 @@ export function ClientProfilePage() {
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string } | null>(null);
   const [linkTelegramCode, setLinkTelegramCode] = useState<string | null>(null);
   const [linkTelegramLoading, setLinkTelegramLoading] = useState(false);
   const [linkTelegramError, setLinkTelegramError] = useState<string | null>(null);
@@ -292,6 +294,7 @@ export function ClientProfilePage() {
       setYookassaEnabled(Boolean(c.yookassaEnabled));
       setCryptopayEnabled(Boolean(c.cryptopayEnabled));
       setHeleketEnabled(Boolean(c.heleketEnabled));
+      setPaymentProviders(c.paymentProviders ?? []);
       setPublicAppUrl(c.publicAppUrl ?? null);
       setTelegramBotUsername(c.telegramBotUsername ?? null);
       setYookassaRecurringEnabled(Boolean(c.yookassaRecurringEnabled));
@@ -322,8 +325,7 @@ export function ClientProfilePage() {
         paymentMethod: methodId,
         description: t("cabinet.profile.top_up_description"),
       });
-      setTopUpModalOpen(false);
-      openPaymentInBrowser(res.paymentUrl);
+      if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "Platega" });
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : t("cabinet.profile.top_up_error"));
     } finally {
@@ -342,13 +344,12 @@ export function ClientProfilePage() {
     setTopUpLoading(true);
     try {
       const res = await api.yoomoneyCreateFormPayment(token, { amount, paymentType });
-      setTopUpModalOpen(false);
       if (res.paymentUrl) {
-        openPaymentInBrowser(res.paymentUrl);
+        setReadyUrl({ url: res.paymentUrl, provider: "ЮMoney" });
       } else if (res.form) {
         const f = res.form;
         const yoomoneyUrl = `https://yoomoney.ru/quickpay/confirm.xml?quickpay-form=shop&receiver=${encodeURIComponent(f.receiver)}&sum=${f.sum}&label=${encodeURIComponent(f.label)}&paymentType=${f.paymentType}&successURL=${encodeURIComponent(f.successURL)}`;
-        openPaymentInBrowser(yoomoneyUrl);
+        setReadyUrl({ url: yoomoneyUrl, provider: "ЮMoney" });
       }
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : t("cabinet.profile.top_up_error"));
@@ -368,8 +369,7 @@ export function ClientProfilePage() {
     setTopUpLoading(true);
     try {
       const res = await api.yookassaCreatePayment(token, { amount, currency: "RUB" });
-      setTopUpModalOpen(false);
-      if (res.confirmationUrl) openPaymentInBrowser(res.confirmationUrl);
+      if (res.confirmationUrl) setReadyUrl({ url: res.confirmationUrl, provider: "ЮKassa" });
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : t("cabinet.profile.top_up_error"));
     } finally {
@@ -388,8 +388,7 @@ export function ClientProfilePage() {
     setTopUpLoading(true);
     try {
       const res = await api.cryptopayCreatePayment(token, { amount, currency });
-      setTopUpModalOpen(false);
-      if (res.payUrl) openPaymentInBrowser(res.payUrl);
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Crypto Bot" });
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : t("cabinet.profile.top_up_error"));
     } finally {
@@ -408,8 +407,7 @@ export function ClientProfilePage() {
     setTopUpLoading(true);
     try {
       const res = await api.heleketCreatePayment(token, { amount, currency });
-      setTopUpModalOpen(false);
-      if (res.payUrl) openPaymentInBrowser(res.payUrl);
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket" });
     } catch (e) {
       setTopUpError(e instanceof Error ? e.message : t("cabinet.profile.top_up_error"));
     } finally {
@@ -1075,7 +1073,14 @@ export function ClientProfilePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={topUpModalOpen} onOpenChange={(open) => !topUpLoading && setTopUpModalOpen(open)}>
+      <Dialog
+        open={topUpModalOpen}
+        onOpenChange={(open) => {
+          if (topUpLoading) return;
+          setTopUpModalOpen(open);
+          if (!open) setReadyUrl(null);
+        }}
+      >
         <DialogContent className="max-w-md p-6 rounded-3xl border border-border/50 bg-card/60 backdrop-blur-3xl shadow-2xl" showCloseButton={!topUpLoading} onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader className="mb-4 text-center sm:text-left">
             <DialogTitle className="text-2xl font-bold flex items-center justify-center sm:justify-start gap-2">
@@ -1103,84 +1108,93 @@ export function ClientProfilePage() {
             </div>
           )}
 
+          {readyUrl ? (
+            <PayNowPanel
+              url={readyUrl.url}
+              provider={readyUrl.provider}
+              onBack={() => setReadyUrl(null)}
+              onPaid={() => { setTopUpModalOpen(false); setReadyUrl(null); }}
+            />
+          ) : (
           <div className="flex flex-col gap-3">
-            {cryptopayEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
-                disabled={topUpLoading}
-                onClick={() => startTopUpCryptopay()}
-              >
-                <div className="absolute left-6 p-1.5 rounded-lg bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-yellow-500" /> : <Globe className="h-5 w-5 text-yellow-500" />}
-                </div>
-                <span className="text-base font-medium">Crypto Bot</span>
-              </Button>
-            )}
-            {heleketEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
-                disabled={topUpLoading}
-                onClick={() => startTopUpHeleket()}
-              >
-                <div className="absolute left-6 p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-orange-500" /> : <Globe className="h-5 w-5 text-orange-500" />}
-                </div>
-                <span className="text-base font-medium">Heleket</span>
-              </Button>
-            )}
-            {yookassaEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
-                disabled={topUpLoading}
-                onClick={() => startTopUpYookassa()}
-              >
-                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
-                </div>
-                <span className="text-base font-medium">{t("cabinet.tariffs.sbp")}</span>
-              </Button>
-            )}
-            {yoomoneyEnabled && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
-                disabled={topUpLoading}
-                onClick={() => startTopUpYoomoneyForm("AC")}
-              >
-                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
-                </div>
-                <span className="text-base font-medium">{t("cabinet.tariffs.cards_label")}</span>
-              </Button>
-            )}
-            {plategaMethods.map((m) => (
-              <Button
-                key={m.id}
-                size="lg"
-                variant="outline"
-                className="w-full gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative"
-                disabled={topUpLoading}
-                onClick={() => startTopUp(m.id)}
-              >
-                <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
-                  {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
-                </div>
-                <span className="text-base font-medium">{m.label}</span>
-              </Button>
-            ))}
+            {(() => {
+              const providerLabel = (id: string, fallback: string) => paymentProviders.find((p) => p.id === id)?.label || fallback;
+              const btnCls = cn("w-full", isMiniapp ? "justify-start gap-4 px-6 h-16 rounded-2xl border-white/5 bg-card/40 hover:bg-card/60" : "gap-3 hover:bg-background/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-xl h-14 border-border/50 group justify-center px-6 relative");
+
+              const colorMap: Record<string, { bg10: string; bg20: string; text: string }> = {
+                cryptopay: { bg10: "bg-yellow-500/10", bg20: "group-hover:bg-yellow-500/20", text: "text-yellow-500" },
+                heleket: { bg10: "bg-orange-500/10", bg20: "group-hover:bg-orange-500/20", text: "text-orange-500" },
+                yookassa: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
+                yoomoney: { bg10: "bg-green-500/10", bg20: "group-hover:bg-green-500/20", text: "text-green-500" },
+              };
+
+              type ProviderEntry = { id: string; enabled: boolean; onClick: () => void; label: string; icon: "crypto" | "card" };
+              const providers: ProviderEntry[] = [
+                { id: "cryptopay", enabled: cryptopayEnabled, onClick: () => startTopUpCryptopay(), label: providerLabel("cryptopay", "Crypto Bot"), icon: "crypto" },
+                { id: "heleket", enabled: heleketEnabled, onClick: () => startTopUpHeleket(), label: providerLabel("heleket", "Heleket"), icon: "crypto" },
+                { id: "yookassa", enabled: yookassaEnabled, onClick: () => startTopUpYookassa(), label: providerLabel("yookassa", t("cabinet.tariffs.sbp_cards_ru")), icon: "card" },
+                { id: "yoomoney", enabled: yoomoneyEnabled, onClick: () => startTopUpYoomoneyForm("AC"), label: providerLabel("yoomoney", t("cabinet.tariffs.yoomoney_cards")), icon: "card" },
+              ];
+
+              const sortedProviders = paymentProviders.length > 0
+                ? paymentProviders.map((pp) => providers.find((p) => p.id === pp.id)).filter((p): p is ProviderEntry => !!p)
+                : providers;
+
+              return (
+                <>
+                  {sortedProviders.filter((p) => p.enabled).map((p) => {
+                    const c = colorMap[p.id] ?? colorMap.yookassa;
+                    return (
+                    <Button key={p.id} size="lg" variant="outline" onClick={p.onClick} disabled={topUpLoading} className={btnCls}>
+                      {isMiniapp ? (
+                        <>
+                          <div className={cn("p-2 rounded-xl", c.bg10)}>
+                            {topUpLoading ? <Loader2 className={cn("h-6 w-6 animate-spin", c.text)} /> : p.icon === "crypto" ? <Zap className={cn("h-6 w-6", c.text)} /> : <CreditCard className={cn("h-6 w-6", c.text)} />}
+                          </div>
+                          <span className="text-base font-bold">{p.label}</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className={cn("absolute left-6 p-1.5 rounded-lg transition-colors", c.bg10, c.bg20)}>
+                            {topUpLoading ? <Loader2 className={cn("h-5 w-5 animate-spin", c.text)} /> : p.icon === "crypto" ? <Zap className={cn("h-5 w-5", c.text)} /> : <CreditCard className={cn("h-5 w-5", c.text)} />}
+                          </div>
+                          <span className="text-base font-medium">{p.icon === "crypto" ? "⚡" : "💳"} {p.label}</span>
+                        </>
+                      )}
+                    </Button>
+                    );
+                  })}
+                  {plategaMethods.map((m) => (
+                    <Button key={m.id} size="lg" variant="outline" onClick={() => startTopUp(m.id)} disabled={topUpLoading} className={btnCls}>
+                      {isMiniapp ? (
+                        <>
+                          <div className="p-2 rounded-xl bg-green-500/10">
+                            {topUpLoading ? <Loader2 className="h-6 w-6 animate-spin text-green-500" /> : <CreditCard className="h-6 w-6 text-green-500" />}
+                          </div>
+                          <span className="text-base font-bold">{m.label}</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="absolute left-6 p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                            {topUpLoading ? <Loader2 className="h-5 w-5 animate-spin text-green-500" /> : <CreditCard className="h-5 w-5 text-green-500" />}
+                          </div>
+                          <span className="text-base font-medium">💳 {m.label}</span>
+                        </>
+                      )}
+                    </Button>
+                  ))}
+                </>
+              );
+            })()}
           </div>
+          )}
+          {!readyUrl && (
           <DialogFooter className="mt-4 sm:justify-center border-t border-border/50 pt-4">
             <Button variant="ghost" onClick={() => setTopUpModalOpen(false)} disabled={topUpLoading} className="rounded-xl hover:bg-background/50 hover:text-foreground text-muted-foreground transition-colors">
               {t("cabinet.profile.cancel")}
             </Button>
           </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

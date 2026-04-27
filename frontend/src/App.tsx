@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/contexts/auth";
 import { ClientAuthProvider, useClientAuth } from "@/contexts/client-auth";
 import { ThemeProvider } from "@/contexts/theme";
 import { AnimatedBackground } from "@/components/animated-background";
+import { PwaUpdatePrompt } from "@/components/pwa/pwa-update-prompt";
 import { api } from "@/lib/api";
 import { LoginPage } from "@/pages/login";
 import { ChangePasswordPage } from "@/pages/change-password";
@@ -420,6 +421,7 @@ export default function App() {
           <AnimatedBackground />
           <TitleAndThemeSync  />
           <AppRoutes />
+          <PwaUpdatePrompt />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

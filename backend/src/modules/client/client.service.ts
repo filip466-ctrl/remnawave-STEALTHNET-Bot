@@ -104,7 +104,7 @@ const SYSTEM_CONFIG_KEYS = [
   "notification_topic_new_clients",
   "notification_topic_payments",
   "notification_topic_tickets",
-  "platega_merchant_id", "platega_secret", "platega_methods",
+  "platega_merchant_id", "platega_secret", "platega_methods", "payment_providers_config",
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key", "yookassa_recurring_enabled",
   "cryptopay_api_token", "cryptopay_testnet",
@@ -505,6 +505,7 @@ export async function getSystemConfig() {
     plategaMerchantId: map.platega_merchant_id || null,
     plategaSecret: map.platega_secret || null,
     plategaMethods: parsePlategaMethods(map.platega_methods),
+    paymentProviders: parsePaymentProviders(map.payment_providers_config),
     yoomoneyClientId: map.yoomoney_client_id || null,
     yoomoneyClientSecret: map.yoomoney_client_secret || null,
     yoomoneyReceiverWallet: map.yoomoney_receiver_wallet || null,
@@ -745,6 +746,38 @@ const DEFAULT_PLATEGA_METHODS: PlategaMethodConfig[] = [
   { id: 13, enabled: false, label: "Криптовалюта" },
 ];
 
+export type PaymentProviderConfig = { id: string; label: string; sortOrder: number };
+const DEFAULT_PAYMENT_PROVIDERS: PaymentProviderConfig[] = [
+  { id: "cryptopay", label: "Crypto Bot", sortOrder: 0 },
+  { id: "heleket", label: "Heleket", sortOrder: 1 },
+  { id: "yookassa", label: "ЮKassa (СБП / Карты)", sortOrder: 2 },
+  { id: "yoomoney", label: "ЮMoney (Карты)", sortOrder: 3 },
+];
+
+function parsePaymentProviders(raw: string | undefined): PaymentProviderConfig[] {
+  if (!raw || !raw.trim()) return DEFAULT_PAYMENT_PROVIDERS;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return DEFAULT_PAYMENT_PROVIDERS;
+    const result = parsed.map((m: unknown, i: number) => {
+      const x = m as Record<string, unknown>;
+      return {
+        id: typeof x.id === "string" ? x.id : `unknown_${i}`,
+        label: typeof x.label === "string" ? x.label : String(x.id ?? ""),
+        sortOrder: typeof x.sortOrder === "number" ? x.sortOrder : i,
+      };
+    });
+    const knownIds = new Set(result.map((r) => r.id));
+    for (const def of DEFAULT_PAYMENT_PROVIDERS) {
+      if (!knownIds.has(def.id)) result.push({ ...def, sortOrder: result.length });
+    }
+    result.sort((a, b) => a.sortOrder - b.sortOrder);
+    return result;
+  } catch {
+    return DEFAULT_PAYMENT_PROVIDERS;
+  }
+}
+
 function parsePlategaMethods(raw: string | undefined): PlategaMethodConfig[] {
   if (!raw || !raw.trim()) return DEFAULT_PLATEGA_METHODS;
   try {
@@ -951,6 +984,7 @@ export async function getPublicConfig() {
     yookassaRecurringEnabled: full.yookassaRecurringEnabled ?? false,
     cryptopayEnabled: Boolean((full as { cryptopayApiToken?: string | null }).cryptopayApiToken?.trim()),
     heleketEnabled: Boolean((full as { heleketMerchantId?: string | null }).heleketMerchantId?.trim() && (full as { heleketApiKey?: string | null }).heleketApiKey?.trim()),
+    paymentProviders: full.paymentProviders,
     skipEmailVerification: full.skipEmailVerification ?? false,
     useRemnaSubscriptionPage: full.useRemnaSubscriptionPage ?? false,
     aiChatEnabled: full.aiChatEnabled ?? true,

@@ -213,97 +213,156 @@ export async function processAutoRenewals() {
             config.yookassaShopId?.trim() &&
             config.yookassaSecretKey?.trim()
           ) {
-            // Calculate how much to charge from card vs balance
-            const balancePortion = Math.min(client.balance, tariffPrice);
-            const cardPortion = tariffPrice - balancePortion;
-
-            // Attempt YooKassa autopayment for the shortfall only
-            const orderId = randomUUID();
-            const serviceName = config.serviceName?.trim() || "STEALTHNET";
-            const autopayResult = await createYookassaAutopayment({
-              shopId: config.yookassaShopId.trim(),
-              secretKey: config.yookassaSecretKey.trim(),
-              amount: cardPortion,
-              currency: client.autoRenewTariff!.currency.toUpperCase(),
-              paymentMethodId: client.yookassaPaymentMethodId,
-              description: `Автопродление ${serviceName}`,
-              metadata: { auto_renew: "true", client_id: client.id },
-              customerEmail: client.email,
+            // Если за последние 2 часа уже был успешный автоплатёж за этот тариф —
+            // значит карта списалась ранее, но активация по каким-то причинам не завершилась
+            // (например, Remna временно недоступна). В таком случае НЕ списываем повторно —
+            // просто пробуем активировать тариф по существующему оплаченному платежу.
+            const recentAutopay = await prisma.payment.findFirst({
+              where: {
+                clientId: client.id,
+                provider: "yookassa",
+                status: "PAID",
+                tariffId: client.autoRenewTariffId,
+                paidAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+              },
+              orderBy: { paidAt: "desc" },
             });
 
-            if (autopayResult.ok) {
-              // Автоплатёж прошёл — списываем баланс (если есть) + создаём Payment, активируем тариф
-              const payment = await prisma.$transaction(async (tx) => {
-                if (balancePortion > 0) {
-                  await tx.client.update({
-                    where: { id: client.id },
-                    data: { balance: { decrement: balancePortion } },
-                  });
-                }
-
-                const p = await tx.payment.create({
-                  data: {
-                    clientId: client.id,
-                    orderId,
-                    amount: tariffPrice,
-                    currency: client.autoRenewTariff!.currency.toUpperCase(),
-                    status: "PAID",
-                    provider: "yookassa",
-                    tariffId: client.autoRenewTariff!.id,
-                    paidAt: new Date(),
-                    externalId: autopayResult.paymentId,
-                    metadata: autoRenewPromoCodeId
-                      ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
-                      : null,
-                  },
-                });
-
-                if (autoRenewPromoCodeId) {
-                  await tx.promoCodeUsage.create({
-                    data: { promoCodeId: autoRenewPromoCodeId, clientId: client.id },
-                  });
-                }
-
-                return p;
-              });
-
-              const activationRes = await activateTariffByPaymentId(payment.id);
+            if (recentAutopay) {
+              console.log(
+                `[auto-renew] Client ${client.id}: found recent PAID YooKassa autopay ${recentAutopay.id}, retrying tariff activation only (no new charge).`,
+              );
+              const activationRes = await activateTariffByPaymentId(recentAutopay.id);
               if (activationRes.ok) {
                 await prisma.client.update({
                   where: { id: client.id },
-                  data: {
-                    autoRenewRetryCount: 0,
-                    autoRenewNotifiedAt: null,
-                  },
+                  data: { autoRenewRetryCount: 0, autoRenewNotifiedAt: null },
                 });
-
-                // Distribute referral rewards asynchronously
-                import("../referral/referral.service.js")
-                  .then((m) => m.distributeReferralRewards(payment.id))
-                  .catch((e) => console.error("[auto-renew] Referral reward error:", e));
-
                 await notifyAutoRenewYookassaSuccess(
                   client.id,
                   client.autoRenewTariff!.name,
-                  tariffPrice,
+                  recentAutopay.amount,
                   client.autoRenewTariff!.currency,
                   client.yookassaPaymentMethodTitle ?? undefined,
-                  balancePortion > 0 ? balancePortion : undefined,
-                  cardPortion,
+                  undefined,
+                  recentAutopay.amount,
                 );
-                console.log(`[auto-renew] Client ${client.id} renewed via YooKassa (card: ${cardPortion}, balance: ${balancePortion}).`);
+                console.log(`[auto-renew] Client ${client.id} tariff activated from recent autopay ${recentAutopay.id}.`);
+              } else {
+                console.error(
+                  `[auto-renew] Client ${client.id}: recent autopay ${recentAutopay.id} STILL failing activation: ${activationRes.error}`,
+                );
+              }
+              // В любом случае не списываем повторно — деньги уже взяты.
+              yookassaPaid = true;
+            } else {
+              // Calculate how much to charge from card vs balance
+              const balancePortion = Math.min(client.balance, tariffPrice);
+              const cardPortion = tariffPrice - balancePortion;
+
+              // Attempt YooKassa autopayment for the shortfall only
+              const orderId = randomUUID();
+              const serviceName = config.serviceName?.trim() || "STEALTHNET";
+              const autopayResult = await createYookassaAutopayment({
+                shopId: config.yookassaShopId.trim(),
+                secretKey: config.yookassaSecretKey.trim(),
+                amount: cardPortion,
+                currency: client.autoRenewTariff!.currency.toUpperCase(),
+                paymentMethodId: client.yookassaPaymentMethodId,
+                description: `Автопродление ${serviceName}`,
+                metadata: { auto_renew: "true", client_id: client.id },
+                customerEmail: client.email,
+              });
+
+              if (autopayResult.ok) {
+                // Автоплатёж прошёл — списываем баланс (если есть) + создаём Payment, активируем тариф
+                const payment = await prisma.$transaction(async (tx) => {
+                  if (balancePortion > 0) {
+                    await tx.client.update({
+                      where: { id: client.id },
+                      data: { balance: { decrement: balancePortion } },
+                    });
+                  }
+
+                  const p = await tx.payment.create({
+                    data: {
+                      clientId: client.id,
+                      orderId,
+                      amount: tariffPrice,
+                      currency: client.autoRenewTariff!.currency.toUpperCase(),
+                      status: "PAID",
+                      provider: "yookassa",
+                      tariffId: client.autoRenewTariff!.id,
+                      paidAt: new Date(),
+                      externalId: autopayResult.paymentId,
+                      metadata: autoRenewPromoCodeId
+                        ? JSON.stringify({ promoCodeId: autoRenewPromoCodeId, originalPrice: baseTariffPrice, autoRenew: true })
+                        : null,
+                    },
+                  });
+
+                  if (autoRenewPromoCodeId) {
+                    await tx.promoCodeUsage.create({
+                      data: { promoCodeId: autoRenewPromoCodeId, clientId: client.id },
+                    });
+                  }
+
+                  return p;
+                });
+
+                // Ретраим активацию тарифа — Remna может кратковременно лагать.
+                let activationRes = await activateTariffByPaymentId(payment.id);
+                for (let attempt = 1; attempt <= 2 && !activationRes.ok; attempt++) {
+                  console.warn(
+                    `[auto-renew] Client ${client.id}: tariff activation attempt ${attempt} failed for ${payment.id}: ${activationRes.error}. Retrying...`,
+                  );
+                  await new Promise((r) => setTimeout(r, 1500 * attempt));
+                  activationRes = await activateTariffByPaymentId(payment.id);
+                }
+
+                if (activationRes.ok) {
+                  await prisma.client.update({
+                    where: { id: client.id },
+                    data: {
+                      autoRenewRetryCount: 0,
+                      autoRenewNotifiedAt: null,
+                    },
+                  });
+
+                  // Distribute referral rewards asynchronously
+                  import("../referral/referral.service.js")
+                    .then((m) => m.distributeReferralRewards(payment.id))
+                    .catch((e) => console.error("[auto-renew] Referral reward error:", e));
+
+                  await notifyAutoRenewYookassaSuccess(
+                    client.id,
+                    client.autoRenewTariff!.name,
+                    tariffPrice,
+                    client.autoRenewTariff!.currency,
+                    client.yookassaPaymentMethodTitle ?? undefined,
+                    balancePortion > 0 ? balancePortion : undefined,
+                    cardPortion,
+                  );
+                  console.log(`[auto-renew] Client ${client.id} renewed via YooKassa (card: ${cardPortion}, balance: ${balancePortion}).`);
+                } else {
+                  // Карта списана, но активация всё ещё падает — на следующий час
+                  // мы попадём в блок recentAutopay и попробуем только активацию.
+                  console.error(
+                    `[auto-renew] Client ${client.id}: YooKassa PAID (${payment.id}) but tariff activation failed after retries: ${activationRes.error}. Will retry activation on next cron run without re-charging.`,
+                  );
+                }
+                // Деньги уже взяты — даже при неудачной активации НЕ запускаем retry/disable,
+                // иначе через час снова будет списание и счётчик неудач.
                 yookassaPaid = true;
               } else {
-                console.error(`[auto-renew] Client ${client.id} YooKassa paid but activation failed:`, activationRes.error);
+                // Автоплатёж не прошёл
+                await notifyAutoRenewYookassaFailed(
+                  client.id,
+                  client.autoRenewTariff!.name,
+                  autopayResult.error,
+                );
+                console.log(`[auto-renew] Client ${client.id} YooKassa autopayment failed: ${autopayResult.error}`);
               }
-            } else {
-              // Автоплатёж не прошёл
-              await notifyAutoRenewYookassaFailed(
-                client.id,
-                client.autoRenewTariff!.name,
-                autopayResult.error,
-              );
-              console.log(`[auto-renew] Client ${client.id} YooKassa autopayment failed: ${autopayResult.error}`);
             }
           }
 

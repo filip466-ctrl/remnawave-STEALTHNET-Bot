@@ -18,27 +18,48 @@ export interface Admin {
 }
 
 /** Разделы, которые можно выдать менеджеру (без "admins"). */
-export const MANAGER_SECTIONS = [
-  { key: "dashboard", label: "Дашборд" },
-  { key: "remna-nodes", label: "Ноды Remna" },
-  { key: "clients", label: "Клиенты" },
-  { key: "referrals", label: "Реферальная сеть" },
-  { key: "tariffs", label: "Тарифы" },
-  { key: "promo", label: "Промо-ссылки" },
-  { key: "promo-codes", label: "Промокоды" },
-  { key: "analytics", label: "Аналитика" },
-  { key: "traffic-abuse", label: "Анализ трафика" },
-  { key: "marketing", label: "Маркетинг" },
-  { key: "sales-report", label: "Отчёты продаж" },
-  { key: "broadcast", label: "Рассылка" },
-  { key: "auto-broadcast", label: "Авто-рассылка" },
-  { key: "backup", label: "Бэкапы" },
-  { key: "proxy", label: "Прокси" },
-  { key: "singbox", label: "Sing-box" },
-  { key: "contests", label: "Конкурсы" },
+export type ManagerSectionCategory = "overview" | "management" | "subscription" | "tools" | "settings";
+
+export const MANAGER_SECTION_CATEGORIES: { key: ManagerSectionCategory; label: string }[] = [
+  { key: "overview", label: "Обзор" },
+  { key: "management", label: "Управление" },
+  { key: "subscription", label: "Подписка" },
+  { key: "tools", label: "Инструменты" },
   { key: "settings", label: "Настройки" },
-  { key: "api-keys", label: "API ключи" },
-] as const;
+];
+
+export const MANAGER_SECTIONS: { key: string; label: string; category: ManagerSectionCategory }[] = [
+  // Обзор
+  { key: "dashboard", label: "Дашборд", category: "overview" },
+  { key: "remna-nodes", label: "Виджет нод Remna (на дашборде)", category: "overview" },
+  { key: "analytics", label: "Аналитика", category: "overview" },
+  { key: "sales-report", label: "Отчёты продаж", category: "overview" },
+  { key: "traffic-abuse", label: "Анализ трафика", category: "overview" },
+  { key: "geo-map", label: "Карта нод", category: "overview" },
+  // Управление
+  { key: "clients", label: "Клиенты", category: "management" },
+  { key: "proxy", label: "Прокси", category: "management" },
+  { key: "singbox", label: "Sing-box", category: "management" },
+  { key: "backup", label: "Бэкапы", category: "management" },
+  { key: "tickets", label: "Тикеты", category: "management" },
+  // Подписка
+  { key: "tariffs", label: "Тарифы", category: "subscription" },
+  { key: "promo", label: "Промо-ссылки", category: "subscription" },
+  { key: "promo-codes", label: "Промокоды", category: "subscription" },
+  { key: "marketing", label: "Маркетинг", category: "subscription" },
+  { key: "referral-network", label: "Реф. сеть", category: "subscription" },
+  { key: "secondary-subscriptions", label: "Доп. подписки", category: "subscription" },
+  // Инструменты
+  { key: "video-instructions", label: "Видео-инструкции", category: "tools" },
+  { key: "broadcast", label: "Рассылка", category: "tools" },
+  { key: "auto-broadcast", label: "Авто-рассылка", category: "tools" },
+  { key: "contests", label: "Конкурсы", category: "tools" },
+  { key: "tour-constructor", label: "Конструктор тура", category: "tools" },
+  // Настройки
+  { key: "settings", label: "Настройки", category: "settings" },
+  { key: "languages", label: "Языки", category: "settings" },
+  { key: "api-keys", label: "API ключи", category: "settings" },
+];
 
 export interface AdminListItem {
   id: string;
@@ -530,6 +551,18 @@ export const api = {
 
   async clientRemnaResetTraffic(token: string, clientId: string): Promise<unknown> {
     return request(`/admin/clients/${clientId}/remna/reset-traffic`, { method: "POST", token });
+  },
+
+  async grantClientTariff(
+    token: string,
+    clientId: string,
+    payload: { tariffId: string; note?: string; createPaymentRecord?: boolean }
+  ): Promise<{ ok: boolean; paymentId: string | null; tariff: { id: string; name: string; durationDays: number }; message?: string }> {
+    return request(`/admin/clients/${clientId}/grant-tariff`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    });
   },
 
   async clientRemnaSquadAdd(token: string, clientId: string, squadUuid: string): Promise<unknown> {
@@ -1742,6 +1775,7 @@ export type UpdateSettingsPayload = {
   cryptopayTestnet?: boolean;
   heleketMerchantId?: string | null;
   heleketApiKey?: string | null;
+  paymentProvidersConfig?: string | null;
   groqApiKey?: string | null;
   groqModel?: string | null;
   groqFallback1?: string | null;
@@ -2084,6 +2118,7 @@ export interface AdminSettings {
   cryptopayTestnet?: boolean;
   heleketMerchantId?: string | null;
   heleketApiKey?: string | null;
+  paymentProviders?: { id: string; label: string; sortOrder: number }[];
   groqApiKey?: string | null;
   groqModel?: string | null;
   groqFallback1?: string | null;
@@ -3105,6 +3140,7 @@ export interface PublicConfig {
   yookassaEnabled?: boolean;
   cryptopayEnabled?: boolean;
   heleketEnabled?: boolean;
+  paymentProviders?: { id: string; label: string; sortOrder: number }[];
   trialEnabled?: boolean;
   trialDays?: number;
   themeAccent?: string;

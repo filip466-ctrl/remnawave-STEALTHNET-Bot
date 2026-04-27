@@ -36,8 +36,8 @@ function useNavSections(): NavItem[] {
     { to: "/admin", label: t("admin.nav.dashboard"), icon: LayoutDashboard, section: "dashboard", category: "overview" },
     { to: "/admin/analytics", label: t("admin.nav.analytics"), icon: BarChart3, section: "analytics", category: "overview" },
     { to: "/admin/sales-report", label: t("admin.nav.sales_report"), icon: FileText, section: "sales-report", category: "overview" },
-    { to: "/admin/traffic-abuse", label: t("admin.nav.traffic_abuse"), icon: ShieldAlert, section: "analytics", category: "overview" },
-    { to: "/admin/geo-map", label: t("admin.nav.geo_map"), icon: Map, section: "analytics", category: "overview" },
+    { to: "/admin/traffic-abuse", label: t("admin.nav.traffic_abuse"), icon: ShieldAlert, section: "traffic-abuse", category: "overview" },
+    { to: "/admin/geo-map", label: t("admin.nav.geo_map"), icon: Map, section: "geo-map", category: "overview" },
     { to: "/admin/clients", label: t("admin.nav.clients"), icon: Users, section: "clients", category: "management" },
     { to: "/admin/proxy", label: t("admin.nav.proxy"), icon: Globe, section: "proxy", category: "management" },
     { to: "/admin/singbox", label: t("admin.nav.singbox"), icon: Server, section: "singbox", category: "management" },
@@ -47,7 +47,7 @@ function useNavSections(): NavItem[] {
     { to: "/admin/promo", label: t("admin.nav.promo_links"), icon: Megaphone, section: "promo", category: "subscription" },
     { to: "/admin/promo-codes", label: t("admin.nav.promo_codes"), icon: Tag, section: "promo-codes", category: "subscription" },
     { to: "/admin/marketing", label: t("admin.nav.marketing"), icon: Target, section: "marketing", category: "subscription" },
-    { to: "/admin/referral-network", label: t("admin.nav.referral_network"), icon: Network, section: "clients", category: "subscription" },
+    { to: "/admin/referral-network", label: t("admin.nav.referral_network"), icon: Network, section: "referral-network", category: "subscription" },
     { to: "/admin/secondary-subscriptions", label: "Доп. подписки", icon: Gift, section: "secondary-subscriptions", category: "subscription" },
     { to: "/admin/video-instructions", label: t("admin.nav.video_instructions"), icon: Video, section: "video-instructions", category: "tools" },
     { to: "/admin/broadcast", label: t("admin.nav.broadcast"), icon: Send, section: "broadcast", category: "tools" },
@@ -55,9 +55,9 @@ function useNavSections(): NavItem[] {
     { to: "/admin/contests", label: t("admin.nav.contests"), icon: Trophy, section: "contests", category: "tools" },
     { to: "/admin/tour-constructor", label: "Конструктор тура", icon: Sparkles, section: "tour-constructor", category: "tools" },
     { to: "/admin/settings", label: t("admin.nav.settings"), icon: Settings, section: "settings", category: "settings" },
-    { to: "/admin/languages", label: t("admin.nav.languages"), icon: Languages, section: "settings", category: "settings" },
+    { to: "/admin/languages", label: t("admin.nav.languages"), icon: Languages, section: "languages", category: "settings" },
     { to: "/admin/admins", label: t("admin.nav.managers"), icon: UserCog, section: "admins", category: "settings" },
-    { to: "/admin/api-keys", label: t("admin.nav.api_keys"), icon: Key, section: "settings", category: "settings" },
+    { to: "/admin/api-keys", label: t("admin.nav.api_keys"), icon: Key, section: "api-keys", category: "settings" },
   ];
 }
 

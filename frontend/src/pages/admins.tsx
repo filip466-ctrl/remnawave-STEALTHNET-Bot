@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type AdminListItem, MANAGER_SECTIONS } from "@/lib/api";
+import { api, type AdminListItem, MANAGER_SECTIONS, MANAGER_SECTION_CATEGORIES } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -294,17 +294,76 @@ export function AdminsPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Доступ к разделам</Label>
-                <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {MANAGER_SECTIONS.map((s) => (
-                    <label key={s.key} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={allowedSections.includes(s.key)}
-                        onCheckedChange={() => toggleSection(s.key)}
-                      />
-                      <span className="text-sm">{s.label}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs text-muted-foreground">Доступ к разделам</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 rounded-lg text-xs"
+                      onClick={() => setAllowedSections(MANAGER_SECTIONS.map((s) => s.key))}
+                    >
+                      Выбрать все
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 rounded-lg text-xs"
+                      onClick={() => setAllowedSections([])}
+                    >
+                      Снять все
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/5 bg-foreground/[0.03] dark:bg-white/[0.02] p-4 space-y-4">
+                  {MANAGER_SECTION_CATEGORIES.map((cat) => {
+                    const items = MANAGER_SECTIONS.filter((s) => s.category === cat.key);
+                    if (items.length === 0) return null;
+                    const allChecked = items.every((s) => allowedSections.includes(s.key));
+                    const someChecked = items.some((s) => allowedSections.includes(s.key));
+                    return (
+                      <div key={cat.key} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-[2px] h-[12px] bg-primary" />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                              {cat.label}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {items.filter((s) => allowedSections.includes(s.key)).length}/{items.length}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-[11px] text-primary/80 hover:text-primary transition-colors"
+                            onClick={() => {
+                              const keys = items.map((s) => s.key);
+                              setAllowedSections((prev) =>
+                                allChecked
+                                  ? prev.filter((k) => !keys.includes(k))
+                                  : Array.from(new Set([...prev, ...keys]))
+                              );
+                            }}
+                          >
+                            {allChecked ? "Снять группу" : someChecked ? "Дозаполнить" : "Выбрать группу"}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-3">
+                          {items.map((s) => (
+                            <label key={s.key} className="flex items-center gap-2 cursor-pointer">
+                              <Checkbox
+                                checked={allowedSections.includes(s.key)}
+                                onCheckedChange={() => toggleSection(s.key)}
+                              />
+                              <span className="text-sm">{s.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div className="flex justify-end gap-2">

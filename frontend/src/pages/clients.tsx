@@ -9,6 +9,8 @@ import {
   type RemnaHwidDevice,
   type RemnaUserUsageResponse,
   type AdminSecondarySubscription,
+  type TariffCategoryWithTariffs,
+  type TariffRecord,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Pencil, Trash2, Ban, ShieldCheck, Wifi, Ticket, KeyRound, Search,
   Copy, Check, Smartphone, Activity, User, Users, Settings, HardDrive, Link, Unlink,
-  RefreshCw, Loader2
+  RefreshCw, Loader2, Package, Gift
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -603,6 +605,12 @@ function ClientEditModal({
   const [secondarySubs, setSecondarySubs] = useState<AdminSecondarySubscription[]>([]);
   const [secondarySubsLoading, setSecondarySubsLoading] = useState(false);
 
+  const [tariffCategories, setTariffCategories] = useState<TariffCategoryWithTariffs[]>([]);
+  const [selectedGrantTariffId, setSelectedGrantTariffId] = useState<string>("");
+  const [grantNote, setGrantNote] = useState<string>("");
+  const [grantLoading, setGrantLoading] = useState(false);
+  const [grantMessage, setGrantMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
   const loadRemnaUser = useCallback(() => {
     if (!editing.remnawaveUuid) return;
     setRemnaLoading(true);
@@ -647,6 +655,51 @@ function ClientEditModal({
     loadUsage();
     loadSecondarySubs();
   }, [loadRemnaUser, loadDevices, loadUsage, loadSecondarySubs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getTariffCategories(token)
+      .then((r) => { if (!cancelled) setTariffCategories(r.items ?? []); })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const flatTariffs: TariffRecord[] = tariffCategories.flatMap((c) => c.tariffs ?? []);
+
+  const handleGrantTariff = async () => {
+    if (!selectedGrantTariffId) return;
+    setGrantLoading(true);
+    setGrantMessage(null);
+    try {
+      const res = await api.grantClientTariff(token, editing.id, {
+        tariffId: selectedGrantTariffId,
+        note: grantNote.trim() || undefined,
+      });
+      if (res.ok) {
+        setGrantMessage({
+          type: "ok",
+          text: t("admin.clients.grant_tariff_success", {
+            defaultValue: "Тариф «{{name}}» выдан ({{days}} дн.)",
+            name: res.tariff?.name ?? "",
+            days: res.tariff?.durationDays ?? 0,
+          }),
+        });
+        setGrantNote("");
+        loadRemnaUser();
+        loadDevices();
+        loadUsage();
+      } else {
+        setGrantMessage({ type: "err", text: res.message ?? t("admin.clients.grant_tariff_error", "Не удалось выдать тариф") });
+      }
+    } catch (e) {
+      setGrantMessage({
+        type: "err",
+        text: e instanceof Error ? e.message : t("admin.clients.grant_tariff_error", "Не удалось выдать тариф"),
+      });
+    } finally {
+      setGrantLoading(false);
+    }
+  };
 
   const deleteDevice = async (hwid: string) => {
     if (!confirm(t("admin.clients.delete_device_confirm"))) return;
@@ -778,6 +831,81 @@ function ClientEditModal({
             {/* ────── Профиль ────── */}
             <TabsContent value="profile">
               <div className="space-y-5">
+                <div className="rounded-[1.5rem] bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20 p-5 space-y-3 text-sm">
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <Gift className="h-4 w-4 text-primary" />
+                    {t("admin.clients.grant_tariff_title", "Выдать тариф")}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.clients.grant_tariff_hint", "Активирует выбранный тариф для клиента без оплаты. Будет создана запись платежа со статусом PAID и суммой 0. Реферальные бонусы не начисляются.")}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">{t("admin.clients.grant_tariff_select", "Тариф")}</Label>
+                      <select
+                        className="w-full rounded-xl border border-input bg-background/70 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                        value={selectedGrantTariffId}
+                        onChange={(e) => setSelectedGrantTariffId(e.target.value)}
+                        disabled={grantLoading}
+                      >
+                        <option value="">{t("admin.clients.grant_tariff_choose", "— выберите тариф —")}</option>
+                        {tariffCategories.map((cat) => (
+                          <optgroup key={cat.id} label={cat.name}>
+                            {(cat.tariffs ?? []).map((tr) => (
+                              <option key={tr.id} value={tr.id}>
+                                {tr.name} · {tr.durationDays} дн.
+                                {tr.trafficLimitBytes != null && tr.trafficLimitBytes > 0
+                                  ? ` · ${formatTrafficBytes(Number(tr.trafficLimitBytes))}`
+                                  : ""}
+                                {tr.deviceLimit ? ` · ${tr.deviceLimit} устр.` : ""}
+                                {" · "}
+                                {tr.price} {tr.currency.toUpperCase()}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        {flatTariffs.length === 0 && (
+                          <option value="" disabled>
+                            {t("admin.clients.grant_tariff_empty", "Нет доступных тарифов")}
+                          </option>
+                        )}
+                      </select>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleGrantTariff}
+                      disabled={!selectedGrantTariffId || grantLoading}
+                      className="gap-1.5 rounded-xl"
+                    >
+                      {grantLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                      {t("admin.clients.grant_tariff_button", "Выдать")}
+                    </Button>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">{t("admin.clients.grant_tariff_note", "Комментарий (необязательно)")}</Label>
+                    <Input
+                      value={grantNote}
+                      onChange={(e) => setGrantNote(e.target.value)}
+                      placeholder={t("admin.clients.grant_tariff_note_ph", "Например: компенсация за простой")}
+                      disabled={grantLoading}
+                      className="rounded-xl"
+                      maxLength={500}
+                    />
+                  </div>
+                  {grantMessage && (
+                    <div
+                      className={cn(
+                        "text-xs rounded-lg px-3 py-2 border",
+                        grantMessage.type === "ok"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                      )}
+                    >
+                      {grantMessage.text}
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-[1.5rem] bg-gradient-to-br from-background/80 to-background/40 border border-white/10 p-5 space-y-3 text-sm hover:bg-white/5 transition-colors">
                   <div className="font-medium text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("admin.clients.info")}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
