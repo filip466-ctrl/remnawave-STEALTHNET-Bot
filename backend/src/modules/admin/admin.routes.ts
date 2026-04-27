@@ -63,6 +63,7 @@ import { runRule, runAllRules, getEligibleClientIds } from "../auto-broadcast/au
 import { testNalogConnection } from "../nalog/nalog.service.js";
 import { adminCreateGiftCode } from "../gift/gift.service.js";
 import { languageRouter } from "./language.routes.js";
+import { adminGramadsRouter } from "./gramads.routes.js";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth);
@@ -81,6 +82,8 @@ registerBackupRoutes(adminRouter, asyncRoute);
 adminRouter.use("/languages", languageRouter);
 
 adminRouter.use(requireAdminSection);
+
+adminRouter.use("/gramads", adminGramadsRouter);
 
 adminRouter.get("/me", asyncRoute(async (req, res) => {
   const adminId = (req as unknown as { adminId: string }).adminId;

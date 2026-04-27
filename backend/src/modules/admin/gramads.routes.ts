@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../../db.js";
-import { requireAuth, requireAdminSection } from "../auth/middleware.js";
 
+// Mounted on adminRouter at "/gramads" — parent already runs requireAuth + requireAdminSection.
+// Local section check would compute section from "/status" (returns "status"), breaking
+// managers who only have "promo-vpn" allowed. So no auth middleware here.
 export const adminGramadsRouter = Router();
-adminGramadsRouter.use(requireAuth);
-adminGramadsRouter.use(requireAdminSection);
 
 const GRAMADS_BASE = "https://api.gramads.net";
 
