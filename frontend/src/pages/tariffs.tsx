@@ -241,12 +241,11 @@ function SortableTariffRow({
     transition,
   };
   return (
-    <motion.li
+    <li
       ref={setNodeRef}
       style={style}
-      whileHover={{ y: -1 }}
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] backdrop-blur-md px-4 py-3 hover:border-white/20 transition-all",
+        "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] backdrop-blur-md px-4 py-3 hover:border-white/20 hover:-translate-y-px transition-[border-color,transform]",
         isDragging && "opacity-90 shadow-lg z-10"
       )}
     >
@@ -306,7 +305,7 @@ function SortableTariffRow({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
-    </motion.li>
+    </li>
   );
 }
 
