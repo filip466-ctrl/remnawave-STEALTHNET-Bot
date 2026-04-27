@@ -433,7 +433,7 @@ export function ClientLoginPage() {
       >
         <div className="flex items-center justify-center gap-2 mb-6 min-h-[2.5rem]">
           {brand.logo ? (
-            <span className="flex items-center justify-center h-11 px-3 rounded-xl dark:bg-transparent bg-zinc-900">
+            <span className="flex items-center justify-center h-11 px-3">
               <img src={brand.logo} alt="" className="h-8 max-w-[140px] object-contain" />
             </span>
           ) : (
