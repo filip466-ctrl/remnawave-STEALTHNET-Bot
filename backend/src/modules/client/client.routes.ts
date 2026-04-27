@@ -1841,16 +1841,29 @@ clientRouter.get("/subscription", async (req, res) => {
   if (result.error) {
     return res.json({ subscription: null, tariffDisplayName: null, message: result.error });
   }
-  let tariffDisplayName = await resolveTariffDisplayName(result.data ?? null);
-  // Если по Remna показывается «Триал» или «Тариф не выбран», но клиент оплачивал тариф — берём название из последней оплаты
-  if (tariffDisplayName === "Тест" || tariffDisplayName === "Тариф не выбран") {
-    const lastPaidTariff = await prisma.payment.findFirst({
-      where: { clientId: client.id, status: "PAID", tariffId: { not: null } },
-      orderBy: { paidAt: "desc" },
-      select: { tariff: { select: { name: true } } },
-    });
-    const name = lastPaidTariff?.tariff?.name?.trim();
-    if (name) tariffDisplayName = name;
+
+  // Приоритет 1: currentTariffId из БД (Source of Truth — обновляется при покупке тарифа).
+  // Это решает проблему когда resolveTariffDisplayName ошибочно возвращает чужой тариф
+  // из-за add-on squads (доп. опции, подарки) в activeInternalSquads.
+  const dbClient = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { currentTariff: { select: { name: true } } },
+  });
+  let tariffDisplayName: string;
+  if (dbClient?.currentTariff?.name?.trim()) {
+    tariffDisplayName = dbClient.currentTariff.name.trim();
+  } else {
+    tariffDisplayName = await resolveTariffDisplayName(result.data ?? null);
+    // Fallback: если по Remna «Тест»/«Тариф не выбран», но клиент когда-то оплачивал — берём из последней оплаты
+    if (tariffDisplayName === "Тест" || tariffDisplayName === "Тариф не выбран") {
+      const lastPaidTariff = await prisma.payment.findFirst({
+        where: { clientId: client.id, status: "PAID", tariffId: { not: null } },
+        orderBy: { paidAt: "desc" },
+        select: { tariff: { select: { name: true } } },
+      });
+      const name = lastPaidTariff?.tariff?.name?.trim();
+      if (name) tariffDisplayName = name;
+    }
   }
   return res.json({ subscription: result.data ?? null, tariffDisplayName });
 });
@@ -1908,15 +1921,25 @@ clientRouter.get("/subscription/all", async (req, res) => {
   // 1. Root подписка
   if (client.remnawaveUuid) {
     const rootResult = await remnaGetUser(client.remnawaveUuid);
-    let rootTariff = await resolveTariffDisplayName(rootResult.data ?? null);
-    if (rootTariff === "Тест" || rootTariff === "Тариф не выбран") {
-      const lastPaidTariff = await prisma.payment.findFirst({
-        where: { clientId, status: "PAID", tariffId: { not: null } },
-        orderBy: { paidAt: "desc" },
-        select: { tariff: { select: { name: true } } },
-      });
-      const name = lastPaidTariff?.tariff?.name?.trim();
-      if (name) rootTariff = name;
+    // Приоритет 1: currentTariffId из БД (Source of Truth)
+    const dbClient = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { currentTariff: { select: { name: true } } },
+    });
+    let rootTariff: string;
+    if (dbClient?.currentTariff?.name?.trim()) {
+      rootTariff = dbClient.currentTariff.name.trim();
+    } else {
+      rootTariff = await resolveTariffDisplayName(rootResult.data ?? null);
+      if (rootTariff === "Тест" || rootTariff === "Тариф не выбран") {
+        const lastPaidTariff = await prisma.payment.findFirst({
+          where: { clientId, status: "PAID", tariffId: { not: null } },
+          orderBy: { paidAt: "desc" },
+          select: { tariff: { select: { name: true } } },
+        });
+        const name = lastPaidTariff?.tariff?.name?.trim();
+        if (name) rootTariff = name;
+      }
     }
     items.push({
       type: "root",

@@ -94,6 +94,7 @@ model Client {
   autoRenewRetryCount Int      @default(0) @map("auto_renew_retry_count")
   autoRenewNotifiedAt DateTime? @map("auto_renew_notified_at")
   autoRenewPromoCode  String?  @map("auto_renew_promo_code")
+  currentTariffId     String?  @map("current_tariff_id")
   yookassaPaymentMethodId    String?  @map("yookassa_payment_method_id")
   yookassaPaymentMethodTitle String?  @map("yookassa_payment_method_title")
   createdAt           DateTime @default(now()) @map("created_at")
@@ -103,6 +104,7 @@ model Client {
   referrals             Client[]                 @relation("ClientReferrer")
   payments              Payment[]
   autoRenewTariff       Tariff?                  @relation("ClientAutoRenewTariff", fields: [autoRenewTariffId], references: [id], onDelete: SetNull)
+  currentTariff         Tariff?                  @relation("ClientCurrentTariff", fields: [currentTariffId], references: [id], onDelete: SetNull)
   referralCredits       ReferralCredit[]
   promoActivations      PromoActivation[]
   promoCodeUsages       PromoCodeUsage[]
@@ -363,6 +365,7 @@ model Tariff {
   category         TariffCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   payments         Payment[]
   autoRenewClients Client[]       @relation("ClientAutoRenewTariff")
+  currentTariffClients Client[]   @relation("ClientCurrentTariff")
   secondarySubscriptions SecondarySubscription[]
 
   @@index([categoryId])

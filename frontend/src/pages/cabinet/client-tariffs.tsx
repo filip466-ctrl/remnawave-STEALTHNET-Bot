@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap, ArrowLeft } from "lucide-react";
+import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap, ArrowLeft, AlertTriangle } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import type { PublicTariffCategory } from "@/lib/api";
@@ -54,6 +54,10 @@ export function ClientTariffsPage() {
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
 
+  // Активная подписка пользователя (для предупреждения о сбросе трафика)
+  const [activeSubInfo, setActiveSubInfo] = useState<{ hasActive: boolean; expireAt: string | null; tariffName: string | null }>({ hasActive: false, expireAt: null, tariffName: null });
+  const [warnModal, setWarnModal] = useState<{ tariff: TariffForPay } | null>(null);
+
   // Промокод
   const [promoInput, setPromoInput] = useState("");
   const [promoChecking, setPromoChecking] = useState(false);
@@ -90,6 +94,44 @@ export function ClientTariffsPage() {
       setTrialConfig({ trialEnabled: !!c.trialEnabled, trialDays: c.trialDays ?? 0 });
     }).catch(() => { });
   }, []);
+
+  // Загружаем статус подписки чтобы показать предупреждение о сбросе трафика
+  useEffect(() => {
+    if (!token) return;
+    api.clientSubscription(token).then((res) => {
+      const sub = res?.subscription as { expireAt?: string } | null;
+      const expireRaw = sub?.expireAt ?? null;
+      let hasActive = false;
+      let expireAt: string | null = null;
+      if (expireRaw) {
+        try {
+          const d = new Date(expireRaw);
+          if (!Number.isNaN(d.getTime()) && d.getTime() > Date.now()) {
+            hasActive = true;
+            expireAt = expireRaw;
+          }
+        } catch { /* ignore */ }
+      }
+      setActiveSubInfo({ hasActive, expireAt, tariffName: res?.tariffDisplayName ?? null });
+    }).catch(() => { /* not critical */ });
+  }, [token]);
+
+  // Запрос на покупку тарифа: если уже есть активная подписка — сначала показываем
+  // предупреждение о сбросе трафика и продлении срока. Иначе сразу открываем PayModal.
+  function requestBuy(tariff: TariffForPay) {
+    if (activeSubInfo.hasActive) {
+      setWarnModal({ tariff });
+    } else {
+      setPayModal({ tariff });
+    }
+  }
+
+  function confirmWarnAndBuy() {
+    if (!warnModal) return;
+    const t = warnModal.tariff;
+    setWarnModal(null);
+    setPayModal({ tariff: t });
+  }
 
   async function activateTrial() {
     if (!token) return;
@@ -683,7 +725,7 @@ export function ClientTariffsPage() {
                                     <Button
                                       size="sm"
                                       className="w-full h-9 rounded-xl shadow-md text-xs font-semibold gap-1.5 hover:scale-105 transition-transform"
-                                      onClick={() => setPayModal({ tariff: { ...tf } })}
+                                      onClick={() => requestBuy({ ...tf })}
                                     >
                                       <CreditCard className="h-3.5 w-3.5 shrink-0" />
                                       {t("cabinet.tariffs.pay")}
@@ -760,7 +802,7 @@ export function ClientTariffsPage() {
                                 <Button
                                   size="lg"
                                   className="w-full h-12 rounded-xl shadow-md text-[15px] font-bold gap-2 hover:scale-[1.02] transition-transform"
-                                  onClick={() => setPayModal({ tariff: { ...tf } })}
+                                  onClick={() => requestBuy({ ...tf })}
                                 >
                                   <CreditCard className="h-5 w-5 shrink-0" />
                                   {t("cabinet.tariffs.pay")}
@@ -808,6 +850,74 @@ export function ClientTariffsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Предупреждение перед сменой тарифа: трафик сбросится, дни добавятся к текущему сроку */}
+      <Dialog open={!!warnModal} onOpenChange={(open) => !open && setWarnModal(null)}>
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] sm:max-w-md overflow-hidden">
+          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-amber-500/25 to-orange-500/15 blur-3xl pointer-events-none" />
+          <DialogHeader className="relative">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-500/15 border border-white/10 flex items-center justify-center shadow-inner shrink-0">
+                <AlertTriangle className="h-6 w-6 text-amber-500 dark:text-amber-400" />
+              </div>
+              <DialogTitle className="text-xl font-bold tracking-tight">
+                У вас уже есть активная подписка
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed pt-2">
+              Если вы продолжите покупку, произойдут следующие изменения:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative space-y-3 mt-1">
+            <div className="rounded-2xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] p-4 space-y-2.5">
+              <div className="flex items-start gap-3">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center mt-0.5">
+                  <Wifi className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold leading-tight">Сбросится израсходованный трафик</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Текущий счётчик обнулится — сможете снова использовать гигабайты по новому тарифу</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mt-0.5">
+                  <Calendar className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold leading-tight">Дни добавятся к текущему сроку</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {warnModal?.tariff.durationDays
+                      ? `+${warnModal.tariff.durationDays} ${formatRuDays(warnModal.tariff.durationDays).replace(/^\d+\s/, "")} к подписке`
+                      : "Дни нового тарифа добавятся к подписке"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-7 w-7 shrink-0 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center mt-0.5">
+                  <Package className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold leading-tight">Тариф сменится на новый</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Лимиты, устройства и серверы — по новому тарифу <span className="font-medium text-foreground">{warnModal?.tariff.name}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2 gap-2 sm:gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setWarnModal(null)} className="rounded-xl">
+              Отмена
+            </Button>
+            <Button onClick={confirmWarnAndBuy} className="rounded-xl gap-2 bg-gradient-to-br from-primary to-primary/85 hover:from-primary/90 hover:to-primary/75">
+              <CreditCard className="h-4 w-4" />
+              Продолжить покупку
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

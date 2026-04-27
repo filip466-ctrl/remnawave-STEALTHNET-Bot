@@ -112,7 +112,7 @@ export async function activateTariffForClient(
     telegramId: string | null;
     telegramUsername?: string | null;
   },
-  tariff: { durationDays: number; trafficLimitBytes: bigint | null; deviceLimit: number | null; internalSquadUuids: string[]; trafficResetMode?: string },
+  tariff: { id?: string; durationDays: number; trafficLimitBytes: bigint | null; deviceLimit: number | null; internalSquadUuids: string[]; trafficResetMode?: string },
 ): Promise<ActivationResult> {
   if (!isRemnaConfigured()) return { ok: false, error: "Сервис временно недоступен", status: 503 };
 
@@ -140,7 +140,10 @@ export async function activateTariffForClient(
     const expireAt = calculateExpireAt(currentExpireAt, tariff.durationDays);
     const activeInternalSquads = await mergeSquads(tariff.internalSquadUuids, currentSquads);
 
-    if (shouldResetTraffic) {
+    // Сбрасываем трафик: либо явно указано в режиме тарифа, либо у клиента уже была
+    // активная подписка (значит покупает новый тариф / продлевает с обновлением квоты).
+    const hadActiveSub = currentExpireAt !== null;
+    if (shouldResetTraffic || hadActiveSub) {
       await remnaResetUserTraffic(workingUuid);
     }
 
@@ -203,6 +206,15 @@ export async function activateTariffForClient(
     await remnaUpdateUser({ uuid: existingUuid, expireAt, trafficLimitBytes, trafficLimitStrategy, hwidDeviceLimit, activeInternalSquads });
     await prisma.client.update({ where: { id: client.id }, data: { remnawaveUuid: existingUuid } });
   }
+
+  // Сохраняем currentTariffId как Source of Truth для UI/notifications.
+  // Если активация была из customBuild — tariff.id может быть undefined; тогда не трогаем.
+  if (tariff.id) {
+    await prisma.client
+      .update({ where: { id: client.id }, data: { currentTariffId: tariff.id } })
+      .catch(() => {});
+  }
+
   return { ok: true };
 }
 
