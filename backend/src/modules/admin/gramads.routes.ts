@@ -112,9 +112,9 @@ adminGramadsRouter.all(/^\/proxy\/(.+)$/, async (req, res) => {
 
     // Diagnostics: surface upstream failures and non-zero notSuccessExplanation in server logs.
     if (!r.ok) {
-      const safeBody = body ? body.slice(0, 500) : "";
+      const safeBody = body ? body.slice(0, 2000) : "";
       console.warn(
-        `[gramads] ${req.method} ${normalized} -> HTTP ${r.status} | req=${safeBody} | resp=${text.slice(0, 500)}`,
+        `[gramads] ${req.method} ${normalized} -> HTTP ${r.status} | req=${safeBody} | resp=${text.slice(0, 2000)}`,
       );
     } else if (ct.includes("application/json")) {
       try {
