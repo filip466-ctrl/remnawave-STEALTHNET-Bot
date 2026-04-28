@@ -19,8 +19,18 @@ export type InlineMarkup = { inline_keyboard: (InlineButton | WebAppButton | Url
 
 export type BotButtonConfig = { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean };
 
+// Стрип ведущего unicode-эмодзи (с опциональным VS16, ZWJ-секвенциями и пробелом).
+// Когда у кнопки задан `icon_custom_emoji_id`, Telegram рендерит премиум-иконку слева
+// от текста, а unicode-эмодзи в лейбле даёт второй значок — двойная иконка. Чтобы избежать
+// дублирования, при наличии premium-icon вырезаем ведущий эмодзи из текста.
+const LEADING_EMOJI_RE = /^(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u;
+function stripLeadingEmoji(text: string): string {
+  return text.replace(LEADING_EMOJI_RE, "");
+}
+
 function btn(text: string, data: string, style?: ButtonStyle | null, iconCustomEmojiId?: string): InlineButton {
-  const b: InlineButton = { text, callback_data: data };
+  const finalText = iconCustomEmojiId ? stripLeadingEmoji(text) : text;
+  const b: InlineButton = { text: finalText, callback_data: data };
   if (style) b.style = style;
   if (iconCustomEmojiId) b.icon_custom_emoji_id = iconCustomEmojiId;
   return b;
@@ -143,24 +153,25 @@ export function mainMenu(opts: {
   for (const b of list) {
     const iconId = b.iconCustomEmojiId;
     const onePerRow = b.onePerRow === true;
+    const labelForIcon = iconId ? stripLeadingEmoji(b.label) : b.label;
     if (b.id === "cabinet") {
       if (base) {
-        const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet` } };
+        const w: WebAppButton = { text: labelForIcon, web_app: { url: `${base}/cabinet` } };
         if (iconId) w.icon_custom_emoji_id = iconId;
         items.push({ node: w, onePerRow });
       }
     } else     if (b.id === "vpn" && (opts.remnaSubscriptionUrl || base)) {
       if (opts.remnaSubscriptionUrl) {
-        const u: UrlButton = { text: b.label, url: opts.remnaSubscriptionUrl };
+        const u: UrlButton = { text: labelForIcon, url: opts.remnaSubscriptionUrl };
         if (iconId) u.icon_custom_emoji_id = iconId;
         items.push({ node: u, onePerRow });
       } else {
-        const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet/subscribe` } };
+        const w: WebAppButton = { text: labelForIcon, web_app: { url: `${base}/cabinet/subscribe` } };
         if (iconId) w.icon_custom_emoji_id = iconId;
         items.push({ node: w, onePerRow });
       }
     } else if (b.id === "tickets" && base) {
-      const w: WebAppButton = { text: b.label, web_app: { url: `${base}/cabinet/tickets` } };
+      const w: WebAppButton = { text: labelForIcon, web_app: { url: `${base}/cabinet/tickets` } };
       if (iconId) w.icon_custom_emoji_id = iconId;
       items.push({ node: w, onePerRow });
     } else if (MENU_IDS[b.id]) {

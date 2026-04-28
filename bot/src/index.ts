@@ -1602,7 +1602,7 @@ bot.on("callback_query:data", async (ctx) => {
           card: botEmojis.CARD?.tgEmojiId,
           tariff: botEmojis.PACKAGE?.tgEmojiId || botEmojis.TARIFFS?.tgEmojiId,
           trial: botEmojis.TRIAL?.tgEmojiId,
-          profile: botEmojis.PUZZLE?.tgEmojiId || botEmojis.PROFILE?.tgEmojiId,
+          profile: botEmojis.PROFILE?.tgEmojiId || botEmojis.PUZZLE?.tgEmojiId,
           connect: botEmojis.SERVERS?.tgEmojiId || botEmojis.CONNECT?.tgEmojiId,
         }
       : undefined;
@@ -3574,7 +3574,7 @@ bot.on("message:text", async (ctx) => {
           card: botEmojis.CARD?.tgEmojiId,
           tariff: botEmojis.PACKAGE?.tgEmojiId || botEmojis.TARIFFS?.tgEmojiId,
           trial: botEmojis.TRIAL?.tgEmojiId,
-          profile: botEmojis.PUZZLE?.tgEmojiId || botEmojis.PROFILE?.tgEmojiId,
+          profile: botEmojis.PROFILE?.tgEmojiId || botEmojis.PUZZLE?.tgEmojiId,
           connect: botEmojis.SERVERS?.tgEmojiId || botEmojis.CONNECT?.tgEmojiId,
         }
       : undefined;
