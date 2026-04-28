@@ -785,7 +785,7 @@ export function ClientGiftsPage() {
 
       {/* Buy Dialog */}
       <Dialog open={buyDialogOpen} onOpenChange={setBuyDialogOpen}>
-        <DialogContent className="max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-0 overflow-hidden bg-background/80 backdrop-blur-3xl border-white/10" showCloseButton={false}>
+        <DialogContent className="max-w-md w-[calc(100vw-1rem)] rounded-[2rem] sm:rounded-[2.5rem] p-0 overflow-hidden bg-background/80 backdrop-blur-3xl border-white/10" showCloseButton={false}>
           <div className="p-6 sm:p-8 space-y-6">
             <DialogHeader className="text-center space-y-2">
               <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2 shadow-inner border border-primary/20">
@@ -816,11 +816,9 @@ export function ClientGiftsPage() {
                   const minOptPrice = opts.length > 0 ? Math.min(...opts.map((o) => o.price)) : t.price;
                   return (
                     <div key={t.id} className="flex flex-col p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-muted/50 transition-colors">
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="font-bold text-foreground truncate text-base min-w-0">{t.name}</div>
-                        <div className="font-bold text-primary shrink-0 text-base whitespace-nowrap">
-                          {showFromPrefix ? "от " : ""}{formatMoney(minOptPrice, currency)}
-                        </div>
+                      <div className="font-bold text-foreground text-base mb-1 break-words">{t.name}</div>
+                      <div className="font-bold text-primary text-lg mb-2 tabular-nums">
+                        {showFromPrefix ? "от " : ""}{formatMoney(minOptPrice, currency)}
                       </div>
                       <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4 flex-wrap">
                         <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {t.durationDays} дн.</span>
@@ -856,7 +854,7 @@ export function ClientGiftsPage() {
 
       {/* Picker длительности + доп. устройств — оформлен в стиле UnifiedPurchaseModal (без warn-модалки и pro-rata). */}
       <Dialog open={!!pickerTariff} onOpenChange={(v) => !v && closePicker()}>
-        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] sm:max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] sm:max-w-lg w-[calc(100vw-1rem)] max-h-[92vh] overflow-y-auto overflow-x-hidden">
           {pickerTariff && (() => {
             const t = pickerTariff;
             const opts = [...(t.priceOptions ?? [])].sort((a, b) =>
