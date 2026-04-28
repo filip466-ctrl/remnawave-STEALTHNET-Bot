@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/auth";
-import { api, type BroadcastResult, type BroadcastProgress } from "@/lib/api";
+import { api, type BroadcastResult, type BroadcastProgress, type BroadcastHistoryItem } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
-import { Send, Paperclip, X, MousePointerClick, Mail, MessageSquare, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Send, Paperclip, X, MousePointerClick, Mail, MessageSquare, Loader2, AlertTriangle, CheckCircle2, History as HistoryIcon, Eye, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAX_ATTACHMENT_MB = 20;
@@ -181,6 +183,17 @@ export function BroadcastPage() {
         )}
       </motion.div>
 
+      <Tabs defaultValue="compose" className="w-full">
+        <TabsList className="bg-background/40 backdrop-blur-3xl border border-white/10 rounded-2xl p-1">
+          <TabsTrigger value="compose" className="rounded-xl">
+            <Send className="h-4 w-4 mr-2" /> Отправить
+          </TabsTrigger>
+          <TabsTrigger value="history" className="rounded-xl">
+            <HistoryIcon className="h-4 w-4 mr-2" /> История
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="compose" className="mt-4">
       <Card className="bg-background/60 backdrop-blur-3xl border-white/10 rounded-[2rem] p-5 sm:p-6 shadow-xl">
         <form onSubmit={handleBroadcastSend} className="space-y-5">
           <div className="space-y-2">
@@ -374,6 +387,12 @@ export function BroadcastPage() {
           )}
         </form>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <BroadcastHistoryPanel token={token} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -433,5 +452,177 @@ function BroadcastProgressPanel({ progress }: { progress: BroadcastProgress }) {
         <p className="text-xs text-muted-foreground">Подготавливаем получателей…</p>
       )}
     </motion.div>
+  );
+}
+
+function statusBadge(status: BroadcastHistoryItem["status"]): { text: string; cls: string } {
+  if (status === "completed") return { text: "Готово", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
+  if (status === "running") return { text: "Идёт…", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" };
+  return { text: "Ошибка", cls: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" };
+}
+
+function channelLabel(c: BroadcastHistoryItem["channel"]): string {
+  if (c === "telegram") return "Telegram";
+  if (c === "email") return "Email";
+  return "TG + Email";
+}
+
+function BroadcastHistoryPanel({ token }: { token: string }) {
+  const [items, setItems] = useState<BroadcastHistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [detail, setDetail] = useState<BroadcastHistoryItem | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.getBroadcastHistory(token, 100, 0);
+      setItems(r.items);
+      setTotal(r.total);
+    } catch {
+      setItems([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <Card className="bg-background/60 backdrop-blur-3xl border-white/10 rounded-[2rem] p-5 sm:p-6 shadow-xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">История рассылок</h2>
+          <p className="text-xs text-muted-foreground">Всего записей: {total}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+          Обновить
+        </Button>
+      </div>
+
+      {loading && items.length === 0 ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Загрузка…
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Рассылок ещё не было</p>
+      ) : (
+        <div className="overflow-x-auto -mx-2">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground">
+              <tr className="border-b border-border/40">
+                <th className="text-left py-2 px-3 font-medium">Дата</th>
+                <th className="text-left py-2 px-3 font-medium">Канал</th>
+                <th className="text-left py-2 px-3 font-medium">Статус</th>
+                <th className="text-left py-2 px-3 font-medium">Telegram</th>
+                <th className="text-left py-2 px-3 font-medium">Email</th>
+                <th className="text-left py-2 px-3 font-medium">Текст</th>
+                <th className="text-right py-2 px-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => {
+                const b = statusBadge(it.status);
+                const tgLine = it.totalTelegram > 0 ? `${it.sentTelegram}/${it.totalTelegram}${it.failedTelegram ? ` (${it.failedTelegram} fail)` : ""}` : "—";
+                const emailLine = it.totalEmail > 0 ? `${it.sentEmail}/${it.totalEmail}${it.failedEmail ? ` (${it.failedEmail} fail)` : ""}` : "—";
+                const preview = it.message.length > 60 ? it.message.slice(0, 60) + "…" : it.message;
+                return (
+                  <tr key={it.id} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="py-2 px-3 text-xs whitespace-nowrap">{new Date(it.startedAt).toLocaleString("ru-RU")}</td>
+                    <td className="py-2 px-3 text-xs">{channelLabel(it.channel)}</td>
+                    <td className="py-2 px-3">
+                      <span className={cn("inline-flex px-2 py-0.5 rounded-md text-xs font-medium border", b.cls)}>{b.text}</span>
+                    </td>
+                    <td className="py-2 px-3 text-xs font-mono">{tgLine}</td>
+                    <td className="py-2 px-3 text-xs font-mono">{emailLine}</td>
+                    <td className="py-2 px-3 text-xs max-w-[300px] truncate text-foreground/80">{preview}</td>
+                    <td className="py-2 px-3 text-right">
+                      <Button variant="ghost" size="sm" onClick={() => setDetail(it)} className="h-7 px-2">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Рассылка от {detail && new Date(detail.startedAt).toLocaleString("ru-RU")}</DialogTitle>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg border bg-muted/20">
+                  <p className="text-[10px] uppercase text-muted-foreground">Канал</p>
+                  <p className="font-medium">{channelLabel(detail.channel)}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-muted/20">
+                  <p className="text-[10px] uppercase text-muted-foreground">Статус</p>
+                  <p className="font-medium">{statusBadge(detail.status).text}</p>
+                </div>
+                {detail.totalTelegram > 0 && (
+                  <div className="p-3 rounded-lg border bg-muted/20">
+                    <p className="text-[10px] uppercase text-muted-foreground">Telegram</p>
+                    <p className="font-mono">{detail.sentTelegram} / {detail.totalTelegram}{detail.failedTelegram ? ` · ${detail.failedTelegram} fail` : ""}</p>
+                  </div>
+                )}
+                {detail.totalEmail > 0 && (
+                  <div className="p-3 rounded-lg border bg-muted/20">
+                    <p className="text-[10px] uppercase text-muted-foreground">Email</p>
+                    <p className="font-mono">{detail.sentEmail} / {detail.totalEmail}{detail.failedEmail ? ` · ${detail.failedEmail} fail` : ""}</p>
+                  </div>
+                )}
+              </div>
+
+              {detail.subject && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground mb-1">Тема (email)</p>
+                  <p className="text-sm">{detail.subject}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground mb-1">Сообщение</p>
+                <pre className="whitespace-pre-wrap break-words text-sm p-3 rounded-lg border bg-muted/20 max-h-72 overflow-y-auto">{detail.message}</pre>
+              </div>
+
+              {(detail.buttonText || detail.buttonUrl) && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground mb-1">Кнопка</p>
+                  <p className="text-xs"><span className="font-medium">{detail.buttonText}</span> → <code className="text-muted-foreground">{detail.buttonUrl}</code></p>
+                </div>
+              )}
+
+              {detail.attachmentName && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground mb-1">Вложение</p>
+                  <p className="text-xs">{detail.attachmentName}</p>
+                </div>
+              )}
+
+              {detail.error && (
+                <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
+                  Фатальная ошибка: {detail.error}
+                </div>
+              )}
+
+              {detail.errors && detail.errors.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground mb-1">Ошибки доставки ({detail.errors.length})</p>
+                  <pre className="whitespace-pre-wrap text-xs p-3 rounded-lg border bg-red-500/5 border-red-500/20 max-h-48 overflow-y-auto text-red-600 dark:text-red-400">{detail.errors.join("\n")}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }

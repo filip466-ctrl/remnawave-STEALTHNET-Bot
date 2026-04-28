@@ -47,7 +47,7 @@ import { distributeReferralRewards } from "../referral/referral.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
-import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob } from "../broadcast/broadcast.service.js";
+import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob, listBroadcastHistory, getBroadcastHistoryItem } from "../broadcast/broadcast.service.js";
 import { uploadMascotImage, uploadVideo, uploadTicketAttachment, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
 import {
   filesToAttachments,
@@ -2618,6 +2618,7 @@ adminRouter.post(
         : undefined;
     // Запускаем рассылку в фоне. Для больших баз синхронная отправка
     // упирается в таймаут nginx/браузера, хотя на бэкенде всё идёт успешно.
+    const adminId = (req as unknown as { adminId?: string }).adminId;
     const jobId = startBroadcastJob({
       channel,
       subject: subject ?? "",
@@ -2625,6 +2626,7 @@ adminRouter.post(
       attachment,
       buttonText,
       buttonUrl,
+      startedByAdmin: adminId,
     });
     return res.json({ jobId });
   })
@@ -2644,6 +2646,26 @@ adminRouter.get(
       startedAt: job.startedAt.toISOString(),
       finishedAt: job.finishedAt ? job.finishedAt.toISOString() : null,
     });
+  })
+);
+
+// История рассылок: пагинированный список + получение деталей по id.
+adminRouter.get(
+  "/broadcast/history",
+  asyncRoute(async (req, res) => {
+    const limit = Number(req.query.limit) || 50;
+    const offset = Number(req.query.offset) || 0;
+    const data = await listBroadcastHistory({ limit, offset });
+    return res.json(data);
+  })
+);
+
+adminRouter.get(
+  "/broadcast/history/:id",
+  asyncRoute(async (req, res) => {
+    const item = await getBroadcastHistoryItem(req.params.id);
+    if (!item) return res.status(404).json({ message: "Not found" });
+    return res.json(item);
   })
 );
 

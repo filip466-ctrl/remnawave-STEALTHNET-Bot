@@ -955,6 +955,16 @@ export const api = {
     return request(`/admin/broadcast/status/${encodeURIComponent(jobId)}`, { token });
   },
 
+  /** История рассылок (пагинация). */
+  async getBroadcastHistory(token: string, limit = 50, offset = 0): Promise<{ items: BroadcastHistoryItem[]; total: number }> {
+    return request(`/admin/broadcast/history?limit=${limit}&offset=${offset}`, { token });
+  },
+
+  /** Подробности одной записи истории рассылки. */
+  async getBroadcastHistoryItem(token: string, id: string): Promise<BroadcastHistoryItem> {
+    return request(`/admin/broadcast/history/${encodeURIComponent(id)}`, { token });
+  },
+
   /** Авто-рассылка: список правил */
   async getAutoBroadcastRules(token: string): Promise<AutoBroadcastRule[]> {
     return request("/admin/auto-broadcast/rules", { token });
@@ -1922,6 +1932,28 @@ export interface BroadcastProgress {
   failedTelegram: number;
   failedEmail: number;
   currentChannel?: "telegram" | "email";
+}
+
+export interface BroadcastHistoryItem {
+  id: string;
+  startedAt: string;
+  finishedAt: string | null;
+  status: "running" | "completed" | "error";
+  channel: "telegram" | "email" | "both";
+  subject: string;
+  message: string;
+  buttonText: string | null;
+  buttonUrl: string | null;
+  attachmentName: string | null;
+  totalTelegram: number;
+  sentTelegram: number;
+  failedTelegram: number;
+  totalEmail: number;
+  sentEmail: number;
+  failedEmail: number;
+  errors: string[] | null;
+  error: string | null;
+  startedByAdmin: string | null;
 }
 
 export type AutoBroadcastTriggerType =

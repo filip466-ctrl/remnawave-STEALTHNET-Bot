@@ -442,6 +442,33 @@ model AutoBroadcastLog {
   @@map("auto_broadcast_logs")
 }
 
+// История ручных рассылок: сохраняем дату, контент и результаты для аудита.
+model BroadcastHistory {
+  id              String    @id @default(cuid())
+  startedAt       DateTime  @default(now()) @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  status          String    @default("running") // running | completed | error
+  channel         String // telegram | email | both
+  subject         String    @default("")
+  message         String    @db.Text
+  buttonText      String?   @map("button_text")
+  buttonUrl       String?   @map("button_url")
+  attachmentName  String?   @map("attachment_name")
+  totalTelegram   Int       @default(0) @map("total_telegram")
+  sentTelegram    Int       @default(0) @map("sent_telegram")
+  failedTelegram  Int       @default(0) @map("failed_telegram")
+  totalEmail      Int       @default(0) @map("total_email")
+  sentEmail       Int       @default(0) @map("sent_email")
+  failedEmail     Int       @default(0) @map("failed_email")
+  errors          Json?
+  error           String?   @db.Text
+  startedByAdmin  String?   @map("started_by_admin") // admin id, без FK чтобы запись пережила удаление админа
+
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+  @@map("broadcast_history")
+}
+
 // ——— Прокси-ноды и продажа прокси ———
 model ProxyNode {
   id                 String    @id @default(cuid())
