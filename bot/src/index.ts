@@ -2655,7 +2655,10 @@ bot.on("callback_query:data", async (ctx) => {
       const opts = sortedPriceOptions(tariff.priceOptions);
       const existingSelection = selectedTariffOption.get(userId);
       const matchesThisTariff = existingSelection?.tariffId === tariff.id;
-      if (opts.length > 1 && methodIdFromBtn == null && !matchesThisTariff) {
+      // Picker показываем всегда при возврате к тарифу (без methodId), чтобы пользователь
+      // мог сменить длительность. Без этого сохранённый selectedTariffOption замораживал
+      // выбор, и сменить длительность можно было только сбросив корзину.
+      if (opts.length > 1 && methodIdFromBtn == null) {
         tariffOptionsCache.set(userId, { tariffId: tariff.id, options: opts });
         const bestId = bestPricePerDayOptionId(opts);
         const text = `${tariff.name}\n\nВыберите длительность подписки:`;
