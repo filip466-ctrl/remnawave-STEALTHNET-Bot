@@ -334,7 +334,7 @@ export function tariffsOfCategoryButtons(
   const prefix = (category.emoji && category.emoji.trim()) ? `${category.emoji} ` : "";
   const tariffId = emojiIds?.tariff;
   for (const t of category.tariffs) {
-    const label = `${prefix}${t.name} — ${t.price} ${t.currency}`.slice(0, 64);
+    const label = `${prefix}${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
     rows.push([btn(label, `pay_tariff:${t.id}`, tariffPay, tariffId)]);
   }
   rows.push([btn(back, backData, backSty, emojiIds?.back)]);
@@ -382,9 +382,10 @@ export function tariffOptionPickerButtons(
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
+  const sym = currencySymbol(currency);
   const rows: InlineButton[][] = options.map((o, idx) => {
     const star = bestId && o.id === bestId ? "🌟 " : "";
-    const label = `${star}${o.durationDays} дн — ${o.price} ${currency}`.slice(0, 64);
+    const label = `${star}${o.durationDays} дн — ${o.price} ${sym}`.slice(0, 64);
     return [btn(label, `topt:${idx}`, tariffPay, tariffId)];
   });
   rows.push([btn(back, "menu:tariffs", backSty, emojiIds?.back)]);
@@ -392,10 +393,19 @@ export function tariffOptionPickerButtons(
 }
 
 /**
+ * Символ валюты для коротких inline-лейблов кнопок (₽/$/₴).
+ * formatMoney() в index.ts даёт то же поведение, но для лейблов кнопок проще inline.
+ */
+function currencySymbol(currency: string): string {
+  const c = currency.toUpperCase();
+  return c === "RUB" ? "₽" : c === "USD" ? "$" : c === "UAH" ? "₴" : c;
+}
+
+/**
  * Шаг 2: выбор количества устройств. Показывается после выбора длительности (topt:),
  * только если у тарифа maxDevices > 1.
  *
- * Каждая плитка — кнопка с текстом "{N} устр · {price} {currency} {discount?}".
+ * Каждая плитка — кнопка с текстом "{N} устр · {price} {sym} {discount?}".
  * callback_data: `tdev:<N>` — реальное количество устройств.
  *
  * Скидочные плитки выделяются эмодзи 🎁; лучшая цена за устройство — ⭐.
@@ -411,12 +421,13 @@ export function tariffDevicePickerButtons(
   const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
+  const sym = currencySymbol(currency);
   // По 2 устройства в ряд для удобства на мобиле.
   const rows: InlineButton[][] = [];
   let row: InlineButton[] = [];
   for (const t of tiles) {
     const badge = t.pct > 0 ? ` 🎁−${t.pct}%` : t.isBest ? " ⭐" : "";
-    const label = `${t.n} устр · ${t.total} ${currency}${badge}`.slice(0, 64);
+    const label = `${t.n} устр · ${t.total} ${sym}${badge}`.slice(0, 64);
     row.push(btn(label, `tdev:${t.n}`, tariffPay, tariffId));
     if (row.length >= 2) {
       rows.push(row);
@@ -500,7 +511,7 @@ export function proxyTariffsOfCategoryButtons(
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
   for (const t of category.tariffs) {
-    rows.push([btn(`${t.name} — ${t.price} ${t.currency}`.slice(0, 64), `pay_proxy:${t.id}`, tariffPay, tariffId)]);
+    rows.push([btn(`${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64), `pay_proxy:${t.id}`, tariffPay, tariffId)]);
   }
   rows.push([btn(back, backData, backSty, emojiIds?.back)]);
   return { inline_keyboard: rows };
@@ -587,7 +598,7 @@ export function singboxTariffsOfCategoryButtons(
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
   for (const t of category.tariffs) {
-    rows.push([btn(`${t.name} — ${t.price} ${t.currency}`.slice(0, 64), `pay_singbox:${t.id}`, tariffPay, tariffId)]);
+    rows.push([btn(`${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64), `pay_singbox:${t.id}`, tariffPay, tariffId)]);
   }
   rows.push([btn(back, backData, backSty, emojiIds?.back)]);
   return { inline_keyboard: rows };
@@ -689,7 +700,7 @@ export function extraOptionsButtons(
   const cardId = emojiIds?.card;
   const rows: InlineButton[][] = options.map((o) => {
     const extra = o.kind === "servers" && (o.trafficGb ?? 0) > 0 ? ` + ${o.trafficGb} ГБ` : "";
-    const label = `${o.name || o.kind}${extra} — ${o.price} ${o.currency}`.slice(0, 64);
+    const label = `${o.name || o.kind}${extra} — ${o.price} ${currencySymbol(o.currency)}`.slice(0, 64);
     return [btn(label, `pay_option:${o.kind}:${o.id}`, "success", cardId)];
   });
   rows.push([btn(back, "menu:main", backSty, emojiIds?.back)]);
@@ -905,7 +916,7 @@ export function giftTariffButtons(
   for (const cat of categories) {
     const prefix = (cat.emoji && cat.emoji.trim()) ? `${cat.emoji} ` : "";
     for (const t of cat.tariffs) {
-      const label = `${prefix}${t.name} — ${t.price} ${t.currency}`.slice(0, 64);
+      const label = `${prefix}${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
       rows.push([btn(label, `gift_tariff:${t.id}`, tariffPay, tariffId)]);
     }
   }
