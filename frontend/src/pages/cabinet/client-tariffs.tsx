@@ -51,14 +51,26 @@ type TariffForPay = {
   priceOptions?: TariffPriceOption[];
 };
 
-/** Цена пакета доп. устройств: extras × pricePerExtra × (100 − pct) / 100. */
-function applyExtrasPrice(pricePerExtra: number, extras: number, tiers: DeviceDiscountTier[] | undefined): { extrasTotal: number; pct: number } {
+/**
+ * Цена пакета доп. устройств с учётом длительности.
+ * pricePerExtra указан за 30 дней (база), для других опций умножается на durationDays/30.
+ * Скидка применяется ДО умножения на коэффициент.
+ */
+const EXTRA_DEVICE_BASE_DAYS = 30;
+function applyExtrasPrice(
+  pricePerExtra: number,
+  extras: number,
+  tiers: DeviceDiscountTier[] | undefined,
+  durationDays: number = EXTRA_DEVICE_BASE_DAYS,
+): { extrasTotal: number; pct: number } {
   const safe = Math.max(0, Math.floor(extras));
   if (safe === 0 || pricePerExtra <= 0) return { extrasTotal: 0, pct: 0 };
   const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
   const tier = sorted.find((t) => safe >= t.minExtraDevices);
   const pct = tier?.discountPercent ?? 0;
-  return { extrasTotal: Math.round(pricePerExtra * safe * (100 - pct)) / 100, pct };
+  const safeDays = Math.max(1, durationDays);
+  const monthly = pricePerExtra * safe * (100 - pct) / 100;
+  return { extrasTotal: Math.round(monthly * (safeDays / EXTRA_DEVICE_BASE_DAYS) * 100) / 100, pct };
 }
 
 function hasExtras(t: TariffForPay): boolean {
@@ -182,7 +194,8 @@ export function ClientTariffsPage() {
     const opts = baseTariff.priceOptions ?? [];
     const opt = opts.find((o) => o.id === selectedPriceOptionId) ?? opts[0];
     const unitPrice = opt?.price ?? baseTariff.price;
-    const { extrasTotal } = applyExtrasPrice(baseTariff.pricePerExtraDevice ?? 0, selectedExtraDevices, baseTariff.deviceDiscountTiers);
+    const optDays = opt?.durationDays ?? baseTariff.durationDays ?? 30;
+    const { extrasTotal } = applyExtrasPrice(baseTariff.pricePerExtraDevice ?? 0, selectedExtraDevices, baseTariff.deviceDiscountTiers, optDays);
     const total = unitPrice + extrasTotal;
     const tariffWithOption: TariffForPay = {
       ...baseTariff,
@@ -1191,10 +1204,13 @@ function UnifiedPurchaseModal({
     }
   }
 
+  // Длительность выбранной опции — нужна для масштаба цены доп. устройств.
+  const selectedDays = selectedOpt?.durationDays ?? tariff.durationDays ?? 30;
+
   // Плитки доп. устройств: +0..+maxExtras.
   const deviceTiles = Array.from({ length: maxExtras + 1 }, (_, i) => {
     const extras = i;
-    const { extrasTotal, pct } = applyExtrasPrice(pricePerExtra, extras, tiers);
+    const { extrasTotal, pct } = applyExtrasPrice(pricePerExtra, extras, tiers, selectedDays);
     return { extras, total: unitPrice + extrasTotal, pct, totalDevices: includedDevices + extras };
   });
   const bestExtra = deviceTiles.slice(1).reduce((best, cur) => {
@@ -1203,9 +1219,10 @@ function UnifiedPurchaseModal({
     return best;
   }, null as { extras: number; perDev: number } | null);
 
-  const { extrasTotal: appliedExtras, pct: appliedPct } = applyExtrasPrice(pricePerExtra, selectedExtraDevices, tiers);
+  const { extrasTotal: appliedExtras, pct: appliedPct } = applyExtrasPrice(pricePerExtra, selectedExtraDevices, tiers, selectedDays);
   const finalTotal = unitPrice + appliedExtras;
-  const baseExtrasNoDiscount = pricePerExtra * selectedExtraDevices;
+  // Базовая сумма без скидки = pricePerExtra × extras × коэффициент длительности (для отображения «сэкономлено»).
+  const baseExtrasNoDiscount = pricePerExtra * selectedExtraDevices * (selectedDays / EXTRA_DEVICE_BASE_DAYS);
   const savedAmount = baseExtrasNoDiscount - appliedExtras;
 
   return (
@@ -1366,7 +1383,7 @@ function UnifiedPurchaseModal({
               <div className="flex items-baseline justify-between mb-1">
                 <span className="text-xs text-muted-foreground">+{selectedExtraDevices} доп. устр</span>
                 <span className="text-xs font-medium tabular-nums">
-                  {formatMoney(pricePerExtra, tariff.currency)} × {selectedExtraDevices}
+                  {formatMoney(pricePerExtra * (selectedDays / EXTRA_DEVICE_BASE_DAYS), tariff.currency)} × {selectedExtraDevices}
                 </span>
               </div>
             )}

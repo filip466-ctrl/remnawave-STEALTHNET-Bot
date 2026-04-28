@@ -1242,7 +1242,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
       trafficResetMode: tariff.trafficResetMode ?? undefined,
       price: selectedOption?.price ?? tariff.price,
     },
-    selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
+    selectedOption ? { id: selectedOption.id, durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
     effectiveExtras,
   );
 

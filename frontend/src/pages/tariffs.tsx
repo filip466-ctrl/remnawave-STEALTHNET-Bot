@@ -441,7 +441,7 @@ function DeviceSection({
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Цена доп. устройства</Label>
+              <Label className="text-xs text-muted-foreground">Цена доп. устройства <span className="text-fuchsia-500 dark:text-fuchsia-400">(за 30 дней)</span></Label>
               <Input
                 type="number"
                 min={0}
@@ -451,7 +451,7 @@ function DeviceSection({
                 className={inputCls}
                 placeholder="100"
               />
-              <p className="text-[10px] text-muted-foreground/70">За каждое доп. устройство (без скидки)</p>
+              <p className="text-[10px] text-muted-foreground/70">База за 30 дней. Для других опций цена масштабируется (90 дн = ×3).</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Макс. доп. устройств</Label>

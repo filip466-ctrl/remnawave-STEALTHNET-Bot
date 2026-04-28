@@ -24,6 +24,7 @@ import {
   Smartphone,
   Tag,
   X,
+  RotateCcw,
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -117,6 +118,7 @@ export function ClientDashboardPage() {
   const [subscription, setSubscription] = useState<unknown>(null);
   const [secondarySubscriptions, setSecondarySubscriptions] = useState<Array<{ type: string; id: string; subscriptionIndex: number | null; subscription: unknown; tariffDisplayName: string; remnawaveUuid: string | null }>>([]);
   const [tariffDisplayName, setTariffDisplayName] = useState<string | null>(null);
+  const [autoRenewNext, setAutoRenewNext] = useState<{ amount: number | null; at: string | null; currency: string | null }>({ amount: null, at: null, currency: null });
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [_payments, setPayments] = useState<ClientPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,6 +177,11 @@ export function ClientDashboardPage() {
         if (cancelled) return;
         setSubscription(subRes.subscription ?? null);
         setTariffDisplayName(subRes.tariffDisplayName ?? null);
+        setAutoRenewNext({
+          amount: subRes.autoRenewNextChargeAmount ?? null,
+          at: subRes.autoRenewNextChargeAt ?? null,
+          currency: subRes.autoRenewCurrency ?? null,
+        });
         if (subRes.message) setSubscriptionError(subRes.message);
         setPayments(payRes.items ?? []);
         setDeviceCount(devRes.total ?? null);
@@ -630,6 +637,24 @@ export function ClientDashboardPage() {
               onCheckedChange={toggleAutoRenew}
             />
           </div>
+          {client.autoRenewEnabled && autoRenewNext.amount != null && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-primary/10 via-fuchsia-500/5 to-purple-500/10 border border-primary/25">
+              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/15 shrink-0">
+                <RotateCcw className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-muted-foreground leading-tight">Следующее списание</p>
+                <p className="text-sm font-bold tabular-nums leading-tight">
+                  {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+                  {autoRenewNext.at && (
+                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">
+                      · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
           {client.autoRenewEnabled && (
             <div className="flex items-center gap-2 p-2.5 pl-3 rounded-2xl bg-background/40 border border-border/50">
               <Tag className="h-4 w-4 text-primary shrink-0" />
@@ -878,6 +903,25 @@ export function ClientDashboardPage() {
                 onCheckedChange={toggleAutoRenew}
               />
             </div>
+
+            {client.autoRenewEnabled && autoRenewNext.amount != null && (
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-primary/10 via-fuchsia-500/5 to-purple-500/10 border border-primary/25">
+                <div className="flex items-center justify-center h-8 w-8 rounded-xl bg-primary/15 shrink-0">
+                  <RotateCcw className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground leading-tight">Следующее списание</p>
+                  <p className="text-base font-bold tabular-nums leading-tight">
+                    {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+                    {autoRenewNext.at && (
+                      <span className="ml-2 text-xs font-medium text-muted-foreground">
+                        · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {client.autoRenewEnabled && (
               <div className="flex items-center gap-2 p-3 pl-4 rounded-2xl bg-background/40 border border-border/50">

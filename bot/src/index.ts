@@ -249,14 +249,27 @@ type TariffItem = {
   priceOptions?: TariffPriceOption[];
 };
 
-/** Цена пакета доп. устройств: extraDevices × pricePerExtra × (100 − pct) / 100. */
-function applyExtraDevicesPriceBot(pricePerExtra: number, extraCount: number, tiers: DeviceDiscountTier[] | undefined): { extrasTotal: number; pct: number } {
+/**
+ * Цена пакета доп. устройств с учётом длительности.
+ * pricePerExtra указан за 30 дней (база). Для других опций умножаем на (days/30).
+ * Формула: extrasTotal = pricePerExtra × extras × (100 − discount) / 100 × (durationDays / 30)
+ */
+const EXTRA_DEVICE_BASE_DAYS = 30;
+function applyExtraDevicesPriceBot(
+  pricePerExtra: number,
+  extraCount: number,
+  tiers: DeviceDiscountTier[] | undefined,
+  durationDays: number = EXTRA_DEVICE_BASE_DAYS,
+): { extrasTotal: number; pct: number } {
   const safeCount = Math.max(0, Math.floor(extraCount));
   if (safeCount === 0 || pricePerExtra <= 0) return { extrasTotal: 0, pct: 0 };
   const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
   const tier = sorted.find((t) => safeCount >= t.minExtraDevices);
   const pct = tier?.discountPercent ?? 0;
-  return { extrasTotal: Math.round(pricePerExtra * safeCount * (100 - pct)) / 100, pct };
+  const safeDays = Math.max(1, durationDays);
+  const monthly = pricePerExtra * safeCount * (100 - pct) / 100;
+  const extrasTotal = Math.round(monthly * (safeDays / EXTRA_DEVICE_BASE_DAYS) * 100) / 100;
+  return { extrasTotal, pct };
 }
 
 /** Включена ли продажа доп. устройств для тарифа. */
@@ -1084,7 +1097,7 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
   const unitPrice = eff?.price ?? tariff.price;
   const effectiveDays = eff?.durationDays ?? tariff.durationDays;
   const includedDevices = tariff.includedDevices ?? 1;
-  const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers);
+  const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers, effectiveDays);
   const effectivePrice = unitPrice + extrasTotal;
   const methods = config?.plategaMethods ?? [];
   const client = await api.getMe(token);
@@ -2345,7 +2358,7 @@ bot.on("callback_query:data", async (ctx) => {
         const unitPrice = eff?.price ?? tariff.price;
         const effectiveDays = eff?.durationDays ?? tariff.durationDays;
         const extraDevices = sel?.tariffId === tariff.id ? sel.extraDevices : 0;
-        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers);
+        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers, effectiveDays);
         const effectivePrice = unitPrice + extrasTotal;
         const payment = await api.createYoomoneyPayment(token, {
           amount: effectivePrice,
@@ -2400,7 +2413,7 @@ bot.on("callback_query:data", async (ctx) => {
         const unitPrice = eff?.price ?? tariff.price;
         const effectiveDays = eff?.durationDays ?? tariff.durationDays;
         const extraDevices = sel?.tariffId === tariff.id ? sel.extraDevices : 0;
-        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers);
+        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers, effectiveDays);
         const effectivePrice = unitPrice + extrasTotal;
         const payment = await api.createYookassaPayment(token, {
           amount: effectivePrice,
@@ -2451,7 +2464,7 @@ bot.on("callback_query:data", async (ctx) => {
         const unitPrice = eff?.price ?? tariff.price;
         const effectiveDays = eff?.durationDays ?? tariff.durationDays;
         const extraDevices = sel?.tariffId === tariff.id ? sel.extraDevices : 0;
-        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers);
+        const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers, effectiveDays);
         const effectivePrice = unitPrice + extrasTotal;
         const payment = await api.createCryptopayPayment(token, { amount: effectivePrice, currency: tariff.currency, tariffId: tariff.id, tariffPriceOptionId: eff?.id, deviceCount: extraDevices, promoCode });
         if (promoCode) activeDiscountCode.delete(userId);
@@ -2712,7 +2725,7 @@ bot.on("callback_query:data", async (ctx) => {
         // Плитка «+0» = базовая цена тарифа, дальше +1, +2, ... до maxExtras.
         const tiles = Array.from({ length: maxExtras + 1 }, (_, i) => {
           const extras = i;
-          const { extrasTotal, pct } = applyExtraDevicesPriceBot(pricePerExtra, extras, tiers);
+          const { extrasTotal, pct } = applyExtraDevicesPriceBot(pricePerExtra, extras, tiers, option.durationDays);
           return { extras, total: option.price + extrasTotal, pct };
         });
         const bestExtra = tiles.slice(1).reduce((best, cur) => {
@@ -2792,7 +2805,7 @@ bot.on("callback_query:data", async (ctx) => {
             const includedDevices = tariff.includedDevices ?? 1;
             const tiles = Array.from({ length: maxExtras + 1 }, (_, i) => {
               const extras = i;
-              const { extrasTotal, pct } = applyExtraDevicesPriceBot(pricePerExtra, extras, tiers);
+              const { extrasTotal, pct } = applyExtraDevicesPriceBot(pricePerExtra, extras, tiers, onlyOpt.durationDays);
               return { extras, total: onlyOpt.price + extrasTotal, pct };
             });
             const bestExtra = tiles.slice(1).reduce((best, cur) => {

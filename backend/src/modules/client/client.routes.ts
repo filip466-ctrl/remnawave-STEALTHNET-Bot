@@ -1855,7 +1855,17 @@ clientRouter.get("/subscription", async (req, res) => {
   // Берём currentTariffId + currentPricePerDay (для UI отображения и для расчёта конвертации в warn-модалке)
   const dbClient = await prisma.client.findUnique({
     where: { id: client.id },
-    select: { currentTariff: { select: { name: true } }, currentPricePerDay: true },
+    select: {
+      currentTariff: { select: { name: true } },
+      currentPricePerDay: true,
+      autoRenewEnabled: true,
+      autoRenewTariffId: true,
+      autoRenewPriceOptionId: true,
+      autoRenewExtraDevices: true,
+      autoRenewPromoCode: true,
+      personalDiscountPercent: true,
+      autoRenewTariff: { select: { id: true, price: true, durationDays: true, currency: true, pricePerExtraDevice: true, deviceDiscountTiers: true } },
+    },
   });
   let tariffDisplayName: string;
   if (dbClient?.currentTariff?.name?.trim()) {
@@ -1872,10 +1882,72 @@ clientRouter.get("/subscription", async (req, res) => {
       if (name) tariffDisplayName = name;
     }
   }
+
+  // Автопродление: считаем следующее списание (сумма + дата) если включено.
+  let autoRenewNextChargeAmount: number | null = null;
+  let autoRenewNextChargeAt: string | null = null;
+  let autoRenewCurrency: string | null = null;
+  if (dbClient?.autoRenewEnabled && dbClient.autoRenewTariff) {
+    try {
+      const { applyExtraDevicesPrice, parseDeviceDiscountTiers } = await import("../tariff/tariff-activation.service.js");
+      // Опция длительности
+      let opt: { id: string; durationDays: number; price: number } | null = null;
+      if (dbClient.autoRenewPriceOptionId) {
+        const savedOpt = await prisma.tariffPriceOption.findFirst({
+          where: { id: dbClient.autoRenewPriceOptionId, tariffId: dbClient.autoRenewTariff.id },
+        });
+        if (savedOpt) opt = { id: savedOpt.id, durationDays: savedOpt.durationDays, price: savedOpt.price };
+      }
+      if (!opt) {
+        const fallback = await prisma.tariffPriceOption.findFirst({
+          where: { tariffId: dbClient.autoRenewTariff.id },
+          orderBy: { price: "asc" },
+        });
+        if (fallback) opt = { id: fallback.id, durationDays: fallback.durationDays, price: fallback.price };
+      }
+      const unitPrice = opt?.price ?? dbClient.autoRenewTariff.price;
+      const durationDays = opt?.durationDays ?? dbClient.autoRenewTariff.durationDays;
+      const tiers = parseDeviceDiscountTiers(dbClient.autoRenewTariff.deviceDiscountTiers);
+      const { extrasTotal } = applyExtraDevicesPrice(
+        dbClient.autoRenewTariff.pricePerExtraDevice ?? 0,
+        dbClient.autoRenewExtraDevices ?? 0,
+        tiers,
+        durationDays,
+      );
+      let nextAmount = unitPrice + extrasTotal;
+      // Персональная скидка
+      if (typeof dbClient.personalDiscountPercent === "number" && dbClient.personalDiscountPercent > 0) {
+        const pct = Math.min(100, dbClient.personalDiscountPercent);
+        nextAmount = Math.round(nextAmount * (100 - pct)) / 100;
+      }
+      autoRenewNextChargeAmount = nextAmount;
+      autoRenewCurrency = dbClient.autoRenewTariff.currency.toUpperCase();
+
+      // Дата = expireAt − autoRenewDaysBeforeExpiry дней (config, default 1).
+      const respObj = (result.data as Record<string, unknown> | null);
+      const remnaResp = (respObj?.response ?? respObj) as Record<string, unknown> | null;
+      const expireRaw = remnaResp?.expireAt;
+      if (typeof expireRaw === "string") {
+        const expDate = new Date(expireRaw);
+        if (!Number.isNaN(expDate.getTime())) {
+          const cfg = await getSystemConfig();
+          const daysBefore = cfg.autoRenewDaysBeforeExpiry ?? 1;
+          const chargeDate = new Date(expDate.getTime() - daysBefore * 24 * 60 * 60 * 1000);
+          autoRenewNextChargeAt = chargeDate.toISOString();
+        }
+      }
+    } catch (e) {
+      console.warn("[subscription] failed to compute auto-renew next charge:", e instanceof Error ? e.message : e);
+    }
+  }
+
   return res.json({
     subscription: result.data ?? null,
     tariffDisplayName,
     currentPricePerDay: dbClient?.currentPricePerDay ?? null,
+    autoRenewNextChargeAmount,
+    autoRenewNextChargeAt,
+    autoRenewCurrency,
   });
 });
 
@@ -2392,8 +2464,9 @@ clientRouter.post("/payments/balance", async (req, res) => {
   const maxExtras = tariff.maxExtraDevices ?? 0;
   const requestedExtras = Math.min(Math.max(0, deviceCount ?? 0), maxExtras);
   const unitPrice = selectedOption?.price ?? tariff.price;
+  const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
   const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
-  const { extrasTotal } = applyExtraDevicesPrice(tariff.pricePerExtraDevice ?? 0, requestedExtras, tiers);
+  const { extrasTotal } = applyExtraDevicesPrice(tariff.pricePerExtraDevice ?? 0, requestedExtras, tiers, effectiveDays);
   const basePriceForTariff = unitPrice + extrasTotal;
   let finalPrice = basePriceForTariff;
 
@@ -2435,7 +2508,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
   const activateResult = await activateTariffForClient(
     { id: clientRaw.id, remnawaveUuid: clientDb.remnawaveUuid, email: clientDb.email, telegramId: clientDb.telegramId },
     tariff,
-    selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
+    selectedOption ? { id: selectedOption.id, durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
     requestedExtras,
   );
   if (!activateResult.ok) return res.status(activateResult.status).json({ message: activateResult.error });

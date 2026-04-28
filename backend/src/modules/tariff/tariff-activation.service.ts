@@ -154,17 +154,24 @@ export function parseDeviceDiscountTiers(raw: unknown): DeviceDiscountTier[] {
 }
 
 /**
- * Цена за пакет ДОП. устройств с применённой лесенкой скидок.
- * Возвращает сумму за extras (без базовой цены тарифа), применённую скидку и порог.
+ * Цена за пакет ДОП. устройств — учитывает длительность опции и лесенку скидок.
  *
- * Формула: extrasTotal = pricePerExtra × extraCount × (100 − discount) / 100
+ * `pricePerExtraDevice` указывается админом из расчёта ЗА 30 ДНЕЙ. Для других
+ * длительностей цена масштабируется коэффициентом `durationDays / BASE_DAYS`.
  *
- * Скидка применяется только к extras, базовая цена тарифа (priceOption.price) остаётся как есть.
+ * Скидка применяется к цене за устройство ДО умножения на коэффициент длительности
+ * (математически идентично применению после, но логически чище — сначала «цена со
+ * скидкой за месяц», потом «помножим на месяцы»).
+ *
+ * Формула: extrasTotal = pricePerExtraDevice × extras × (100 − discount) / 100 × (durationDays / 30)
  */
+export const EXTRA_DEVICE_BASE_DAYS = 30;
+
 export function applyExtraDevicesPrice(
   pricePerExtraDevice: number,
   extraCount: number,
-  tiers: DeviceDiscountTier[] | null | undefined
+  tiers: DeviceDiscountTier[] | null | undefined,
+  durationDays: number = EXTRA_DEVICE_BASE_DAYS,
 ): { extrasTotal: number; discountPercent: number; appliedTier: DeviceDiscountTier | null } {
   const safeCount = Math.max(0, Math.floor(extraCount));
   if (safeCount === 0 || pricePerExtraDevice <= 0) {
@@ -173,7 +180,12 @@ export function applyExtraDevicesPrice(
   const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
   const applied = sorted.find((t) => safeCount >= t.minExtraDevices) ?? null;
   const discount = applied ? applied.discountPercent : 0;
-  const extrasTotal = Math.round(pricePerExtraDevice * safeCount * (100 - discount)) / 100;
+  const safeDays = Math.max(1, durationDays);
+  const durationCoeff = safeDays / EXTRA_DEVICE_BASE_DAYS;
+  // 1) Цена со скидкой за месяц: pricePerExtra × extras × (100 − discount) / 100
+  // 2) Масштабируем по длительности: × durationCoeff
+  const monthlyWithDiscount = pricePerExtraDevice * safeCount * (100 - discount) / 100;
+  const extrasTotal = Math.round(monthlyWithDiscount * durationCoeff * 100) / 100;
   return { extrasTotal, discountPercent: discount, appliedTier: applied };
 }
 
@@ -210,7 +222,7 @@ export async function activateTariffForClient(
     trafficResetMode?: string;
     price?: number;
   },
-  selectedOption?: { durationDays: number; price: number },
+  selectedOption?: { id?: string; durationDays: number; price: number },
   /** Количество ДОП. устройств которые клиент докупил поверх includedDevices (0..maxExtraDevices). */
   extraDevices?: number,
 ): Promise<ActivationResult> {
@@ -231,9 +243,9 @@ export async function activateTariffForClient(
   const requestedExtra = extraDevices != null && extraDevices > 0 ? Math.floor(extraDevices) : 0;
   const effectiveExtras = Math.min(Math.max(0, requestedExtra), maxExtra);
 
-  // Скидка применяется только к extras.
+  // Скидка + масштаб по длительности применяются только к extras.
   const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
-  const { extrasTotal } = applyExtraDevicesPrice(pricePerExtra, effectiveExtras, tiers);
+  const { extrasTotal } = applyExtraDevicesPrice(pricePerExtra, effectiveExtras, tiers, effectiveDays);
   const effectivePrice = unitPrice + extrasTotal;
   const newPricePerDay = effectiveDays > 0 ? effectivePrice / effectiveDays : 0;
 
@@ -371,18 +383,31 @@ export async function activateTariffForClient(
   }
 
   // Сохраняем currentTariffId + currentPricePerDay как Source of Truth.
-  // Используется для отображения названия тарифа и для конвертации при следующей смене.
-  // Если активация была из customBuild — tariff.id может быть undefined; в этом случае
-  // currentTariffId не трогаем, но currentPricePerDay всё равно обновляем (есть цена и дни).
+  // Также сохраняем контекст для автопродления: priceOption + extras, чтобы крон знал
+  // какие именно условия продлевать (легаси модель списывала минимальный price без extras).
   await prisma.client
     .update({
       where: { id: client.id },
       data: {
         ...(tariff.id ? { currentTariffId: tariff.id } : {}),
         currentPricePerDay: newPricePerDay > 0 ? newPricePerDay : null,
+        // Привязываем к autoRenew только если у нас есть нормальная опция и тариф из БД.
+        // Если selectedOption не пришёл (старый flow) — поле не трогаем, чтобы не сбить ранее сохранённое.
+        ...(tariff.id && selectedOption ? { autoRenewExtraDevices: effectiveExtras } : {}),
       },
     })
     .catch(() => {});
+
+  // Если у клиента включён autoRenew на этот тариф — обновим autoRenewPriceOptionId.
+  // Причина отдельного апдейта: связь priceOption требует существующую запись в БД (не просто id).
+  if (tariff.id && selectedOption && (selectedOption as { id?: string }).id) {
+    await prisma.client
+      .update({
+        where: { id: client.id },
+        data: { autoRenewPriceOptionId: (selectedOption as { id?: string }).id ?? null },
+      })
+      .catch(() => {});
+  }
 
   return { ok: true };
 }
@@ -423,10 +448,9 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       return { ok: false, error: "Тариф не найден", status: 404 };
     }
 
-    // Опция выбора (длительность + цена). Если в платеже сохранён tariffPriceOptionId,
-    // используем его; иначе fallback на legacy поля тарифа.
-    const selectedOption = payment.tariffPriceOption
-      ? { durationDays: payment.tariffPriceOption.durationDays, price: payment.tariffPriceOption.price }
+    // Опция выбора (id + длительность + цена). id нужен чтоб сохранить autoRenewPriceOptionId.
+    const selectedOption = payment.tariffPriceOption && payment.tariffPriceOptionId
+      ? { id: payment.tariffPriceOptionId, durationDays: payment.tariffPriceOption.durationDays, price: payment.tariffPriceOption.price }
       : undefined;
 
     if (isAdditional) {

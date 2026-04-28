@@ -1297,7 +1297,17 @@ export const api = {
     return request("/client/auth/me", { token });
   },
 
-  async clientSubscription(token: string): Promise<{ subscription: unknown; tariffDisplayName?: string | null; currentPricePerDay?: number | null; message?: string }> {
+  async clientSubscription(token: string): Promise<{
+    subscription: unknown;
+    tariffDisplayName?: string | null;
+    currentPricePerDay?: number | null;
+    /** Сумма следующего автоплатежа (если автопродление включено). С учётом extras × коэффициент длительности × скидка. */
+    autoRenewNextChargeAmount?: number | null;
+    /** ISO-дата следующего списания (за N дней до истечения, N из config.autoRenewDaysBeforeExpiry). */
+    autoRenewNextChargeAt?: string | null;
+    autoRenewCurrency?: string | null;
+    message?: string;
+  }> {
     return request("/client/subscription", { token });
   },
 
