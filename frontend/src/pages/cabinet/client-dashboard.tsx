@@ -622,14 +622,28 @@ export function ClientDashboardPage() {
             </div>
           </div>
           <div className="flex items-center justify-between p-3 rounded-2xl bg-background/40 border border-border/50">
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <Label className="text-sm font-semibold">{t("cabinet.dashboard.auto_renew")}</Label>
-              <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                {config?.yookassaRecurringEnabled
-                  ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты (если ранее оплачивали через ЮKassa)"}</>
-                  : <>Автоматическое списание<br/>при окончании подписки</>
-                }
-              </span>
+              {client.autoRenewEnabled && autoRenewNext.amount != null ? (
+                <span className="text-[11px] mt-0.5 leading-tight inline-flex items-center gap-1 truncate">
+                  <RotateCcw className="h-3 w-3 text-primary shrink-0" />
+                  <span className="font-bold tabular-nums text-foreground">
+                    {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+                  </span>
+                  {autoRenewNext.at && (
+                    <span className="text-muted-foreground">
+                      · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                  {config?.yookassaRecurringEnabled
+                    ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
+                    : "Списание с баланса"
+                  }
+                </span>
+              )}
             </div>
             <Switch
               checked={client.autoRenewEnabled ?? false}
@@ -637,24 +651,6 @@ export function ClientDashboardPage() {
               onCheckedChange={toggleAutoRenew}
             />
           </div>
-          {client.autoRenewEnabled && autoRenewNext.amount != null && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-primary/10 via-fuchsia-500/5 to-purple-500/10 border border-primary/25">
-              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/15 shrink-0">
-                <RotateCcw className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-muted-foreground leading-tight">Следующее списание</p>
-                <p className="text-sm font-bold tabular-nums leading-tight">
-                  {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
-                  {autoRenewNext.at && (
-                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">
-                      · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
           {client.autoRenewEnabled && (
             <div className="flex items-center gap-2 p-2.5 pl-3 rounded-2xl bg-background/40 border border-border/50">
               <Tag className="h-4 w-4 text-primary shrink-0" />
@@ -888,14 +884,28 @@ export function ClientDashboardPage() {
             </div>
             
             <div className="flex items-center justify-between p-4 rounded-2xl bg-background/40 border border-border/50 text-left">
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <Label className="text-[15px] font-semibold">{t("cabinet.dashboard.auto_renew")}</Label>
-                <span className="text-sm text-muted-foreground mt-0.5">
-                  {config?.yookassaRecurringEnabled
-                    ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты (если ранее оплачивали через ЮKassa)"}</>
-                    : "Списание с баланса"
-                  }
-                </span>
+                {client.autoRenewEnabled && autoRenewNext.amount != null ? (
+                  <span className="text-sm mt-0.5 inline-flex items-center gap-1.5 truncate">
+                    <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="font-bold tabular-nums text-foreground">
+                      {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+                    </span>
+                    {autoRenewNext.at && (
+                      <span className="text-muted-foreground">
+                        · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground mt-0.5">
+                    {config?.yookassaRecurringEnabled
+                      ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
+                      : "Списание с баланса"
+                    }
+                  </span>
+                )}
               </div>
               <Switch
                 checked={client.autoRenewEnabled ?? false}
@@ -903,25 +913,6 @@ export function ClientDashboardPage() {
                 onCheckedChange={toggleAutoRenew}
               />
             </div>
-
-            {client.autoRenewEnabled && autoRenewNext.amount != null && (
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-primary/10 via-fuchsia-500/5 to-purple-500/10 border border-primary/25">
-                <div className="flex items-center justify-center h-8 w-8 rounded-xl bg-primary/15 shrink-0">
-                  <RotateCcw className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground leading-tight">Следующее списание</p>
-                  <p className="text-base font-bold tabular-nums leading-tight">
-                    {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
-                    {autoRenewNext.at && (
-                      <span className="ml-2 text-xs font-medium text-muted-foreground">
-                        · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            )}
 
             {client.autoRenewEnabled && (
               <div className="flex items-center gap-2 p-3 pl-4 rounded-2xl bg-background/40 border border-border/50">
