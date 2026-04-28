@@ -1097,7 +1097,7 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
   const totalDevices = includedDevices + extraDevices;
   const devicesSuffix = extraDevices > 0 ? ` · ${totalDevices} устр (+${extraDevices} доп.)` : "";
   const nameWithDays = opts.length > 1 || option
-    ? `${tariff.name} · ${effectiveDays} ${formatRuDays(effectiveDays)}${devicesSuffix}`
+    ? `${tariff.name} · ${formatRuDays(effectiveDays)}${devicesSuffix}`
     : `${tariff.name}${devicesSuffix}`;
   const pay = buildPaymentMessage(config, {
     name: nameWithDays,
@@ -2362,7 +2362,7 @@ bot.on("callback_query:data", async (ctx) => {
           discountedPrice: formatMoney(getDiscountedPrice(effectivePrice, discountInfoYm), tariff.currency),
         } : undefined;
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
-          ? `${tariff.name} · ${effectiveDays} ${formatRuDays(effectiveDays)}`
+          ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
         const msg = buildPaymentMessage(config, {
           name: nameWithDays,
@@ -2417,7 +2417,7 @@ bot.on("callback_query:data", async (ctx) => {
           discountedPrice: formatMoney(getDiscountedPrice(effectivePrice, discountInfoYk), tariff.currency),
         } : undefined;
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
-          ? `${tariff.name} · ${effectiveDays} ${formatRuDays(effectiveDays)}`
+          ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
         const msg = buildPaymentMessage(config, {
           name: nameWithDays,
@@ -2461,7 +2461,7 @@ bot.on("callback_query:data", async (ctx) => {
           discountedPrice: formatMoney(getDiscountedPrice(effectivePrice, discountInfoCp), tariff.currency),
         } : undefined;
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
-          ? `${tariff.name} · ${effectiveDays} ${formatRuDays(effectiveDays)}`
+          ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
         const msg = buildPaymentMessage(config, { name: nameWithDays, price: formatMoney(effectivePrice, tariff.currency), amount: String(effectivePrice), currency: tariff.currency, action: "Нажмите кнопку ниже для оплаты через Crypto Bot:" }, discountArgCp);
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
@@ -2727,7 +2727,7 @@ bot.on("callback_query:data", async (ctx) => {
           pct: t.pct,
           isBest: bestExtra?.extras === t.extras && t.extras > 0 && t.pct === 0,
         }));
-        const text = `${tariff.name} · ${option.durationDays} ${formatRuDays(option.durationDays)}\n\n📱 В тариф включено: ${includedDevices} устр.\nДобавьте дополнительные:`;
+        const text = `${tariff.name} · ${formatRuDays(option.durationDays)}\n\n📱 В тариф включено: ${includedDevices} устр.\nДобавьте дополнительные:`;
         await editMessageContent(ctx, text, tariffDevicePickerButtons(tilesWithBest, tariff.currency, config?.botBackLabel ?? null, innerStyles, innerEmojiIds));
         return;
       }
@@ -2807,7 +2807,7 @@ bot.on("callback_query:data", async (ctx) => {
               pct: t.pct,
               isBest: bestExtra?.extras === t.extras && t.extras > 0 && t.pct === 0,
             }));
-            const text = `${tariff.name} · ${onlyOpt.durationDays} ${formatRuDays(onlyOpt.durationDays)}\n\n📱 В тариф включено: ${includedDevices} устр.\nДобавьте дополнительные:`;
+            const text = `${tariff.name} · ${formatRuDays(onlyOpt.durationDays)}\n\n📱 В тариф включено: ${includedDevices} устр.\nДобавьте дополнительные:`;
             await editMessageContent(ctx, text, tariffDevicePickerButtons(tilesWithBest, tariff.currency, config?.botBackLabel ?? null, innerStyles, innerEmojiIds));
             return;
           }
@@ -2832,7 +2832,7 @@ bot.on("callback_query:data", async (ctx) => {
       const totalDevices = includedDevices + extraDevices;
       const devicesSuffix = extraDevices > 0 ? ` · ${totalDevices} устр (+${extraDevices} доп.)` : "";
       const nameWithDays = opts.length > 1 || matchesThisTariff
-        ? `${tariff.name} · ${effectiveDays} ${formatRuDays(effectiveDays)}${devicesSuffix}`
+        ? `${tariff.name} · ${formatRuDays(effectiveDays)}${devicesSuffix}`
         : `${tariff.name}${devicesSuffix}`;
       const promoCode = discountInfoTariff?.code;
       const payment = await api.createPlategaPayment(token, {
