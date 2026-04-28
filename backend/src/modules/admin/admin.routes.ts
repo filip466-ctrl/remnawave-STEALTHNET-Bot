@@ -413,7 +413,9 @@ function tariffToJson(t: {
   trafficLimitBytes: bigint | null;
   trafficResetMode: string;
   deviceLimit: number | null;
-  maxDevices: number;
+  includedDevices: number;
+  pricePerExtraDevice: number;
+  maxExtraDevices: number;
   deviceDiscountTiers: unknown;
   price: number;
   currency: string;
@@ -432,10 +434,11 @@ function tariffToJson(t: {
     trafficLimitBytes: t.trafficLimitBytes != null ? Number(t.trafficLimitBytes) : null,
     trafficResetMode: t.trafficResetMode,
     deviceLimit: t.deviceLimit,
-    maxDevices: t.maxDevices,
-    // Лесенка скидок может быть JsonValue (Json | null), приводим к чистому массиву.
+    includedDevices: t.includedDevices,
+    pricePerExtraDevice: t.pricePerExtraDevice,
+    maxExtraDevices: t.maxExtraDevices,
     deviceDiscountTiers: Array.isArray(t.deviceDiscountTiers)
-      ? (t.deviceDiscountTiers as { minDevices: number; discountPercent: number }[])
+      ? (t.deviceDiscountTiers as { minExtraDevices: number; discountPercent: number }[])
       : [],
     price: t.price,
     currency: t.currency,
@@ -558,10 +561,9 @@ const priceOptionInputSchema = z.object({
   durationDays: z.number().int().min(1).max(3650),
   price: z.number().min(0),
 });
-// Лесенка скидок: пороги {minDevices, discountPercent}.
-// Скидка 0..90%, minDevices ≥ 2 (для 1 устр скидок не бывает).
+// Лесенка скидок за число ДОП. устройств: {minExtraDevices, discountPercent}.
 const deviceDiscountTierSchema = z.object({
-  minDevices: z.number().int().min(2).max(100),
+  minExtraDevices: z.number().int().min(1).max(100),
   discountPercent: z.number().min(0).max(90),
 });
 const createTariffSchema = z.object({
@@ -573,7 +575,9 @@ const createTariffSchema = z.object({
   trafficLimitBytes: z.number().int().nonnegative().nullable().optional(),
   trafficResetMode: z.enum(TRAFFIC_RESET_MODES).optional(),
   deviceLimit: z.number().int().nonnegative().nullable().optional(),
-  maxDevices: z.number().int().min(1).max(100).optional(),
+  includedDevices: z.number().int().min(1).max(100).optional(),
+  pricePerExtraDevice: z.number().min(0).optional(),
+  maxExtraDevices: z.number().int().min(0).max(100).optional(),
   deviceDiscountTiers: z.array(deviceDiscountTierSchema).max(20).optional(),
   price: z.number().min(0).optional(), // legacy: используется как fallback если priceOptions не заданы
   currency: z.string().max(10).optional(),
@@ -588,12 +592,13 @@ const updateTariffSchema = z.object({
   trafficLimitBytes: z.number().int().nonnegative().nullable().optional(),
   trafficResetMode: z.enum(TRAFFIC_RESET_MODES).optional(),
   deviceLimit: z.number().int().nonnegative().nullable().optional(),
-  maxDevices: z.number().int().min(1).max(100).optional(),
+  includedDevices: z.number().int().min(1).max(100).optional(),
+  pricePerExtraDevice: z.number().min(0).optional(),
+  maxExtraDevices: z.number().int().min(0).max(100).optional(),
   deviceDiscountTiers: z.array(deviceDiscountTierSchema).max(20).optional(),
   price: z.number().min(0).optional(),
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
-  // priceOptions: при обновлении заменяет существующие. min(1) если задано.
   priceOptions: z.array(priceOptionInputSchema).min(1).max(20).optional(),
 });
 
@@ -639,7 +644,9 @@ adminRouter.post("/tariffs", async (req, res) => {
       trafficLimitBytes: body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null,
       trafficResetMode: body.data.trafficResetMode ?? "no_reset",
       deviceLimit: body.data.deviceLimit ?? null,
-      maxDevices: body.data.maxDevices ?? 5,
+      includedDevices: body.data.includedDevices ?? 1,
+      pricePerExtraDevice: body.data.pricePerExtraDevice ?? 0,
+      maxExtraDevices: body.data.maxExtraDevices ?? 0,
       deviceDiscountTiers: body.data.deviceDiscountTiers ?? [],
       price: legacyPrice,
       currency: (body.data.currency ?? "usd").toLowerCase(),
@@ -667,14 +674,16 @@ adminRouter.patch("/tariffs/:id", async (req, res) => {
   if (!idParse.success) return res.status(400).json({ message: "Invalid id" });
   const body = updateTariffSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
-  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; maxDevices?: number; deviceDiscountTiers?: { minDevices: number; discountPercent: number }[]; price?: number; currency?: string; sortOrder?: number } = {};
+  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; includedDevices?: number; pricePerExtraDevice?: number; maxExtraDevices?: number; deviceDiscountTiers?: { minExtraDevices: number; discountPercent: number }[]; price?: number; currency?: string; sortOrder?: number } = {};
   if (body.data.name != null) data.name = body.data.name;
   if (body.data.description !== undefined) data.description = body.data.description ?? null;
   if (body.data.internalSquadUuids != null) data.internalSquadUuids = body.data.internalSquadUuids;
   if (body.data.trafficLimitBytes !== undefined) data.trafficLimitBytes = body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null;
   if (body.data.trafficResetMode !== undefined) data.trafficResetMode = body.data.trafficResetMode;
   if (body.data.deviceLimit !== undefined) data.deviceLimit = body.data.deviceLimit ?? null;
-  if (body.data.maxDevices !== undefined) data.maxDevices = body.data.maxDevices;
+  if (body.data.includedDevices !== undefined) data.includedDevices = body.data.includedDevices;
+  if (body.data.pricePerExtraDevice !== undefined) data.pricePerExtraDevice = body.data.pricePerExtraDevice;
+  if (body.data.maxExtraDevices !== undefined) data.maxExtraDevices = body.data.maxExtraDevices;
   if (body.data.deviceDiscountTiers !== undefined) data.deviceDiscountTiers = body.data.deviceDiscountTiers;
   if (body.data.currency !== undefined) data.currency = body.data.currency.toLowerCase();
   if (body.data.sortOrder != null) data.sortOrder = body.data.sortOrder;
@@ -1188,8 +1197,9 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   const adminId = (req as unknown as { adminId: string }).adminId;
   const now = new Date();
 
-  // Количество устройств: 1..tariff.maxDevices.
-  const effectiveDeviceCount = Math.min(Math.max(1, deviceCount ?? 1), tariff.maxDevices);
+  // Количество ДОП. устройств клиенту бонусом (0..tariff.maxExtraDevices).
+  // Параметр deviceCount в API — это extraDevices (legacy имя сохранено для совместимости фронта).
+  const effectiveExtras = Math.min(Math.max(0, deviceCount ?? 0), tariff.maxExtraDevices);
 
   let paymentId: string | null = null;
   if (createPaymentRecord) {
@@ -1205,7 +1215,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
           provider: "admin_grant",
           tariffId: tariff.id,
           tariffPriceOptionId: selectedOption?.id ?? null,
-          deviceCount: effectiveDeviceCount,
+          deviceCount: effectiveExtras,
           paidAt: now,
           metadata: JSON.stringify({ grantedBy: adminId, note: note ?? null, kind: "admin_grant" }),
         },
@@ -1224,14 +1234,16 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
       durationDays: selectedOption?.durationDays ?? tariff.durationDays,
       trafficLimitBytes: tariff.trafficLimitBytes,
       deviceLimit: tariff.deviceLimit,
-      maxDevices: tariff.maxDevices,
+      includedDevices: tariff.includedDevices,
+      pricePerExtraDevice: tariff.pricePerExtraDevice,
+      maxExtraDevices: tariff.maxExtraDevices,
       deviceDiscountTiers: tariff.deviceDiscountTiers,
       internalSquadUuids: tariff.internalSquadUuids,
       trafficResetMode: tariff.trafficResetMode ?? undefined,
       price: selectedOption?.price ?? tariff.price,
     },
     selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
-    effectiveDeviceCount,
+    effectiveExtras,
   );
 
   if (!activation.ok) {

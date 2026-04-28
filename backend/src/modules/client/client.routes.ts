@@ -2386,13 +2386,15 @@ clientRouter.post("/payments/balance", async (req, res) => {
     selectedOption = { id: sorted[0].id, durationDays: sorted[0].durationDays, price: sorted[0].price };
   }
 
-  // Применяем лесенку скидок за объём устройств (если задана) к цене за устройство.
-  const { applyDeviceDiscount, parseDeviceDiscountTiers } = await import("../tariff/tariff-activation.service.js");
-  const tariffMaxDevices = tariff.maxDevices ?? 5;
-  const requestedDevices = Math.min(Math.max(1, deviceCount ?? 1), tariffMaxDevices);
+  // Цена = base + extras × pricePerExtraDevice × (100 − discount) / 100.
+  // Параметр deviceCount в API — это число ДОП. устройств (extras), не общее.
+  const { applyExtraDevicesPrice, parseDeviceDiscountTiers } = await import("../tariff/tariff-activation.service.js");
+  const maxExtras = tariff.maxExtraDevices ?? 0;
+  const requestedExtras = Math.min(Math.max(0, deviceCount ?? 0), maxExtras);
   const unitPrice = selectedOption?.price ?? tariff.price;
   const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
-  const { total: basePriceForTariff } = applyDeviceDiscount(unitPrice, requestedDevices, tiers);
+  const { extrasTotal } = applyExtraDevicesPrice(tariff.pricePerExtraDevice ?? 0, requestedExtras, tiers);
+  const basePriceForTariff = unitPrice + extrasTotal;
   let finalPrice = basePriceForTariff;
 
   // Персональная скидка админа — применяется первой.
@@ -2429,12 +2431,12 @@ clientRouter.post("/payments/balance", async (req, res) => {
     return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalPrice.toFixed(2)}` });
   }
 
-  // Активируем тариф в Remnawave (с конкретной выбранной опцией для конвертации + кол-вом устройств)
+  // Активируем тариф в Remnawave с выбранной опцией + числом ДОП. устройств.
   const activateResult = await activateTariffForClient(
     { id: clientRaw.id, remnawaveUuid: clientDb.remnawaveUuid, email: clientDb.email, telegramId: clientDb.telegramId },
     tariff,
     selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
-    requestedDevices,
+    requestedExtras,
   );
   if (!activateResult.ok) return res.status(activateResult.status).json({ message: activateResult.error });
 
@@ -2462,7 +2464,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
       provider: "balance",
       tariffId,
       tariffPriceOptionId: selectedOption?.id ?? null,
-      deviceCount: requestedDevices,
+      deviceCount: requestedExtras,
       paidAt: new Date(),
       metadata: Object.keys(tariffMeta).length > 0 ? JSON.stringify(tariffMeta) : null,
     },
@@ -4636,7 +4638,9 @@ function tariffToJson(t: {
   trafficLimitBytes: bigint | null;
   trafficResetMode?: string;
   deviceLimit: number | null;
-  maxDevices?: number;
+  includedDevices?: number;
+  pricePerExtraDevice?: number;
+  maxExtraDevices?: number;
   deviceDiscountTiers?: unknown;
   price: number;
   currency: string;
@@ -4650,9 +4654,11 @@ function tariffToJson(t: {
     trafficLimitBytes: t.trafficLimitBytes != null ? Number(t.trafficLimitBytes) : null,
     trafficResetMode: t.trafficResetMode ?? "no_reset",
     deviceLimit: t.deviceLimit,
-    maxDevices: t.maxDevices ?? 5,
+    includedDevices: t.includedDevices ?? 1,
+    pricePerExtraDevice: t.pricePerExtraDevice ?? 0,
+    maxExtraDevices: t.maxExtraDevices ?? 0,
     deviceDiscountTiers: Array.isArray(t.deviceDiscountTiers)
-      ? (t.deviceDiscountTiers as { minDevices: number; discountPercent: number }[])
+      ? (t.deviceDiscountTiers as { minExtraDevices: number; discountPercent: number }[])
       : [],
     price: t.price,
     currency: t.currency,

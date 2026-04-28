@@ -320,7 +320,7 @@ export function tariffCategoryButtons(
 
 /** Кнопки тарифов одной категории. Только эмодзи категории (ordinary/premium), без общего эмодзи «Тарифы». */
 export function tariffsOfCategoryButtons(
-  category: { name: string; emoji?: string; tariffs: { id: string; name: string; price: number; currency: string }[] },
+  category: { name: string; emoji?: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] },
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   backData: string = "menu:tariffs",
@@ -334,7 +334,8 @@ export function tariffsOfCategoryButtons(
   const prefix = (category.emoji && category.emoji.trim()) ? `${category.emoji} ` : "";
   const tariffId = emojiIds?.tariff;
   for (const t of category.tariffs) {
-    const label = `${prefix}${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
+    const fromPrefix = t.hasOptions ? "от " : "";
+    const label = `${prefix}${t.name} — ${fromPrefix}${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
     rows.push([btn(label, `pay_tariff:${t.id}`, tariffPay, tariffId)]);
   }
   rows.push([btn(back, backData, backSty, emojiIds?.back)]);
@@ -347,7 +348,7 @@ export function tariffPayButtons(
     id: string;
     name: string;
     emoji?: string;
-    tariffs: { id: string; name: string; price: number; currency: string }[];
+    tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[];
   }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
@@ -402,16 +403,17 @@ function currencySymbol(currency: string): string {
 }
 
 /**
- * Шаг 2: выбор количества устройств. Показывается после выбора длительности (topt:),
- * только если у тарифа maxDevices > 1.
+ * Шаг 2: выбор количества ДОП. устройств (extras). Показывается после выбора длительности
+ * (topt:), только если у тарифа включены доп. устройства.
  *
- * Каждая плитка — кнопка с текстом "{N} устр · {price} {sym} {discount?}".
- * callback_data: `tdev:<N>` — реальное количество устройств.
+ * Каждая плитка — кнопка с текстом "+N · {total} {sym} [discount?]".
+ * Плитка «+0» — без доп. устройств, базовая цена тарифа.
+ * callback_data: `tdev:<N>` — N = количество ДОП. устройств (0..maxExtras).
  *
  * Скидочные плитки выделяются эмодзи 🎁; лучшая цена за устройство — ⭐.
  */
 export function tariffDevicePickerButtons(
-  tiles: { n: number; total: number; pct: number; isBest: boolean }[],
+  tiles: { extras: number; included: number; total: number; pct: number; isBest: boolean }[],
   currency: string,
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
@@ -422,13 +424,15 @@ export function tariffDevicePickerButtons(
   const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
   const tariffId = emojiIds?.tariff;
   const sym = currencySymbol(currency);
-  // По 2 устройства в ряд для удобства на мобиле.
+  // По 2 плитки в ряд для удобства на мобиле.
   const rows: InlineButton[][] = [];
   let row: InlineButton[] = [];
   for (const t of tiles) {
     const badge = t.pct > 0 ? ` 🎁−${t.pct}%` : t.isBest ? " ⭐" : "";
-    const label = `${t.n} устр · ${t.total} ${sym}${badge}`.slice(0, 64);
-    row.push(btn(label, `tdev:${t.n}`, tariffPay, tariffId));
+    // Префикс: «Без доп.» для +0, иначе «+N устр».
+    const prefix = t.extras === 0 ? "Без доп." : `+${t.extras} устр`;
+    const label = `${prefix} · ${t.total} ${sym}${badge}`.slice(0, 64);
+    row.push(btn(label, `tdev:${t.extras}`, tariffPay, tariffId));
     if (row.length >= 2) {
       rows.push(row);
       row = [];
@@ -480,7 +484,7 @@ export function tariffPaymentMethodButtons(
 
 /** Кнопки категорий прокси (аналогично тарифам) */
 export function proxyCategoryButtons(
-  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string }[] }[],
+  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   emojiIds?: InnerEmojiIds
@@ -499,7 +503,7 @@ export function proxyCategoryButtons(
 
 /** Кнопки тарифов прокси одной категории */
 export function proxyTariffsOfCategoryButtons(
-  category: { name: string; tariffs: { id: string; name: string; price: number; currency: string }[] },
+  category: { name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] },
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   backData = "menu:proxy",
@@ -519,7 +523,7 @@ export function proxyTariffsOfCategoryButtons(
 
 /** Кнопки прокси-тарифов (категории или список тарифов) */
 export function proxyTariffPayButtons(
-  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string }[] }[],
+  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   emojiIds?: InnerEmojiIds
@@ -567,7 +571,7 @@ export function proxyPaymentMethodButtons(
 
 /** Кнопки категорий Sing-box (доступы) */
 export function singboxCategoryButtons(
-  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string }[] }[],
+  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   emojiIds?: InnerEmojiIds
@@ -586,7 +590,7 @@ export function singboxCategoryButtons(
 
 /** Кнопки тарифов Sing-box одной категории */
 export function singboxTariffsOfCategoryButtons(
-  category: { name: string; tariffs: { id: string; name: string; price: number; currency: string }[] },
+  category: { name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] },
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   backData = "menu:singbox",
@@ -606,7 +610,7 @@ export function singboxTariffsOfCategoryButtons(
 
 /** Кнопки тарифов Sing-box (категории или список) */
 export function singboxTariffPayButtons(
-  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string }[] }[],
+  categories: { id: string; name: string; tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[] }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
   emojiIds?: InnerEmojiIds
@@ -902,7 +906,7 @@ export function giftTariffButtons(
     id: string;
     name: string;
     emoji?: string;
-    tariffs: { id: string; name: string; price: number; currency: string }[];
+    tariffs: { id: string; name: string; price: number; currency: string; hasOptions?: boolean }[];
   }[],
   backLabel?: string | null,
   innerStyles?: InnerButtonStyles,
@@ -916,7 +920,8 @@ export function giftTariffButtons(
   for (const cat of categories) {
     const prefix = (cat.emoji && cat.emoji.trim()) ? `${cat.emoji} ` : "";
     for (const t of cat.tariffs) {
-      const label = `${prefix}${t.name} — ${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
+      const fromPrefix = t.hasOptions ? "от " : "";
+    const label = `${prefix}${t.name} — ${fromPrefix}${t.price} ${currencySymbol(t.currency)}`.slice(0, 64);
       rows.push([btn(label, `gift_tariff:${t.id}`, tariffPay, tariffId)]);
     }
   }

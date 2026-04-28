@@ -33,7 +33,7 @@ function formatMoney(amount: number, currency: string) {
 }
 
 type TariffPriceOption = { id: string; durationDays: number; price: number; sortOrder: number };
-type DeviceDiscountTier = { minDevices: number; discountPercent: number };
+type DeviceDiscountTier = { minExtraDevices: number; discountPercent: number };
 type TariffForPay = {
   id: string;
   name: string;
@@ -44,18 +44,25 @@ type TariffForPay = {
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
   deviceLimit?: number | null;
-  maxDevices?: number;
+  includedDevices?: number;
+  pricePerExtraDevice?: number;
+  maxExtraDevices?: number;
   deviceDiscountTiers?: DeviceDiscountTier[];
   priceOptions?: TariffPriceOption[];
 };
 
-/** Применить лесенку скидок: возвращает итог + применённую скидку. */
-function applyDeviceDiscount(unitPrice: number, deviceCount: number, tiers: DeviceDiscountTier[] | undefined): { total: number; pct: number } {
-  const safeCount = Math.max(1, Math.floor(deviceCount));
-  const sorted = [...(tiers ?? [])].sort((a, b) => b.minDevices - a.minDevices);
-  const tier = sorted.find((t) => safeCount >= t.minDevices);
+/** Цена пакета доп. устройств: extras × pricePerExtra × (100 − pct) / 100. */
+function applyExtrasPrice(pricePerExtra: number, extras: number, tiers: DeviceDiscountTier[] | undefined): { extrasTotal: number; pct: number } {
+  const safe = Math.max(0, Math.floor(extras));
+  if (safe === 0 || pricePerExtra <= 0) return { extrasTotal: 0, pct: 0 };
+  const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+  const tier = sorted.find((t) => safe >= t.minExtraDevices);
   const pct = tier?.discountPercent ?? 0;
-  return { total: Math.round(unitPrice * safeCount * (100 - pct)) / 100, pct };
+  return { extrasTotal: Math.round(pricePerExtra * safe * (100 - pct)) / 100, pct };
+}
+
+function hasExtras(t: TariffForPay): boolean {
+  return (t.pricePerExtraDevice ?? 0) > 0 && (t.maxExtraDevices ?? 0) > 0;
 }
 
 export function ClientTariffsPage() {
@@ -84,10 +91,11 @@ export function ClientTariffsPage() {
   // Активная подписка пользователя (для предупреждения о сбросе трафика)
   const [activeSubInfo, setActiveSubInfo] = useState<{ hasActive: boolean; expireAt: string | null; tariffName: string | null; currentPricePerDay: number | null }>({ hasActive: false, expireAt: null, tariffName: null, currentPricePerDay: null });
   const [warnModal, setWarnModal] = useState<{ tariff: TariffForPay } | null>(null);
-  // Унифицированная модалка покупки: длительность + устройства + скидки + total.
+  // Унифицированная модалка покупки: длительность + ДОП. устройства + скидки + total.
   const [purchaseModal, setPurchaseModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [selectedPriceOptionId, setSelectedPriceOptionId] = useState<string | null>(null);
-  const [selectedDeviceCount, setSelectedDeviceCount] = useState<number>(1);
+  /** Сколько ДОП. устройств клиент докупает поверх tariff.includedDevices (0..maxExtraDevices). */
+  const [selectedExtraDevices, setSelectedExtraDevices] = useState<number>(0);
 
   // Промокод
   const [promoInput, setPromoInput] = useState("");
@@ -158,24 +166,24 @@ export function ClientTariffsPage() {
     }).catch(() => { /* not critical */ });
   }, [token]);
 
-  // Запрос на покупку тарифа: открываем единую модалку (длительность + устройства).
+  // Запрос на покупку тарифа: открываем единую модалку.
   function requestBuy(tariff: TariffForPay) {
     const opts = tariff.priceOptions ?? [];
-    // Дефолт: первая опция (как правило самая короткая) и 1 устройство.
     const defaultOpt = opts[0] ?? null;
     setSelectedPriceOptionId(defaultOpt?.id ?? null);
-    setSelectedDeviceCount(1);
+    setSelectedExtraDevices(0);
     setPurchaseModal({ tariff });
   }
 
-  // Подтверждение из purchaseModal: формируем итоговый тариф (с применённой скидкой) и идём в pay flow.
+  // Подтверждение из purchaseModal: total = priceOption.price + extras × pricePerExtra × (1 − pct/100).
   function confirmPurchase() {
     if (!purchaseModal) return;
     const baseTariff = purchaseModal.tariff;
     const opts = baseTariff.priceOptions ?? [];
     const opt = opts.find((o) => o.id === selectedPriceOptionId) ?? opts[0];
     const unitPrice = opt?.price ?? baseTariff.price;
-    const { total } = applyDeviceDiscount(unitPrice, selectedDeviceCount, baseTariff.deviceDiscountTiers);
+    const { extrasTotal } = applyExtrasPrice(baseTariff.pricePerExtraDevice ?? 0, selectedExtraDevices, baseTariff.deviceDiscountTiers);
+    const total = unitPrice + extrasTotal;
     const tariffWithOption: TariffForPay = {
       ...baseTariff,
       durationDays: opt?.durationDays ?? baseTariff.durationDays,
@@ -262,7 +270,7 @@ export function ClientTariffsPage() {
         description: tariff.name,
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "Platega" });
@@ -281,7 +289,7 @@ export function ClientTariffsPage() {
       const res = await api.clientPayByBalance(token, {
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       setPayModal(null);
@@ -310,7 +318,7 @@ export function ClientTariffsPage() {
         paymentType: "AC",
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "ЮMoney" });
@@ -335,7 +343,7 @@ export function ClientTariffsPage() {
         currency: "RUB",
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.confirmationUrl) setReadyUrl({ url: res.confirmationUrl, provider: "ЮKassa" });
@@ -356,7 +364,7 @@ export function ClientTariffsPage() {
         currency: tariff.currency,
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Crypto Bot" });
@@ -377,7 +385,7 @@ export function ClientTariffsPage() {
         currency: tariff.currency,
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket" });
@@ -398,7 +406,7 @@ export function ClientTariffsPage() {
         currency: tariff.currency,
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "LAVA" });
@@ -419,7 +427,7 @@ export function ClientTariffsPage() {
         currency: tariff.currency,
         tariffId: tariff.id,
         tariffPriceOptionId: selectedPriceOptionId ?? undefined,
-        deviceCount: selectedDeviceCount,
+        deviceCount: selectedExtraDevices,
         promoCode: promoResult ? promoInput.trim() : undefined,
       });
       if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Overpay" });
@@ -1122,13 +1130,13 @@ export function ClientTariffsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Унифицированная модалка покупки: длительность + устройства + total */}
+      {/* Унифицированная модалка покупки: длительность + ДОП. устройства + total */}
       <UnifiedPurchaseModal
         modal={purchaseModal}
         selectedPriceOptionId={selectedPriceOptionId}
         setSelectedPriceOptionId={setSelectedPriceOptionId}
-        selectedDeviceCount={selectedDeviceCount}
-        setSelectedDeviceCount={setSelectedDeviceCount}
+        selectedExtraDevices={selectedExtraDevices}
+        setSelectedExtraDevices={setSelectedExtraDevices}
         onClose={() => setPurchaseModal(null)}
         onConfirm={confirmPurchase}
       />
@@ -1142,16 +1150,16 @@ function UnifiedPurchaseModal({
   modal,
   selectedPriceOptionId,
   setSelectedPriceOptionId,
-  selectedDeviceCount,
-  setSelectedDeviceCount,
+  selectedExtraDevices,
+  setSelectedExtraDevices,
   onClose,
   onConfirm,
 }: {
   modal: { tariff: TariffForPay } | null;
   selectedPriceOptionId: string | null;
   setSelectedPriceOptionId: (v: string | null) => void;
-  selectedDeviceCount: number;
-  setSelectedDeviceCount: (v: number) => void;
+  selectedExtraDevices: number;
+  setSelectedExtraDevices: (v: number) => void;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -1163,7 +1171,10 @@ function UnifiedPurchaseModal({
   );
   const selectedOpt = opts.find((o) => o.id === selectedPriceOptionId) ?? opts[0] ?? null;
   const unitPrice = selectedOpt?.price ?? tariff.price;
-  const maxDevices = tariff.maxDevices ?? 5;
+  const includedDevices = tariff.includedDevices ?? 1;
+  const pricePerExtra = tariff.pricePerExtraDevice ?? 0;
+  const maxExtras = tariff.maxExtraDevices ?? 0;
+  const extrasEnabled = hasExtras(tariff);
   const tiers = tariff.deviceDiscountTiers ?? [];
 
   // Best-deal по длительности (минимальная цена за день).
@@ -1180,21 +1191,22 @@ function UnifiedPurchaseModal({
     }
   }
 
-  // Считаем все варианты устройств для плиток.
-  const deviceTiles = Array.from({ length: maxDevices }, (_, i) => {
-    const n = i + 1;
-    const { total, pct } = applyDeviceDiscount(unitPrice, n, tiers);
-    return { n, total, pct };
+  // Плитки доп. устройств: +0..+maxExtras.
+  const deviceTiles = Array.from({ length: maxExtras + 1 }, (_, i) => {
+    const extras = i;
+    const { extrasTotal, pct } = applyExtrasPrice(pricePerExtra, extras, tiers);
+    return { extras, total: unitPrice + extrasTotal, pct, totalDevices: includedDevices + extras };
   });
-  const bestPerDevice = deviceTiles.reduce((best, cur) => {
-    const perDev = cur.total / cur.n;
-    if (best == null || perDev < best.perDev) return { n: cur.n, perDev };
+  const bestExtra = deviceTiles.slice(1).reduce((best, cur) => {
+    const perDev = cur.totalDevices > 0 ? cur.total / cur.totalDevices : Infinity;
+    if (best == null || perDev < best.perDev) return { extras: cur.extras, perDev };
     return best;
-  }, null as { n: number; perDev: number } | null);
+  }, null as { extras: number; perDev: number } | null);
 
-  const { total: finalTotal, pct: appliedPct } = applyDeviceDiscount(unitPrice, selectedDeviceCount, tiers);
-  const baseTotal = unitPrice * selectedDeviceCount;
-  const savedAmount = baseTotal - finalTotal;
+  const { extrasTotal: appliedExtras, pct: appliedPct } = applyExtrasPrice(pricePerExtra, selectedExtraDevices, tiers);
+  const finalTotal = unitPrice + appliedExtras;
+  const baseExtrasNoDiscount = pricePerExtra * selectedExtraDevices;
+  const savedAmount = baseExtrasNoDiscount - appliedExtras;
 
   return (
     <Dialog open={!!modal} onOpenChange={(open) => !open && onClose()}>
@@ -1270,68 +1282,71 @@ function UnifiedPurchaseModal({
             </section>
           )}
 
-          {/* ── 2. Устройства ── */}
-          <section>
-            <div className="flex items-center justify-between mb-2.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                <Smartphone className="inline h-3 w-3 mr-1" /> Количество устройств
-              </Label>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                Выбрано: <strong className="text-foreground">{selectedDeviceCount}</strong>
-              </span>
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {deviceTiles.map((tile) => {
-                const isActive = tile.n === selectedDeviceCount;
-                const isBest = bestPerDevice?.n === tile.n && tile.n > 1;
-                return (
-                  <motion.button
-                    key={tile.n}
-                    type="button"
-                    onClick={() => setSelectedDeviceCount(tile.n)}
-                    whileTap={{ scale: 0.96 }}
-                    className={cn(
-                      "relative overflow-hidden rounded-2xl border p-3 transition-all",
-                      "hover:scale-[1.04] hover:shadow-lg",
-                      isActive
-                        ? "bg-gradient-to-br from-primary/25 via-fuchsia-500/15 to-purple-500/20 border-primary/50 ring-2 ring-primary/40 shadow-lg shadow-primary/20"
-                        : tile.pct > 0
-                          ? "bg-gradient-to-br from-emerald-500/[0.06] to-cyan-500/[0.04] border-emerald-500/25 hover:border-emerald-500/40"
-                          : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 hover:border-white/20"
-                    )}
-                  >
-                    {tile.pct > 0 && (
-                      <div className={cn(
-                        "absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[9px] font-black shadow z-10",
+          {/* ── 2. Доп. устройства (только если включены в тарифе) ── */}
+          {extrasEnabled && (
+            <section>
+              <div className="flex items-center justify-between mb-2.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <Smartphone className="inline h-3 w-3 mr-1" /> Доп. устройства
+                </Label>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  В тарифе: <strong className="text-foreground">{includedDevices}</strong>
+                </span>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {deviceTiles.map((tile) => {
+                  const isActive = tile.extras === selectedExtraDevices;
+                  const isBest = bestExtra?.extras === tile.extras && tile.extras > 0 && tile.pct === 0;
+                  return (
+                    <motion.button
+                      key={tile.extras}
+                      type="button"
+                      onClick={() => setSelectedExtraDevices(tile.extras)}
+                      whileTap={{ scale: 0.96 }}
+                      className={cn(
+                        "relative overflow-hidden rounded-2xl border p-3 transition-all",
+                        "hover:scale-[1.04] hover:shadow-lg",
                         isActive
-                          ? "bg-fuchsia-500 text-white"
-                          : "bg-emerald-500 text-white"
-                      )}>
-                        −{tile.pct}%
+                          ? "bg-gradient-to-br from-primary/25 via-fuchsia-500/15 to-purple-500/20 border-primary/50 ring-2 ring-primary/40 shadow-lg shadow-primary/20"
+                          : tile.pct > 0
+                            ? "bg-gradient-to-br from-emerald-500/[0.06] to-cyan-500/[0.04] border-emerald-500/25 hover:border-emerald-500/40"
+                            : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 hover:border-white/20"
+                      )}
+                    >
+                      {tile.pct > 0 && (
+                        <div className={cn(
+                          "absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[9px] font-black shadow z-10",
+                          isActive ? "bg-fuchsia-500 text-white" : "bg-emerald-500 text-white"
+                        )}>
+                          −{tile.pct}%
+                        </div>
+                      )}
+                      {isBest && (
+                        <Sparkles className="absolute top-1.5 right-1.5 h-3 w-3 text-fuchsia-500" />
+                      )}
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <Smartphone className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <span className={cn("text-sm font-bold", isActive && "text-primary")}>
+                          {tile.extras === 0 ? "Без доп." : `+${tile.extras}`}
+                        </span>
                       </div>
-                    )}
-                    {isBest && tile.pct === 0 && (
-                      <Sparkles className="absolute top-1.5 right-1.5 h-3 w-3 text-fuchsia-500" />
-                    )}
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <Smartphone className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-muted-foreground")} />
-                      <span className={cn("text-sm font-bold", isActive && "text-primary")}>
-                        {tile.n}
-                      </span>
-                    </div>
-                    <p className="text-[11px] font-bold text-foreground/90 tabular-nums text-center">
-                      {formatMoney(tile.total, tariff.currency)}
-                    </p>
-                    {isBest && (
-                      <p className="text-[9px] font-medium text-fuchsia-500 dark:text-fuchsia-400 text-center mt-0.5">
-                        выгоднее всего
+                      <p className="text-[11px] font-bold text-foreground/90 tabular-nums text-center">
+                        {formatMoney(tile.total, tariff.currency)}
                       </p>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </section>
+                      <p className="text-[9px] text-muted-foreground/80 text-center mt-0.5">
+                        {tile.totalDevices} устр
+                      </p>
+                      {isBest && (
+                        <p className="text-[9px] font-medium text-fuchsia-500 dark:text-fuchsia-400 text-center mt-0.5">
+                          выгоднее всего
+                        </p>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* ── 3. Итог ── */}
           <section className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-fuchsia-500/[0.04] to-purple-500/[0.06] p-4">
@@ -1342,11 +1357,19 @@ function UnifiedPurchaseModal({
               </span>
             </div>
             <div className="flex items-baseline justify-between mb-1">
-              <span className="text-xs text-muted-foreground">Устройств</span>
+              <span className="text-xs text-muted-foreground">Тариф ({includedDevices} устр)</span>
               <span className="text-xs font-medium tabular-nums">
-                {formatMoney(unitPrice, tariff.currency)} × {selectedDeviceCount}
+                {formatMoney(unitPrice, tariff.currency)}
               </span>
             </div>
+            {extrasEnabled && selectedExtraDevices > 0 && (
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-xs text-muted-foreground">+{selectedExtraDevices} доп. устр</span>
+                <span className="text-xs font-medium tabular-nums">
+                  {formatMoney(pricePerExtra, tariff.currency)} × {selectedExtraDevices}
+                </span>
+              </div>
+            )}
             {savedAmount > 0 && (
               <div className="flex items-baseline justify-between mb-1 text-emerald-500 dark:text-emerald-400">
                 <span className="text-xs flex items-center gap-1">

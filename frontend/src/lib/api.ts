@@ -3088,7 +3088,7 @@ export interface TariffPriceOption {
 }
 
 export interface DeviceDiscountTier {
-  minDevices: number;
+  minExtraDevices: number;
   discountPercent: number;
 }
 
@@ -3102,7 +3102,9 @@ export interface TariffRecord {
   trafficLimitBytes: number | null;
   trafficResetMode: string;
   deviceLimit: number | null;
-  maxDevices: number;
+  includedDevices: number;
+  pricePerExtraDevice: number;
+  maxExtraDevices: number;
   deviceDiscountTiers: DeviceDiscountTier[];
   price: number;
   currency: string;
@@ -3121,7 +3123,9 @@ export type CreateTariffPayload = {
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
   deviceLimit?: number | null;
-  maxDevices?: number;
+  includedDevices?: number;
+  pricePerExtraDevice?: number;
+  maxExtraDevices?: number;
   deviceDiscountTiers?: DeviceDiscountTier[];
   price?: number;
   currency?: string;
@@ -3137,7 +3141,9 @@ export type UpdateTariffPayload = {
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
   deviceLimit?: number | null;
-  maxDevices?: number;
+  includedDevices?: number;
+  pricePerExtraDevice?: number;
+  maxExtraDevices?: number;
   deviceDiscountTiers?: DeviceDiscountTier[];
   price?: number;
   currency?: string;
@@ -3229,7 +3235,9 @@ export type PublicTariff = {
   trafficLimitBytes: number | null;
   trafficResetMode?: string;
   deviceLimit: number | null;
-  maxDevices: number;
+  includedDevices: number;
+  pricePerExtraDevice: number;
+  maxExtraDevices: number;
   deviceDiscountTiers: DeviceDiscountTier[];
   priceOptions: TariffPriceOption[];
 };

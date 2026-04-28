@@ -129,10 +129,10 @@ function computeConvertedDays(args: {
 }
 
 /**
- * Лесенка скидок за объём устройств: `[{minDevices, discountPercent}]`. Сортируется
- * по minDevices убывающе и берётся первая подходящая (с наибольшим minDevices).
+ * Лесенка скидок за число ДОП. устройств: `[{minExtraDevices, discountPercent}]`.
+ * Сортируется по minExtraDevices убывающе и берётся первая подходящая.
  */
-export type DeviceDiscountTier = { minDevices: number; discountPercent: number };
+export type DeviceDiscountTier = { minExtraDevices: number; discountPercent: number };
 
 export function parseDeviceDiscountTiers(raw: unknown): DeviceDiscountTier[] {
   if (!Array.isArray(raw)) return [];
@@ -140,31 +140,41 @@ export function parseDeviceDiscountTiers(raw: unknown): DeviceDiscountTier[] {
   for (const r of raw) {
     if (r && typeof r === "object") {
       const o = r as Record<string, unknown>;
-      const minDevices = typeof o.minDevices === "number" ? Math.floor(o.minDevices) : NaN;
+      // Новый ключ minExtraDevices, fallback на старый minDevices для совместимости.
+      const minRaw = typeof o.minExtraDevices === "number" ? o.minExtraDevices
+        : typeof o.minDevices === "number" ? o.minDevices : NaN;
+      const minExtra = Number.isFinite(minRaw) ? Math.floor(minRaw) : NaN;
       const discountPercent = typeof o.discountPercent === "number" ? o.discountPercent : NaN;
-      if (Number.isFinite(minDevices) && minDevices >= 1 && Number.isFinite(discountPercent) && discountPercent >= 0 && discountPercent <= 90) {
-        out.push({ minDevices, discountPercent });
+      if (Number.isFinite(minExtra) && minExtra >= 1 && Number.isFinite(discountPercent) && discountPercent >= 0 && discountPercent <= 90) {
+        out.push({ minExtraDevices: minExtra, discountPercent });
       }
     }
   }
-  return out.sort((a, b) => a.minDevices - b.minDevices);
+  return out.sort((a, b) => a.minExtraDevices - b.minExtraDevices);
 }
 
 /**
- * Применить лесенку скидок к цене за устройство.
- * Возвращает итоговую цену, применённую скидку (% — для UI) и применённый порог.
+ * Цена за пакет ДОП. устройств с применённой лесенкой скидок.
+ * Возвращает сумму за extras (без базовой цены тарифа), применённую скидку и порог.
+ *
+ * Формула: extrasTotal = pricePerExtra × extraCount × (100 − discount) / 100
+ *
+ * Скидка применяется только к extras, базовая цена тарифа (priceOption.price) остаётся как есть.
  */
-export function applyDeviceDiscount(
-  unitPrice: number,
-  deviceCount: number,
+export function applyExtraDevicesPrice(
+  pricePerExtraDevice: number,
+  extraCount: number,
   tiers: DeviceDiscountTier[] | null | undefined
-): { total: number; discountPercent: number; appliedTier: DeviceDiscountTier | null } {
-  const safeCount = Math.max(1, Math.floor(deviceCount));
-  const sorted = [...(tiers ?? [])].sort((a, b) => b.minDevices - a.minDevices);
-  const applied = sorted.find((t) => safeCount >= t.minDevices) ?? null;
+): { extrasTotal: number; discountPercent: number; appliedTier: DeviceDiscountTier | null } {
+  const safeCount = Math.max(0, Math.floor(extraCount));
+  if (safeCount === 0 || pricePerExtraDevice <= 0) {
+    return { extrasTotal: 0, discountPercent: 0, appliedTier: null };
+  }
+  const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+  const applied = sorted.find((t) => safeCount >= t.minExtraDevices) ?? null;
   const discount = applied ? applied.discountPercent : 0;
-  const total = Math.round(unitPrice * safeCount * (100 - discount)) / 100;
-  return { total, discountPercent: discount, appliedTier: applied };
+  const extrasTotal = Math.round(pricePerExtraDevice * safeCount * (100 - discount)) / 100;
+  return { extrasTotal, discountPercent: discount, appliedTier: applied };
 }
 
 /**
@@ -192,14 +202,17 @@ export async function activateTariffForClient(
     durationDays: number;
     trafficLimitBytes: bigint | null;
     deviceLimit: number | null;
-    maxDevices?: number;
+    includedDevices?: number;
+    pricePerExtraDevice?: number;
+    maxExtraDevices?: number;
     deviceDiscountTiers?: unknown;
     internalSquadUuids: string[];
     trafficResetMode?: string;
     price?: number;
   },
   selectedOption?: { durationDays: number; price: number },
-  deviceCount?: number,
+  /** Количество ДОП. устройств которые клиент докупил поверх includedDevices (0..maxExtraDevices). */
+  extraDevices?: number,
 ): Promise<ActivationResult> {
   if (!isRemnaConfigured()) return { ok: false, error: "Сервис временно недоступен", status: 503 };
 
@@ -207,21 +220,28 @@ export async function activateTariffForClient(
   const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
   const unitPrice = selectedOption?.price ?? tariff.price ?? 0;
 
-  // Количество устройств: 1..maxDevices. Если не передано — fallback на legacy deviceLimit
-  // (бэкворд-совместимость для customBuild и старых вебхуков).
-  const maxDevices = tariff.maxDevices ?? 99;
-  const requestedDevices = deviceCount != null && deviceCount > 0 ? Math.floor(deviceCount) : 1;
-  const effectiveDevices = Math.min(Math.max(1, requestedDevices), maxDevices);
+  // Параметры устройств:
+  //   includedDevices — сколько входит в базовую цену
+  //   pricePerExtraDevice — стоимость каждого доп. устройства
+  //   maxExtraDevices — верхняя планка для extras
+  //   extraDevices (input) — сколько докупает клиент (0..maxExtraDevices)
+  const includedDevices = Math.max(1, tariff.includedDevices ?? 1);
+  const pricePerExtra = Math.max(0, tariff.pricePerExtraDevice ?? 0);
+  const maxExtra = Math.max(0, tariff.maxExtraDevices ?? 0);
+  const requestedExtra = extraDevices != null && extraDevices > 0 ? Math.floor(extraDevices) : 0;
+  const effectiveExtras = Math.min(Math.max(0, requestedExtra), maxExtra);
 
-  // Применяем лесенку скидок за объём.
+  // Скидка применяется только к extras.
   const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
-  const { total: effectivePrice } = applyDeviceDiscount(unitPrice, effectiveDevices, tiers);
+  const { extrasTotal } = applyExtraDevicesPrice(pricePerExtra, effectiveExtras, tiers);
+  const effectivePrice = unitPrice + extrasTotal;
   const newPricePerDay = effectiveDays > 0 ? effectivePrice / effectiveDays : 0;
 
   const trafficLimitBytes = tariff.trafficLimitBytes != null ? Number(tariff.trafficLimitBytes) : 0;
-  // HWID лимит — точное количество купленных устройств. Legacy deviceLimit
-  // используется только если deviceCount не передан (старые ивенты).
-  const hwidDeviceLimit = deviceCount != null ? effectiveDevices : (tariff.deviceLimit ?? null);
+  // HWID лимит = включённые + докупленные. Legacy deviceLimit используется только если
+  // фронт/вебхук не сообщил extras (старые ивенты, customBuild).
+  const totalDevices = includedDevices + effectiveExtras;
+  const hwidDeviceLimit = extraDevices != null ? totalDevices : (tariff.deviceLimit ?? totalDevices);
   const resetMode: TrafficResetMode = (tariff.trafficResetMode as TrafficResetMode) || "no_reset";
   const trafficLimitStrategy = remnaStrategy(resetMode);
   const shouldResetTraffic = resetMode === "on_purchase" || resetMode === "monthly";

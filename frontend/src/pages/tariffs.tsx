@@ -86,7 +86,7 @@ type PriceOptionDraft = {
 
 type DiscountTierDraft = {
   uid: string;
-  minDevices: number;
+  minExtraDevices: number;
   discountPercent: string;
 };
 
@@ -94,15 +94,15 @@ const PRICE_OPTION_PRESETS = [7, 30, 90, 365];
 const MAX_PRICE_OPTIONS = 10;
 const MAX_DISCOUNT_TIERS = 10;
 
-const DISCOUNT_PRESETS: { name: string; tiers: { minDevices: number; discountPercent: number }[] }[] = [
-  { name: "Мягкая", tiers: [{ minDevices: 3, discountPercent: 5 }, { minDevices: 5, discountPercent: 10 }] },
-  { name: "Стандарт", tiers: [{ minDevices: 3, discountPercent: 10 }, { minDevices: 5, discountPercent: 20 }, { minDevices: 8, discountPercent: 30 }] },
-  { name: "Агрессив", tiers: [{ minDevices: 2, discountPercent: 10 }, { minDevices: 4, discountPercent: 25 }, { minDevices: 6, discountPercent: 40 }] },
+const DISCOUNT_PRESETS: { name: string; tiers: { minExtraDevices: number; discountPercent: number }[] }[] = [
+  { name: "Мягкая", tiers: [{ minExtraDevices: 2, discountPercent: 5 }, { minExtraDevices: 4, discountPercent: 10 }] },
+  { name: "Стандарт", tiers: [{ minExtraDevices: 2, discountPercent: 10 }, { minExtraDevices: 4, discountPercent: 20 }, { minExtraDevices: 6, discountPercent: 30 }] },
+  { name: "Агрессив", tiers: [{ minExtraDevices: 1, discountPercent: 10 }, { minExtraDevices: 3, discountPercent: 25 }, { minExtraDevices: 5, discountPercent: 40 }] },
 ];
 
 function buildInitialTiers(t: TariffRecord | null): DiscountTierDraft[] {
   const arr = t?.deviceDiscountTiers ?? [];
-  return arr.map((x) => ({ uid: makeDraftUid(), minDevices: x.minDevices, discountPercent: String(x.discountPercent) }));
+  return arr.map((x) => ({ uid: makeDraftUid(), minExtraDevices: x.minExtraDevices, discountPercent: String(x.discountPercent) }));
 }
 
 let __priceOptionDraftCounter = 0;
@@ -327,10 +327,21 @@ function SortableTariffRow({
   );
 }
 
-// ─────────────── Секция устройств: maxDevices + лесенка скидок + live preview ───────────────
+// ─────────────── Секция устройств (новая модель) ───────────────
+// Поля:
+//   includedDevices — сколько входит в базовую цену тарифа
+//   pricePerExtraDevice — цена доп. устройства
+//   maxExtraDevices — макс. число доп. устройств которое клиент сможет докупить
+//   tiers — лесенка скидок применяется ТОЛЬКО к extras
 function DeviceSection({
-  maxDevices,
-  setMaxDevices,
+  includedDevices,
+  setIncludedDevices,
+  pricePerExtraDevice,
+  setPricePerExtraDevice,
+  maxExtraDevices,
+  setMaxExtraDevices,
+  extraDevicesEnabled,
+  setExtraDevicesEnabled,
   discountsEnabled,
   setDiscountsEnabled,
   tiers,
@@ -338,37 +349,46 @@ function DeviceSection({
   removeTier,
   addTier,
   applyPreset,
-  unitPrice,
+  basePrice,
   currency,
 }: {
-  maxDevices: number;
-  setMaxDevices: (v: number) => void;
+  includedDevices: number;
+  setIncludedDevices: (v: number) => void;
+  pricePerExtraDevice: string;
+  setPricePerExtraDevice: (v: string) => void;
+  maxExtraDevices: number;
+  setMaxExtraDevices: (v: number) => void;
+  extraDevicesEnabled: boolean;
+  setExtraDevicesEnabled: (v: boolean) => void;
   discountsEnabled: boolean;
   setDiscountsEnabled: (v: boolean) => void;
   tiers: DiscountTierDraft[];
-  updateTier: (uid: string, patch: Partial<Pick<DiscountTierDraft, "minDevices" | "discountPercent">>) => void;
+  updateTier: (uid: string, patch: Partial<Pick<DiscountTierDraft, "minExtraDevices" | "discountPercent">>) => void;
   removeTier: (uid: string) => void;
   addTier: () => void;
   applyPreset: (idx: number) => void;
-  unitPrice: number;
+  basePrice: number;
   currency: string;
 }) {
-  // Превью: считаем итог = unitPrice × N × (100 - discount) / 100. Для каждого N от 1 до maxDevices.
-  const preview = Array.from({ length: maxDevices }, (_, i) => {
-    const n = i + 1;
+  const pricePerExtraNum = parseFloat(pricePerExtraDevice) || 0;
+  // Превью: для каждого extras от 0 до maxExtras считаем базу + extras × pricePerExtra × (100−pct)/100.
+  const previewMaxExtras = extraDevicesEnabled ? Math.max(0, maxExtraDevices) : 0;
+  const preview = Array.from({ length: previewMaxExtras + 1 }, (_, i) => {
+    const extras = i;
     const sortedTiers = [...tiers]
-      .map((t) => ({ minDevices: t.minDevices, pct: parseFloat(t.discountPercent) || 0 }))
-      .sort((a, b) => b.minDevices - a.minDevices);
-    const tier = discountsEnabled ? sortedTiers.find((t) => n >= t.minDevices) : undefined;
+      .map((t) => ({ minExtraDevices: t.minExtraDevices, pct: parseFloat(t.discountPercent) || 0 }))
+      .sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+    const tier = discountsEnabled && extras > 0 ? sortedTiers.find((t) => extras >= t.minExtraDevices) : undefined;
     const pct = tier?.pct ?? 0;
-    const total = Math.round(unitPrice * n * (100 - pct)) / 100;
-    return { n, pct, total, isTier: !!tier };
+    const extrasTotal = Math.round(pricePerExtraNum * extras * (100 - pct)) / 100;
+    const total = basePrice + extrasTotal;
+    return { extras, pct, total, isTier: !!tier, totalDevices: includedDevices + extras };
   });
-  const bestPerDevice = preview.reduce((best, cur) => {
-    const perDev = cur.n > 0 ? cur.total / cur.n : Infinity;
-    if (best == null || perDev < best.perDev) return { n: cur.n, perDev };
+  const bestExtra = preview.slice(1).reduce((best, cur) => {
+    const perDev = cur.totalDevices > 0 ? cur.total / cur.totalDevices : Infinity;
+    if (best == null || perDev < best.perDev) return { extras: cur.extras, perDev };
     return best;
-  }, null as { n: number; perDev: number } | null);
+  }, null as { extras: number; perDev: number } | null);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-fuchsia-500/[0.04] via-purple-500/[0.03] to-primary/[0.04] p-4 space-y-4">
@@ -378,153 +398,210 @@ function DeviceSection({
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold">Устройства</p>
-          <p className="text-[11px] text-muted-foreground">Сколько устройств клиент может купить + скидки за объём</p>
+          <p className="text-[11px] text-muted-foreground">Сколько устройств в комплекте + продажа доп. устройств клиенту</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Макс. устройств</Label>
-          <Input
-            type="number"
-            min={1}
-            max={100}
-            value={maxDevices}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              if (Number.isFinite(v) && v >= 1 && v <= 100) setMaxDevices(v);
-            }}
-            className={inputCls}
-          />
-          <p className="text-[10px] text-muted-foreground/70">Верхний предел слайдера в кабинете/боте</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Скидки за объём</Label>
-          <button
-            type="button"
-            onClick={() => setDiscountsEnabled(!discountsEnabled)}
-            className={cn(
-              "h-10 w-full rounded-xl border text-xs font-medium transition-all flex items-center justify-center gap-2",
-              discountsEnabled
-                ? "bg-gradient-to-r from-fuchsia-500/20 to-primary/20 border-fuchsia-500/40 text-fuchsia-500 dark:text-fuchsia-400"
-                : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 text-muted-foreground hover:border-white/20"
-            )}
-          >
-            <TrendingDown className="h-3.5 w-3.5" />
-            {discountsEnabled ? "ВКЛЮЧЕНЫ" : "Выключено"}
-          </button>
-        </div>
+      {/* Включено в тариф */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Устройств в комплекте (базовая цена)</Label>
+        <Input
+          type="number"
+          min={1}
+          max={100}
+          value={includedDevices}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (Number.isFinite(v) && v >= 1 && v <= 100) setIncludedDevices(v);
+          }}
+          className={inputCls}
+        />
+        <p className="text-[10px] text-muted-foreground/70">Сколько устройств клиент получает за базовую цену тарифа</p>
       </div>
 
-      {discountsEnabled && (
+      {/* Toggle: продажа доп. устройств */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Продажа доп. устройств</Label>
+        <button
+          type="button"
+          onClick={() => setExtraDevicesEnabled(!extraDevicesEnabled)}
+          className={cn(
+            "h-10 w-full rounded-xl border text-xs font-medium transition-all flex items-center justify-center gap-2",
+            extraDevicesEnabled
+              ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border-emerald-500/40 text-emerald-500 dark:text-emerald-400"
+              : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 text-muted-foreground hover:border-white/20"
+          )}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          {extraDevicesEnabled ? "ВКЛЮЧЕНА — клиент видит picker" : "Выключена — клиент не видит picker"}
+        </button>
+      </div>
+
+      {extraDevicesEnabled && (
         <>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs text-muted-foreground">Лесенка порогов</Label>
-              <div className="flex gap-1.5">
-                {DISCOUNT_PRESETS.map((p, i) => (
-                  <button
-                    key={p.name}
-                    type="button"
-                    onClick={() => applyPreset(i)}
-                    className="text-[10px] px-2 py-1 rounded-md bg-foreground/[0.04] dark:bg-white/[0.03] hover:bg-foreground/[0.07] dark:hover:bg-white/[0.06] border border-white/10 text-foreground/80 transition-colors"
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Цена доп. устройства</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={pricePerExtraDevice}
+                onChange={(e) => setPricePerExtraDevice(e.target.value)}
+                className={inputCls}
+                placeholder="100"
+              />
+              <p className="text-[10px] text-muted-foreground/70">За каждое доп. устройство (без скидки)</p>
             </div>
-            {tiers.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-white/15 p-4 text-center">
-                <p className="text-xs text-muted-foreground">Нет порогов. Добавь первый или выбери пресет.</p>
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {tiers.map((t) => (
-                  <li
-                    key={t.uid}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] px-3 py-2 hover:-translate-y-px transition-transform"
-                  >
-                    <span className="text-xs text-muted-foreground shrink-0">от</span>
-                    <Input
-                      type="number"
-                      min={2}
-                      max={maxDevices}
-                      value={t.minDevices}
-                      onChange={(e) => updateTier(t.uid, { minDevices: Math.max(2, parseInt(e.target.value, 10) || 2) })}
-                      className={cn(inputCls, "h-8 w-16 text-center text-sm")}
-                    />
-                    <span className="text-xs text-muted-foreground shrink-0">устр →</span>
-                    <span className="text-xs text-muted-foreground shrink-0">скидка</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={90}
-                      step={1}
-                      value={t.discountPercent}
-                      onChange={(e) => updateTier(t.uid, { discountPercent: e.target.value })}
-                      className={cn(inputCls, "h-8 w-16 text-center text-sm")}
-                    />
-                    <span className="text-xs text-muted-foreground shrink-0">%</span>
-                    <div className="flex-1" />
-                    <button
-                      type="button"
-                      onClick={() => removeTier(t.uid)}
-                      className="h-7 w-7 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
-                      title="Удалить порог"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addTier}
-              disabled={tiers.length >= MAX_DISCOUNT_TIERS}
-              className="mt-2 gap-1 rounded-lg h-7 px-2.5 text-[11px] border-fuchsia-500/30 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-500 dark:text-fuchsia-400"
-            >
-              <Plus className="h-3 w-3" />
-              Порог
-            </Button>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Макс. доп. устройств</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={maxExtraDevices}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (Number.isFinite(v) && v >= 0 && v <= 100) setMaxExtraDevices(v);
+                }}
+                className={inputCls}
+              />
+              <p className="text-[10px] text-muted-foreground/70">Сколько максимум клиент может докупить</p>
+            </div>
           </div>
+
+          {/* Toggle: скидки за объём */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Скидки за объём доп. устройств</Label>
+            <button
+              type="button"
+              onClick={() => setDiscountsEnabled(!discountsEnabled)}
+              className={cn(
+                "h-10 w-full rounded-xl border text-xs font-medium transition-all flex items-center justify-center gap-2",
+                discountsEnabled
+                  ? "bg-gradient-to-r from-fuchsia-500/20 to-primary/20 border-fuchsia-500/40 text-fuchsia-500 dark:text-fuchsia-400"
+                  : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 text-muted-foreground hover:border-white/20"
+              )}
+            >
+              <TrendingDown className="h-3.5 w-3.5" />
+              {discountsEnabled ? "ВКЛЮЧЕНЫ" : "Выключено"}
+            </button>
+          </div>
+
+          {discountsEnabled && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs text-muted-foreground">Лесенка порогов (по числу доп. устройств)</Label>
+                <div className="flex gap-1.5">
+                  {DISCOUNT_PRESETS.map((p, i) => (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => applyPreset(i)}
+                      className="text-[10px] px-2 py-1 rounded-md bg-foreground/[0.04] dark:bg-white/[0.03] hover:bg-foreground/[0.07] dark:hover:bg-white/[0.06] border border-white/10 text-foreground/80 transition-colors"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {tiers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/15 p-4 text-center">
+                  <p className="text-xs text-muted-foreground">Нет порогов. Добавь первый или выбери пресет.</p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {tiers.map((t) => (
+                    <li
+                      key={t.uid}
+                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] px-3 py-2 hover:-translate-y-px transition-transform"
+                    >
+                      <span className="text-xs text-muted-foreground shrink-0">от</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, maxExtraDevices)}
+                        value={t.minExtraDevices}
+                        onChange={(e) => updateTier(t.uid, { minExtraDevices: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                        className={cn(inputCls, "h-8 w-16 text-center text-sm")}
+                      />
+                      <span className="text-xs text-muted-foreground shrink-0">доп. →</span>
+                      <span className="text-xs text-muted-foreground shrink-0">скидка</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={90}
+                        step={1}
+                        value={t.discountPercent}
+                        onChange={(e) => updateTier(t.uid, { discountPercent: e.target.value })}
+                        className={cn(inputCls, "h-8 w-16 text-center text-sm")}
+                      />
+                      <span className="text-xs text-muted-foreground shrink-0">%</span>
+                      <div className="flex-1" />
+                      <button
+                        type="button"
+                        onClick={() => removeTier(t.uid)}
+                        className="h-7 w-7 rounded-md bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
+                        title="Удалить порог"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTier}
+                disabled={tiers.length >= MAX_DISCOUNT_TIERS}
+                className="mt-2 gap-1 rounded-lg h-7 px-2.5 text-[11px] border-fuchsia-500/30 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-500 dark:text-fuchsia-400"
+              >
+                <Plus className="h-3 w-3" />
+                Порог
+              </Button>
+            </div>
+          )}
         </>
       )}
 
       {/* Live preview */}
-      {unitPrice > 0 && (
+      {basePrice > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <Label className="text-xs text-muted-foreground">Превью</Label>
-            <span className="text-[10px] text-muted-foreground/70">{formatPrice(unitPrice, currency)} × N − скидка</span>
+            <span className="text-[10px] text-muted-foreground/70 truncate">База {formatPrice(basePrice, currency)} ({includedDevices} устр) + extras{extraDevicesEnabled ? ` × ${pricePerExtraNum}` : ""}</span>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
             {preview.map((p) => (
               <div
-                key={p.n}
+                key={p.extras}
                 className={cn(
                   "rounded-lg border px-2 py-1.5 text-center transition-colors",
-                  p.isTier
-                    ? "border-emerald-500/30 bg-emerald-500/10"
-                    : "border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02]",
-                  bestPerDevice?.n === p.n && p.n > 1 && "ring-2 ring-fuchsia-500/40"
+                  p.extras === 0
+                    ? "border-primary/30 bg-primary/10"
+                    : p.isTier
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02]",
+                  bestExtra?.extras === p.extras && p.extras > 0 && "ring-2 ring-fuchsia-500/40"
                 )}
               >
-                <p className="text-[10px] text-muted-foreground">{p.n} устр</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {p.extras === 0 ? "Без доп." : `+${p.extras} доп.`}
+                </p>
                 <p className="text-xs font-bold mt-0.5">{formatPrice(p.total, currency)}</p>
+                <p className="text-[9px] text-muted-foreground/70 mt-0.5">{p.totalDevices} устр</p>
                 {p.pct > 0 && (
                   <p className="text-[10px] font-semibold text-emerald-500 dark:text-emerald-400 mt-0.5">−{p.pct}%</p>
                 )}
               </div>
             ))}
           </div>
-          {bestPerDevice && bestPerDevice.n > 1 && (
+          {bestExtra && bestExtra.extras > 0 && (
             <p className="text-[10px] text-fuchsia-500 dark:text-fuchsia-400 mt-2 flex items-center gap-1">
               <Sparkles className="h-3 w-3" />
-              Лучшая цена за устройство: <strong>{bestPerDevice.n} устр</strong> ({formatPrice(bestPerDevice.perDev, currency)}/устр)
+              Лучшая цена за устройство: <strong>+{bestExtra.extras} доп.</strong> ({formatPrice(bestExtra.perDev, currency)}/устр)
             </p>
           )}
         </div>
@@ -1065,7 +1142,14 @@ function TariffModal({
   );
   const [trafficResetMode, setTrafficResetMode] = useState<string>(tariff?.trafficResetMode ?? "no_reset");
   const [deviceLimit, setDeviceLimit] = useState<string>(tariff?.deviceLimit != null ? String(tariff.deviceLimit) : "");
-  const [maxDevices, setMaxDevices] = useState<number>(tariff?.maxDevices ?? 5);
+  // Новая модель устройств:
+  //   includedDevices — сколько входит в базовую цену тарифа
+  //   pricePerExtraDevice — цена доп. устройства
+  //   maxExtraDevices — макс. доп. устройств клиент может докупить (0 = отключено)
+  const [includedDevices, setIncludedDevices] = useState<number>(tariff?.includedDevices ?? 1);
+  const [pricePerExtraDevice, setPricePerExtraDevice] = useState<string>(String(tariff?.pricePerExtraDevice ?? 0));
+  const [maxExtraDevices, setMaxExtraDevices] = useState<number>(tariff?.maxExtraDevices ?? 0);
+  const [extraDevicesEnabled, setExtraDevicesEnabled] = useState<boolean>(() => (tariff?.maxExtraDevices ?? 0) > 0);
   const [discountTiers, setDiscountTiers] = useState<DiscountTierDraft[]>(() => buildInitialTiers(tariff));
   const [discountsEnabled, setDiscountsEnabled] = useState<boolean>(() => (tariff?.deviceDiscountTiers?.length ?? 0) > 0);
   const [currency, setCurrency] = useState<string>((tariff?.currency ?? "usd").toLowerCase());
@@ -1079,7 +1163,10 @@ function TariffModal({
       setTrafficGb(tariff.trafficLimitBytes != null ? String((tariff.trafficLimitBytes / BYTES_PER_GB).toFixed(2)) : "");
       setTrafficResetMode(tariff.trafficResetMode ?? "no_reset");
       setDeviceLimit(tariff.deviceLimit != null ? String(tariff.deviceLimit) : "");
-      setMaxDevices(tariff.maxDevices ?? 5);
+      setIncludedDevices(tariff.includedDevices ?? 1);
+      setPricePerExtraDevice(String(tariff.pricePerExtraDevice ?? 0));
+      setMaxExtraDevices(tariff.maxExtraDevices ?? 0);
+      setExtraDevicesEnabled((tariff.maxExtraDevices ?? 0) > 0);
       setDiscountTiers(buildInitialTiers(tariff));
       setDiscountsEnabled((tariff.deviceDiscountTiers?.length ?? 0) > 0);
       setCurrency((tariff.currency ?? "usd").toLowerCase());
@@ -1091,7 +1178,10 @@ function TariffModal({
       setTrafficGb("");
       setTrafficResetMode("no_reset");
       setDeviceLimit("");
-      setMaxDevices(5);
+      setIncludedDevices(1);
+      setPricePerExtraDevice("0");
+      setMaxExtraDevices(0);
+      setExtraDevicesEnabled(false);
       setDiscountTiers([]);
       setDiscountsEnabled(false);
       setCurrency("usd");
@@ -1160,7 +1250,7 @@ function TariffModal({
   };
 
   // ——— discount tiers helpers ———
-  const updateTier = (uid: string, patch: Partial<Pick<DiscountTierDraft, "minDevices" | "discountPercent">>) => {
+  const updateTier = (uid: string, patch: Partial<Pick<DiscountTierDraft, "minExtraDevices" | "discountPercent">>) => {
     setDiscountTiers((prev) => prev.map((o) => (o.uid === uid ? { ...o, ...patch } : o)));
   };
   const removeTier = (uid: string) => {
@@ -1169,15 +1259,14 @@ function TariffModal({
   const addTier = () => {
     setDiscountTiers((prev) => {
       if (prev.length >= MAX_DISCOUNT_TIERS) return prev;
-      // Подсказка: следующий разумный порог = max(существующих) + 2.
-      const maxMin = prev.reduce((m, t) => Math.max(m, t.minDevices), 1);
-      return [...prev, { uid: makeDraftUid(), minDevices: Math.min(maxMin + 2, maxDevices), discountPercent: "10" }];
+      const maxMin = prev.reduce((m, t) => Math.max(m, t.minExtraDevices), 1);
+      return [...prev, { uid: makeDraftUid(), minExtraDevices: Math.min(maxMin + 1, Math.max(1, maxExtraDevices)), discountPercent: "10" }];
     });
   };
   const applyDiscountPreset = (presetIdx: number) => {
     const preset = DISCOUNT_PRESETS[presetIdx];
     if (!preset) return;
-    setDiscountTiers(preset.tiers.map((t) => ({ uid: makeDraftUid(), minDevices: t.minDevices, discountPercent: String(t.discountPercent) })));
+    setDiscountTiers(preset.tiers.map((t) => ({ uid: makeDraftUid(), minExtraDevices: t.minExtraDevices, discountPercent: String(t.discountPercent) })));
     setDiscountsEnabled(true);
   };
 
@@ -1241,33 +1330,36 @@ function TariffModal({
     const deviceLimitNum = deviceLimit.trim() !== "" ? parseInt(deviceLimit, 10) : null;
     if (deviceLimit.trim() !== "" && (isNaN(deviceLimitNum!) || deviceLimitNum! < 0)) return;
 
-    // Нормализуем лесенку скидок: только если включена. Сортируем по minDevices, валидация.
-    let normalizedTiers: { minDevices: number; discountPercent: number }[] = [];
-    if (discountsEnabled && discountTiers.length > 0) {
+    // Нормализуем лесенку скидок: только если включены extras + tiers.
+    const effectiveMaxExtras = extraDevicesEnabled ? Math.max(0, maxExtraDevices) : 0;
+    let normalizedTiers: { minExtraDevices: number; discountPercent: number }[] = [];
+    if (extraDevicesEnabled && discountsEnabled && discountTiers.length > 0) {
       const seen = new Set<number>();
       for (const t of discountTiers) {
-        if (!Number.isInteger(t.minDevices) || t.minDevices < 2) {
-          setValidationError("Порог скидки: minDevices должен быть целым ≥ 2");
+        if (!Number.isInteger(t.minExtraDevices) || t.minExtraDevices < 1) {
+          setValidationError("Порог скидки: минимум доп. устройств должен быть целым ≥ 1");
           return;
         }
-        if (t.minDevices > maxDevices) {
-          setValidationError(`Порог ${t.minDevices} больше максимума устройств (${maxDevices})`);
+        if (t.minExtraDevices > effectiveMaxExtras) {
+          setValidationError(`Порог ${t.minExtraDevices} больше максимума доп. устройств (${effectiveMaxExtras})`);
           return;
         }
-        if (seen.has(t.minDevices)) {
-          setValidationError(`Дублирующийся порог: ${t.minDevices} устройств`);
+        if (seen.has(t.minExtraDevices)) {
+          setValidationError(`Дублирующийся порог: ${t.minExtraDevices} доп. устройств`);
           return;
         }
-        seen.add(t.minDevices);
+        seen.add(t.minExtraDevices);
         const pct = parseFloat(t.discountPercent);
         if (!Number.isFinite(pct) || pct < 0 || pct > 90) {
           setValidationError("Скидка: число от 0 до 90%");
           return;
         }
-        normalizedTiers.push({ minDevices: t.minDevices, discountPercent: pct });
+        normalizedTiers.push({ minExtraDevices: t.minExtraDevices, discountPercent: pct });
       }
-      normalizedTiers.sort((a, b) => a.minDevices - b.minDevices);
+      normalizedTiers.sort((a, b) => a.minExtraDevices - b.minExtraDevices);
     }
+    const pricePerExtraNum = parseFloat(pricePerExtraDevice);
+    const effectivePricePerExtra = extraDevicesEnabled && Number.isFinite(pricePerExtraNum) && pricePerExtraNum > 0 ? pricePerExtraNum : 0;
 
     setSaving(true);
     try {
@@ -1279,7 +1371,9 @@ function TariffModal({
           trafficLimitBytes: trafficLimitBytes ?? null,
           trafficResetMode,
           deviceLimit: deviceLimitNum ?? null,
-          maxDevices,
+          includedDevices,
+          pricePerExtraDevice: effectivePricePerExtra,
+          maxExtraDevices: effectiveMaxExtras,
           deviceDiscountTiers: normalizedTiers,
           currency: currency || "usd",
           priceOptions: normalized,
@@ -1294,7 +1388,9 @@ function TariffModal({
           trafficLimitBytes: trafficLimitBytes ?? null,
           trafficResetMode,
           deviceLimit: deviceLimitNum ?? null,
-          maxDevices,
+          includedDevices,
+          pricePerExtraDevice: effectivePricePerExtra,
+          maxExtraDevices: effectiveMaxExtras,
           deviceDiscountTiers: normalizedTiers,
           currency: currency || "usd",
           priceOptions: normalized,
@@ -1540,8 +1636,14 @@ function TariffModal({
             </p>
           </div>
           <DeviceSection
-            maxDevices={maxDevices}
-            setMaxDevices={setMaxDevices}
+            includedDevices={includedDevices}
+            setIncludedDevices={setIncludedDevices}
+            pricePerExtraDevice={pricePerExtraDevice}
+            setPricePerExtraDevice={setPricePerExtraDevice}
+            maxExtraDevices={maxExtraDevices}
+            setMaxExtraDevices={setMaxExtraDevices}
+            extraDevicesEnabled={extraDevicesEnabled}
+            setExtraDevicesEnabled={setExtraDevicesEnabled}
             discountsEnabled={discountsEnabled}
             setDiscountsEnabled={setDiscountsEnabled}
             tiers={discountTiers}
@@ -1549,7 +1651,7 @@ function TariffModal({
             removeTier={removeTier}
             addTier={addTier}
             applyPreset={applyDiscountPreset}
-            unitPrice={parsePriceNumber(priceOptions[0]?.price ?? "0") ?? 0}
+            basePrice={parsePriceNumber(priceOptions[0]?.price ?? "0") ?? 0}
             currency={currency}
           />
 
