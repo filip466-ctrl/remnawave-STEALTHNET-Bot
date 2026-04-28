@@ -391,6 +391,43 @@ export function tariffOptionPickerButtons(
   return { inline_keyboard: rows };
 }
 
+/**
+ * Шаг 2: выбор количества устройств. Показывается после выбора длительности (topt:),
+ * только если у тарифа maxDevices > 1.
+ *
+ * Каждая плитка — кнопка с текстом "{N} устр · {price} {currency} {discount?}".
+ * callback_data: `tdev:<N>` — реальное количество устройств.
+ *
+ * Скидочные плитки выделяются эмодзи 🎁; лучшая цена за устройство — ⭐.
+ */
+export function tariffDevicePickerButtons(
+  tiles: { n: number; total: number; pct: number; isBest: boolean }[],
+  currency: string,
+  backLabel?: string | null,
+  innerStyles?: InnerButtonStyles,
+  emojiIds?: InnerEmojiIds,
+): InlineMarkup {
+  const tariffPay = resolveStyle(toStyle(innerStyles?.tariffPay), "success");
+  const back = (backLabel && backLabel.trim()) || DEFAULT_BACK_LABEL;
+  const backSty = resolveStyle(toStyle(innerStyles?.back), "danger");
+  const tariffId = emojiIds?.tariff;
+  // По 2 устройства в ряд для удобства на мобиле.
+  const rows: InlineButton[][] = [];
+  let row: InlineButton[] = [];
+  for (const t of tiles) {
+    const badge = t.pct > 0 ? ` 🎁−${t.pct}%` : t.isBest ? " ⭐" : "";
+    const label = `${t.n} устр · ${t.total} ${currency}${badge}`.slice(0, 64);
+    row.push(btn(label, `tdev:${t.n}`, tariffPay, tariffId));
+    if (row.length >= 2) {
+      rows.push(row);
+      row = [];
+    }
+  }
+  if (row.length > 0) rows.push(row);
+  rows.push([btn(back, "menu:tariffs", backSty, emojiIds?.back)]);
+  return { inline_keyboard: rows };
+}
+
 /** Кнопки выбора способа оплаты (СПБ, Карты и т.д. из админки) для тарифа + баланс + ЮMoney */
 export function tariffPaymentMethodButtons(
   tariffId: string,

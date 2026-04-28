@@ -413,6 +413,8 @@ function tariffToJson(t: {
   trafficLimitBytes: bigint | null;
   trafficResetMode: string;
   deviceLimit: number | null;
+  maxDevices: number;
+  deviceDiscountTiers: unknown;
   price: number;
   currency: string;
   sortOrder: number;
@@ -430,6 +432,11 @@ function tariffToJson(t: {
     trafficLimitBytes: t.trafficLimitBytes != null ? Number(t.trafficLimitBytes) : null,
     trafficResetMode: t.trafficResetMode,
     deviceLimit: t.deviceLimit,
+    maxDevices: t.maxDevices,
+    // Лесенка скидок может быть JsonValue (Json | null), приводим к чистому массиву.
+    deviceDiscountTiers: Array.isArray(t.deviceDiscountTiers)
+      ? (t.deviceDiscountTiers as { minDevices: number; discountPercent: number }[])
+      : [],
     price: t.price,
     currency: t.currency,
     sortOrder: t.sortOrder,
@@ -551,6 +558,12 @@ const priceOptionInputSchema = z.object({
   durationDays: z.number().int().min(1).max(3650),
   price: z.number().min(0),
 });
+// Лесенка скидок: пороги {minDevices, discountPercent}.
+// Скидка 0..90%, minDevices ≥ 2 (для 1 устр скидок не бывает).
+const deviceDiscountTierSchema = z.object({
+  minDevices: z.number().int().min(2).max(100),
+  discountPercent: z.number().min(0).max(90),
+});
 const createTariffSchema = z.object({
   categoryId: z.string().min(1),
   name: z.string().min(1).max(255),
@@ -560,6 +573,8 @@ const createTariffSchema = z.object({
   trafficLimitBytes: z.number().int().nonnegative().nullable().optional(),
   trafficResetMode: z.enum(TRAFFIC_RESET_MODES).optional(),
   deviceLimit: z.number().int().nonnegative().nullable().optional(),
+  maxDevices: z.number().int().min(1).max(100).optional(),
+  deviceDiscountTiers: z.array(deviceDiscountTierSchema).max(20).optional(),
   price: z.number().min(0).optional(), // legacy: используется как fallback если priceOptions не заданы
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
@@ -573,6 +588,8 @@ const updateTariffSchema = z.object({
   trafficLimitBytes: z.number().int().nonnegative().nullable().optional(),
   trafficResetMode: z.enum(TRAFFIC_RESET_MODES).optional(),
   deviceLimit: z.number().int().nonnegative().nullable().optional(),
+  maxDevices: z.number().int().min(1).max(100).optional(),
+  deviceDiscountTiers: z.array(deviceDiscountTierSchema).max(20).optional(),
   price: z.number().min(0).optional(),
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
@@ -622,6 +639,8 @@ adminRouter.post("/tariffs", async (req, res) => {
       trafficLimitBytes: body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null,
       trafficResetMode: body.data.trafficResetMode ?? "no_reset",
       deviceLimit: body.data.deviceLimit ?? null,
+      maxDevices: body.data.maxDevices ?? 5,
+      deviceDiscountTiers: body.data.deviceDiscountTiers ?? [],
       price: legacyPrice,
       currency: (body.data.currency ?? "usd").toLowerCase(),
       sortOrder: body.data.sortOrder ?? 0,
@@ -648,13 +667,15 @@ adminRouter.patch("/tariffs/:id", async (req, res) => {
   if (!idParse.success) return res.status(400).json({ message: "Invalid id" });
   const body = updateTariffSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
-  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; price?: number; currency?: string; sortOrder?: number } = {};
+  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; maxDevices?: number; deviceDiscountTiers?: { minDevices: number; discountPercent: number }[]; price?: number; currency?: string; sortOrder?: number } = {};
   if (body.data.name != null) data.name = body.data.name;
   if (body.data.description !== undefined) data.description = body.data.description ?? null;
   if (body.data.internalSquadUuids != null) data.internalSquadUuids = body.data.internalSquadUuids;
   if (body.data.trafficLimitBytes !== undefined) data.trafficLimitBytes = body.data.trafficLimitBytes != null ? BigInt(body.data.trafficLimitBytes) : null;
   if (body.data.trafficResetMode !== undefined) data.trafficResetMode = body.data.trafficResetMode;
   if (body.data.deviceLimit !== undefined) data.deviceLimit = body.data.deviceLimit ?? null;
+  if (body.data.maxDevices !== undefined) data.maxDevices = body.data.maxDevices;
+  if (body.data.deviceDiscountTiers !== undefined) data.deviceDiscountTiers = body.data.deviceDiscountTiers;
   if (body.data.currency !== undefined) data.currency = body.data.currency.toLowerCase();
   if (body.data.sortOrder != null) data.sortOrder = body.data.sortOrder;
   // Если priceOptions переданы — синхронизируем legacy поля с минимальной опцией.
@@ -1119,6 +1140,8 @@ const grantTariffSchema = z.object({
   // Опционально: конкретная опция длительности из priceOptions тарифа.
   // Если не указано — используется опция с минимальной ценой (default).
   tariffPriceOptionId: z.string().min(1).optional(),
+  // Количество устройств (1..tariff.maxDevices). Если не задано — 1.
+  deviceCount: z.number().int().min(1).max(100).optional(),
   note: z.string().max(500).optional(),
   createPaymentRecord: z.boolean().optional(),
 });
@@ -1136,7 +1159,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   if (!body.success) return res.status(400).json({ message: "Invalid input" });
 
   const clientId = parsed.data.id;
-  const { tariffId, tariffPriceOptionId, note, createPaymentRecord = true } = body.data;
+  const { tariffId, tariffPriceOptionId, deviceCount, note, createPaymentRecord = true } = body.data;
 
   const client = await prisma.client.findUnique({
     where: { id: clientId },
@@ -1165,6 +1188,9 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   const adminId = (req as unknown as { adminId: string }).adminId;
   const now = new Date();
 
+  // Количество устройств: 1..tariff.maxDevices.
+  const effectiveDeviceCount = Math.min(Math.max(1, deviceCount ?? 1), tariff.maxDevices);
+
   let paymentId: string | null = null;
   if (createPaymentRecord) {
     const orderId = `admin-grant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1179,6 +1205,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
           provider: "admin_grant",
           tariffId: tariff.id,
           tariffPriceOptionId: selectedOption?.id ?? null,
+          deviceCount: effectiveDeviceCount,
           paidAt: now,
           metadata: JSON.stringify({ grantedBy: adminId, note: note ?? null, kind: "admin_grant" }),
         },
@@ -1197,11 +1224,14 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
       durationDays: selectedOption?.durationDays ?? tariff.durationDays,
       trafficLimitBytes: tariff.trafficLimitBytes,
       deviceLimit: tariff.deviceLimit,
+      maxDevices: tariff.maxDevices,
+      deviceDiscountTiers: tariff.deviceDiscountTiers,
       internalSquadUuids: tariff.internalSquadUuids,
       trafficResetMode: tariff.trafficResetMode ?? undefined,
       price: selectedOption?.price ?? tariff.price,
     },
     selectedOption ? { durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
+    effectiveDeviceCount,
   );
 
   if (!activation.ok) {

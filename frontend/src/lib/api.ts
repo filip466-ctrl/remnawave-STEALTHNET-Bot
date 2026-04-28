@@ -641,7 +641,8 @@ export const api = {
   async grantClientTariff(
     token: string,
     clientId: string,
-    payload: { tariffId: string; tariffPriceOptionId?: string; note?: string; createPaymentRecord?: boolean }
+    payload: { tariffId: string; tariffPriceOptionId?: string;
+      deviceCount?: number; note?: string; createPaymentRecord?: boolean }
   ): Promise<{ ok: boolean; paymentId: string | null; tariff: { id: string; name: string; durationDays: number }; message?: string }> {
     return request(`/admin/clients/${clientId}/grant-tariff`, {
       method: "POST",
@@ -1355,6 +1356,7 @@ export const api = {
       description?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1413,7 +1415,8 @@ export const api = {
 
   async clientPayByBalance(
     token: string,
-    data: { tariffId?: string; tariffPriceOptionId?: string; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
+    data: { tariffId?: string; tariffPriceOptionId?: string;
+      deviceCount?: number; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string }
   ): Promise<{ message: string; paymentId: string; newBalance: number }> {
     return request("/client/payments/balance", { method: "POST", body: JSON.stringify(data), token });
   },
@@ -1445,6 +1448,7 @@ export const api = {
       paymentType: "PC" | "AC";
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1475,6 +1479,7 @@ export const api = {
       currency?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1498,6 +1503,7 @@ export const api = {
       currency?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1516,6 +1522,7 @@ export const api = {
       currency?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1534,6 +1541,7 @@ export const api = {
       currency?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -1552,6 +1560,7 @@ export const api = {
       currency?: string;
       tariffId?: string;
       tariffPriceOptionId?: string;
+      deviceCount?: number;
       proxyTariffId?: string;
       singboxTariffId?: string;
       promoCode?: string;
@@ -3078,6 +3087,11 @@ export interface TariffPriceOption {
   sortOrder: number;
 }
 
+export interface DeviceDiscountTier {
+  minDevices: number;
+  discountPercent: number;
+}
+
 export interface TariffRecord {
   id: string;
   categoryId: string;
@@ -3088,6 +3102,8 @@ export interface TariffRecord {
   trafficLimitBytes: number | null;
   trafficResetMode: string;
   deviceLimit: number | null;
+  maxDevices: number;
+  deviceDiscountTiers: DeviceDiscountTier[];
   price: number;
   currency: string;
   sortOrder: number;
@@ -3105,6 +3121,8 @@ export type CreateTariffPayload = {
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
   deviceLimit?: number | null;
+  maxDevices?: number;
+  deviceDiscountTiers?: DeviceDiscountTier[];
   price?: number;
   currency?: string;
   sortOrder?: number;
@@ -3119,6 +3137,8 @@ export type UpdateTariffPayload = {
   trafficLimitBytes?: number | null;
   trafficResetMode?: string;
   deviceLimit?: number | null;
+  maxDevices?: number;
+  deviceDiscountTiers?: DeviceDiscountTier[];
   price?: number;
   currency?: string;
   sortOrder?: number;
@@ -3209,6 +3229,8 @@ export type PublicTariff = {
   trafficLimitBytes: number | null;
   trafficResetMode?: string;
   deviceLimit: number | null;
+  maxDevices: number;
+  deviceDiscountTiers: DeviceDiscountTier[];
   priceOptions: TariffPriceOption[];
 };
 

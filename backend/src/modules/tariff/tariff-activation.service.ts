@@ -97,34 +97,74 @@ function remnaStrategy(mode: TrafficResetMode): "NO_RESET" | "MONTH" | "MONTH_RO
 }
 
 /**
- * Рассчитать pro-rata конвертацию остатка дней при смене тарифа.
+ * Рассчитать pro-rata конвертацию остатка дней при смене тарифной ставки.
  * Возвращает количество "конвертированных" дней, которые добавляются к новой покупке.
  *
  * Формула: convertedDays = floor(remainingDays × oldPricePerDay / newPricePerDay)
  *
- * Применяется ТОЛЬКО когда:
- * - Был активный срок (currentExpireAt в будущем)
- * - У клиента сохранён currentPricePerDay (есть с чем сравнить)
- * - Меняется ТАРИФ (не просто продление того же)
+ * Логика:
+ * - Если ставка (₽/день) совпадает — дни складываются 1:1 без конвертации
+ * - Если ставка другая (другой тариф ИЛИ та же модель но другая длительность/устройства) — pro-rata
  *
- * Для одного и того же тарифа дни складываются 1:1 (без конвертации) — даже если
- * выбрана опция с другой ставкой, юзер просто продлевает свой текущий тариф.
+ * Это закрывает дыру: купил 1 устр за 250 на 30 дней (8.33/день), потом 5 устр за 1000
+ * на 30 дней (33.33/день) — без конвертации стеклись бы 30 старых дней по 8.33 + 30 новых
+ * по 33.33, и юзер фактически получил бы 60 дней на 5 устройств заплатив за 30. Now: остаток
+ * конвертируется по ставке (30 × 8.33 / 33.33 ≈ 7.5 дней).
  */
 function computeConvertedDays(args: {
   remainingDays: number;
   oldPricePerDay: number | null;
   newPricePerDay: number;
-  isSameTariff: boolean;
 }): number {
-  const { remainingDays, oldPricePerDay, newPricePerDay, isSameTariff } = args;
+  const { remainingDays, oldPricePerDay, newPricePerDay } = args;
   if (remainingDays <= 0) return 0;
-  // Тот же тариф — просто стек, без конвертации
-  if (isSameTariff) return remainingDays;
-  // Нет ставки старого тарифа или нулевая новая — не можем считать, теряем остаток
+  // Та же ставка — просто стек, без конвертации
+  if (oldPricePerDay != null && Math.abs(oldPricePerDay - newPricePerDay) < 0.01) return remainingDays;
+  // Нет ставки старого тарифа — не можем считать, теряем остаток (free → бывший trial)
   if (oldPricePerDay == null || oldPricePerDay <= 0) return 0;
-  if (newPricePerDay <= 0) return remainingDays; // free → всё бесплатно, отдаём как есть
+  // Новая бесплатная — отдаём как есть (нечего конвертировать)
+  if (newPricePerDay <= 0) return remainingDays;
   const converted = Math.floor((remainingDays * oldPricePerDay) / newPricePerDay);
   return Math.max(0, converted);
+}
+
+/**
+ * Лесенка скидок за объём устройств: `[{minDevices, discountPercent}]`. Сортируется
+ * по minDevices убывающе и берётся первая подходящая (с наибольшим minDevices).
+ */
+export type DeviceDiscountTier = { minDevices: number; discountPercent: number };
+
+export function parseDeviceDiscountTiers(raw: unknown): DeviceDiscountTier[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DeviceDiscountTier[] = [];
+  for (const r of raw) {
+    if (r && typeof r === "object") {
+      const o = r as Record<string, unknown>;
+      const minDevices = typeof o.minDevices === "number" ? Math.floor(o.minDevices) : NaN;
+      const discountPercent = typeof o.discountPercent === "number" ? o.discountPercent : NaN;
+      if (Number.isFinite(minDevices) && minDevices >= 1 && Number.isFinite(discountPercent) && discountPercent >= 0 && discountPercent <= 90) {
+        out.push({ minDevices, discountPercent });
+      }
+    }
+  }
+  return out.sort((a, b) => a.minDevices - b.minDevices);
+}
+
+/**
+ * Применить лесенку скидок к цене за устройство.
+ * Возвращает итоговую цену, применённую скидку (% — для UI) и применённый порог.
+ */
+export function applyDeviceDiscount(
+  unitPrice: number,
+  deviceCount: number,
+  tiers: DeviceDiscountTier[] | null | undefined
+): { total: number; discountPercent: number; appliedTier: DeviceDiscountTier | null } {
+  const safeCount = Math.max(1, Math.floor(deviceCount));
+  const sorted = [...(tiers ?? [])].sort((a, b) => b.minDevices - a.minDevices);
+  const applied = sorted.find((t) => safeCount >= t.minDevices) ?? null;
+  const discount = applied ? applied.discountPercent : 0;
+  const total = Math.round(unitPrice * safeCount * (100 - discount)) / 100;
+  return { total, discountPercent: discount, appliedTier: applied };
 }
 
 /**
@@ -147,18 +187,41 @@ export async function activateTariffForClient(
     telegramId: string | null;
     telegramUsername?: string | null;
   },
-  tariff: { id?: string; durationDays: number; trafficLimitBytes: bigint | null; deviceLimit: number | null; internalSquadUuids: string[]; trafficResetMode?: string; price?: number },
+  tariff: {
+    id?: string;
+    durationDays: number;
+    trafficLimitBytes: bigint | null;
+    deviceLimit: number | null;
+    maxDevices?: number;
+    deviceDiscountTiers?: unknown;
+    internalSquadUuids: string[];
+    trafficResetMode?: string;
+    price?: number;
+  },
   selectedOption?: { durationDays: number; price: number },
+  deviceCount?: number,
 ): Promise<ActivationResult> {
   if (!isRemnaConfigured()) return { ok: false, error: "Сервис временно недоступен", status: 503 };
 
   // Эффективные значения из selectedOption (приоритет) или из legacy полей тарифа.
   const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
-  const effectivePrice = selectedOption?.price ?? tariff.price ?? 0;
+  const unitPrice = selectedOption?.price ?? tariff.price ?? 0;
+
+  // Количество устройств: 1..maxDevices. Если не передано — fallback на legacy deviceLimit
+  // (бэкворд-совместимость для customBuild и старых вебхуков).
+  const maxDevices = tariff.maxDevices ?? 99;
+  const requestedDevices = deviceCount != null && deviceCount > 0 ? Math.floor(deviceCount) : 1;
+  const effectiveDevices = Math.min(Math.max(1, requestedDevices), maxDevices);
+
+  // Применяем лесенку скидок за объём.
+  const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
+  const { total: effectivePrice } = applyDeviceDiscount(unitPrice, effectiveDevices, tiers);
   const newPricePerDay = effectiveDays > 0 ? effectivePrice / effectiveDays : 0;
 
   const trafficLimitBytes = tariff.trafficLimitBytes != null ? Number(tariff.trafficLimitBytes) : 0;
-  const hwidDeviceLimit = tariff.deviceLimit ?? null;
+  // HWID лимит — точное количество купленных устройств. Legacy deviceLimit
+  // используется только если deviceCount не передан (старые ивенты).
+  const hwidDeviceLimit = deviceCount != null ? effectiveDevices : (tariff.deviceLimit ?? null);
   const resetMode: TrafficResetMode = (tariff.trafficResetMode as TrafficResetMode) || "no_reset";
   const trafficLimitStrategy = remnaStrategy(resetMode);
   const shouldResetTraffic = resetMode === "on_purchase" || resetMode === "monthly";
@@ -169,8 +232,6 @@ export async function activateTariffForClient(
     select: { currentTariffId: true, currentPricePerDay: true },
   });
   const oldPricePerDay = dbClient?.currentPricePerDay ?? null;
-  const oldTariffId = dbClient?.currentTariffId ?? null;
-  const isSameTariff = !!(tariff.id && oldTariffId === tariff.id);
 
   let workingUuid = client.remnawaveUuid;
 
@@ -199,7 +260,6 @@ export async function activateTariffForClient(
         remainingDays,
         oldPricePerDay,
         newPricePerDay,
-        isSameTariff,
       });
     }
     // Итог: now + (effectiveDays + bonusDays). Если bonusDays = remainingDays (стек),
@@ -251,7 +311,6 @@ export async function activateTariffForClient(
         remainingDays,
         oldPricePerDay,
         newPricePerDay,
-        isSameTariff,
       });
     }
     const totalDays2 = effectiveDays + bonusDays2;
@@ -317,6 +376,7 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
     select: {
       tariffId: true,
       tariffPriceOptionId: true,
+      deviceCount: true,
       clientId: true,
       metadata: true,
       tariffPriceOption: { select: { durationDays: true, price: true } },
@@ -353,14 +413,14 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       const result = await createAdditionalSubscription(client.id, {
         durationDays: selectedOption?.durationDays ?? tariff.durationDays,
         trafficLimitBytes: tariff.trafficLimitBytes,
-        deviceLimit: tariff.deviceLimit,
+        deviceLimit: payment.deviceCount ?? tariff.deviceLimit,
         internalSquadUuids: tariff.internalSquadUuids,
         trafficResetMode: tariff.trafficResetMode ?? undefined,
       });
       return result.ok ? { ok: true } : { ok: false, error: result.error, status: result.status };
     }
 
-    return activateTariffForClient(client, tariff, selectedOption);
+    return activateTariffForClient(client, tariff, selectedOption, payment.deviceCount ?? undefined);
   }
 
   const customBuild = parseCustomBuildMetadata(payment.metadata);

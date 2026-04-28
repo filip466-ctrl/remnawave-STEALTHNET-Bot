@@ -226,6 +226,7 @@ model Payment {
   externalId            String?   @map("external_id")
   tariffId              String?   @map("tariff_id")
   tariffPriceOptionId   String?   @map("tariff_price_option_id")
+  deviceCount           Int?      @map("device_count") // сколько устройств куплено в этом платеже (1..tariff.maxDevices)
   proxyTariffId         String?   @map("proxy_tariff_id")
   singboxTariffId       String?   @map("singbox_tariff_id")
   remnawaveUserId       String?   @map("remnawave_user_id")
@@ -367,7 +368,9 @@ model Tariff {
   internalSquadUuids String[] @map("internal_squad_uuids")
   trafficLimitBytes  BigInt?  @map("traffic_limit_bytes")
   trafficResetMode   String   @default("no_reset") @map("traffic_reset_mode")
-  deviceLimit        Int?     @map("device_limit")
+  deviceLimit        Int?     @map("device_limit") // legacy: «фиксированный лимит». Не используется в новой модели — клиент выбирает устройства при покупке.
+  maxDevices         Int      @default(5) @map("max_devices") // верхняя планка слайдера в кабинете/боте
+  deviceDiscountTiers Json?   @map("device_discount_tiers") // [{ minDevices: number, discountPercent: number }] — лесенка скидок за объём
   price              Float    @default(0)
   currency           String   @default("usd") @map("currency")
   sortOrder          Int      @default(0) @map("sort_order")
