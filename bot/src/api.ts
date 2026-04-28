@@ -725,7 +725,7 @@ export async function postBotAdminClientRemnaSquadRemove(telegramId: number, cli
 /** Купить дополнительную подписку (оплата балансом) */
 export async function buyGiftSubscription(
   token: string,
-  body: { tariffId: string }
+  body: { tariffId: string; tariffPriceOptionId?: string; extraDevices?: number }
 ): Promise<{ message: string; secondarySubscriptionId: string; subscriptionIndex: number }> {
   return fetchJson("/api/client/gift/buy", { method: "POST", body, token });
 }

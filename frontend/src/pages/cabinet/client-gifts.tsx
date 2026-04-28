@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock, 
-  Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail, 
-  XCircle, Trash, History, ChevronDown, ChevronUp, User
+import {
+  Gift, Package, Copy, Check, Loader2, Plus, X, Calendar, Clock,
+  Send, Link as LinkIcon, CheckCircle2, Play, ShoppingCart, Mail,
+  XCircle, Trash, History, ChevronDown, ChevronUp, User, Sparkles, Smartphone
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -809,17 +809,20 @@ export function ClientGiftsPage() {
               ) : (
                 tariffs.map((t) => {
                   const hasExtras = (t.pricePerExtraDevice ?? 0) > 0 && (t.maxExtraDevices ?? 0) > 0;
-                  const hasMultipleOptions = (t.priceOptions?.length ?? 0) > 1;
+                  const opts = t.priceOptions ?? [];
+                  const hasMultipleOptions = opts.length > 1;
                   const showFromPrefix = hasMultipleOptions || hasExtras;
+                  // Используем минимум из priceOptions (а не legacy t.price который может быть 0).
+                  const minOptPrice = opts.length > 0 ? Math.min(...opts.map((o) => o.price)) : t.price;
                   return (
                     <div key={t.id} className="flex flex-col p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-muted/50 transition-colors">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-bold text-foreground truncate text-base">{t.name}</div>
-                        <div className="font-bold text-primary shrink-0 ml-2 text-base">
-                          {showFromPrefix ? "от " : ""}{formatMoney(t.price, currency)}
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="font-bold text-foreground truncate text-base min-w-0">{t.name}</div>
+                        <div className="font-bold text-primary shrink-0 text-base whitespace-nowrap">
+                          {showFromPrefix ? "от " : ""}{formatMoney(minOptPrice, currency)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4">
+                      <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4 flex-wrap">
                         <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {t.durationDays} дн.</span>
                         {hasExtras && (
                           <span className="flex items-center gap-1.5">+ доп. устр.</span>
@@ -827,10 +830,10 @@ export function ClientGiftsPage() {
                       </div>
                       <Button
                         onClick={() => openPicker(t)}
-                        disabled={buyLoading || (client?.balance ?? 0) < t.price}
+                        disabled={buyLoading || (client?.balance ?? 0) < minOptPrice}
                         className="w-full rounded-xl font-bold shadow-md h-11"
                       >
-                        {(client?.balance ?? 0) < t.price ? "Недостаточно средств" : "Выбрать"}
+                        {(client?.balance ?? 0) < minOptPrice ? "Недостаточно средств" : "Выбрать"}
                       </Button>
                     </div>
                   );
@@ -851,9 +854,9 @@ export function ClientGiftsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Picker длительности + доп. устройств для выбранного тарифа (без warn-модалки и pro-rata) */}
+      {/* Picker длительности + доп. устройств — оформлен в стиле UnifiedPurchaseModal (без warn-модалки и pro-rata). */}
       <Dialog open={!!pickerTariff} onOpenChange={(v) => !v && closePicker()}>
-        <DialogContent className="sm:max-w-md rounded-3xl">
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] sm:max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden">
           {pickerTariff && (() => {
             const t = pickerTariff;
             const opts = [...(t.priceOptions ?? [])].sort((a, b) =>
@@ -870,107 +873,212 @@ export function ClientGiftsPage() {
             const extrasTotal = giftExtrasPrice(pricePerExtra, pickerExtras, tiers, days);
             const total = unit + extrasTotal;
             const totalDevices = included + pickerExtras;
+
+            // Best-deal по длительности (минимальная цена за день)
+            let bestDurationId: string | null = null;
+            if (opts.length > 1) {
+              let bestRatio = Infinity;
+              for (const o of opts) {
+                if (o.durationDays <= 0) continue;
+                const ratio = o.price / o.durationDays;
+                if (ratio < bestRatio) { bestRatio = ratio; bestDurationId = o.id; }
+              }
+            }
+
+            // Плитки доп. устройств для best-per-device
+            const tiles = Array.from({ length: maxExtras + 1 }, (_, i) => {
+              const extras = i;
+              const xtra = giftExtrasPrice(pricePerExtra, extras, tiers, days);
+              return { extras, total: unit + xtra, totalDevices: included + extras };
+            });
+            const bestExtra = tiles.slice(1).reduce((best, cur) => {
+              const perDev = cur.totalDevices > 0 ? cur.total / cur.totalDevices : Infinity;
+              if (best == null || perDev < best.perDev) return { extras: cur.extras, perDev };
+              return best;
+            }, null as { extras: number; perDev: number } | null);
+
+            const baseExtrasNoDiscount = pricePerExtra * pickerExtras * (Math.max(1, days) / 30);
+            const savedAmount = baseExtrasNoDiscount - extrasTotal;
+
             return (
               <>
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold">{t.name}</DialogTitle>
-                  <DialogDescription className="text-xs">Выберите длительность{extrasEnabled ? " и кол-во доп. устройств" : ""}</DialogDescription>
+                <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-gradient-to-br from-primary/30 via-fuchsia-500/15 to-purple-500/20 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -left-16 h-52 w-52 rounded-full bg-gradient-to-tr from-cyan-500/15 to-primary/15 blur-3xl pointer-events-none" />
+
+                <DialogHeader className="relative">
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      animate={{ rotate: [0, -6, 6, 0] }}
+                      transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 4 }}
+                      className="h-14 w-14 rounded-3xl bg-gradient-to-br from-primary/30 via-fuchsia-500/20 to-purple-500/30 border border-white/15 flex items-center justify-center shadow-xl shrink-0"
+                    >
+                      <Gift className="h-7 w-7 text-primary" />
+                    </motion.div>
+                    <div className="min-w-0 flex-1">
+                      <DialogTitle className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500">
+                        {t.name}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-muted-foreground mt-1">
+                        Подарочная подписка{extrasEnabled ? " · можно докупить устройства" : ""}
+                      </DialogDescription>
+                    </div>
+                  </div>
                 </DialogHeader>
 
-                {/* Длительность */}
-                {opts.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      <Calendar className="inline w-3 h-3 mr-1" /> Длительность
-                    </p>
-                    <div className={`grid gap-2 ${opts.length === 1 ? "grid-cols-1" : opts.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-                      {opts.map((opt) => {
-                        const isActive = (selOpt?.id ?? opts[0]?.id) === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setPickerOptionId(opt.id)}
-                            className={`rounded-xl border p-2.5 transition-all text-center ${isActive ? "bg-primary/15 border-primary/50 ring-2 ring-primary/30" : "bg-background/50 border-border hover:border-border-hover"}`}
-                          >
-                            <p className="text-sm font-bold">{opt.durationDays} дн</p>
-                            <p className="text-[10px] text-muted-foreground tabular-nums">{formatMoney(opt.price, currency)}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Доп. устройства */}
-                {extrasEnabled && (
-                  <div className="space-y-2 mt-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                        📱 Доп. устройства
+                <div className="relative space-y-5 mt-2">
+                  {/* ── Длительность ── */}
+                  {opts.length > 0 && (
+                    <section>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2.5">
+                        <Calendar className="inline h-3 w-3 mr-1" /> Длительность
                       </p>
-                      <span className="text-[10px] text-muted-foreground">В тарифе: <strong className="text-foreground">{included}</strong></span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {Array.from({ length: maxExtras + 1 }, (_, i) => {
-                        const extras = i;
-                        const xtra = giftExtrasPrice(pricePerExtra, extras, tiers, days);
-                        const tileTotal = unit + xtra;
-                        const sortedTiers = [...tiers].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
-                        const tier = extras > 0 ? sortedTiers.find((tr) => extras >= tr.minExtraDevices) : undefined;
-                        const pct = tier?.discountPercent ?? 0;
-                        const isActive = pickerExtras === extras;
-                        return (
-                          <button
-                            key={extras}
-                            type="button"
-                            onClick={() => setPickerExtras(extras)}
-                            className={`relative rounded-xl border p-2 transition-all text-center ${isActive ? "bg-primary/15 border-primary/50 ring-2 ring-primary/30" : pct > 0 ? "bg-emerald-500/[0.06] border-emerald-500/25" : "bg-background/50 border-border"}`}
-                          >
-                            {pct > 0 && (
-                              <div className={`absolute -top-1 -right-1 px-1 py-0.5 rounded-md text-[8px] font-black ${isActive ? "bg-fuchsia-500 text-white" : "bg-emerald-500 text-white"}`}>
-                                −{pct}%
-                              </div>
-                            )}
-                            <p className="text-xs font-bold">{extras === 0 ? "Без доп." : `+${extras}`}</p>
-                            <p className="text-[10px] text-foreground/90 tabular-nums">{formatMoney(tileTotal, currency)}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                      <div className={`grid gap-2 ${opts.length === 1 ? "grid-cols-1" : opts.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
+                        {opts.map((opt) => {
+                          const isActive = (selOpt?.id ?? opts[0]?.id) === opt.id;
+                          const isBest = opt.id === bestDurationId;
+                          const perDay = opt.durationDays > 0 ? opt.price / opt.durationDays : 0;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => setPickerOptionId(opt.id)}
+                              className={`relative overflow-hidden rounded-2xl border p-3 transition-all text-center hover:scale-[1.03] hover:shadow-lg ${isActive
+                                ? "bg-gradient-to-br from-primary/25 via-fuchsia-500/10 to-purple-500/15 border-primary/50 ring-2 ring-primary/40 shadow-lg shadow-primary/20"
+                                : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 hover:border-white/20"}`}
+                            >
+                              {isBest && (
+                                <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-black shadow">★</span>
+                              )}
+                              <p className={`text-sm font-bold ${isActive ? "text-primary" : ""}`}>{opt.durationDays} дн</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+                                {formatMoney(Math.round(perDay * 100) / 100, currency)}/день
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
 
-                {/* Итог */}
-                <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-3 mt-3">
-                  <div className="flex items-baseline justify-between text-xs">
-                    <span className="text-muted-foreground">Длительность</span>
-                    <span className="font-medium tabular-nums">{days} дн</span>
-                  </div>
-                  <div className="flex items-baseline justify-between text-xs mt-1">
-                    <span className="text-muted-foreground">Устройств всего</span>
-                    <span className="font-medium tabular-nums">{totalDevices}</span>
-                  </div>
-                  <div className="border-t border-primary/20 mt-2 pt-2 flex items-baseline justify-between">
-                    <span className="text-sm font-medium">К оплате</span>
-                    <span className="text-xl font-bold text-primary tabular-nums">{formatMoney(total, currency)}</span>
-                  </div>
+                  {/* ── Доп. устройства ── */}
+                  {extrasEnabled && (
+                    <section>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                          📱 Доп. устройства
+                        </p>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          В тарифе: <strong className="text-foreground">{included}</strong>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {tiles.map((tile) => {
+                          const sortedTiers = [...tiers].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+                          const tier = tile.extras > 0 ? sortedTiers.find((tr) => tile.extras >= tr.minExtraDevices) : undefined;
+                          const pct = tier?.discountPercent ?? 0;
+                          const isActive = tile.extras === pickerExtras;
+                          const isBest = bestExtra?.extras === tile.extras && tile.extras > 0 && pct === 0;
+                          return (
+                            <motion.button
+                              key={tile.extras}
+                              type="button"
+                              onClick={() => setPickerExtras(tile.extras)}
+                              whileTap={{ scale: 0.96 }}
+                              className={`relative overflow-hidden rounded-2xl border p-3 transition-all hover:scale-[1.04] hover:shadow-lg ${isActive
+                                ? "bg-gradient-to-br from-primary/25 via-fuchsia-500/15 to-purple-500/20 border-primary/50 ring-2 ring-primary/40 shadow-lg shadow-primary/20"
+                                : pct > 0
+                                  ? "bg-gradient-to-br from-emerald-500/[0.06] to-cyan-500/[0.04] border-emerald-500/25 hover:border-emerald-500/40"
+                                  : "bg-foreground/[0.03] dark:bg-white/[0.02] border-white/10 hover:border-white/20"}`}
+                            >
+                              {pct > 0 && (
+                                <div className={`absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[9px] font-black shadow z-10 ${isActive ? "bg-fuchsia-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                  −{pct}%
+                                </div>
+                              )}
+                              {isBest && (
+                                <Sparkles className="absolute top-1.5 right-1.5 h-3 w-3 text-fuchsia-500" />
+                              )}
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <Smartphone className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                                <span className={`text-sm font-bold ${isActive ? "text-primary" : ""}`}>
+                                  {tile.extras === 0 ? "Без доп." : `+${tile.extras}`}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-bold text-foreground/90 tabular-nums text-center">
+                                {formatMoney(tile.total, currency)}
+                              </p>
+                              <p className="text-[9px] text-muted-foreground/80 text-center mt-0.5">
+                                {tile.totalDevices} устр
+                              </p>
+                              {isBest && (
+                                <p className="text-[9px] font-medium text-fuchsia-500 dark:text-fuchsia-400 text-center mt-0.5">
+                                  выгоднее всего
+                                </p>
+                              )}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* ── Итог ── */}
+                  <section className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.08] via-fuchsia-500/[0.04] to-purple-500/[0.06] p-4">
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Длительность</span>
+                      <span className="text-xs font-medium tabular-nums">{days} дн</span>
+                    </div>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Тариф ({included} устр)</span>
+                      <span className="text-xs font-medium tabular-nums">{formatMoney(unit, currency)}</span>
+                    </div>
+                    {extrasEnabled && pickerExtras > 0 && (
+                      <div className="flex items-baseline justify-between mb-1">
+                        <span className="text-xs text-muted-foreground">+{pickerExtras} доп. устр (всего {totalDevices})</span>
+                        <span className="text-xs font-medium tabular-nums">
+                          {formatMoney(pricePerExtra * (Math.max(1, days) / 30), currency)} × {pickerExtras}
+                        </span>
+                      </div>
+                    )}
+                    {savedAmount > 0 && (
+                      <div className="flex items-baseline justify-between mb-1 text-emerald-500 dark:text-emerald-400">
+                        <span className="text-xs flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" /> Скидка
+                        </span>
+                        <span className="text-xs font-bold tabular-nums">−{formatMoney(savedAmount, currency)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-primary/20 mt-2 pt-2 flex items-baseline justify-between">
+                      <span className="text-sm font-medium">К оплате</span>
+                      <AnimatePresence mode="popLayout">
+                        <motion.span
+                          key={total}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-primary to-fuchsia-500 tabular-nums"
+                        >
+                          {formatMoney(total, currency)}
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                  </section>
                 </div>
 
                 {buyError && (
-                  <div className="p-2.5 rounded-xl bg-destructive/10 text-destructive text-xs text-center font-medium mt-2">
+                  <div className="relative p-3 rounded-xl bg-destructive/10 text-destructive text-xs text-center font-medium mt-3">
                     {buyError}
                   </div>
                 )}
 
-                <DialogFooter className="flex-col sm:flex-row gap-2 mt-3">
-                  <Button variant="ghost" onClick={closePicker} className="w-full sm:w-auto rounded-xl">Отмена</Button>
+                <DialogFooter className="relative mt-4 gap-2 sm:gap-2 flex-col sm:flex-row">
+                  <Button variant="outline" onClick={closePicker} className="rounded-xl">Отмена</Button>
                   <Button
                     onClick={handleBuy}
                     disabled={buyLoading || (client?.balance ?? 0) < total}
-                    className="w-full sm:flex-1 rounded-xl font-bold h-11"
+                    className="rounded-xl gap-2 h-11 px-6 text-base font-bold bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 hover:from-primary/90 hover:via-fuchsia-500/90 hover:to-purple-500/90 shadow-lg shadow-primary/30"
                   >
-                    {buyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {buyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="h-4 w-4" />}
                     {(client?.balance ?? 0) < total ? "Недостаточно средств" : `Купить за ${formatMoney(total, currency)}`}
                   </Button>
                 </DialogFooter>
