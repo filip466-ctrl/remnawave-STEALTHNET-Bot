@@ -1176,9 +1176,40 @@ clientRouter.patch("/auto-renew", async (req, res) => {
   const body = updateAutoRenewSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
 
-  const updates: { autoRenewEnabled?: boolean; autoRenewTariffId?: string | null; autoRenewPromoCode?: string | null } = {};
+  const updates: {
+    autoRenewEnabled?: boolean;
+    autoRenewTariffId?: string | null;
+    autoRenewPriceOptionId?: string | null;
+    autoRenewExtraDevices?: number;
+    autoRenewPromoCode?: string | null;
+  } = {};
   if (body.data.enabled !== undefined) updates.autoRenewEnabled = body.data.enabled;
   if (body.data.tariffId !== undefined) updates.autoRenewTariffId = body.data.tariffId;
+
+  // При включении автопродления (без явного tariffId) — авто-подтягиваем контекст из последнего
+  // успешного тарифного платежа: тариф + опция длительности + кол-во доп. устройств. Без этого
+  // плашка «следующее списание» не появится для клиентов, которые до изменений уже включали
+  // автопродление, но мы не сохраняли priceOption / extras.
+  if (body.data.enabled === true && body.data.tariffId === undefined) {
+    const lastPaid = await prisma.payment.findFirst({
+      where: { clientId: client.id, status: "PAID", tariffId: { not: null } },
+      orderBy: { paidAt: "desc" },
+      select: { tariffId: true, tariffPriceOptionId: true, deviceCount: true },
+    });
+    if (lastPaid?.tariffId) {
+      updates.autoRenewTariffId = lastPaid.tariffId;
+      updates.autoRenewPriceOptionId = lastPaid.tariffPriceOptionId;
+      updates.autoRenewExtraDevices = lastPaid.deviceCount ?? 0;
+    } else {
+      // Нет тарифной истории — fallback на currentTariffId.
+      const cur = await prisma.client.findUnique({
+        where: { id: client.id },
+        select: { currentTariffId: true },
+      });
+      if (cur?.currentTariffId) updates.autoRenewTariffId = cur.currentTariffId;
+    }
+  }
+
   if (body.data.promoCode !== undefined) {
     const code = body.data.promoCode?.trim() ?? "";
     // Пустая строка = удалить промокод из автопродления.
