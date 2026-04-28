@@ -1149,8 +1149,8 @@ const grantTariffSchema = z.object({
   // Опционально: конкретная опция длительности из priceOptions тарифа.
   // Если не указано — используется опция с минимальной ценой (default).
   tariffPriceOptionId: z.string().min(1).optional(),
-  // Количество устройств (1..tariff.maxDevices). Если не задано — 1.
-  deviceCount: z.number().int().min(1).max(100).optional(),
+  // Количество ДОП. устройств (0..tariff.maxExtraDevices). Если не задано — 0.
+  deviceCount: z.number().int().min(0).max(100).optional(),
   note: z.string().max(500).optional(),
   createPaymentRecord: z.boolean().optional(),
 });
