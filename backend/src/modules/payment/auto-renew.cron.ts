@@ -16,28 +16,29 @@ async function computeAutoRenewBaseAmount(client: {
   id: string;
   autoRenewExtraDevices: number;
   autoRenewPriceOptionId: string | null;
-  autoRenewTariff: { id: string; price: number; durationDays: number; pricePerExtraDevice: number; deviceDiscountTiers: unknown };
+  autoRenewTariff: { id: string; price: number; durationDays: number; pricePerExtraDevice: number; deviceDiscountTiers: unknown } | null;
 }): Promise<{ amount: number; priceOptionId: string | null; durationDays: number; extras: number }> {
-  // 1) Загружаем сохранённую опцию ИЛИ берём с минимальной ценой тарифа.
+  if (!client.autoRenewTariff) return { amount: 0, priceOptionId: null, durationDays: 30, extras: 0 };
+  const tariff = client.autoRenewTariff;
   let opt: { id: string; durationDays: number; price: number } | null = null;
   if (client.autoRenewPriceOptionId) {
     const savedOpt = await prisma.tariffPriceOption.findFirst({
-      where: { id: client.autoRenewPriceOptionId, tariffId: client.autoRenewTariff.id },
+      where: { id: client.autoRenewPriceOptionId, tariffId: tariff.id },
     });
     if (savedOpt) opt = { id: savedOpt.id, durationDays: savedOpt.durationDays, price: savedOpt.price };
   }
   if (!opt) {
     const fallback = await prisma.tariffPriceOption.findFirst({
-      where: { tariffId: client.autoRenewTariff.id },
+      where: { tariffId: tariff.id },
       orderBy: { price: "asc" },
     });
     if (fallback) opt = { id: fallback.id, durationDays: fallback.durationDays, price: fallback.price };
   }
-  const unitPrice = opt?.price ?? client.autoRenewTariff.price;
-  const durationDays = opt?.durationDays ?? client.autoRenewTariff.durationDays;
+  const unitPrice = opt?.price ?? tariff.price;
+  const durationDays = opt?.durationDays ?? tariff.durationDays;
   const extras = Math.max(0, client.autoRenewExtraDevices ?? 0);
-  const tiers = parseDeviceDiscountTiers(client.autoRenewTariff.deviceDiscountTiers);
-  const { extrasTotal } = applyExtraDevicesPrice(client.autoRenewTariff.pricePerExtraDevice ?? 0, extras, tiers, durationDays);
+  const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
+  const { extrasTotal } = applyExtraDevicesPrice(tariff.pricePerExtraDevice ?? 0, extras, tiers, durationDays);
   return {
     amount: unitPrice + extrasTotal,
     priceOptionId: opt?.id ?? null,
