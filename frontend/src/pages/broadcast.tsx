@@ -83,6 +83,7 @@ export function BroadcastPage() {
   const [broadcastResult, setBroadcastResult] = useState<BroadcastResult | null>(null);
   const [broadcastProgress, setBroadcastProgress] = useState<BroadcastProgress | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [activeTab, setActiveTab] = useState<"compose" | "history">("compose");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -239,7 +240,7 @@ export function BroadcastPage() {
         </div>
       </motion.div>
 
-      <Tabs defaultValue="compose" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "compose" | "history")} className="w-full">
         <TabsList className="bg-background/40 backdrop-blur-3xl border border-white/10 rounded-2xl p-1.5 shadow-lg h-auto">
           <TabsTrigger value="compose" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-fuchsia-500 data-[state=active]:text-white data-[state=active]:shadow-md">
             <Send className="h-4 w-4 mr-2" /> Создать
