@@ -454,13 +454,18 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       : undefined;
 
     if (isAdditional) {
+      // Доп. подписка: используем новую модель устройств. payment.deviceCount = extras.
       const result = await createAdditionalSubscription(client.id, {
+        id: tariff.id,
+        name: tariff.name,
+        price: selectedOption?.price ?? tariff.price,
         durationDays: selectedOption?.durationDays ?? tariff.durationDays,
         trafficLimitBytes: tariff.trafficLimitBytes,
-        deviceLimit: payment.deviceCount ?? tariff.deviceLimit,
+        deviceLimit: tariff.deviceLimit,
+        includedDevices: tariff.includedDevices,
         internalSquadUuids: tariff.internalSquadUuids,
         trafficResetMode: tariff.trafficResetMode ?? undefined,
-      });
+      }, { extraDevices: payment.deviceCount ?? 0 });
       return result.ok ? { ok: true } : { ok: false, error: result.error, status: result.status };
     }
 

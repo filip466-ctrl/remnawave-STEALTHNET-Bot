@@ -104,6 +104,10 @@ export function ClientGiftsPage() {
   const [tariffs, setTariffs] = useState<PublicTariff[]>([]);
   const [buyLoading, setBuyLoading] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
+  /** Картина «выбор опции + extras» для конкретного тарифа (вторая модалка). */
+  const [pickerTariff, setPickerTariff] = useState<PublicTariff | null>(null);
+  const [pickerOptionId, setPickerOptionId] = useState<string | null>(null);
+  const [pickerExtras, setPickerExtras] = useState<number>(0);
 
   // Redeem state
   const [redeemCode, setRedeemCode] = useState("");
@@ -179,21 +183,54 @@ export function ClientGiftsPage() {
     setBuyDialogOpen(true);
   };
 
-  const handleBuy = async (tariffId: string) => {
-    if (!token) return;
+  // Открыть picker (длительность + доп. устройства) для выбранного тарифа.
+  const openPicker = (t: PublicTariff) => {
+    setPickerTariff(t);
+    const opts = [...(t.priceOptions ?? [])].sort((a, b) =>
+      a.sortOrder !== b.sortOrder ? a.sortOrder - b.sortOrder : a.durationDays - b.durationDays
+    );
+    setPickerOptionId(opts[0]?.id ?? null);
+    setPickerExtras(0);
+    setBuyError(null);
+  };
+
+  const closePicker = () => {
+    setPickerTariff(null);
+    setPickerOptionId(null);
+    setPickerExtras(0);
+  };
+
+  const handleBuy = async () => {
+    if (!token || !pickerTariff) return;
     setBuyLoading(true);
     setBuyError(null);
     try {
-      await api.giftBuySubscription(token, tariffId);
+      await api.giftBuySubscription(token, {
+        tariffId: pickerTariff.id,
+        tariffPriceOptionId: pickerOptionId ?? undefined,
+        extraDevices: pickerExtras,
+      });
       await fetchData();
       fetchHistory(1);
       refreshProfile().catch(() => {});
+      closePicker();
       setBuyDialogOpen(false);
     } catch (err) {
       setBuyError(err instanceof Error ? err.message : "Ошибка покупки");
     } finally {
       setBuyLoading(false);
     }
+  };
+
+  // Цена пакета доп. устройств (та же формула что в client-tariffs).
+  const giftExtrasPrice = (pricePerExtra: number, extras: number, tiers: { minExtraDevices: number; discountPercent: number }[] | undefined, durationDays: number): number => {
+    const safe = Math.max(0, Math.floor(extras));
+    if (safe === 0 || pricePerExtra <= 0) return 0;
+    const sorted = [...(tiers ?? [])].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+    const tier = sorted.find((t) => safe >= t.minExtraDevices);
+    const pct = tier?.discountPercent ?? 0;
+    const monthly = pricePerExtra * safe * (100 - pct) / 100;
+    return Math.round(monthly * (Math.max(1, durationDays) / 30) * 100) / 100;
   };
 
   const handleCreateCode = async (subscriptionId: string) => {
@@ -770,25 +807,34 @@ export function ClientGiftsPage() {
               {tariffs.length === 0 ? (
                 <div className="flex justify-center p-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : (
-                tariffs.map((t) => (
-                  <div key={t.id} className="flex flex-col p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-muted/50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-bold text-foreground truncate text-base">{t.name}</div>
-                      <div className="font-bold text-primary shrink-0 ml-2 text-base">{formatMoney(t.price, currency)}</div>
+                tariffs.map((t) => {
+                  const hasExtras = (t.pricePerExtraDevice ?? 0) > 0 && (t.maxExtraDevices ?? 0) > 0;
+                  const hasMultipleOptions = (t.priceOptions?.length ?? 0) > 1;
+                  const showFromPrefix = hasMultipleOptions || hasExtras;
+                  return (
+                    <div key={t.id} className="flex flex-col p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-muted/50 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold text-foreground truncate text-base">{t.name}</div>
+                        <div className="font-bold text-primary shrink-0 ml-2 text-base">
+                          {showFromPrefix ? "от " : ""}{formatMoney(t.price, currency)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4">
+                        <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {t.durationDays} дн.</span>
+                        {hasExtras && (
+                          <span className="flex items-center gap-1.5">+ доп. устр.</span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => openPicker(t)}
+                        disabled={buyLoading || (client?.balance ?? 0) < t.price}
+                        className="w-full rounded-xl font-bold shadow-md h-11"
+                      >
+                        {(client?.balance ?? 0) < t.price ? "Недостаточно средств" : "Выбрать"}
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground mb-4">
-                      <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {t.durationDays} дн.</span>
-                    </div>
-                    <Button 
-                      onClick={() => handleBuy(t.id)} 
-                      disabled={buyLoading || (client?.balance ?? 0) < t.price}
-                      className="w-full rounded-xl font-bold shadow-md h-11"
-                    >
-                      {buyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      {(client?.balance ?? 0) < t.price ? "Недостаточно средств" : `Купить за ${formatMoney(t.price, currency)}`}
-                    </Button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -802,6 +848,135 @@ export function ClientGiftsPage() {
               </Button>
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Picker длительности + доп. устройств для выбранного тарифа (без warn-модалки и pro-rata) */}
+      <Dialog open={!!pickerTariff} onOpenChange={(v) => !v && closePicker()}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          {pickerTariff && (() => {
+            const t = pickerTariff;
+            const opts = [...(t.priceOptions ?? [])].sort((a, b) =>
+              a.sortOrder !== b.sortOrder ? a.sortOrder - b.sortOrder : a.durationDays - b.durationDays
+            );
+            const selOpt = opts.find((o) => o.id === pickerOptionId) ?? opts[0] ?? null;
+            const unit = selOpt?.price ?? t.price;
+            const days = selOpt?.durationDays ?? t.durationDays;
+            const included = t.includedDevices ?? 1;
+            const pricePerExtra = t.pricePerExtraDevice ?? 0;
+            const maxExtras = t.maxExtraDevices ?? 0;
+            const extrasEnabled = pricePerExtra > 0 && maxExtras > 0;
+            const tiers = t.deviceDiscountTiers ?? [];
+            const extrasTotal = giftExtrasPrice(pricePerExtra, pickerExtras, tiers, days);
+            const total = unit + extrasTotal;
+            const totalDevices = included + pickerExtras;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold">{t.name}</DialogTitle>
+                  <DialogDescription className="text-xs">Выберите длительность{extrasEnabled ? " и кол-во доп. устройств" : ""}</DialogDescription>
+                </DialogHeader>
+
+                {/* Длительность */}
+                {opts.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      <Calendar className="inline w-3 h-3 mr-1" /> Длительность
+                    </p>
+                    <div className={`grid gap-2 ${opts.length === 1 ? "grid-cols-1" : opts.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                      {opts.map((opt) => {
+                        const isActive = (selOpt?.id ?? opts[0]?.id) === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setPickerOptionId(opt.id)}
+                            className={`rounded-xl border p-2.5 transition-all text-center ${isActive ? "bg-primary/15 border-primary/50 ring-2 ring-primary/30" : "bg-background/50 border-border hover:border-border-hover"}`}
+                          >
+                            <p className="text-sm font-bold">{opt.durationDays} дн</p>
+                            <p className="text-[10px] text-muted-foreground tabular-nums">{formatMoney(opt.price, currency)}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Доп. устройства */}
+                {extrasEnabled && (
+                  <div className="space-y-2 mt-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        📱 Доп. устройства
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">В тарифе: <strong className="text-foreground">{included}</strong></span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {Array.from({ length: maxExtras + 1 }, (_, i) => {
+                        const extras = i;
+                        const xtra = giftExtrasPrice(pricePerExtra, extras, tiers, days);
+                        const tileTotal = unit + xtra;
+                        const sortedTiers = [...tiers].sort((a, b) => b.minExtraDevices - a.minExtraDevices);
+                        const tier = extras > 0 ? sortedTiers.find((tr) => extras >= tr.minExtraDevices) : undefined;
+                        const pct = tier?.discountPercent ?? 0;
+                        const isActive = pickerExtras === extras;
+                        return (
+                          <button
+                            key={extras}
+                            type="button"
+                            onClick={() => setPickerExtras(extras)}
+                            className={`relative rounded-xl border p-2 transition-all text-center ${isActive ? "bg-primary/15 border-primary/50 ring-2 ring-primary/30" : pct > 0 ? "bg-emerald-500/[0.06] border-emerald-500/25" : "bg-background/50 border-border"}`}
+                          >
+                            {pct > 0 && (
+                              <div className={`absolute -top-1 -right-1 px-1 py-0.5 rounded-md text-[8px] font-black ${isActive ? "bg-fuchsia-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                −{pct}%
+                              </div>
+                            )}
+                            <p className="text-xs font-bold">{extras === 0 ? "Без доп." : `+${extras}`}</p>
+                            <p className="text-[10px] text-foreground/90 tabular-nums">{formatMoney(tileTotal, currency)}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Итог */}
+                <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-3 mt-3">
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">Длительность</span>
+                    <span className="font-medium tabular-nums">{days} дн</span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-xs mt-1">
+                    <span className="text-muted-foreground">Устройств всего</span>
+                    <span className="font-medium tabular-nums">{totalDevices}</span>
+                  </div>
+                  <div className="border-t border-primary/20 mt-2 pt-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium">К оплате</span>
+                    <span className="text-xl font-bold text-primary tabular-nums">{formatMoney(total, currency)}</span>
+                  </div>
+                </div>
+
+                {buyError && (
+                  <div className="p-2.5 rounded-xl bg-destructive/10 text-destructive text-xs text-center font-medium mt-2">
+                    {buyError}
+                  </div>
+                )}
+
+                <DialogFooter className="flex-col sm:flex-row gap-2 mt-3">
+                  <Button variant="ghost" onClick={closePicker} className="w-full sm:w-auto rounded-xl">Отмена</Button>
+                  <Button
+                    onClick={handleBuy}
+                    disabled={buyLoading || (client?.balance ?? 0) < total}
+                    className="w-full sm:flex-1 rounded-xl font-bold h-11"
+                  >
+                    {buyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {(client?.balance ?? 0) < total ? "Недостаточно средств" : `Купить за ${formatMoney(total, currency)}`}
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

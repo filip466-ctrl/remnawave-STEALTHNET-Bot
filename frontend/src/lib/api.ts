@@ -1631,9 +1631,12 @@ export const api = {
 
   // ─── Gift Subscriptions ─────────────────────────────────────────────────────
 
-  /** Buy additional subscription (balance payment) */
-  async giftBuySubscription(token: string, tariffId: string): Promise<{ message: string; secondarySubscriptionId: string; subscriptionIndex: number }> {
-    return request("/client/gift/buy", { token, method: "POST", body: JSON.stringify({ tariffId }) });
+  /** Buy additional subscription (balance payment). Optional priceOptionId + extraDevices. */
+  async giftBuySubscription(
+    token: string,
+    payload: { tariffId: string; tariffPriceOptionId?: string; extraDevices?: number },
+  ): Promise<{ message: string; secondarySubscriptionId: string; subscriptionIndex: number }> {
+    return request("/client/gift/buy", { token, method: "POST", body: JSON.stringify(payload) });
   },
 
   /** List secondary subscriptions (without GIFT_RESERVED) */
