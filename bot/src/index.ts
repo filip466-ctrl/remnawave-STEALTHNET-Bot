@@ -5,7 +5,7 @@
  */
 
 import "dotenv/config";
-import { Bot, InputFile } from "grammy";
+import { Bot, InputFile, Context } from "grammy";
 import { ProxyAgent as UndiciProxyAgent } from "undici";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import * as api from "./api.js";
@@ -386,6 +386,19 @@ const lastSquadsForAdd = new Map<number, { clientId: string; items: { uuid: stri
 const lastSquadsForRemove = new Map<number, { clientId: string; items: { uuid: string; name: string }[] }>();
 // Устройства (HWID): список для экрана «Удалить устройство» (индекс в callback)
 const lastDevicesList = new Map<number, { devices: { hwid: string; platform?: string; deviceModel?: string }[] }>();
+
+/**
+ * Если включён `botAutoDeleteUnknownMessages`, пробуем удалить сообщение пользователя.
+ * Используется в fallback-ветках handler-ов (когда юзер прислал что-то не относящееся
+ * к команде/активному вводу). Удаление silently fails если у бота нет прав.
+ */
+async function tryAutoDeleteUnknown(ctx: Context): Promise<void> {
+  try {
+    const config = await api.getPublicConfig();
+    if (!config?.botAutoDeleteUnknownMessages) return;
+    await ctx.deleteMessage().catch(() => {});
+  } catch { /* не критично */ }
+}
 
 /** Достаём subscriptionUrl из ответа Remna */
 function getSubscriptionUrl(sub: unknown): string | null {
@@ -3836,7 +3849,12 @@ bot.on("message:text", async (ctx) => {
   }
 
   const num = Number(ctx.message.text.replace(/,/, "."));
-  if (!Number.isFinite(num) || num < 1 || num > 1000000) return;
+  if (!Number.isFinite(num) || num < 1 || num > 1000000) {
+    // Юзер прислал произвольный текст, который не команда / не активный ввод / не сумма пополнения.
+    // Если включён auto-delete — удаляем чтобы чат оставался чистым.
+    await tryAutoDeleteUnknown(ctx);
+    return;
+  }
 
   try {
     const config = publicConfig ?? await api.getPublicConfig();
@@ -3914,6 +3932,12 @@ bot.on("message:text", async (ctx) => {
   } catch {
     // не число или ошибка — игнорируем
   }
+});
+
+// Fallback для НЕтекстовых сообщений — стикеры, фото, голосовые, GIF, документы, локации и т.п.
+// Сюда не попадают тексты (handler выше) и команды. Если auto-delete включён — удаляем.
+bot.on("message", async (ctx) => {
+  await tryAutoDeleteUnknown(ctx);
 });
 
 bot.catch((err) => {
