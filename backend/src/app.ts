@@ -17,6 +17,7 @@ import { yoomoneyWebhooksRouter } from "./modules/webhooks/yoomoney.webhooks.rou
 import { yookassaWebhooksRouter } from "./modules/webhooks/yookassa.webhooks.routes.js";
 import { cryptopayWebhooksRouter } from "./modules/webhooks/cryptopay.webhooks.routes.js";
 import { heleketWebhooksRouter } from "./modules/webhooks/heleket.webhooks.routes.js";
+import { lavaWebhooksRouter } from "./modules/webhooks/lava.webhooks.routes.js";
 import { botAdminRouter } from "./modules/bot-admin/bot-admin.routes.js";
 import { contestAdminRouter } from "./modules/contest/contest.admin.routes.js";
 import { contestPublicRouter } from "./modules/contest/contest.public.routes.js";
@@ -44,9 +45,10 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Api-Key"],
 }));
-// Crypto Pay и Heleket webhooks нужен raw body для проверки подписи (до express.json)
+// Crypto Pay, Heleket и Lava webhooks нужен raw body для проверки подписи (до express.json)
 app.use("/api/webhooks/cryptopay", express.raw({ type: "application/json" }), cryptopayWebhooksRouter);
 app.use("/api/webhooks/heleket", express.raw({ type: "application/json" }), heleketWebhooksRouter);
+app.use("/api/webhooks/lava", express.raw({ type: "application/json" }), lavaWebhooksRouter);
 
 // Лимит 5MB для настроек с логотипом и favicon (data URL)
 app.use(express.json({ limit: "200mb" }));
