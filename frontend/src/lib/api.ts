@@ -2105,6 +2105,7 @@ export type UpdateSettingsPayload = {
   forceSubscribeChannelId?: string | null;
   forceSubscribeMessage?: string | null;
   blacklistEnabled?: boolean;
+  botAutoDeleteUnknownMessages?: boolean;
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
   sellOptionsTrafficProducts?: string | null;
@@ -2246,6 +2247,7 @@ export type UpdateSettingsPayload = {
   proxyUrl?: string | null;
   proxyTelegram?: boolean;
   proxyPayments?: boolean;
+  proxyAi?: boolean;
   nalogEnabled?: boolean;
   nalogInn?: string | null;
   nalogPassword?: string | null;
@@ -2474,6 +2476,8 @@ export interface AdminSettings {
   forceSubscribeMessage?: string | null;
   /** Community Blacklist — автоблокировка пользователей из общего списка */
   blacklistEnabled?: boolean;
+  /** Авто-удаление нераспознанных сообщений в боте (стикеры, случайный текст и т.п.) */
+  botAutoDeleteUnknownMessages?: boolean;
   /** Продажа опций: доп. трафик, устройства, серверы */
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
@@ -2621,6 +2625,7 @@ export interface AdminSettings {
   proxyUrl?: string | null;
   proxyTelegram?: boolean;
   proxyPayments?: boolean;
+  proxyAi?: boolean;
   nalogEnabled?: boolean;
   nalogInn?: string | null;
   nalogPassword?: string | null;

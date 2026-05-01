@@ -1609,6 +1609,7 @@ const updateSettingsSchema = z.object({
   proxyUrl: z.string().max(500).nullable().optional(),
   proxyTelegram: z.boolean().optional(),
   proxyPayments: z.boolean().optional(),
+  proxyAi: z.boolean().optional(),
   nalogEnabled: z.boolean().optional(),
   nalogInn: z.string().max(20).nullable().optional(),
   nalogPassword: z.string().max(200).nullable().optional(),
@@ -1625,6 +1626,8 @@ const updateSettingsSchema = z.object({
   giftExpiryNotificationDays: z.number().int().min(0).max(30).optional(),
   giftReferralEnabled: z.boolean().optional(),
   giftMessageMaxLength: z.number().int().min(0).max(1000).optional(),
+  // Поведение бота
+  botAutoDeleteUnknownMessages: z.boolean().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -2364,6 +2367,7 @@ adminRouter.patch("/settings", async (req, res) => {
     ["proxyUrl", "proxy_url"],
     ["proxyTelegram", "proxy_telegram"],
     ["proxyPayments", "proxy_payments"],
+    ["proxyAi", "proxy_ai"],
   ];
   for (const [key, dbKey] of proxyKeys) {
     const v = updates[key];
@@ -2416,6 +2420,7 @@ adminRouter.patch("/settings", async (req, res) => {
     ["giftExpiryNotificationDays", "gift_expiry_notification_days"],
     ["giftReferralEnabled", "gift_referral_enabled"],
     ["giftMessageMaxLength", "gift_message_max_length"],
+    ["botAutoDeleteUnknownMessages", "bot_auto_delete_unknown_messages"],
   ];
   for (const [key, dbKey] of giftKeys) {
     const v = updates[key];

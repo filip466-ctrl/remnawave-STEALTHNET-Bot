@@ -624,6 +624,7 @@ export function SettingsPage() {
         forceSubscribeChannelId: settings.forceSubscribeChannelId ?? null,
         forceSubscribeMessage: settings.forceSubscribeMessage ?? null,
         blacklistEnabled: settings.blacklistEnabled ?? false,
+        botAutoDeleteUnknownMessages: settings.botAutoDeleteUnknownMessages ?? false,
         allowUserThemeChange: (settings as any).allowUserThemeChange ?? true,
         sellOptionsEnabled: settings.sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: settings.sellOptionsTrafficEnabled ?? false,
@@ -761,6 +762,7 @@ export function SettingsPage() {
         proxyUrl: settings.proxyUrl ?? null,
         proxyTelegram: settings.proxyTelegram ?? false,
         proxyPayments: settings.proxyPayments ?? false,
+        proxyAi: settings.proxyAi ?? false,
         nalogEnabled: settings.nalogEnabled ?? false,
         nalogInn: settings.nalogInn ?? null,
         nalogPassword: settings.nalogPassword ?? null,
@@ -1817,6 +1819,26 @@ export function SettingsPage() {
                       }
                     />
                     <Label className="text-sm">{t("admin.settings.bot_enable_blacklist")}</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Авто-удаление нераспознанных сообщений</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Бот удаляет сообщения пользователей, которые не являются командами или активным вводом
+                    (стикеры, случайный текст, фото и т.п.). Помогает сохранять чат чистым. Требует прав
+                    «Delete messages» у бота в чате.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={!!settings.botAutoDeleteUnknownMessages}
+                      onCheckedChange={(checked: boolean) =>
+                        setSettings((s) => (s ? { ...s, botAutoDeleteUnknownMessages: checked === true } : s))
+                      }
+                    />
+                    <Label className="text-sm">Включить автоматическое удаление</Label>
                   </div>
                 </div>
 
@@ -4378,6 +4400,18 @@ export function SettingsPage() {
                   <Switch
                     checked={settings.proxyPayments ?? false}
                     onCheckedChange={(v) => setSettings({ ...settings, proxyPayments: v })}
+                    disabled={!settings.proxyEnabled}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>AI чат</Label>
+                    <p className="text-xs text-muted-foreground">Запросы к Groq API (api.groq.com) — нужен прокси если хостинг ноды блочит исходящие на их IP</p>
+                  </div>
+                  <Switch
+                    checked={settings.proxyAi ?? false}
+                    onCheckedChange={(v) => setSettings({ ...settings, proxyAi: v })}
                     disabled={!settings.proxyEnabled}
                   />
                 </div>
