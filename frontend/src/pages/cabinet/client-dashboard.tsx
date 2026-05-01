@@ -133,7 +133,6 @@ export function ClientDashboardPage() {
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
   const client = state.client;
-  const showTrial = config?.trialEnabled && !client?.trialUsed;
   const trialDays = config?.trialDays ?? 0;
 
   useEffect(() => {
@@ -282,6 +281,9 @@ export function ClientDashboardPage() {
   const hasActiveSubscription =
     subscription && typeof subscription === "object" && (subParsed.status === "ACTIVE" || subParsed.status === undefined);
   const vpnUrl = subParsed.subscriptionUrl || null;
+  // Триал предлагаем только если подписки нет (vpnUrl пуст) и юзер ещё не использовал триал.
+  // Без проверки vpnUrl кнопка триала висела даже после покупки тарифа.
+  const showTrial = config?.trialEnabled && !client?.trialUsed && !vpnUrl;
   const [referralCopied, setReferralCopied] = useState<"site" | "bot" | null>(null);
   const siteOrigin = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
   const referralLinkSite =
