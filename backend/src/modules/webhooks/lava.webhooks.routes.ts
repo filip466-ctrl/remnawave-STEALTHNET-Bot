@@ -20,6 +20,7 @@ import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.serv
 import { distributeReferralRewards } from "../referral/referral.service.js";
 import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 import { recordPromoCodeUsageFromPayment } from "../payment/promo-code-usage.util.js";
+import { auditPaymentClientBotAlignment } from "../payment/payment-webhook-audit.util.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -92,13 +93,26 @@ lavaWebhooksRouter.post("/", async (req: Request, res: Response) => {
 
   const payment = await prisma.payment.findFirst({
     where: { orderId, provider: "lava" },
-    select: { id: true, clientId: true, amount: true, currency: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, status: true, metadata: true },
+    select: {
+      id: true,
+      clientId: true,
+      botId: true,
+      amount: true,
+      currency: true,
+      tariffId: true,
+      proxyTariffId: true,
+      singboxTariffId: true,
+      status: true,
+      metadata: true,
+    },
   });
 
   if (!payment) {
     console.warn("[Lava Webhook] Payment not found", { orderId });
     return res.status(200).send("OK");
   }
+
+  await auditPaymentClientBotAlignment(payment);
 
   // Неуспех — помечаем FAILED, ничего больше не делаем.
   if (status !== "success") {

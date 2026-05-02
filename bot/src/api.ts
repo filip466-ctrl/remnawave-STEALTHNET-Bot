@@ -795,3 +795,41 @@ export async function getGiftSubscriptionUrl(
 ): Promise<{ uuid: string }> {
   return fetchJson("/api/client/gift/subscription-url/" + encodeURIComponent(subscriptionId), { token });
 }
+
+/** Строка из GET /api/internal/bots (для мульти-бота в одном процессе). */
+export type InternalBotRow = {
+  id: string;
+  token: string;
+  username: string | null;
+  markupPercent: number;
+  isPrimary: boolean;
+};
+
+/**
+ * Активные боты в БД. Заголовок X-Telegram-Bot-Token — любой токен из активных
+ * (обычно BOT_TOKEN основного бота).
+ */
+export async function fetchInternalBotsList(bootstrapToken: string): Promise<{ items: InternalBotRow[] }> {
+  const res = await fetch(`${API_URL}/api/internal/bots`, {
+    headers: { "X-Telegram-Bot-Token": bootstrapToken.trim() },
+  });
+  const data = (await res.json().catch(() => ({}))) as { items?: InternalBotRow[]; message?: string };
+  if (!res.ok) {
+    const msg = typeof data.message === "string" ? data.message : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return { items: Array.isArray(data.items) ? data.items : [] };
+}
+
+/** Сообщить бэкенду username после getMe (обновление в таблице bots). */
+export async function reportBotMeUsername(botToken: string, username: string | undefined): Promise<void> {
+  try {
+    await fetch(`${API_URL}/api/internal/bots/me`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Telegram-Bot-Token": botToken.trim() },
+      body: JSON.stringify({ username: username?.replace(/^@/, "") }),
+    });
+  } catch {
+    /* ignore */
+  }
+}

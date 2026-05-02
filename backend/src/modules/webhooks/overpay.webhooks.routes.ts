@@ -23,6 +23,7 @@ import {
   notifySingboxSlotsCreated,
 } from "../notification/telegram-notify.service.js";
 import { recordPromoCodeUsageFromPayment } from "../payment/promo-code-usage.util.js";
+import { auditPaymentClientBotAlignment } from "../payment/payment-webhook-audit.util.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -194,6 +195,7 @@ async function handle(req: Request, res: Response) {
           id: string;
           status: string;
           clientId: string;
+          botId: string | null;
           amount: number;
           currency: string;
           tariffId: string | null;
@@ -208,6 +210,7 @@ async function handle(req: Request, res: Response) {
       id: true,
       status: true,
       clientId: true,
+      botId: true,
       amount: true,
       currency: true,
       tariffId: true,
@@ -240,6 +243,8 @@ async function handle(req: Request, res: Response) {
       console.warn("[Overpay Webhook] Payment not found", { orderId, overpayId, status });
       return res.status(200).json({ received: true });
     }
+
+    await auditPaymentClientBotAlignment(payment);
 
     if (OVERPAY_FAILED_STATUSES.has(status)) {
       const failed = await prisma.payment.updateMany({

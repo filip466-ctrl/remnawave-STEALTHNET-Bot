@@ -23,8 +23,9 @@ import {
   getGiftHistory,
   getPublicGiftCodeInfo,
 } from "./gift.service.js";
+import { paymentSnapshotProduct } from "../bot/bot.service.js";
 import { requireClientAuth } from "../client/client.middleware.js";
-import { prisma } from "../../db.js";
+import { prisma, createPayment } from "../../db.js";
 import { randomUUID } from "crypto";
 
 // ─── Public Router (no auth) ─────────────────────────────────────────────────
@@ -142,7 +143,8 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
   const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
   const tiers = parseDeviceDiscountTiers(tariff.deviceDiscountTiers);
   const { extrasTotal } = applyExtraDevicesPrice(tariff.pricePerExtraDevice ?? 0, requestedExtras, tiers, effectiveDays);
-  const price = unitPrice + extrasTotal;
+  const basePrice = unitPrice + extrasTotal;
+  const paySnap = await paymentSnapshotProduct(clientId, basePrice);
 
   // Проверяем баланс
   const client = await prisma.client.findUnique({
@@ -152,21 +154,21 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
   if (!client) {
     return res.status(404).json({ message: "Клиент не найден" });
   }
-  if (client.balance < price) {
+  if (client.balance < paySnap.amount) {
     return res.status(400).json({ message: "Недостаточно средств на балансе" });
   }
 
   // Списываем баланс
   await prisma.client.update({
     where: { id: clientId },
-    data: { balance: { decrement: price } },
+    data: { balance: { decrement: paySnap.amount } },
   });
 
   // Создаём дополнительную подписку с новой моделью устройств.
   const result = await createAdditionalSubscription(clientId, {
     id: tariff.id,
     name: tariff.name,
-    price,
+    price: paySnap.amount,
     durationDays: effectiveDays,
     trafficLimitBytes: tariff.trafficLimitBytes,
     deviceLimit: tariff.deviceLimit,
@@ -179,20 +181,23 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
     // Возвращаем баланс при ошибке
     await prisma.client.update({
       where: { id: clientId },
-      data: { balance: { increment: price } },
+      data: { balance: { increment: paySnap.amount } },
     });
     return res.status(result.status).json({ message: result.error });
   }
 
   // Создаём запись Payment для истории — с привязкой опции и количеством extras.
-  await prisma.payment.create({
+  const payment = await createPayment({
     data: {
       clientId,
       orderId: randomUUID(),
       tariffId: tariff.id,
       tariffPriceOptionId: selectedOption?.id ?? null,
       deviceCount: requestedExtras,
-      amount: price,
+      amount: paySnap.amount,
+      baseAmount: paySnap.baseAmount,
+      botMarkupPercent: paySnap.botMarkupPercent,
+      botMarkupAmount: paySnap.botMarkupAmount,
       currency: tariff.currency.toUpperCase(),
       status: "PAID",
       provider: "balance",
@@ -200,6 +205,9 @@ giftRouter.post("/buy", async (req: Request, res: Response) => {
       metadata: JSON.stringify({ isAdditionalSubscription: true }),
     },
   });
+
+  const { distributeReferralRewards } = await import("../referral/referral.service.js");
+  await distributeReferralRewards(payment.id).catch(() => {});
 
   return res.json({
     message: "Дополнительная подписка создана",

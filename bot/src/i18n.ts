@@ -35,6 +35,12 @@ export const RU: Record<string, string> = {
   "menu.btn_vpn": "🌐 Подключиться к VPN",
   "menu.btn_cabinet": "🌐 Web Кабинет",
   "menu.btn_tickets": "🎫 Тикеты",
+  "menu.btn_own_bot": "🤖 Свой бот",
+  "own_bot.text":
+    "🤖 Свой бот-клон\n\nХотите продавать под своим Telegram-ботом? Создайте бота в @BotFather и скопируйте API-токен.\n\nОткройте «Тикеты» в личном кабинете и отправьте токен в новом обращении — администратор подключит вашего бота, и он заработает на той же витрине.\n\nНе публикуйте токен в группах и публичных чатах.",
+  "own_bot.btn_tickets": "🎫 Открыть тикеты",
+  "own_bot.tickets_disabled":
+    "Раздел тикетов сейчас недоступен. Если нужен свой бот — напишите администратору через «Поддержку» (если настроена) или на сайте.",
   "menu.btn_support": "🆘 Поддержка",
   "menu.btn_promocode": "🎟️ Промокод",
   "menu.btn_extra_options": "➕ Доп. опции",
@@ -222,6 +228,12 @@ const EN: Record<string, string> = {
   "menu.btn_vpn": "🌐 Connect to VPN",
   "menu.btn_cabinet": "🌐 Web Dashboard",
   "menu.btn_tickets": "🎫 Tickets",
+  "menu.btn_own_bot": "🤖 Your own bot",
+  "own_bot.text":
+    "🤖 Your own clone bot\n\nWant to sell under your own Telegram bot? Create a bot in @BotFather and copy the API token.\n\nOpen Tickets in your dashboard and send the token in a new ticket — an administrator will connect your bot; it will run on the same storefront.\n\nDo not post your token in groups or public chats.",
+  "own_bot.btn_tickets": "🎫 Open tickets",
+  "own_bot.tickets_disabled":
+    "Tickets are unavailable right now. For your own bot, contact the administrator via Support (if configured) or the website.",
   "menu.btn_support": "🆘 Support",
   "menu.btn_promocode": "🎟️ Promo Code",
   "menu.btn_extra_options": "➕ Extra Options",

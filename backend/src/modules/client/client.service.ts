@@ -1,8 +1,10 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomBytes } from "crypto";
+import type { Bot } from "@prisma/client";
 import { prisma } from "../../db.js";
 import { env } from "../../config/index.js";
+import { applyMarkup } from "../bot/bot.service.js";
 
 const SALT_ROUNDS = 12;
 
@@ -224,6 +226,7 @@ const DEFAULT_BOT_BUTTONS: BotButtonConfig[] = [
   { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", emojiKey: "SERVERS", onePerRow: true },
   { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary", emojiKey: "SERVERS" },
   { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary", emojiKey: "NOTE" },
+  { id: "own_bot", visible: true, label: "🤖 Свой бот", order: 6.52, style: "primary", emojiKey: "NOTE", onePerRow: true },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary", emojiKey: "NOTE" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary", emojiKey: "STAR" },
   { id: "extra_options", visible: true, label: "➕ Доп. опции", order: 9, style: "primary", emojiKey: "PACKAGE" },
@@ -883,9 +886,12 @@ function stripLeadingEmoji(label: string): string {
   return label.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "");
 }
 
-/** Публичный конфиг для сайта/бота (без паролей и секретов). botButtons с подставленными эмодзи. */
-export async function getPublicConfig() {
+/** Публичный конфиг для сайта/бота (без паролей и секретов). botButtons с подставленными эмодзи.
+ * @param forCloneBot — активный клон из заголовка `X-Telegram-Bot-Token`: наценка на цены опций/гибкого тарифа и подстановка @username/id бота для мини-аппа. */
+export async function getPublicConfig(forCloneBot?: Pick<Bot, "markupPercent" | "username" | "token"> | null) {
   const full = await getSystemConfig();
+  const markupPct = forCloneBot?.markupPercent ?? 0;
+  const withMarkup = (n: number) => applyMarkup(n, markupPct);
   const trialDays = full.trialDays ?? 0;
   const trialEnabled = trialDays > 0 && Boolean(full.trialSquadUuid?.trim());
   const botEmojis = full.botEmojis ?? {};
@@ -994,8 +1000,8 @@ export async function getPublicConfig() {
     favicon: full.favicon,
     remnaClientUrl: full.remnaClientUrl,
     publicAppUrl: full.publicAppUrl,
-    telegramBotUsername: full.telegramBotUsername,
-    telegramBotId: full.telegramBotToken?.split(":")[0] || null,
+    telegramBotUsername: (forCloneBot?.username?.trim() || full.telegramBotUsername) ?? null,
+    telegramBotId: (forCloneBot?.token ? forCloneBot.token.split(":")[0] : full.telegramBotToken?.split(":")[0]) || null,
     botAdminTelegramIds: full.botAdminTelegramIds ?? [],
     plategaMethods: full.plategaMethods.filter((m) => m.enabled).map((m) => ({ id: m.id, label: m.label })),
     yoomoneyEnabled: Boolean(full.yoomoneyReceiverWallet?.trim()),
@@ -1075,17 +1081,17 @@ export async function getPublicConfig() {
       > = [];
       if (so.sellOptionsTrafficEnabled && so.sellOptionsTrafficProducts?.length) {
         for (const p of so.sellOptionsTrafficProducts) {
-          out.push({ kind: "traffic", id: p.id, name: p.name, trafficGb: p.trafficGb, price: p.price, currency: p.currency });
+          out.push({ kind: "traffic", id: p.id, name: p.name, trafficGb: p.trafficGb, price: withMarkup(p.price), currency: p.currency });
         }
       }
       if (so.sellOptionsDevicesEnabled && so.sellOptionsDevicesProducts?.length) {
         for (const p of so.sellOptionsDevicesProducts) {
-          out.push({ kind: "devices", id: p.id, name: p.name, deviceCount: p.deviceCount, price: p.price, currency: p.currency });
+          out.push({ kind: "devices", id: p.id, name: p.name, deviceCount: p.deviceCount, price: withMarkup(p.price), currency: p.currency });
         }
       }
       if (so.sellOptionsServersEnabled && so.sellOptionsServersProducts?.length) {
         for (const p of so.sellOptionsServersProducts) {
-          out.push({ kind: "servers", id: p.id, name: p.name, squadUuid: p.squadUuid, trafficGb: p.trafficGb ?? 0, price: p.price, currency: p.currency });
+          out.push({ kind: "servers", id: p.id, name: p.name, squadUuid: p.squadUuid, trafficGb: p.trafficGb ?? 0, price: withMarkup(p.price), currency: p.currency });
         }
       }
       return out;
@@ -1109,10 +1115,10 @@ export async function getPublicConfig() {
       if (!cb.customBuildEnabled || !cb.customBuildSquadUuid?.trim()) return null;
       return {
         enabled: true,
-        pricePerDay: cb.customBuildPricePerDay ?? 0,
-        pricePerDevice: cb.customBuildPricePerDevice ?? 0,
+        pricePerDay: withMarkup(cb.customBuildPricePerDay ?? 0),
+        pricePerDevice: withMarkup(cb.customBuildPricePerDevice ?? 0),
         trafficMode: cb.customBuildTrafficMode === "per_gb" ? "per_gb" as const : "unlimited" as const,
-        pricePerGb: cb.customBuildPricePerGb ?? 0,
+        pricePerGb: withMarkup(cb.customBuildPricePerGb ?? 0),
         squadUuid: cb.customBuildSquadUuid.trim(),
         currency: (cb.customBuildCurrency || "rub").toLowerCase(),
         maxDays: Math.min(360, Math.max(1, cb.customBuildMaxDays ?? 360)),

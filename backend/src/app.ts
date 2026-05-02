@@ -19,6 +19,7 @@ import { cryptopayWebhooksRouter } from "./modules/webhooks/cryptopay.webhooks.r
 import { heleketWebhooksRouter } from "./modules/webhooks/heleket.webhooks.routes.js";
 import { lavaWebhooksRouter } from "./modules/webhooks/lava.webhooks.routes.js";
 import { botAdminRouter } from "./modules/bot-admin/bot-admin.routes.js";
+import { botAdminRouter as botsAdminCrudRouter, botInternalRouter } from "./modules/bot/bot.routes.js";
 import { contestAdminRouter } from "./modules/contest/contest.admin.routes.js";
 import { contestPublicRouter } from "./modules/contest/contest.public.routes.js";
 import { adminReferralsRouter } from "./modules/admin/referrals.routes.js";
@@ -28,6 +29,12 @@ import { externalApiRouter } from "./modules/api-keys/external-api.routes.js";
 import { geoMapRouter } from "./modules/geo-map/geo-map.routes.js";
 import { giftRouter, giftPublicRouter } from "./modules/gift/gift.routes.js";
 import { paymentRedirectRouter } from "./modules/payment-redirect/payment-redirect.routes.js";
+import { marketplaceClientRouter } from "./modules/marketplace/marketplace.client.routes.js";
+import { marketplaceHubRouter } from "./modules/marketplace/marketplace.hub.routes.js";
+import { marketplaceHubAdminRouter } from "./modules/marketplace/marketplace.hub.admin.routes.js";
+import { getMarketplaceRuntime } from "./modules/marketplace/marketplace.runtime.js";
+import { requireAuth } from "./modules/auth/middleware.js";
+import { renderSpaIndex } from "./modules/branding/spa-html.js";
 
 const app = express();
 
@@ -130,14 +137,35 @@ const giftPublicLimiter = rateLimit({
 app.use("/api/gift/public", giftPublicLimiter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.2.7" });
+  res.json({ status: "ok", version: "3.3.3" });
 });
+
+// SSR-рендер index.html с подстановкой имени из брендинга (Telegram preview).
+// Дёргается nginx'ом для `/`, `/index.html` и SPA-фоллбэка.
+app.get("/_spa", renderSpaIndex);
 
 // Статика для загруженных файлов (маскоты, видео)
 app.use("/api/uploads", express.static(path.join("/app/uploads"), {
   maxAge: "30d",
   immutable: true,
 }));
+
+// Маркетплейс между админами: всегда монтируем, но хаб-роуты включаются только
+// если runtime-роль = hub (см. requireHubRole).
+async function requireHubRole(_req: express.Request, res: express.Response, next: express.NextFunction) {
+  const rt = await getMarketplaceRuntime();
+  if (!rt.enabled) return res.status(404).json({ message: "Marketplace disabled" });
+  if (rt.role !== "hub") return res.status(404).json({ message: "This installation is not the marketplace hub" });
+  next();
+}
+async function requireMarketplaceEnabled(_req: express.Request, res: express.Response, next: express.NextFunction) {
+  const rt = await getMarketplaceRuntime();
+  if (!rt.enabled) return res.status(404).json({ message: "Marketplace disabled" });
+  next();
+}
+app.use("/api/marketplace", requireHubRole, marketplaceHubRouter);
+app.use("/api/admin/marketplace/hub", requireAuth, requireHubRole, marketplaceHubAdminRouter);
+app.use("/api/admin/marketplace", requireMarketplaceEnabled, marketplaceClientRouter);
 
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
@@ -158,6 +186,8 @@ app.use("/api/public", contestPublicRouter);
 app.use("/api/pay", paymentRedirectRouter);
 app.use("/api/v1", externalApiRouter);
 app.use("/api/bot-admin", botAdminRouter);
+app.use("/api/admin/bots", botsAdminCrudRouter);
+app.use("/api/internal", botInternalRouter);
 app.use("/api/webhooks", remnaWebhooksRouter);
 app.use("/api/webhooks", plategaWebhooksRouter);
 app.use("/api/webhooks", yoomoneyWebhooksRouter);

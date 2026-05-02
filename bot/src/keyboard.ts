@@ -57,6 +57,7 @@ const MENU_IDS: Record<string, string> = {
   promocode: "menu:promocode",
   extra_options: "menu:extra_options",
   gift: "menu:gift",
+  own_bot: "menu:own_bot",
 };
 
 const DEFAULT_BUTTONS: BotButtonConfig[] = [
@@ -73,6 +74,7 @@ const DEFAULT_BUTTONS: BotButtonConfig[] = [
   { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", onePerRow: true },
   { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary" },
   { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary" },
+  { id: "own_bot", visible: true, label: "🤖 Свой бот", order: 6.52, style: "primary", onePerRow: true },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary" },
   { id: "gift", visible: true, label: "🎁 Подарки", order: 8.5, style: "primary" },
@@ -132,6 +134,9 @@ export function mainMenu(opts: {
   if (fromConfig && opts.showGift === true && !list.some((b) => b.id === "gift")) {
     list.push({ id: "gift", visible: true, label: "🎁 Подарки", order: 8.5, style: "primary" });
   }
+  if (fromConfig && opts.showTickets === true && !!opts.appUrl?.trim() && !list.some((b) => b.id === "own_bot")) {
+    list.push({ id: "own_bot", visible: true, label: "🤖 Свой бот", order: 6.52, style: "primary", onePerRow: true });
+  }
   list = list
     .filter((b) => b.visible)
     .filter((b) => {
@@ -141,6 +146,7 @@ export function mainMenu(opts: {
       if (b.id === "singbox" || b.id === "my_singbox") return opts.showSingbox === true;
       if (b.id === "cabinet") return !!opts.appUrl?.trim();
       if (b.id === "tickets") return opts.showTickets === true && !!opts.appUrl?.trim();
+      if (b.id === "own_bot") return opts.showTickets === true && !!opts.appUrl?.trim();
       if (b.id === "support") return !!opts.hasSupportLinks;
       if (b.id === "extra_options") return opts.showExtraOptions === true;
       if (b.id === "gift") return opts.showGift === true;

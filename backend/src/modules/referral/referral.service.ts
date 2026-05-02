@@ -61,7 +61,7 @@ export async function distributeReferralRewards(paymentId: string): Promise<{ di
     const level2 = level1?.referrer ?? null;
     const level3 = level2?.referrer ?? null;
 
-    const amount = payment.amount;
+    const amount = payment.baseAmount ?? payment.amount;
     const updates: { clientId: string; bonus: number; level: number }[] = [];
     const pct1 = level1?.referralPercent ?? p1;
     const pct2 = level2?.referralPercent ?? p2;

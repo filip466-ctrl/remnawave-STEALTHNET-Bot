@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ACCENT_PALETTES } from "@/contexts/theme";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MarketplaceSettingsCard } from "@/pages/marketplace/marketplace-settings-card";
 
 const FALLBACK_LANGS = ["ru", "en"];
 const LANG_NAMES: Record<string, string> = {
@@ -64,6 +65,7 @@ const DEFAULT_BOT_BUTTONS: BotButtonItem[] = [
   { id: "vpn", visible: true, label: "🌐 Подключиться к VPN", order: 5, style: "danger", emojiKey: "SERVERS", onePerRow: true },
   { id: "cabinet", visible: true, label: "🌐 Web Кабинет", order: 6, style: "primary", emojiKey: "SERVERS" },
   { id: "tickets", visible: true, label: "🎫 Тикеты", order: 6.5, style: "primary", emojiKey: "NOTE" },
+  { id: "own_bot", visible: true, label: "🤖 Свой бот", order: 6.52, style: "primary", emojiKey: "NOTE", onePerRow: true },
   { id: "support", visible: true, label: "🆘 Поддержка", order: 7, style: "primary", emojiKey: "NOTE" },
   { id: "promocode", visible: true, label: "🎟️ Промокод", order: 8, style: "primary", emojiKey: "STAR" },
   { id: "gift", visible: true, label: "🎁 Подарки", order: 8.5, style: "primary", emojiKey: "TRIAL" },
@@ -230,6 +232,7 @@ const BOT_BUTTON_HUMAN_NAMES: Record<string, string> = {
   vpn: "Подключение к VPN",
   cabinet: "Открыть веб-кабинет",
   tickets: "Тикеты поддержки",
+  own_bot: "Заявка на своего бота-клона (токен в тикете)",
   support: "Связь с поддержкой",
   promocode: "Ввод промокода",
   gift: "Подарочные коды",
@@ -1390,6 +1393,7 @@ export function SettingsPage() {
                 </Button>
               </CardContent>
             </Card>
+            <MarketplaceSettingsCard />
           </TabsContent>
 
           <TabsContent value="bot">

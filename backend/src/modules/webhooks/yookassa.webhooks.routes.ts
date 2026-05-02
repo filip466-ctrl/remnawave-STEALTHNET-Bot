@@ -14,6 +14,7 @@ import { distributeReferralRewards } from "../referral/referral.service.js";
 import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 import { createNalogReceipt } from "../nalog/nalog.service.js";
 import { recordPromoCodeUsageFromPayment } from "../payment/promo-code-usage.util.js";
+import { auditPaymentClientBotAlignment } from "../payment/payment-webhook-audit.util.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -75,13 +76,26 @@ yookassaWebhooksRouter.post("/yookassa", async (req, res) => {
 
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, provider: "yookassa" },
-    select: { id: true, clientId: true, amount: true, currency: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, status: true, metadata: true },
+    select: {
+      id: true,
+      clientId: true,
+      botId: true,
+      amount: true,
+      currency: true,
+      tariffId: true,
+      proxyTariffId: true,
+      singboxTariffId: true,
+      status: true,
+      metadata: true,
+    },
   });
 
   if (!payment) {
     console.warn("[YooKassa Webhook] Payment not found", { paymentId });
     return res.status(200).send("OK");
   }
+
+  await auditPaymentClientBotAlignment(payment);
 
   if (payment.status === "PAID") {
     console.log("[YooKassa Webhook] Already processed", { paymentId });

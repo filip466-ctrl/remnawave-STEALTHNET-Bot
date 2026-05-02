@@ -16,6 +16,7 @@ import {
   remnaUsernameFromClient,
 } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
+import { getPrimaryBot } from "../bot/bot.service.js";
 
 const PAGE_SIZE = 100;
 
@@ -61,6 +62,13 @@ export async function syncFromRemna(): Promise<{
   const config = await getSystemConfig();
   const defaultLang = config.defaultLanguage ?? "ru";
   const defaultCurrency = (config.defaultCurrency ?? "usd").toLowerCase();
+  // Sync from Remna создаёт «безбот'овых» клиентов (источник истины — Remna,
+  // не TG-сессия). Привязываем к primary боту для консистентности.
+  const primaryBot = await getPrimaryBot();
+  if (!primaryBot) {
+    result.errors.push("Primary bot не настроен — синхронизация невозможна");
+    return { ok: false, ...result };
+  }
 
   let page = 1;
   let hasMore = true;
@@ -126,6 +134,7 @@ export async function syncFromRemna(): Promise<{
             const refCode = "REF-" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
             await prisma.client.create({
               data: {
+                botId: primaryBot.id,
                 remnawaveUuid: uuid,
                 email: email ?? null,
                 telegramId,

@@ -23,8 +23,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/subpage-00000000-0000-0000-0000-000000000000.json ./
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN npx prisma generate
+RUN npx prisma generate \
+  && chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 5000
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

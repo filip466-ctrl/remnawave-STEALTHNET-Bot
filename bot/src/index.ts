@@ -1,11 +1,12 @@
 /**
- * STEALTHNET 3.2.7 — Telegram-бот
+ * STEALTHNET 3.3.3 — Telegram-бот
  * Полный функционал кабинета: главная, тарифы, профиль, пополнение, триал, реферальная ссылка, VPN.
  * Цветные кнопки: style primary / success / danger (Telegram Bot API).
  */
 
 import "dotenv/config";
-import { Bot, InputFile, Context } from "grammy";
+import { Bot, Composer, Context, InputFile } from "grammy";
+import type { Api } from "grammy";
 import { ProxyAgent as UndiciProxyAgent } from "undici";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import * as api from "./api.js";
@@ -109,9 +110,46 @@ async function createBotWithProxy(token: string): Promise<Bot> {
   return new Bot(token);
 }
 
-const bot = await createBotWithProxy(BOT_TOKEN);
+/** Общая логика для всех токенов (основной + клоны из БД). */
+const composer = new Composer<Context>();
 
-let BOT_USERNAME = "";
+/**
+ * Уникальные токены для long polling в этом процессе.
+ * По умолчанию: BOT_TOKEN + все активные из БД (один контейнер = все клоны).
+ * Если BOT_POLL_ALL_CLONES=false — только BOT_TOKEN (нужно для второго контейнера bot-clone,
+ * иначе оба процесса опросили бы одни и те же токены).
+ */
+async function resolveActiveBotTokens(bootstrapToken: string): Promise<string[]> {
+  const t0 = bootstrapToken.trim();
+  if (!t0) return [];
+  const pollAll = process.env.BOT_POLL_ALL_CLONES !== "false";
+  if (!pollAll) return [t0];
+
+  const out = new Set<string>();
+  out.add(t0);
+  const delayMs = 2000;
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { items } = await api.fetchInternalBotsList(bootstrapToken);
+      for (const row of items) {
+        const t = row.token?.trim();
+        if (t) out.add(t);
+      }
+      if (attempt > 1) console.log(`[Bot] /api/internal/bots: успех с попытки ${attempt}`);
+      break;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (attempt < maxAttempts) {
+        console.warn(`[Bot] /api/internal/bots попытка ${attempt}/${maxAttempts} не удалась (${msg}), пауза ${delayMs / 1000}с…`);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else {
+        console.warn("[Bot] Не удалось получить /api/internal/bots — только BOT_TOKEN:", msg);
+      }
+    }
+  }
+  return [...out];
+}
 
 // ——— Принудительная подписка на канал ———
 
@@ -173,13 +211,17 @@ function parseForceChannelTarget(channelInput: string): ForceChannelTarget {
 }
 
 /** Проверяет, подписан ли пользователь на указанный канал/группу. */
-async function checkUserSubscription(userId: number, channelInput: string): Promise<{ state: SubscriptionCheckState; target: ForceChannelTarget; error?: string }> {
+async function checkUserSubscription(
+  telegramApi: Api,
+  userId: number,
+  channelInput: string,
+): Promise<{ state: SubscriptionCheckState; target: ForceChannelTarget; error?: string }> {
   const target = parseForceChannelTarget(channelInput);
   if (!target.chatId) {
     return { state: "cannot_verify", target, error: "invalid_channel_id" };
   }
   try {
-    const member = await bot.api.getChatMember(target.chatId, userId);
+    const member = await telegramApi.getChatMember(target.chatId, userId);
     const subscribed = ["member", "administrator", "creator", "restricted"].includes(member.status);
     return { state: subscribed ? "subscribed" : "not_subscribed", target };
   } catch (e: unknown) {
@@ -207,6 +249,7 @@ async function enforceSubscription(
   ctx: {
     from?: { id: number };
     reply: (text: string, opts?: { reply_markup?: InlineMarkup }) => Promise<unknown>;
+    api: Api;
   },
   config: Awaited<ReturnType<typeof api.getPublicConfig>>,
 ): Promise<boolean> {
@@ -216,7 +259,7 @@ async function enforceSubscription(
   const userId = ctx.from?.id;
   if (!userId) return false;
   const lang = getUserLang(userId);
-  const result = await checkUserSubscription(userId, channelId);
+  const result = await checkUserSubscription(ctx.api, userId, channelId);
   if (result.state === "subscribed") return false;
   const msg = config.forceSubscribeMessage?.trim() || _t("subscribe.default_message", lang);
   if (result.state === "cannot_verify") {
@@ -608,6 +651,7 @@ const DEFAULT_MENU_EMOJI_KEY_BY_ID: Record<string, string> = {
   cabinet: "SERVERS",
   support: "NOTE",
   tickets: "NOTE",
+  own_bot: "NOTE",
   promocode: "STAR",
   extra_options: "PACKAGE",
 };
@@ -875,6 +919,7 @@ function logoToMediaSource(logo: string | null | undefined): { source: InputFile
 
 /** Редактировать сообщение: текст и клавиатура (если с фото/анимацией — caption, иначе text) */
 async function editMessageContent(ctx: {
+  api: Api;
   editMessageCaption: (opts: { caption: string; caption_entities?: CustomEmojiEntity[]; reply_markup?: InlineMarkup }) => Promise<unknown>;
   editMessageText: (text: string, opts?: { entities?: CustomEmojiEntity[]; reply_markup?: InlineMarkup }) => Promise<unknown>;
   deleteMessage: () => Promise<unknown>;
@@ -887,7 +932,7 @@ async function editMessageContent(ctx: {
   const hasVideo = msg && typeof msg === "object" && "video" in msg && (msg as { video: unknown }).video != null;
   if (hasVideo && ctx.chat?.id) {
     await ctx.deleteMessage().catch(() => {});
-    return bot.api.sendMessage(ctx.chat.id, text, { entities: entities?.length ? entities : undefined, reply_markup });
+    return ctx.api.sendMessage(ctx.chat.id, text, { entities: entities?.length ? entities : undefined, reply_markup });
   }
   const hasMediaWithCaption = hasPhoto || hasAnimation;
   const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
@@ -957,7 +1002,7 @@ function parseStartPayload(payload: string): {
 }
 
 // ——— /start с реферальным кодом (например /start ref_ABC123) или промо (/start promo_XXXX) или кампания (/start c_facebook_summer)
-bot.command("start", async (ctx) => {
+composer.command("start", async (ctx) => {
   const from = ctx.from;
   if (!from) return;
   const telegramId = String(from.id);
@@ -1102,7 +1147,7 @@ bot.command("start", async (ctx) => {
 });
 
 // ——— /link КОД — привязка Telegram к аккаунту (код из кабинета на сайте)
-bot.command("link", async (ctx) => {
+composer.command("link", async (ctx) => {
   const from = ctx.from;
   if (!from) return;
   const lang = getUserLang(from.id);
@@ -1220,7 +1265,7 @@ async function showGiftPaymentConfirm(ctx: any, userId: number, tariff: TariffIt
 }
 
 // ——— Callback: меню и действия
-bot.on("callback_query:data", async (ctx) => {
+composer.on("callback_query:data", async (ctx) => {
   const data = ctx.callbackQuery.data;
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -1729,7 +1774,7 @@ bot.on("callback_query:data", async (ctx) => {
       const lang = getUserLang(userId);
       const channelId = config?.forceSubscribeChannelId?.trim();
       if (channelId && config?.forceSubscribeEnabled) {
-        const result = await checkUserSubscription(userId, channelId);
+        const result = await checkUserSubscription(ctx.api, userId, channelId);
         if (result.state === "cannot_verify") {
           await ctx.answerCallbackQuery({
             text: _t("subscribe.cannot_verify", lang).slice(0, 200),
@@ -1756,7 +1801,7 @@ bot.on("callback_query:data", async (ctx) => {
     if (config?.forceSubscribeEnabled && config.forceSubscribeChannelId?.trim()) {
       const lang = getUserLang(userId);
       const channelId = config.forceSubscribeChannelId.trim();
-      const result = await checkUserSubscription(userId, channelId);
+      const result = await checkUserSubscription(ctx.api, userId, channelId);
       if (result.state !== "subscribed") {
         const msg = config.forceSubscribeMessage?.trim() || _t("subscribe.default_message", lang);
         const details = result.state === "cannot_verify"
@@ -1848,9 +1893,9 @@ bot.on("callback_query:data", async (ctx) => {
         const captionEntities = text.length > TELEGRAM_CAPTION_MAX && entities ? entities.filter((e) => e.offset + e.length <= TELEGRAM_CAPTION_MAX - 3) : entities;
         const opts = { caption, caption_entities: captionEntities?.length ? captionEntities : undefined, reply_markup: backMarkup };
         if (media.isGif) {
-          await bot.api.sendAnimation(ctx.chat.id, media.source, opts);
+          await ctx.api.sendAnimation(ctx.chat.id, media.source, opts);
         } else {
-          await bot.api.sendPhoto(ctx.chat.id, media.source, opts);
+          await ctx.api.sendPhoto(ctx.chat.id, media.source, opts);
         }
         return;
       }
@@ -1884,6 +1929,23 @@ bot.on("callback_query:data", async (ctx) => {
           lang
         )
       );
+      return;
+    }
+
+    if (data === "menu:own_bot") {
+      const lang = getUserLang(userId);
+      if (!config?.ticketsEnabled || !appUrl) {
+        await editMessageContent(ctx, _t("own_bot.tickets_disabled", lang), backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, lang));
+        return;
+      }
+      const backLabel = (config?.botBackLabel && config.botBackLabel.trim()) || _t("back_to_menu", lang);
+      const ticketsMarkup: InlineMarkup = {
+        inline_keyboard: [
+          [{ text: _t("own_bot.btn_tickets", lang), web_app: { url: `${appUrl}/cabinet/tickets` } }],
+          [{ text: backLabel, callback_data: "menu:main" }],
+        ],
+      };
+      await editMessageContent(ctx, _t("own_bot.text", lang), ticketsMarkup);
       return;
     }
 
@@ -3259,7 +3321,7 @@ bot.on("callback_query:data", async (ctx) => {
         return;
       }
       const linkSite = appUrl ? `${appUrl}/cabinet/register?ref=${encodeURIComponent(client.referralCode)}` : null;
-      const linkBot = `https://t.me/${BOT_USERNAME || "bot"}?start=ref_${client.referralCode}`;
+      const linkBot = `https://t.me/${ctx.me?.username ?? "bot"}?start=ref_${client.referralCode}`;
       // Показываем фактический персональный процент клиента.
       // Фолбэк на дефолт только если персональный не задан (null/undefined).
       const p1 = client.referralPercent ?? (config?.defaultReferralPercent ?? 0);
@@ -3641,7 +3703,7 @@ bot.on("callback_query:data", async (ctx) => {
 });
 
 // Видео от админа → возвращаем file_id для видео-инструкций
-bot.on("message:video", async (ctx) => {
+composer.on("message:video", async (ctx) => {
   const userId = ctx.from?.id;
   if (!userId) return;
   const config = await api.getPublicConfig();
@@ -3655,7 +3717,7 @@ bot.on("message:video", async (ctx) => {
 });
 
 // Сообщения с фото — админ может отправить фото с подписью для рассылки
-bot.on("message:photo", async (ctx) => {
+composer.on("message:photo", async (ctx) => {
   const userId = ctx.from?.id;
   if (!userId) return;
   if (!awaitingBroadcastMessage.has(userId)) return;
@@ -3693,7 +3755,7 @@ bot.on("message:photo", async (ctx) => {
 });
 
 // Сообщения с текстом — промокод или число для пополнения
-bot.on("message:text", async (ctx) => {
+composer.on("message:text", async (ctx) => {
   if (ctx.message.text?.startsWith("/")) return;
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -3827,7 +3889,7 @@ bot.on("message:text", async (ctx) => {
       if (result.creatorTelegramId) {
         const recipientName = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name ?? "Пользователь";
         const notifyText = `🎁 Ваш подарок активирован!\n\n${recipientName} принял(а) ваш подарок${result.tariffName ? ` (${result.tariffName})` : ""}.`;
-        bot.api.sendMessage(result.creatorTelegramId, notifyText).catch(() => {});
+        ctx.api.sendMessage(result.creatorTelegramId, notifyText).catch(() => {});
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Ошибка активации подарка";
@@ -3955,21 +4017,34 @@ bot.on("message:text", async (ctx) => {
 
 // Fallback для НЕтекстовых сообщений — стикеры, фото, голосовые, GIF, документы, локации и т.п.
 // Сюда не попадают тексты (handler выше) и команды. Если auto-delete включён — удаляем.
-bot.on("message", async (ctx) => {
+composer.on("message", async (ctx) => {
   await tryAutoDeleteUnknown(ctx);
 });
 
-bot.catch((err) => {
-  console.error("Bot error:", err);
-});
+// Список клонов запрашивается до createBotWithProxy — иначе API ещё не поднят и fetch падает («fetch failed»).
+await waitForApi();
 
-bot.start({
-  onStart: async (info) => {
-    BOT_USERNAME = info.username || "";
-    console.log(`Bot @${BOT_USERNAME} started`);
-    try {
-      const cfg = await api.getPublicConfig();
-      if (cfg?.translations) setTranslations(cfg.translations);
-    } catch { /* ignore */ }
-  },
-});
+const botInstances: Bot[] = [];
+const tokens = await resolveActiveBotTokens(BOT_TOKEN);
+for (const token of tokens) {
+  const b = await createBotWithProxy(token);
+  b.use(composer);
+  b.catch((err) => console.error(`[Bot ${token.slice(0, 6)}…] error:`, err));
+  botInstances.push(b);
+}
+// start() для long polling не завершается — нельзя await по очереди, иначе второй клон никогда не поднимется.
+for (const b of botInstances) {
+  const token = b.token;
+  void b.start({
+    onStart: async (info) => {
+      console.log(`Bot @${info.username ?? "?"} started`);
+      void api.reportBotMeUsername(token, info.username);
+      try {
+        const cfg = await api.getPublicConfig();
+        if (cfg?.translations) setTranslations(cfg.translations);
+      } catch {
+        /* ignore */
+      }
+    },
+  });
+}

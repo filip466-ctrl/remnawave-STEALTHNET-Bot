@@ -22,6 +22,7 @@ import {
   isRemnaConfigured,
   remnaGetUser,
 } from "../remna/remna.client.js";
+import { getPrimaryBot } from "../bot/bot.service.js";
 
 export const externalApiRouter = Router();
 externalApiRouter.use(requireApiKey);
@@ -207,14 +208,20 @@ externalApiRouter.post("/auth/register", async (req: Request, res: Response) => 
   const existing = await prisma.client.findFirst({ where: { email } });
   if (existing) return res.status(409).json({ error: "Email already registered" });
 
-  let referrerId: string | undefined;
+  let referrerId: string | null = null;
   if (parsed.data.referralCode) {
     const ref = await prisma.client.findFirst({ where: { referralCode: parsed.data.referralCode } });
     if (ref) referrerId = ref.id;
   }
 
+  // External API создаёт «безбот'овых» клиентов (через X-Api-Key, без TG-сессии).
+  // Привязываем к primary боту.
+  const primaryBot = await getPrimaryBot();
+  if (!primaryBot) return res.status(503).json({ error: "Primary bot not configured" });
+
   const client = await prisma.client.create({
     data: {
+      botId: primaryBot.id,
       email,
       passwordHash: await hashPassword(parsed.data.password),
       referralCode: generateReferralCode(),

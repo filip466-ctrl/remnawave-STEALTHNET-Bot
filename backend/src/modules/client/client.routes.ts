@@ -2,9 +2,9 @@ import { randomBytes, createHmac } from "crypto";
 import { randomUUID } from "crypto";
 import { generateSecret, generateURI, verify } from "otplib";
 import { env } from "../../config/index.js";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
-import { prisma } from "../../db.js";
+import { prisma, createPayment, asClientUncheckedCreate, asClientWhere, asClientSelect, asPaymentUncheckedCreate, asTelegramAuthUpdate, prismaBotFindMany, type TelegramAuthTokenRecord, type ClientEmptyCloneRow, type ClientBotIdPick } from "../../db.js";
 import {
   hashPassword,
   verifyPassword,
@@ -40,6 +40,8 @@ import { createHeleketInvoice, isHeleketConfigured } from "../heleket/heleket.se
 import { createLavaInvoice, isLavaConfigured } from "../lava/lava.service.js";
 import { createOverpayPayformOrder, isOverpayConfigured } from "../overpay/overpay.service.js";
 import { applyPersonalDiscount } from "./personal-discount.js";
+import { getBotByToken, getPrimaryBot, paymentSnapshotTopup, paymentSnapshotProduct, applyMarkup } from "../bot/bot.service.js";
+import { extractBotTokenFromRequest, optionalBot, type ReqWithBot } from "../bot/bot.middleware.js";
 import { uploadTicketAttachment } from "../../lib/upload.js";
 import {
   filesToAttachments,
@@ -68,6 +70,27 @@ function extractCurrentExpireAt(data: unknown): Date | null {
 function calculateExpireAt(currentExpireAt: Date | null, durationDays: number): string {
   const base = currentExpireAt ?? new Date();
   return new Date(base.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Определяет, какому Bot-клону принадлежит запрос на регистрацию/логин.
+ *
+ * Логика:
+ *   1) Если в заголовке X-Telegram-Bot-Token есть токен активного клона — используем его.
+ *      (это путь из бота: каждый клон шлёт свой токен в API)
+ *   2) Иначе — primary bot (это путь из веб-кабинета: webhook'ов, OAuth и т.п.,
+ *      где явной привязки к клону нет).
+ *
+ * Возвращает объект Bot или null, если в БД нет primary бота (broken state — должно
+ * быть сделано миграцией). Вызывающий код в случае null возвращает 503.
+ */
+async function resolveBotForClientRequest(req: { headers: Record<string, unknown> | unknown }) {
+  const token = extractBotTokenFromRequest(req as Parameters<typeof extractBotTokenFromRequest>[0]);
+  if (token) {
+    const fromHeader = await getBotByToken(token);
+    if (fromHeader) return fromHeader;
+  }
+  return getPrimaryBot();
 }
 
 export const clientAuthRouter = Router();
@@ -105,6 +128,13 @@ clientAuthRouter.post("/register", async (req, res) => {
     return res.status(400).json({ message: "Provide email+password or telegramId" });
   }
 
+  // Какому клону принадлежит регистрация — определяем по X-Telegram-Bot-Token
+  // (бот шлёт свой токен) либо берём primary (веб-регистрация).
+  const requestBot = await resolveBotForClientRequest(req);
+  if (!requestBot) {
+    return res.status(503).json({ message: "Primary bot not configured. Run migrations." });
+  }
+
   // Регистрация по email: создаём ожидание и отправляем письмо с ссылкой
   if (hasEmail) {
     const existing = await prisma.client.findUnique({ where: { email: data.email! } });
@@ -122,7 +152,8 @@ clientAuthRouter.post("/register", async (req, res) => {
       }
       const passwordHash = await hashPassword(data.password!);
       const client = await prisma.client.create({
-        data: {
+        data: asClientUncheckedCreate({
+          botId: requestBot.id,
           email: data.email!,
           passwordHash,
           remnawaveUuid: null,
@@ -139,7 +170,7 @@ clientAuthRouter.post("/register", async (req, res) => {
           utmTerm: data.utm_term ?? null,
           autoRenewEnabled: config.defaultAutoRenewEnabled ?? false,
           onboardingCompleted: false,
-        },
+        }),
       });
       notifyAdminsAboutNewClient(client.id).catch(() => {});
       const token = signClientToken(client.id);
@@ -209,9 +240,10 @@ clientAuthRouter.post("/register", async (req, res) => {
   }
 
   // Регистрация / вход по Telegram (используется ботом). 2FA не требуем — только для входа на сайте.
+  // Один TG-юзер может быть в нескольких клонах, поэтому ищем по составной паре (botId, telegramId).
   if (hasTelegram) {
-    const existing = await prisma.client.findUnique({
-      where: { telegramId: data.telegramId! },
+    const existing = await prisma.client.findFirst({
+      where: asClientWhere({ telegramId: data.telegramId!, botId: requestBot.id }),
       select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, onboardingCompleted: true },
     });
     if (existing) {
@@ -239,7 +271,8 @@ clientAuthRouter.post("/register", async (req, res) => {
   const passwordHash = data.password ? await hashPassword(data.password) : null;
   const configForAutoRenew = await getSystemConfig();
   const client = await prisma.client.create({
-    data: {
+    data: asClientUncheckedCreate({
+      botId: requestBot.id,
       email: data.email ?? null,
       passwordHash,
       remnawaveUuid: null,
@@ -255,7 +288,7 @@ clientAuthRouter.post("/register", async (req, res) => {
       utmContent: data.utm_content ?? null,
       utmTerm: data.utm_term ?? null,
       autoRenewEnabled: configForAutoRenew.defaultAutoRenewEnabled ?? false,
-    },
+    }),
   });
   notifyAdminsAboutNewClient(client.id).catch(() => {});
 
@@ -331,9 +364,16 @@ clientAuthRouter.post("/verify-email", async (req, res) => {
     if (referrer) referrerId = referrer.id;
   }
 
+  // Email-регистрация — всегда primary bot (веб-кабинет, без привязки к клону).
+  const primaryBot = await getPrimaryBot();
+  if (!primaryBot) {
+    return res.status(503).json({ message: "Primary bot not configured. Run migrations." });
+  }
+
   const configForAutoRenew = await getSystemConfig();
   const client = await prisma.client.create({
-    data: {
+    data: asClientUncheckedCreate({
+      botId: primaryBot.id,
       email: pending.email,
       passwordHash: pending.passwordHash,
       remnawaveUuid: null,
@@ -350,7 +390,7 @@ clientAuthRouter.post("/verify-email", async (req, res) => {
       utmTerm: pending.utmTerm,
       autoRenewEnabled: configForAutoRenew.defaultAutoRenewEnabled ?? false,
       onboardingCompleted: false,
-    },
+    }),
   });
 
   await prisma.pendingEmailRegistration.delete({ where: { id: pending.id } }).catch(() => {});
@@ -428,9 +468,18 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
   if (!body.success) {
     return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
   }
-  const config = await getSystemConfig();
-  const botToken = config.telegramBotToken ?? "";
-  if (!validateTelegramInitData(body.data.initData, botToken)) {
+  // Mini App initData подписан токеном того бота, через которого Mini App открыли.
+  // С приходом ботов-клонов проверяем подпись по каждому активному токену.
+  // Тот, чей токен сработал, → req.bot для этой сессии (сохраняется в client.botId).
+  const activeBots = await prismaBotFindMany<{ id: string; token: string }>({ where: { isActive: true } });
+  let matchedBot: { id: string; token: string } | null = null;
+  for (const b of activeBots) {
+    if (validateTelegramInitData(body.data.initData, b.token)) {
+      matchedBot = { id: b.id, token: b.token };
+      break;
+    }
+  }
+  if (!matchedBot) {
     return res.status(401).json({ message: "Invalid or expired Telegram data" });
   }
   const tgUser = parseTelegramUser(body.data.initData);
@@ -438,8 +487,8 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
 
   const telegramId = String(tgUser.id);
   const telegramUsername = tgUser.username?.trim() ?? null;
-  const existing = await prisma.client.findUnique({
-    where: { telegramId },
+  const existing = await prisma.client.findFirst({
+    where: asClientWhere({ telegramId, botId: matchedBot.id }),
     select: { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true, onboardingCompleted: true },
   });
   if (existing) {
@@ -459,7 +508,8 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
   }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
-    data: {
+    data: asClientUncheckedCreate({
+      botId: matchedBot.id,
       email: null,
       passwordHash: null,
       remnawaveUuid,
@@ -470,7 +520,7 @@ clientAuthRouter.post("/telegram-miniapp", async (req, res) => {
       telegramId,
       telegramUsername,
       autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
-    },
+    }),
   });
   const token = signClientToken(client.id);
   return res.status(201).json({ token, client: toClientShape(client) });
@@ -616,9 +666,15 @@ clientAuthRouter.post("/google", async (req, res) => {
     const byEmailRes = await remnaGetUserByEmail(googleEmail.trim());
     remnawaveUuid = extractRemnaUuid(byEmailRes.data);
   }
+  // OAuth-регистрация — это веб-флоу, всегда primary bot.
+  const primaryBotG = await getPrimaryBot();
+  if (!primaryBotG) {
+    return res.status(503).json({ message: "Primary bot not configured. Run migrations." });
+  }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
-    data: {
+    data: asClientUncheckedCreate({
+      botId: primaryBotG.id,
       email: googleEmail,
       passwordHash: null,
       remnawaveUuid,
@@ -630,7 +686,7 @@ clientAuthRouter.post("/google", async (req, res) => {
       telegramUsername: null,
       googleId,
       autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
-    },
+    }),
   });
   const token = signClientToken(client.id);
   return res.status(201).json({ token, client: toClientShape(client) });
@@ -694,9 +750,14 @@ clientAuthRouter.post("/apple", async (req, res) => {
     const byEmailRes = await remnaGetUserByEmail(appleEmail.trim());
     remnawaveUuid = extractRemnaUuid(byEmailRes.data);
   }
+  const primaryBotA = await getPrimaryBot();
+  if (!primaryBotA) {
+    return res.status(503).json({ message: "Primary bot not configured. Run migrations." });
+  }
   const referralCode = generateReferralCode();
   const client = await prisma.client.create({
-    data: {
+    data: asClientUncheckedCreate({
+      botId: primaryBotA.id,
       email: appleEmail,
       passwordHash: null,
       remnawaveUuid,
@@ -708,7 +769,7 @@ clientAuthRouter.post("/apple", async (req, res) => {
       telegramUsername: null,
       appleId: appleSub,
       autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
-    },
+    }),
   });
   const token = signClientToken(client.id);
   return res.status(201).json({ token, client: toClientShape(client) });
@@ -777,9 +838,9 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
   }
 
   try {
-    const record = await prisma.telegramAuthToken.findUnique({
+    const record = (await prisma.telegramAuthToken.findUnique({
       where: { token: token.trim() },
-    });
+    })) as TelegramAuthTokenRecord | null;
 
     if (!record) {
       return res.status(404).json({ message: "Token not found or expired" });
@@ -794,17 +855,27 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
       return res.json({ confirmed: false });
     }
 
-    // Токен подтверждён — ищем/создаём клиента
+    // Токен подтверждён — ищем/создаём клиента в правильном клоне
     const telegramId = record.confirmedTelegramId;
     const telegramUsername = record.confirmedUsername ?? null;
+    // Какой клон подтвердил токен. Если null (legacy-record до миграции) — fallback к primary.
+    let confirmedBotId = record.confirmedBotId;
+    if (!confirmedBotId) {
+      const primary = await getPrimaryBot();
+      if (!primary) {
+        await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
+        return res.status(503).json({ message: "Primary bot not configured" });
+      }
+      confirmedBotId = primary.id;
+    }
 
     // Удаляем использованный токен
     await prisma.telegramAuthToken.delete({ where: { id: record.id } }).catch(() => {});
 
     const clientSelect = { id: true, email: true, telegramId: true, telegramUsername: true, preferredLang: true, preferredCurrency: true, balance: true, referralCode: true, referralPercent: true, remnawaveUuid: true, trialUsed: true, isBlocked: true, autoRenewEnabled: true, autoRenewTariffId: true, yoomoneyAccessToken: true, totpEnabled: true, createdAt: true };
 
-    const existing = await prisma.client.findUnique({
-      where: { telegramId },
+    const existing = await prisma.client.findFirst({
+      where: asClientWhere({ telegramId, botId: confirmedBotId }),
       select: clientSelect,
     });
 
@@ -848,7 +919,8 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
 
     const referralCode = generateReferralCode();
     const client = await prisma.client.create({
-      data: {
+      data: asClientUncheckedCreate({
+        botId: confirmedBotId,
         email: null,
         passwordHash: null,
         remnawaveUuid,
@@ -859,7 +931,7 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
         telegramId,
         telegramUsername,
         autoRenewEnabled: configForDefaults.defaultAutoRenewEnabled ?? false,
-      },
+      }),
     });
 
     notifyAdminsAboutNewClient(client.id).catch(() => {});
@@ -873,12 +945,13 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
 
 // 3) Подтверждение токена ботом (бот вызывает этот эндпоинт, когда юзер отправляет /start auth_TOKEN)
 clientAuthRouter.post("/telegram-login-confirm", async (req, res) => {
-  // Проверяем что запрос от нашего бота
-  const config = await getSystemConfig();
-  const expectedBotToken = (config.telegramBotToken ?? "").trim();
+  // Проверяем что запрос от ЛЮБОГО активного клона (X-Telegram-Bot-Token совпадает с Bot.token).
   const receivedBotToken = (req.headers["x-telegram-bot-token"] as string ?? "").trim();
-
-  if (!expectedBotToken || receivedBotToken !== expectedBotToken) {
+  if (!receivedBotToken) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
+  const callingBot = await getBotByToken(receivedBotToken);
+  if (!callingBot) {
     return res.status(403).json({ message: "Unauthorized" });
   }
 
@@ -910,10 +983,11 @@ clientAuthRouter.post("/telegram-login-confirm", async (req, res) => {
 
     await prisma.telegramAuthToken.update({
       where: { id: record.id },
-      data: {
+      data: asTelegramAuthUpdate({
         confirmedTelegramId: String(telegramId),
         confirmedUsername: telegramUsername ? String(telegramUsername) : null,
-      },
+        confirmedBotId: callingBot.id,
+      }),
     });
 
     return res.json({ ok: true });
@@ -1259,18 +1333,35 @@ clientRouter.post("/link-telegram", async (req, res) => {
   if (client.telegramId) return res.status(400).json({ message: "Telegram уже привязан" });
   const body = linkTelegramSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
-  const config = await getSystemConfig();
-  const botToken = config.telegramBotToken ?? "";
-  if (!validateTelegramInitData(body.data.initData, botToken)) {
+  // initData может прийти от любого из активных клонов — пробуем подпись каждым.
+  const activeBots = await prismaBotFindMany<{ id: string; token: string }>({
+    where: { isActive: true },
+    select: { id: true, token: true },
+  });
+  const matchedBot = activeBots.find((b) => validateTelegramInitData(body.data.initData, b.token)) ?? null;
+  if (!matchedBot) {
     return res.status(401).json({ message: "Недействительные или устаревшие данные Telegram" });
+  }
+  // К текущему web-клиенту привязывается только TG из того же клона.
+  // Если клиент находится в другом клоне (например, primary), а Mini App открыт
+  // из реселлерского клона X — тогда фактически этот пользователь должен иметь
+  // ОТДЕЛЬНУЮ учётку в клоне X (см. изоляцию). Запрещаем cross-bot линк.
+  const meBot = (await prisma.client.findUnique({
+    where: { id: client.id },
+    select: asClientSelect({ botId: true }),
+  })) as ClientBotIdPick | null;
+  if (meBot && meBot.botId !== matchedBot.id) {
+    return res.status(409).json({
+      message: "Mini App открыт через другой клон бота. Привязка возможна только в том же боте, где зарегистрирован аккаунт.",
+    });
   }
   const tgUser = parseTelegramUser(body.data.initData);
   if (!tgUser) return res.status(400).json({ message: "Нет данных пользователя" });
   const telegramId = String(tgUser.id);
   const telegramUsername = tgUser.username?.trim() ?? null;
-  const other = await prisma.client.findUnique({
-    where: { telegramId },
-    select: {
+  const other = (await prisma.client.findFirst({
+    where: asClientWhere({ telegramId, botId: matchedBot.id }),
+    select: asClientSelect({
       id: true,
       email: true,
       passwordHash: true,
@@ -1279,8 +1370,8 @@ clientRouter.post("/link-telegram", async (req, res) => {
       remnawaveUuid: true,
       balance: true,
       _count: { select: { payments: true, ownedSubscriptions: true } },
-    },
-  });
+    }),
+  })) as ClientEmptyCloneRow | null;
   if (other && other.id !== client.id) {
     // Проверяем: "другой" клиент — это пустой автосоздавшийся через /start в боте
     // (нет email/OAuth/пароля, без платежей, без дополнительных подписок, нулевой баланс)?
@@ -2321,11 +2412,15 @@ clientRouter.post("/payments/platega", async (req, res) => {
   }
   if (personalDiscountMeta) Object.assign(paymentMetaObj, personalDiscountMeta);
   const paymentMeta = Object.keys(paymentMetaObj).length > 0 ? paymentMetaObj : null;
-  const payment = await prisma.payment.create({
-    data: {
+  const snap = isTopupOnlyPlatega ? await paymentSnapshotTopup(clientId, finalAmount) : await paymentSnapshotProduct(clientId, finalAmount);
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId,
       orderId,
-      amount: finalAmount,
+      amount: snap.amount,
+      baseAmount: snap.baseAmount,
+      botMarkupPercent: snap.botMarkupPercent,
+      botMarkupAmount: snap.botMarkupAmount,
       currency: currencyToUse,
       status: "PENDING",
       provider: "platega",
@@ -2335,11 +2430,11 @@ clientRouter.post("/payments/platega", async (req, res) => {
       proxyTariffId: proxyTariffIdToStore,
       singboxTariffId: singboxTariffIdToStore,
       metadata: paymentMeta ? JSON.stringify(paymentMeta) : null,
-    },
+    }),
   });
 
   const result = await createPlategaTransaction(plategaConfig, {
-    amount: finalAmount,
+    amount: snap.amount,
     currency: currencyToUse,
     orderId,
     paymentMethod,
@@ -2365,7 +2460,7 @@ clientRouter.post("/payments/platega", async (req, res) => {
     orderId,
     paymentId: payment.id,
     discountApplied: promoCodeRecord ? true : false,
-    finalAmount,
+    finalAmount: snap.amount,
   });
 });
 
@@ -2395,14 +2490,18 @@ clientRouter.post("/payments/balance", async (req, res) => {
     // Персональная скидка админа (баланс — такой же канал оплаты, как и другие).
     const pd = await applyPersonalDiscount(tariff.price, clientRaw.id);
     const finalProxyPrice = pd.amount;
-    if (clientDb.balance < finalProxyPrice) {
-      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalProxyPrice.toFixed(2)}` });
+    const snap = await paymentSnapshotProduct(clientRaw.id, finalProxyPrice);
+    if (clientDb.balance < snap.amount) {
+      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${snap.amount.toFixed(2)}` });
     }
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId: clientRaw.id,
         orderId: randomUUID(),
-        amount: finalProxyPrice,
+        amount: snap.amount,
+        baseAmount: snap.baseAmount,
+        botMarkupPercent: snap.botMarkupPercent,
+        botMarkupAmount: snap.botMarkupAmount,
         currency: tariff.currency.toUpperCase(),
         status: "PAID",
         provider: "balance",
@@ -2411,21 +2510,21 @@ clientRouter.post("/payments/balance", async (req, res) => {
         metadata: pd.personalDiscountPercent > 0
           ? JSON.stringify({ personalDiscountPercent: pd.personalDiscountPercent, originalPrice: tariff.price })
           : null,
-      },
+      }),
     });
     const proxyResult = await createProxySlotsByPaymentId(payment.id);
     if (!proxyResult.ok) return res.status(proxyResult.status).json({ message: proxyResult.error });
     await prisma.client.update({
       where: { id: clientRaw.id },
-      data: { balance: { decrement: finalProxyPrice } },
+      data: { balance: { decrement: snap.amount } },
     });
     const { distributeReferralRewards } = await import("../referral/referral.service.js");
     await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] Error:", e));
     const { notifyProxySlotsCreated } = await import("../notification/telegram-notify.service.js");
     await notifyProxySlotsCreated(clientRaw.id, proxyResult.slotIds, tariff.name).catch(() => {});
     return res.json({
-      message: `Прокси «${tariff.name}» оплачены! Списано ${finalProxyPrice.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
-      newBalance: clientDb.balance - finalProxyPrice,
+      message: `Прокси «${tariff.name}» оплачены! Списано ${snap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+      newBalance: clientDb.balance - snap.amount,
     });
   }
 
@@ -2436,14 +2535,18 @@ clientRouter.post("/payments/balance", async (req, res) => {
     if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
     const pd = await applyPersonalDiscount(tariff.price, clientRaw.id);
     const finalSingboxPrice = pd.amount;
-    if (clientDb.balance < finalSingboxPrice) {
-      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalSingboxPrice.toFixed(2)}` });
+    const singSnap = await paymentSnapshotProduct(clientRaw.id, finalSingboxPrice);
+    if (clientDb.balance < singSnap.amount) {
+      return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${singSnap.amount.toFixed(2)}` });
     }
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId: clientRaw.id,
         orderId: randomUUID(),
-        amount: finalSingboxPrice,
+        amount: singSnap.amount,
+        baseAmount: singSnap.baseAmount,
+        botMarkupPercent: singSnap.botMarkupPercent,
+        botMarkupAmount: singSnap.botMarkupAmount,
         currency: tariff.currency.toUpperCase(),
         status: "PAID",
         provider: "balance",
@@ -2452,21 +2555,21 @@ clientRouter.post("/payments/balance", async (req, res) => {
         metadata: pd.personalDiscountPercent > 0
           ? JSON.stringify({ personalDiscountPercent: pd.personalDiscountPercent, originalPrice: tariff.price })
           : null,
-      },
+      }),
     });
     const singboxResult = await createSingboxSlotsByPaymentId(payment.id);
     if (!singboxResult.ok) return res.status(singboxResult.status).json({ message: singboxResult.error });
     await prisma.client.update({
       where: { id: clientRaw.id },
-      data: { balance: { decrement: finalSingboxPrice } },
+      data: { balance: { decrement: singSnap.amount } },
     });
     const { distributeReferralRewards } = await import("../referral/referral.service.js");
     await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] Error:", e));
     const { notifySingboxSlotsCreated } = await import("../notification/telegram-notify.service.js");
     await notifySingboxSlotsCreated(clientRaw.id, singboxResult.slotIds, tariff.name).catch(() => {});
     return res.json({
-      message: `Доступы «${tariff.name}» оплачены! Списано ${finalSingboxPrice.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
-      newBalance: clientDb.balance - finalSingboxPrice,
+      message: `Доступы «${tariff.name}» оплачены! Списано ${singSnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+      newBalance: clientDb.balance - singSnap.amount,
     });
   }
 
@@ -2528,11 +2631,12 @@ clientRouter.post("/payments/balance", async (req, res) => {
     }
   }
 
-  // Проверяем баланс
+  // Проверяем баланс (с учётом наценки клона)
   const clientDb = await prisma.client.findUnique({ where: { id: clientRaw.id } });
   if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
-  if (clientDb.balance < finalPrice) {
-    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalPrice.toFixed(2)}` });
+  const tariffPaySnap = await paymentSnapshotProduct(clientRaw.id, finalPrice);
+  if (clientDb.balance < tariffPaySnap.amount) {
+    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${tariffPaySnap.amount.toFixed(2)}` });
   }
 
   // Активируем тариф в Remnawave с выбранной опцией + числом ДОП. устройств.
@@ -2547,7 +2651,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
   // Списываем баланс
   await prisma.client.update({
     where: { id: clientRaw.id },
-    data: { balance: { decrement: finalPrice } },
+    data: { balance: { decrement: tariffPaySnap.amount } },
   });
 
   // Создаём запись об оплате
@@ -2558,11 +2662,14 @@ clientRouter.post("/payments/balance", async (req, res) => {
     tariffMeta.personalDiscountPercent = tariffPersonalDiscount;
     if (!tariffMeta.originalPrice) tariffMeta.originalPrice = basePriceForTariff;
   }
-  const payment = await prisma.payment.create({
-    data: {
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId: clientRaw.id,
       orderId,
-      amount: finalPrice,
+      amount: tariffPaySnap.amount,
+      baseAmount: tariffPaySnap.baseAmount,
+      botMarkupPercent: tariffPaySnap.botMarkupPercent,
+      botMarkupAmount: tariffPaySnap.botMarkupAmount,
       currency: tariff.currency.toUpperCase(),
       status: "PAID",
       provider: "balance",
@@ -2571,7 +2678,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
       deviceCount: requestedExtras,
       paidAt: new Date(),
       metadata: Object.keys(tariffMeta).length > 0 ? JSON.stringify(tariffMeta) : null,
-    },
+    }),
   });
 
   // Записываем использование промокода
@@ -2584,9 +2691,9 @@ clientRouter.post("/payments/balance", async (req, res) => {
   await distributeReferralRewards(payment.id).catch(() => {});
 
   return res.json({
-    message: `Тариф «${tariff.name}» активирован! Списано ${finalPrice.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
+    message: `Тариф «${tariff.name}» активирован! Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`,
     paymentId: payment.id,
-    newBalance: clientDb.balance - finalPrice,
+    newBalance: clientDb.balance - tariffPaySnap.amount,
   });
 });
 
@@ -2671,9 +2778,10 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
 
   const clientDb = await prisma.client.findUnique({ where: { id: clientRaw.id } });
   if (!clientDb) return res.status(401).json({ message: "Unauthorized" });
-  if (clientDb.balance < finalPrice) {
+  const customSnap = await paymentSnapshotProduct(clientRaw.id, finalPrice);
+  if (clientDb.balance < customSnap.amount) {
     return res.status(400).json({
-      message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalPrice.toFixed(2)} ${cfg.currency.toUpperCase()}`,
+      message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${customSnap.amount.toFixed(2)} ${cfg.currency.toUpperCase()}`,
     });
   }
 
@@ -2689,17 +2797,20 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
   });
 
   const orderId = randomUUID();
-  const payment = await prisma.payment.create({
-    data: {
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId: clientRaw.id,
       orderId,
-      amount: finalPrice,
+      amount: customSnap.amount,
+      baseAmount: customSnap.baseAmount,
+      botMarkupPercent: customSnap.botMarkupPercent,
+      botMarkupAmount: customSnap.botMarkupAmount,
       currency: cfg.currency.toUpperCase(),
       status: "PAID",
       provider: "balance",
       paidAt: new Date(),
       metadata,
-    },
+    }),
   });
 
   const activation = await activateTariffByPaymentId(payment.id);
@@ -2710,7 +2821,7 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
 
   await prisma.client.update({
     where: { id: clientRaw.id },
-    data: { balance: { decrement: finalPrice } },
+    data: { balance: { decrement: customSnap.amount } },
   });
   if (promoCodeRecord) {
     await prisma.promoCodeUsage.create({ data: { promoCodeId: promoCodeRecord.id, clientId: clientRaw.id } });
@@ -2719,9 +2830,9 @@ clientRouter.post("/custom-build/pay-balance", async (req, res) => {
   await distributeReferralRewards(payment.id).catch((e) => console.error("[referral] Error:", e));
 
   return res.json({
-    message: `Подписка на ${days} дн., ${devices} ${devices === 1 ? "устройство" : "устройства"} активирована. Списано ${finalPrice.toFixed(2)} ${cfg.currency.toUpperCase()}.`,
+    message: `Подписка на ${days} дн., ${devices} ${devices === 1 ? "устройство" : "устройства"} активирована. Списано ${customSnap.amount.toFixed(2)} ${cfg.currency.toUpperCase()}.`,
     paymentId: payment.id,
-    newBalance: clientDb.balance - finalPrice,
+    newBalance: clientDb.balance - customSnap.amount,
   });
 });
 
@@ -2780,8 +2891,9 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
 
   const pdOption = await applyPersonalDiscount(price, clientDb.id);
   const finalOptionPrice = pdOption.amount;
-  if (clientDb.balance < finalOptionPrice) {
-    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${finalOptionPrice.toFixed(2)}` });
+  const optSnap = await paymentSnapshotProduct(clientDb.id, finalOptionPrice);
+  if (clientDb.balance < optSnap.amount) {
+    return res.status(400).json({ message: `Недостаточно средств. Баланс: ${clientDb.balance.toFixed(2)}, нужно: ${optSnap.amount.toFixed(2)}` });
   }
   if (pdOption.personalDiscountPercent > 0) {
     (metadataExtra as Record<string, unknown>).personalDiscountPercent = pdOption.personalDiscountPercent;
@@ -2789,17 +2901,20 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
   }
 
   const orderId = randomUUID();
-  const payment = await prisma.payment.create({
-    data: {
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId: clientDb.id,
       orderId,
-      amount: finalOptionPrice,
+      amount: optSnap.amount,
+      baseAmount: optSnap.baseAmount,
+      botMarkupPercent: optSnap.botMarkupPercent,
+      botMarkupAmount: optSnap.botMarkupAmount,
       currency: currency.toUpperCase(),
       status: "PAID",
       provider: "balance",
       paidAt: new Date(),
       metadata: JSON.stringify(metadataExtra),
-    },
+    }),
   });
 
   const applyResult = await applyExtraOptionByPaymentId(payment.id);
@@ -2810,13 +2925,13 @@ clientRouter.post("/payments/balance/option", async (req, res) => {
 
   await prisma.client.update({
     where: { id: clientDb.id },
-    data: { balance: { decrement: finalOptionPrice } },
+    data: { balance: { decrement: optSnap.amount } },
   });
 
   const { distributeReferralRewards } = await import("../referral/referral.service.js");
   await distributeReferralRewards(payment.id).catch(() => {});
 
-  const newBalance = clientDb.balance - finalOptionPrice;
+  const newBalance = clientDb.balance - optSnap.amount;
   return res.json({
     message: "Опция применена. Списано с баланса.",
     paymentId: payment.id,
@@ -2855,21 +2970,25 @@ clientRouter.post("/yoomoney/request-topup", async (req, res) => {
   const serviceName = config.serviceName?.trim() || "STEALTHNET";
   const amountRounded = Math.round(amount * 100) / 100;
   const orderId = randomUUID();
-  const payment = await prisma.payment.create({
-    data: {
+  const topSnap = await paymentSnapshotTopup(client.id, amountRounded);
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId: client.id,
       orderId,
-      amount: amountRounded,
+      amount: topSnap.amount,
+      baseAmount: topSnap.baseAmount,
+      botMarkupPercent: topSnap.botMarkupPercent,
+      botMarkupAmount: topSnap.botMarkupAmount,
       currency: "RUB",
       status: "PENDING",
       provider: "yoomoney",
       metadata: JSON.stringify({ type: "balance_topup" }),
-    },
+    }),
   });
 
   const result = await requestPayment(client.yoomoneyAccessToken, {
     to: receiver,
-    amount_due: amountRounded,
+    amount_due: topSnap.amount,
     label: payment.id,
     message: `Пополнение баланса ${serviceName}. Заказ ${orderId}`,
     comment: `Пополнение баланса`,
@@ -3081,12 +3200,18 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     metadataObj = { ...metadataObj, personalDiscountPercent: yoomoneyPersonalDiscount, ...(yoomoneyOriginalAmount != null ? { originalAmount: yoomoneyOriginalAmount } : {}) };
   }
 
+  const yoomoneySnap = yoomoneyIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+  const yoomoneyCharge = yoomoneySnap.amount;
+
   const orderId = randomUUID();
-  const payment = await prisma.payment.create({
-    data: {
+  const payment = await createPayment({
+    data: asPaymentUncheckedCreate({
       clientId,
       orderId,
-      amount: amountRounded,
+      amount: yoomoneySnap.amount,
+      baseAmount: yoomoneySnap.baseAmount,
+      botMarkupPercent: yoomoneySnap.botMarkupPercent,
+      botMarkupAmount: yoomoneySnap.botMarkupAmount,
       currency: "RUB",
       status: "PENDING",
       provider: "yoomoney_form",
@@ -3096,7 +3221,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
       proxyTariffId: proxyTariffIdToStore,
       singboxTariffId: singboxTariffIdToStore,
       metadata: JSON.stringify(metadataObj),
-    },
+    }),
   });
 
   const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -3117,7 +3242,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     receiver,
     "quickpay-form": "shop",
     targets,
-    sum: String(amountRounded),
+    sum: String(yoomoneyCharge),
     paymentType,
     label: payment.id.slice(0, 64),
     successURL,
@@ -3130,7 +3255,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
     paymentUrl,
     form: {
       receiver,
-      sum: amountRounded,
+      sum: yoomoneyCharge,
       label: payment.id,
       paymentType,
       successURL,
@@ -3337,12 +3462,18 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     });
     const customerEmail = client?.email?.trim() || null;
 
+    const ykSnap = yookassaIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+    const ykCharge = ykSnap.amount;
+
     const orderId = randomUUID();
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId,
         orderId,
-        amount: amountRounded,
+        amount: ykSnap.amount,
+        baseAmount: ykSnap.baseAmount,
+        botMarkupPercent: ykSnap.botMarkupPercent,
+        botMarkupAmount: ykSnap.botMarkupAmount,
         currency: currencyUpper,
         status: "PENDING",
         provider: "yookassa",
@@ -3352,7 +3483,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
-      },
+      }),
     });
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -3371,7 +3502,7 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
     const result = await createYookassaPayment({
       shopId,
       secretKey,
-      amount: amountRounded,
+      amount: ykCharge,
       currency: currencyUpper,
       returnUrl,
       description,
@@ -3558,12 +3689,18 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
       metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
     }
 
+    const cpSnap = cryptoIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+    const cpCharge = cpSnap.amount;
+
     const orderId = randomUUID();
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId,
         orderId,
-        amount: amountRounded,
+        amount: cpSnap.amount,
+        baseAmount: cpSnap.baseAmount,
+        botMarkupPercent: cpSnap.botMarkupPercent,
+        botMarkupAmount: cpSnap.botMarkupAmount,
         currency: currencyUpper,
         status: "PENDING",
         provider: "cryptopay",
@@ -3573,7 +3710,7 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
-      },
+      }),
     });
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -3591,7 +3728,7 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
 
     const result = await createCryptopayInvoice({
       config: cryptopayConfig,
-      amount: String(amountRounded),
+      amount: String(cpCharge),
       currencyType: "fiat",
       fiat: currencyUpper,
       description: description.slice(0, 1024),
@@ -3754,12 +3891,18 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
       metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
     }
 
+    const hkSnap = heleketIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+    const hkCharge = hkSnap.amount;
+
     const orderId = randomUUID();
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId,
         orderId,
-        amount: amountRounded,
+        amount: hkSnap.amount,
+        baseAmount: hkSnap.baseAmount,
+        botMarkupPercent: hkSnap.botMarkupPercent,
+        botMarkupAmount: hkSnap.botMarkupAmount,
         currency: currencyUpper,
         status: "PENDING",
         provider: "heleket",
@@ -3769,7 +3912,7 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
-      },
+      }),
     });
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -3780,7 +3923,7 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
 
     const result = await createHeleketInvoice({
       config: heleketConfig,
-      amount: String(amountRounded),
+      amount: String(hkCharge),
       currency: currencyUpper,
       orderId,
       urlCallback,
@@ -3952,12 +4095,18 @@ clientRouter.post("/lava/create-payment", async (req, res) => {
       metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
     }
 
+    const lavaSnap = lavaIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+    const lavaCharge = lavaSnap.amount;
+
     const orderId = randomUUID();
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId,
         orderId,
-        amount: amountRounded,
+        amount: lavaSnap.amount,
+        baseAmount: lavaSnap.baseAmount,
+        botMarkupPercent: lavaSnap.botMarkupPercent,
+        botMarkupAmount: lavaSnap.botMarkupAmount,
         currency: currencyUpper,
         status: "PENDING",
         provider: "lava",
@@ -3967,7 +4116,7 @@ clientRouter.post("/lava/create-payment", async (req, res) => {
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
-      },
+      }),
     });
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -3978,7 +4127,7 @@ clientRouter.post("/lava/create-payment", async (req, res) => {
 
     const result = await createLavaInvoice({
       config: lavaConfig,
-      amount: amountRounded,
+      amount: lavaCharge,
       orderId,
       hookUrl,
       successUrl,
@@ -4157,12 +4306,18 @@ clientRouter.post("/overpay/create-payment", async (req, res) => {
       metadataObj = { ...metadataObj, promoCodeId: promo.id, originalAmount };
     }
 
+    const opSnap = overpayIsTopup ? await paymentSnapshotTopup(clientId, amountRounded) : await paymentSnapshotProduct(clientId, amountRounded);
+    const opCharge = opSnap.amount;
+
     const orderId = randomUUID();
-    const payment = await prisma.payment.create({
-      data: {
+    const payment = await createPayment({
+      data: asPaymentUncheckedCreate({
         clientId,
         orderId,
-        amount: amountRounded,
+        amount: opSnap.amount,
+        baseAmount: opSnap.baseAmount,
+        botMarkupPercent: opSnap.botMarkupPercent,
+        botMarkupAmount: opSnap.botMarkupAmount,
         currency: currencyUpper,
         status: "PENDING",
         provider: "overpay",
@@ -4172,7 +4327,7 @@ clientRouter.post("/overpay/create-payment", async (req, res) => {
         proxyTariffId: proxyTariffIdToStore,
         singboxTariffId: singboxTariffIdToStore,
         metadata: Object.keys(metadataObj).length > 0 ? JSON.stringify(metadataObj) : null,
-      },
+      }),
     });
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
@@ -4186,7 +4341,7 @@ clientRouter.post("/overpay/create-payment", async (req, res) => {
 
     const result = await createOverpayPayformOrder({
       config: overpayConfig,
-      amount: amountRounded,
+      amount: opCharge,
       currency: currencyUpper,
       orderId,
       description: `${serviceName} — ${payment.id}`.slice(0, 200),
@@ -4597,8 +4752,10 @@ clientRouter.post("/tickets/:id/messages", uploadTicketAttachment.array("files",
 
 // Публичный конфиг для бота, mini app, сайта (без паролей и секретов)
 export const publicConfigRouter = Router();
-publicConfigRouter.get("/config", async (_req, res) => {
-  const config = await getPublicConfig();
+publicConfigRouter.use(optionalBot);
+publicConfigRouter.get("/config", async (req, res) => {
+  const bot = (req as Request & Partial<ReqWithBot>).bot;
+  const config = await getPublicConfig(bot ?? null);
   return res.json(config);
 });
 
@@ -4651,10 +4808,11 @@ const linkTelegramFromBotSchema = z.object({
   telegramUsername: z.string().optional(),
 });
 publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
-  const config = await getSystemConfig();
-  const botToken = (config.telegramBotToken ?? "").trim();
+  // Принимаем токен от ЛЮБОГО активного клона.
   const headerToken = typeof req.headers["x-telegram-bot-token"] === "string" ? req.headers["x-telegram-bot-token"].trim() : "";
-  if (!botToken || headerToken !== botToken) return res.status(401).json({ message: "Unauthorized" });
+  if (!headerToken) return res.status(401).json({ message: "Unauthorized" });
+  const callingBot = await getBotByToken(headerToken);
+  if (!callingBot) return res.status(401).json({ message: "Unauthorized" });
   const body = linkTelegramFromBotSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
   const { code, telegramId, telegramUsername } = body.data;
@@ -4665,9 +4823,26 @@ publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
     await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
     return res.status(400).json({ message: "Код истёк. Запросите новый в кабинете." });
   }
-  const other = await prisma.client.findUnique({
-    where: { telegramId: tid },
-    select: {
+  // Линкуемая web-учётка должна принадлежать тому же клону, в котором сделан /link
+  // (иначе один TG-юзер мог бы цепляться к веб-аккаунтам разных клонов).
+  // Web-аккаунт хранит свой botId (для веб-регистраций = primary). Если они различаются —
+  // отказываем явным сообщением, чтобы не «утекали» данные между клонами.
+  const targetClient = (await prisma.client.findUnique({
+    where: { id: pending.clientId },
+    select: asClientSelect({ botId: true }),
+  })) as ClientBotIdPick | null;
+  if (!targetClient) {
+    await prisma.pendingTelegramLink.deleteMany({ where: { id: pending.id } }).catch(() => {});
+    return res.status(404).json({ message: "Клиент не найден" });
+  }
+  if (targetClient.botId !== callingBot.id) {
+    return res.status(409).json({
+      message: "Код выдан для другого бота. Запросите код в боте, через который вы хотите привязаться, или используйте основной бот.",
+    });
+  }
+  const other = (await prisma.client.findFirst({
+    where: asClientWhere({ telegramId: tid, botId: callingBot.id }),
+    select: asClientSelect({
       id: true,
       email: true,
       passwordHash: true,
@@ -4676,8 +4851,8 @@ publicConfigRouter.post("/link-telegram-from-bot", async (req, res) => {
       remnawaveUuid: true,
       balance: true,
       _count: { select: { payments: true, ownedSubscriptions: true } },
-    },
-  });
+    }),
+  })) as ClientEmptyCloneRow | null;
   if (other && other.id !== pending.clientId) {
     // Кейс PabloRuss77: юзер нажал /start в боте до ввода кода → авто-создался пустой клиент с
     // этим telegramId. Если клон пустой — безопасно сливаем (переносим telegramId и
@@ -4737,23 +4912,27 @@ publicConfigRouter.get("/subscription-page", async (_req, res) => {
   }
 });
 
-function tariffToJson(t: {
-  id: string;
-  name: string;
-  description: string | null;
-  durationDays: number;
-  internalSquadUuids: string[];
-  trafficLimitBytes: bigint | null;
-  trafficResetMode?: string;
-  deviceLimit: number | null;
-  includedDevices?: number;
-  pricePerExtraDevice?: number;
-  maxExtraDevices?: number;
-  deviceDiscountTiers?: unknown;
-  price: number;
-  currency: string;
-  priceOptions?: { id: string; durationDays: number; price: number; sortOrder: number }[];
-}) {
+function tariffToJson(
+  t: {
+    id: string;
+    name: string;
+    description: string | null;
+    durationDays: number;
+    internalSquadUuids: string[];
+    trafficLimitBytes: bigint | null;
+    trafficResetMode?: string;
+    deviceLimit: number | null;
+    includedDevices?: number;
+    pricePerExtraDevice?: number;
+    maxExtraDevices?: number;
+    deviceDiscountTiers?: unknown;
+    price: number;
+    currency: string;
+    priceOptions?: { id: string; durationDays: number; price: number; sortOrder: number }[];
+  },
+  markupPercent = 0,
+) {
+  const m = (n: number) => applyMarkup(n, markupPercent);
   return {
     id: t.id,
     name: t.name,
@@ -4763,24 +4942,25 @@ function tariffToJson(t: {
     trafficResetMode: t.trafficResetMode ?? "no_reset",
     deviceLimit: t.deviceLimit,
     includedDevices: t.includedDevices ?? 1,
-    pricePerExtraDevice: t.pricePerExtraDevice ?? 0,
+    pricePerExtraDevice: m(t.pricePerExtraDevice ?? 0),
     maxExtraDevices: t.maxExtraDevices ?? 0,
     deviceDiscountTiers: Array.isArray(t.deviceDiscountTiers)
       ? (t.deviceDiscountTiers as { minExtraDevices: number; discountPercent: number }[])
       : [],
-    price: t.price,
+    price: m(t.price),
     currency: t.currency,
     priceOptions: (t.priceOptions ?? []).map((o) => ({
       id: o.id,
       durationDays: o.durationDays,
-      price: o.price,
+      price: m(o.price),
       sortOrder: o.sortOrder,
     })),
   };
 }
 
-publicConfigRouter.get("/tariffs", async (_req, res) => {
+publicConfigRouter.get("/tariffs", async (req, res) => {
   try {
+    const markupPct = (req as Request & Partial<ReqWithBot>).bot?.markupPercent ?? 0;
     const config = await getSystemConfig();
     const categoryEmojis = config.categoryEmojis ?? { ordinary: "📦", premium: "⭐" };
     const list = await prisma.tariffCategory.findMany({
@@ -4802,7 +4982,7 @@ publicConfigRouter.get("/tariffs", async (_req, res) => {
           name: c.name,
           emojiKey: c.emojiKey ?? null,
           emoji,
-          tariffs: c.tariffs.map(tariffToJson),
+          tariffs: c.tariffs.map((t) => tariffToJson(t, markupPct)),
         };
       }),
     });
@@ -4813,8 +4993,9 @@ publicConfigRouter.get("/tariffs", async (_req, res) => {
 });
 
 // GET /api/public/proxy-tariffs — публичный список тарифов прокси (для бота и кабинета)
-publicConfigRouter.get("/proxy-tariffs", async (_req, res) => {
+publicConfigRouter.get("/proxy-tariffs", async (req, res) => {
   try {
+    const markupPct = (req as Request & Partial<ReqWithBot>).bot?.markupPercent ?? 0;
     const list = await prisma.proxyCategory.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: { tariffs: { where: { enabled: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
@@ -4831,7 +5012,7 @@ publicConfigRouter.get("/proxy-tariffs", async (_req, res) => {
           durationDays: t.durationDays,
           trafficLimitBytes: t.trafficLimitBytes?.toString() ?? null,
           connectionLimit: t.connectionLimit,
-          price: t.price,
+          price: applyMarkup(t.price, markupPct),
           currency: t.currency,
         })),
       })),
@@ -4843,8 +5024,9 @@ publicConfigRouter.get("/proxy-tariffs", async (_req, res) => {
 });
 
 // GET /api/public/singbox-tariffs — публичный список тарифов Sing-box (для бота и кабинета)
-publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
+publicConfigRouter.get("/singbox-tariffs", async (req, res) => {
   try {
+    const markupPct = (req as Request & Partial<ReqWithBot>).bot?.markupPercent ?? 0;
     const list = await prisma.singboxCategory.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: { tariffs: { where: { enabled: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
@@ -4860,7 +5042,7 @@ publicConfigRouter.get("/singbox-tariffs", async (_req, res) => {
           slotCount: t.slotCount,
           durationDays: t.durationDays,
           trafficLimitBytes: t.trafficLimitBytes?.toString() ?? null,
-          price: t.price,
+          price: applyMarkup(t.price, markupPct),
           currency: t.currency,
         })),
       })),

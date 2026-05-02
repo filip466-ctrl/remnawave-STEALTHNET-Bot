@@ -1,6 +1,5 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 
 const routerFutureFlags = {
   v7_startTransition: true,
@@ -12,80 +11,65 @@ import { ThemeProvider } from "@/contexts/theme";
 import { AnimatedBackground } from "@/components/animated-background";
 import { PwaUpdatePrompt } from "@/components/pwa/pwa-update-prompt";
 import { api } from "@/lib/api";
-
-// Layouts грузятся eager — они нужны мгновенно при попадании на любой роут.
+import { LoginPage } from "@/pages/login";
+import { ChangePasswordPage } from "@/pages/change-password";
+import { DashboardPage } from "@/pages/dashboard";
+import { ClientsPage } from "@/pages/clients";
+import { TariffsPage } from "@/pages/tariffs";
+import { SettingsPage } from "@/pages/settings";
+import { PromoPage } from "@/pages/promo";
+import { PromoCodesPage } from "@/pages/promo-codes";
+import { AnalyticsPage } from "@/pages/analytics";
+import { MarketingPage } from "@/pages/marketing";
+import { AdminsPage } from "@/pages/admins";
+import { SalesReportPage } from "@/pages/sales-report";
+import { VideoInstructionsPage } from "@/pages/video-instructions";
+import { BackupPage } from "@/pages/backup";
+import { ContestsPage } from "@/pages/contests";
+import { AdminTicketsPage } from "@/pages/admin-tickets";
+import { BroadcastPage } from "@/pages/broadcast";
+import { AutoBroadcastPage } from "@/pages/auto-broadcast";
+import { ReferralNetworkPage } from "@/pages/referral-network";
+import { GramadsPromoPage } from "@/pages/gramads-promo";
+import { TrafficAbusePage } from "@/pages/traffic-abuse";
+import { ApiKeysPage } from "@/pages/api-keys";
+import { BotsPage } from "@/pages/bots";
+import { ApiDocsPage } from "@/pages/api-docs";
+import { GeoMapPage } from "@/pages/geo-map";
+import { AdminSecondarySubscriptionsPage } from "@/pages/admin-secondary-subscriptions";
+import { ProxyPage } from "@/pages/proxy";
+import { SingboxPage } from "@/pages/singbox";
+import LanguagesPage from "@/pages/languages";
+import { TourConstructorPage } from "@/pages/tour-constructor";
+import { MarketplaceLayout } from "@/pages/marketplace/marketplace-layout";
+import { MarketplaceBrowsePage } from "@/pages/marketplace/marketplace-browse";
+import { MarketplaceMyListingsPage } from "@/pages/marketplace/marketplace-my";
+import { MarketplaceEditListingPage } from "@/pages/marketplace/marketplace-edit";
+import { MarketplaceHubInstallationsPage } from "@/pages/marketplace/marketplace-hub-installations";
+import { MarketplaceHubReportsPage } from "@/pages/marketplace/marketplace-hub-reports";
+import { MarketplaceHubCategoriesPage } from "@/pages/marketplace/marketplace-hub-categories";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { CabinetLayout } from "@/pages/cabinet/cabinet-layout";
-
-// Хелпер: конвертирует named-export модуль в shape, который понимает React.lazy.
-// `props` дженерик нужен чтобы lazy-компонент не схлопнулся в ComponentType<{}> и
-// продолжал принимать свои реальные props (см. LandingPage с `config`).
-const named = <Props,>(p: Promise<Record<string, unknown>>, name: string) =>
-  p.then((m) => ({ default: m[name] as React.ComponentType<Props> }));
-
-// === Admin pages (lazy chunks) ===
-const LoginPage = lazy(() => named(import("@/pages/login"), "LoginPage"));
-const ChangePasswordPage = lazy(() => named(import("@/pages/change-password"), "ChangePasswordPage"));
-const DashboardPage = lazy(() => named(import("@/pages/dashboard"), "DashboardPage"));
-const ClientsPage = lazy(() => named(import("@/pages/clients"), "ClientsPage"));
-const TariffsPage = lazy(() => named(import("@/pages/tariffs"), "TariffsPage"));
-const SettingsPage = lazy(() => named(import("@/pages/settings"), "SettingsPage"));
-const PromoPage = lazy(() => named(import("@/pages/promo"), "PromoPage"));
-const PromoCodesPage = lazy(() => named(import("@/pages/promo-codes"), "PromoCodesPage"));
-const AnalyticsPage = lazy(() => named(import("@/pages/analytics"), "AnalyticsPage"));
-const MarketingPage = lazy(() => named(import("@/pages/marketing"), "MarketingPage"));
-const AdminsPage = lazy(() => named(import("@/pages/admins"), "AdminsPage"));
-const SalesReportPage = lazy(() => named(import("@/pages/sales-report"), "SalesReportPage"));
-const VideoInstructionsPage = lazy(() => named(import("@/pages/video-instructions"), "VideoInstructionsPage"));
-const BackupPage = lazy(() => named(import("@/pages/backup"), "BackupPage"));
-const ContestsPage = lazy(() => named(import("@/pages/contests"), "ContestsPage"));
-const AdminTicketsPage = lazy(() => named(import("@/pages/admin-tickets"), "AdminTicketsPage"));
-const BroadcastPage = lazy(() => named(import("@/pages/broadcast"), "BroadcastPage"));
-const AutoBroadcastPage = lazy(() => named(import("@/pages/auto-broadcast"), "AutoBroadcastPage"));
-const ReferralNetworkPage = lazy(() => named(import("@/pages/referral-network"), "ReferralNetworkPage"));
-const GramadsPromoPage = lazy(() => named(import("@/pages/gramads-promo"), "GramadsPromoPage"));
-const TrafficAbusePage = lazy(() => named(import("@/pages/traffic-abuse"), "TrafficAbusePage"));
-const ApiKeysPage = lazy(() => named(import("@/pages/api-keys"), "ApiKeysPage"));
-const ApiDocsPage = lazy(() => named(import("@/pages/api-docs"), "ApiDocsPage"));
-const GeoMapPage = lazy(() => named(import("@/pages/geo-map"), "GeoMapPage"));
-const AdminSecondarySubscriptionsPage = lazy(() => named(import("@/pages/admin-secondary-subscriptions"), "AdminSecondarySubscriptionsPage"));
-const ProxyPage = lazy(() => named(import("@/pages/proxy"), "ProxyPage"));
-const SingboxPage = lazy(() => named(import("@/pages/singbox"), "SingboxPage"));
-// LanguagesPage — default export, не named
-const LanguagesPage = lazy(() => import("@/pages/languages"));
-const TourConstructorPage = lazy(() => named(import("@/pages/tour-constructor"), "TourConstructorPage"));
-
-// === Cabinet pages (lazy chunks) ===
-const ClientLoginPage = lazy(() => named(import("@/pages/cabinet/client-login"), "ClientLoginPage"));
-const ClientRegisterPage = lazy(() => named(import("@/pages/cabinet/client-register"), "ClientRegisterPage"));
-const ClientOnboardingPage = lazy(() => named(import("@/pages/cabinet/client-onboarding"), "ClientOnboardingPage"));
-const ClientVerifyEmailPage = lazy(() => named(import("@/pages/cabinet/client-verify-email"), "ClientVerifyEmailPage"));
-const ClientVerifyLinkEmailPage = lazy(() => named(import("@/pages/cabinet/client-verify-link-email"), "ClientVerifyLinkEmailPage"));
-const ClientDashboardPage = lazy(() => named(import("@/pages/cabinet/client-dashboard"), "ClientDashboardPage"));
-const ClientTariffsPage = lazy(() => named(import("@/pages/cabinet/client-tariffs"), "ClientTariffsPage"));
-const ClientProfilePage = lazy(() => named(import("@/pages/cabinet/client-profile"), "ClientProfilePage"));
-const ClientReferralPage = lazy(() => named(import("@/pages/cabinet/client-referral"), "ClientReferralPage"));
-const ClientSubscribePage = lazy(() => named(import("@/pages/cabinet/client-subscribe"), "ClientSubscribePage"));
-const ClientYooMoneyPayPage = lazy(() => named(import("@/pages/cabinet/client-yoomoney-pay"), "ClientYooMoneyPayPage"));
-const ClientExtraOptionsPage = lazy(() => named(import("@/pages/cabinet/client-extra-options"), "ClientExtraOptionsPage"));
-const ClientProxyPage = lazy(() => named(import("@/pages/cabinet/client-proxy"), "ClientProxyPage"));
-const ClientSingboxPage = lazy(() => named(import("@/pages/cabinet/client-singbox"), "ClientSingboxPage"));
-const ClientTicketsPage = lazy(() => named(import("@/pages/cabinet/client-tickets"), "ClientTicketsPage"));
-const ClientCustomBuildPage = lazy(() => named(import("@/pages/cabinet/client-custom-build"), "ClientCustomBuildPage"));
-const ClientGiftsPage = lazy(() => named(import("@/pages/cabinet/client-gifts"), "ClientGiftsPage"));
-const GiftActivatePage = lazy(() => named(import("@/pages/gift-activate"), "GiftActivatePage"));
-const LandingPage = lazy(() => named<{ config: PublicConfig }>(import("@/pages/landing"), "LandingPage"));
-
+import { ClientLoginPage } from "@/pages/cabinet/client-login";
+import { ClientRegisterPage } from "@/pages/cabinet/client-register";
+import { ClientOnboardingPage } from "@/pages/cabinet/client-onboarding";
+import { ClientVerifyEmailPage } from "@/pages/cabinet/client-verify-email";
+import { ClientVerifyLinkEmailPage } from "@/pages/cabinet/client-verify-link-email";
+import { ClientDashboardPage } from "@/pages/cabinet/client-dashboard";
+import { ClientTariffsPage } from "@/pages/cabinet/client-tariffs";
+import { ClientProfilePage } from "@/pages/cabinet/client-profile";
+import { ClientReferralPage } from "@/pages/cabinet/client-referral";
+import { ClientSubscribePage } from "@/pages/cabinet/client-subscribe";
+import { ClientYooMoneyPayPage } from "@/pages/cabinet/client-yoomoney-pay";
+import { ClientExtraOptionsPage } from "@/pages/cabinet/client-extra-options";
+import { ClientProxyPage } from "@/pages/cabinet/client-proxy";
+import { ClientSingboxPage } from "@/pages/cabinet/client-singbox";
+import { ClientTicketsPage } from "@/pages/cabinet/client-tickets";
+import { ClientCustomBuildPage } from "@/pages/cabinet/client-custom-build";
+import { ClientGiftsPage } from "@/pages/cabinet/client-gifts";
+import { GiftActivatePage } from "@/pages/gift-activate";
+import { LandingPage } from "@/pages/landing";
 import type { PublicConfig } from "@/lib/api";
-
-/** Минималистичный fallback пока грузится lazy-chunk страницы. */
-function PageLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <Loader2 className="h-7 w-7 animate-spin text-primary/70" />
-    </div>
-  );
-}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
@@ -192,7 +176,6 @@ function AppRoutes() {
   }, []);
 
   return (
-    <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* Главная: лендинг (если включён в настройках) или редирект в кабинет */}
       <Route path="/" element={<RootRoute />} />
@@ -243,12 +226,22 @@ function AppRoutes() {
         <Route path="referral-network" element={<ForceChangePassword><ReferralNetworkPage /></ForceChangePassword>} />
         <Route path="traffic-abuse" element={<ForceChangePassword><TrafficAbusePage /></ForceChangePassword>} />
         <Route path="api-keys" element={<ForceChangePassword><ApiKeysPage /></ForceChangePassword>} />
+        <Route path="bots" element={<ForceChangePassword><BotsPage /></ForceChangePassword>} />
         <Route path="languages" element={<ForceChangePassword><LanguagesPage /></ForceChangePassword>} />
         <Route path="api-docs" element={<ForceChangePassword><ApiDocsPage /></ForceChangePassword>} />
         <Route path="geo-map" element={<ForceChangePassword><GeoMapPage /></ForceChangePassword>} />
         <Route path="secondary-subscriptions" element={<ForceChangePassword><AdminSecondarySubscriptionsPage /></ForceChangePassword>} />
         <Route path="tour-constructor" element={<ForceChangePassword><TourConstructorPage /></ForceChangePassword>} />
         <Route path="promo-vpn" element={<ForceChangePassword><GramadsPromoPage /></ForceChangePassword>} />
+        <Route path="marketplace" element={<ForceChangePassword><MarketplaceLayout /></ForceChangePassword>}>
+          <Route index element={<MarketplaceBrowsePage />} />
+          <Route path="my" element={<MarketplaceMyListingsPage />} />
+          <Route path="my/new" element={<MarketplaceEditListingPage />} />
+          <Route path="my/:id/edit" element={<MarketplaceEditListingPage />} />
+          <Route path="hub/installations" element={<MarketplaceHubInstallationsPage />} />
+          <Route path="hub/reports" element={<MarketplaceHubReportsPage />} />
+          <Route path="hub/categories" element={<MarketplaceHubCategoriesPage />} />
+        </Route>
       </Route>
       {/* Онбординг — вне CabinetLayout (без навбара) */}
       <Route
@@ -387,7 +380,6 @@ function AppRoutes() {
       {/* Всё неизвестное тоже ведём в кабинет */}
       <Route path="*" element={<Navigate to="/cabinet" replace />} />
     </Routes>
-    </Suspense>
   );
 }
 

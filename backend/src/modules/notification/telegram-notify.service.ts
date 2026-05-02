@@ -23,14 +23,33 @@ type AdminNotificationPreferenceRow = {
   notifyNewTicket: boolean;
 };
 
+/** Токен активного бота-клона клиента; иначе undefined → используется основной токен из настроек. */
+async function getBotApiTokenForClient(clientId: string): Promise<string | undefined> {
+  const row = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { bot: { select: { token: true, isActive: true } } },
+  });
+  const t = row?.bot?.isActive ? row.bot.token?.trim() : undefined;
+  return t && t.length > 0 ? t : undefined;
+}
+
+export type TelegramUserSendOptions = { clientIdForBotToken?: string };
+
 export async function sendTelegramToUser(
   telegramId: string,
   text: string,
   messageThreadId?: number | null,
   replyMarkup?: Record<string, unknown>,
+  opts?: TelegramUserSendOptions,
 ): Promise<void> {
-  const config = await getSystemConfig();
-  const token = config.telegramBotToken?.trim();
+  let token: string | undefined;
+  if (opts?.clientIdForBotToken) {
+    token = await getBotApiTokenForClient(opts.clientIdForBotToken);
+  }
+  if (!token) {
+    const config = await getSystemConfig();
+    token = config.telegramBotToken?.trim() ?? undefined;
+  }
   if (!token) {
     console.warn("[Telegram notify] Bot token not configured, skip notification");
     return;
@@ -144,7 +163,9 @@ export async function notifyBalanceToppedUp(clientId: string, amount: number, cu
   if (client.telegramId) {
     const textForClient = `✅ <b>Баланс пополнен</b> на ${formatMoney(amount, currency)}.\nВаш баланс: ${formatMoney(client.balance ?? 0, currency)}`;
     const config = await getSystemConfig();
-    await sendTelegramToUser(client.telegramId, textForClient, null, backToMenuMarkup(config.botBackLabel));
+    await sendTelegramToUser(client.telegramId, textForClient, null, backToMenuMarkup(config.botBackLabel), {
+      clientIdForBotToken: client.id,
+    });
   }
   const clientLabel = formatClientLabel(client);
   const lines = [
@@ -184,7 +205,9 @@ export async function notifyTariffActivated(clientId: string, paymentId: string)
   if (client.telegramId) {
     const textClient = `✅ <b>Тариф «${escapeHtml(tariffName)}»</b> оплачен и активирован.\n\nМожете подключаться к VPN.`;
     const cfg = await getSystemConfig();
-    await sendTelegramToUser(client.telegramId, textClient, null, backToMenuMarkup(cfg.botBackLabel));
+    await sendTelegramToUser(client.telegramId, textClient, null, backToMenuMarkup(cfg.botBackLabel), {
+      clientIdForBotToken: clientId,
+    });
   }
   const clientLabel = formatClientLabel(client);
   const lines = [
@@ -393,7 +416,7 @@ function formatDate(d: Date): string {
  * Отправить уведомление о создании прокси-слотов (после оплаты).
  */
 export async function notifyProxySlotsCreated(clientId: string, slotIds: string[], tariffName?: string): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId || slotIds.length === 0) return;
 
   const slots = await prisma.proxySlot.findMany({
@@ -412,14 +435,14 @@ export async function notifyProxySlotsCreated(clientId: string, slotIds: string[
   text += "Скопируйте строку в настройки прокси вашего приложения.";
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 /**
  * Отправить уведомление о создании Sing-box слотов (после оплаты).
  */
 export async function notifySingboxSlotsCreated(clientId: string, slotIds: string[], tariffName?: string): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId || slotIds.length === 0) return;
 
   const slots = await prisma.singboxSlot.findMany({
@@ -447,19 +470,19 @@ export async function notifySingboxSlotsCreated(clientId: string, slotIds: strin
   text += "Скопируйте ссылку в приложение (v2rayN, Nekoray, Shadowrocket и др.).";
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 export async function notifyAutoRenewSuccess(clientId: string, tariffName: string, amount: number, currency: string): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId) return;
   const text = `🔄 <b>Автопродление успешно</b>\n\nТариф «${escapeHtml(tariffName)}» был автоматически продлен. Списано: ${formatMoney(amount, currency)}.`;
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 export async function notifyAutoRenewFailed(clientId: string, tariffName: string, reason: "balance" | "error"): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId) return;
   let text = `❌ <b>Автопродление отключено</b>\n\nНе удалось автоматически продлить тариф «${escapeHtml(tariffName)}».\n`;
   if (reason === "balance") {
@@ -470,7 +493,7 @@ export async function notifyAutoRenewFailed(clientId: string, tariffName: string
     text += "💡 <i>Обратитесь в поддержку или попробуйте продлить тариф вручную.</i>";
   }
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 /**
@@ -485,7 +508,7 @@ export async function notifyAutoRenewYookassaSuccess(
   balancePortion?: number,
   cardPortion?: number,
 ): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId) return;
 
   let text =
@@ -505,7 +528,7 @@ export async function notifyAutoRenewYookassaSuccess(
   text += `.`;
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 /**
@@ -516,7 +539,7 @@ export async function notifyAutoRenewYookassaFailed(
   tariffName: string,
   error: string,
 ): Promise<void> {
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true } });
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { telegramId: true, id: true } });
   if (!client?.telegramId) return;
 
   const text =
@@ -526,7 +549,7 @@ export async function notifyAutoRenewYookassaFailed(
     `💡 <i>Попробуйте пополнить баланс или оплатить тариф вручную.</i>`;
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 /**
@@ -542,7 +565,7 @@ export async function notifyAutoRenewUpcoming(
 ): Promise<void> {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { telegramId: true, balance: true },
+    select: { telegramId: true, balance: true, id: true },
   });
   if (!client?.telegramId) return;
 
@@ -556,7 +579,7 @@ export async function notifyAutoRenewUpcoming(
     `💡 <i>Пополните баланс, чтобы подписка продлилась автоматически.</i>`;
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }
 
 /**
@@ -572,7 +595,7 @@ export async function notifyAutoRenewRetry(
 ): Promise<void> {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { telegramId: true, balance: true },
+    select: { telegramId: true, balance: true, id: true },
   });
   if (!client?.telegramId) return;
 
@@ -586,5 +609,5 @@ export async function notifyAutoRenewRetry(
     `\n\n💡 <i>Пополните баланс, чтобы автопродление сработало при следующей проверке.</i>`;
 
   const cfg = await getSystemConfig();
-  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel));
+  await sendTelegramToUser(client.telegramId, text, null, backToMenuMarkup(cfg.botBackLabel), { clientIdForBotToken: client.id });
 }

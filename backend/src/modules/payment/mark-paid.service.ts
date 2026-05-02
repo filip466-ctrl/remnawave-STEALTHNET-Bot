@@ -11,6 +11,7 @@ import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.ser
 import { createSingboxSlotsByPaymentId } from "../singbox/singbox-slots-activation.service.js";
 import { applyExtraOptionByPaymentId } from "../extra-options/extra-options.service.js";
 import { notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
+import { auditPaymentClientBotAlignment } from "./payment-webhook-audit.util.js";
 
 function hasExtraOptionInMetadata(metadata: string | null): boolean {
   if (!metadata?.trim()) return false;
@@ -37,6 +38,11 @@ export async function markPaymentPaid(paymentId: string): Promise<MarkPaymentPai
   if (!payment) {
     return { ok: false, payment: null, error: "Payment not found" };
   }
+  await auditPaymentClientBotAlignment({
+    id: payment.id,
+    clientId: payment.clientId,
+    botId: payment.botId,
+  });
   if (payment.status === "PAID") {
     const result = await distributeReferralRewards(paymentId);
     const updated = await prisma.payment.findUnique({ where: { id: paymentId } });

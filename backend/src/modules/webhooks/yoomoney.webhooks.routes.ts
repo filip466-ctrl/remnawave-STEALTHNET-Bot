@@ -26,6 +26,7 @@ function hasExtraOptionInMetadata(metadata: string | null): boolean {
 import { distributeReferralRewards } from "../referral/referral.service.js";
 import { notifyBalanceToppedUp, notifyTariffActivated, notifyProxySlotsCreated, notifySingboxSlotsCreated } from "../notification/telegram-notify.service.js";
 import { recordPromoCodeUsageFromPayment } from "../payment/promo-code-usage.util.js";
+import { auditPaymentClientBotAlignment } from "../payment/payment-webhook-audit.util.js";
 
 export const yoomoneyWebhooksRouter = Router();
 
@@ -141,10 +142,30 @@ yoomoneyWebhooksRouter.post("/yoomoney", async (req, res) => {
   const labelNorm = label.trim();
 
   // Как в Panel: ищем сначала по id (мы пишем payment.id в label), потом по orderId, потом по operation_id
-  type PaymentRow = { id: string; clientId: string; amount: number; tariffId: string | null; proxyTariffId: string | null; singboxTariffId: string | null; status: string; metadata: string | null };
+  type PaymentRow = {
+    id: string;
+    clientId: string;
+    botId: string | null;
+    amount: number;
+    tariffId: string | null;
+    proxyTariffId: string | null;
+    singboxTariffId: string | null;
+    status: string;
+    metadata: string | null;
+  };
   let payment: PaymentRow | null = null;
 
-  const paymentSelect = { id: true, clientId: true, amount: true, tariffId: true, proxyTariffId: true, singboxTariffId: true, status: true, metadata: true } as const;
+  const paymentSelect = {
+    id: true,
+    clientId: true,
+    botId: true,
+    amount: true,
+    tariffId: true,
+    proxyTariffId: true,
+    singboxTariffId: true,
+    status: true,
+    metadata: true,
+  } as const;
   // 1) По payment.id (наш label при создании = payment.id)
   payment = await prisma.payment.findFirst({
     where: { id: labelNorm, provider: "yoomoney_form" },
@@ -171,6 +192,8 @@ yoomoneyWebhooksRouter.post("/yoomoney", async (req, res) => {
     console.warn("[YooMoney Webhook] Payment not found", { label: labelNorm, operationId });
     return res.status(200).send("OK");
   }
+
+  await auditPaymentClientBotAlignment(payment);
 
   if (payment.status === "PAID") {
     console.log("[YooMoney Webhook] Payment already processed", { paymentId: payment.id });

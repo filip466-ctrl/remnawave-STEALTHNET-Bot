@@ -9,7 +9,7 @@ import express, { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../db.js";
+import { prisma, createPayment } from "../../db.js";
 import { requireAuth, requireAdminSection } from "../auth/middleware.js";
 import { hashPassword } from "../auth/auth.service.js";
 import { hashPassword as hashClientPassword } from "../client/client.service.js";
@@ -47,6 +47,7 @@ import { distributeReferralRewards } from "../referral/referral.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { activateTariffForClient } from "../tariff/tariff-activation.service.js";
 import { registerBackupRoutes } from "../backup/backup.routes.js";
+import { invalidateBrandCache } from "../branding/spa-html.js";
 import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob, listBroadcastHistory, getBroadcastHistoryItem } from "../broadcast/broadcast.service.js";
 import { uploadMascotImage, uploadVideo, uploadTicketAttachment, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
 import {
@@ -1205,7 +1206,7 @@ adminRouter.post("/clients/:id/grant-tariff", async (req, res) => {
   if (createPaymentRecord) {
     const orderId = `admin-grant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     try {
-      const payment = await prisma.payment.create({
+      const payment = await createPayment({
         data: {
           clientId,
           orderId,
@@ -1739,6 +1740,7 @@ adminRouter.patch("/settings", async (req, res) => {
       create: { key: "service_name", value: updates.serviceName },
       update: { value: updates.serviceName },
     });
+    invalidateBrandCache();
   }
   if (updates.logo !== undefined) {
     const val = updates.logo ?? "";
@@ -1747,6 +1749,7 @@ adminRouter.patch("/settings", async (req, res) => {
       create: { key: "logo", value: val },
       update: { value: val },
     });
+    invalidateBrandCache();
   }
   if (updates.logoBot !== undefined) {
     const val = updates.logoBot ?? "";
