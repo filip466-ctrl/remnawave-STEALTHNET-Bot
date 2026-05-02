@@ -55,6 +55,9 @@ services:
       - /etc/ssh:/host-etc/ssh
       - /proc:/host-proc:ro
       - uploads_data:/app/uploads
+      # Read-only frontend bundle: модуль branding/spa-html.ts читает index.html
+      # отсюда чтобы инжектить per-bot брендинг в SPA-shell перед отдачей через nginx /_spa.
+      - frontend_dist:/var/www/stealthnet:ro
     pid: host
     depends_on:
       postgres:
