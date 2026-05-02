@@ -197,6 +197,7 @@ const SYSTEM_CONFIG_KEYS = [
   "gift_expiry_notification_days", "gift_referral_enabled", "gift_message_max_length",
   // Поведение бота
   "bot_auto_delete_unknown_messages",
+  "bot_info_block",
 ];
 
 /** Продукт «Доп. трафик»: объём в ГБ, цена, валюта */
@@ -721,6 +722,7 @@ export async function getSystemConfig() {
     giftReferralEnabled: map.gift_referral_enabled !== "false" && map.gift_referral_enabled !== "0",
     giftMessageMaxLength: parseInt(map.gift_message_max_length || "200", 10) || 200,
     botAutoDeleteUnknownMessages: map.bot_auto_delete_unknown_messages === "true" || map.bot_auto_delete_unknown_messages === "1",
+    botInfoBlock: (map.bot_info_block ?? "").trim() || null,
   };
 }
 
@@ -1371,6 +1373,8 @@ export async function getPublicConfig() {
     proxyTelegram: full.proxyTelegram ?? false,
     proxyPayments: full.proxyPayments ?? false,
     proxyAi: full.proxyAi ?? false,
+    botAutoDeleteUnknownMessages: full.botAutoDeleteUnknownMessages ?? false,
+    botInfoBlock: full.botInfoBlock ?? null,
     translations: await loadAllLanguagePacks(full.activeLanguages),
   };
 }
