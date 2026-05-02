@@ -4631,74 +4631,83 @@ export function SettingsPage() {
                 </div>
               </div>
             </div>
-            <CardContent className="space-y-6 p-4 sm:p-6">
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label className="text-base font-medium">{t("admin.settings.proxy_enabled")}</Label>
-                  <p className="text-sm text-muted-foreground">Глобальный переключатель — отключает все прокси-маршруты</p>
+            <CardContent className="space-y-5 p-4 sm:p-6">
+              <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 via-red-500/5 to-rose-500/5 p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0"><Shield className="h-4 w-4 text-orange-500" /></div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold mb-1">{t("admin.settings.proxy_enabled")}</h3>
+                    <p className="text-xs text-muted-foreground">Глобальный переключатель — выключает ВСЕ прокси-маршруты сразу. Если выключен, бот/платежи/AI ходят напрямую.</p>
+                  </div>
+                  <Switch
+                    checked={settings.proxyEnabled ?? false}
+                    onCheckedChange={(v) => setSettings({ ...settings, proxyEnabled: v })}
+                  />
                 </div>
-                <Switch
-                  checked={settings.proxyEnabled ?? false}
-                  onCheckedChange={(v) => setSettings({ ...settings, proxyEnabled: v })}
-                />
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Proxy URL</Label>
+                  <Input
+                    placeholder="http://user:pass@host:port или socks5://user:pass@host:port"
+                    value={settings.proxyUrl ?? ""}
+                    onChange={(e) => setSettings({ ...settings, proxyUrl: e.target.value || null })}
+                    disabled={!settings.proxyEnabled}
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Протоколы: <code className="bg-muted/40 px-1 py-0.5 rounded">http://</code> · <code className="bg-muted/40 px-1 py-0.5 rounded">https://</code> · <code className="bg-muted/40 px-1 py-0.5 rounded">socks5://</code></p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Proxy URL</Label>
-                <Input
-                  placeholder="http://user:pass@host:port или socks5://user:pass@host:port"
-                  value={settings.proxyUrl ?? ""}
-                  onChange={(e) => setSettings({ ...settings, proxyUrl: e.target.value || null })}
-                  disabled={!settings.proxyEnabled}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Поддерживаемые протоколы: <code>http://</code>, <code>https://</code>, <code>socks5://</code>
-                </p>
-              </div>
+              <div className="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/5 via-rose-500/5 to-pink-500/5 p-5 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-xl bg-red-500/20 flex items-center justify-center"><Network className="h-4 w-4 text-red-500" /></div>
+                  <h3 className="text-base font-semibold">{t("admin.settings.proxy_routing")}</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">Какие сервисы пускать через прокси. Можно гибко включать/выключать по одному.</p>
 
-              <div className="space-y-4 rounded-lg border p-4">
-                <p className="text-sm font-medium">{t("admin.settings.proxy_routing")}</p>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>{t("admin.settings.proxy_telegram")}</Label>
-                    <p className="text-xs text-muted-foreground">Бот, уведомления, отправка сообщений</p>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 cursor-pointer">
+                  <div className="h-9 w-9 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0"><MessageCircle className="h-4 w-4 text-sky-500" /></div>
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-sm font-medium cursor-pointer">{t("admin.settings.proxy_telegram")}</Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Бот, уведомления, отправка сообщений в Telegram</p>
                   </div>
                   <Switch
                     checked={settings.proxyTelegram ?? false}
                     onCheckedChange={(v) => setSettings({ ...settings, proxyTelegram: v })}
                     disabled={!settings.proxyEnabled}
                   />
-                </div>
+                </label>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>{t("admin.settings.proxy_payments")}</Label>
-                    <p className="text-xs text-muted-foreground">Platega, YooKassa, YooMoney, CryptoPay, Heleket</p>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 cursor-pointer">
+                  <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0"><CreditCard className="h-4 w-4 text-amber-500" /></div>
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-sm font-medium cursor-pointer">{t("admin.settings.proxy_payments")}</Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Platega, YooKassa, YooMoney, CryptoPay, Heleket</p>
                   </div>
                   <Switch
                     checked={settings.proxyPayments ?? false}
                     onCheckedChange={(v) => setSettings({ ...settings, proxyPayments: v })}
                     disabled={!settings.proxyEnabled}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>AI чат</Label>
-                    <p className="text-xs text-muted-foreground">Запросы к Groq API (api.groq.com) — нужен прокси если хостинг ноды блочит исходящие на их IP</p>
+                  /></label>
+                <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 cursor-pointer">
+                  <div className="h-9 w-9 rounded-xl bg-fuchsia-500/10 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-fuchsia-500" /></div>
+                  <div className="flex-1 min-w-0">
+                    <Label className="text-sm font-medium cursor-pointer">AI чат</Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Запросы к Groq API (api.groq.com) — нужен прокси если хостинг блочит их IP</p>
                   </div>
                   <Switch
                     checked={settings.proxyAi ?? false}
                     onCheckedChange={(v) => setSettings({ ...settings, proxyAi: v })}
                     disabled={!settings.proxyEnabled}
                   />
-                </div>
+                </label>
               </div>
 
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
-                <strong>Важно:</strong> после изменения настроек прокси для Telegram бота необходимо перезапустить контейнер бота,
-                чтобы он подключился через новый прокси.
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-4 flex items-start gap-3">
+                <Sparkles className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  <strong>Важно:</strong> после изменения настроек прокси для Telegram бота необходимо перезапустить контейнер бота,
+                  чтобы он подключился через новый прокси.
+                </p>
               </div>
 
               <Button
@@ -4706,7 +4715,9 @@ export function SettingsPage() {
                   handleSubmit(e as unknown as React.FormEvent);
                 }}
                 disabled={saving}
+                className="w-full sm:w-auto h-11 px-6 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 hover:opacity-90 text-white font-semibold shadow-lg shadow-orange-500/20"
               >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                 {saving ? t("admin.settings.saving") : t("admin.settings.save")}
               </Button>
             </CardContent>
@@ -5118,33 +5129,46 @@ export function SettingsPage() {
                 </div>
               </div>
             </div>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4 sm:p-6">
-              <Button
-                variant="outline"
-                onClick={handleSyncFromRemna}
-                disabled={syncLoading !== null}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {syncLoading === "from" ? t("admin.settings.sync_in_progress") : t("admin.settings.sync_from_remna")}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleSyncToRemna}
-                disabled={syncLoading !== null}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {syncLoading === "to" ? t("admin.settings.sync_in_progress") : t("admin.settings.sync_to_remna")}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleSyncCreateRemnaForMissing}
-                disabled={syncLoading !== null}
-              >
-                <Link2 className="h-4 w-4 mr-2" />
-                {syncLoading === "missing" ? t("admin.settings.sync_running") : t("admin.settings.sync_create_missing")}
-              </Button>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <button type="button" onClick={handleSyncFromRemna} disabled={syncLoading !== null} className="group relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-violet-500/5 to-transparent p-5 text-left transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-violet-500/10 blur-2xl group-hover:bg-violet-500/20 transition-colors" />
+                  <div className="relative flex items-center gap-3 mb-2">
+                    <div className="h-10 w-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                      {syncLoading === "from" ? <Loader2 className="h-5 w-5 text-violet-500 animate-spin" /> : <Download className="h-5 w-5 text-violet-500" />}
+                    </div>
+                    <span className="text-sm font-bold uppercase tracking-wider text-violet-500/80">From Remna →</span>
+                  </div>
+                  <div className="relative text-base font-semibold mb-1">{syncLoading === "from" ? t("admin.settings.sync_in_progress") : t("admin.settings.sync_from_remna")}</div>
+                  <p className="relative text-xs text-muted-foreground">Подтянуть всех клиентов и подписки из Remna в локальную БД</p>
+                </button>
+
+                <button type="button" onClick={handleSyncToRemna} disabled={syncLoading !== null} className="group relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent p-5 text-left transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-indigo-500/10 blur-2xl group-hover:bg-indigo-500/20 transition-colors" />
+                  <div className="relative flex items-center gap-3 mb-2">
+                    <div className="h-10 w-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                      {syncLoading === "to" ? <Loader2 className="h-5 w-5 text-indigo-500 animate-spin" /> : <Upload className="h-5 w-5 text-indigo-500" />}
+                    </div>
+                    <span className="text-sm font-bold uppercase tracking-wider text-indigo-500/80">→ To Remna</span>
+                  </div>
+                  <div className="relative text-base font-semibold mb-1">{syncLoading === "to" ? t("admin.settings.sync_in_progress") : t("admin.settings.sync_to_remna")}</div>
+                  <p className="relative text-xs text-muted-foreground">Записать локальные изменения обратно в Remna-панель</p>
+                </button>
+
+                <button type="button" onClick={handleSyncCreateRemnaForMissing} disabled={syncLoading !== null} className="group relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent p-5 text-left transition-all hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-blue-500/10 blur-2xl group-hover:bg-blue-500/20 transition-colors" />
+                  <div className="relative flex items-center gap-3 mb-2">
+                    <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                      {syncLoading === "missing" ? <Loader2 className="h-5 w-5 text-blue-500 animate-spin" /> : <Link2 className="h-5 w-5 text-blue-500" />}
+                    </div>
+                    <span className="text-sm font-bold uppercase tracking-wider text-blue-500/80">+ Создать</span>
+                  </div>
+                  <div className="relative text-base font-semibold mb-1">{syncLoading === "missing" ? t("admin.settings.sync_running") : t("admin.settings.sync_create_missing")}</div>
+                  <p className="relative text-xs text-muted-foreground">Создать в Remna записи для клиентов, которых там нет</p>
+                </button>
+              </div>
               {syncMessage && (
-                <span className="text-sm text-muted-foreground">{syncMessage}</span>
+                <div className="rounded-xl border border-white/10 bg-card/40 p-4 text-sm">{syncMessage}</div>
               )}
             </CardContent>
           </Card>
