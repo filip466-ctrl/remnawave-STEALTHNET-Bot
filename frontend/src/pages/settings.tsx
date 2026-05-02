@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, ChevronUp, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw, Shield, Terminal, FileText, MapPin, GripVertical, Smile, Sliders, MessageSquare, Eye, Megaphone, Trash, Bell } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, ChevronUp, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw, Shield, Terminal, FileText, MapPin, GripVertical, Smile, Sliders, MessageSquare, Eye, Megaphone, Trash, Bell, Send, Image as ImageIcon, Building, Languages as LanguagesIcon, Network, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
@@ -966,129 +966,133 @@ export function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="tickets-enabled-general"
-                      checked={!!settings.ticketsEnabled}
-                      onCheckedChange={(checked: boolean) =>
-                        setSettings((s) => (s ? { ...s, ticketsEnabled: checked === true } : s))
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="tickets-enabled-general" className="text-base font-medium cursor-pointer">{t("admin.settings.ticket_system")}</Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("admin.settings.ticket_hint")}
-                      </p>
-                    </div>
+              <CardContent className="space-y-5 p-4 sm:p-6">
+                {/* === Функции сервиса === */}
+                <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/5 via-blue-500/5 to-indigo-500/5 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-sky-500/20 flex items-center justify-center"><Sparkles className="h-4 w-4 text-sky-500" /></div>
+                    <h3 className="text-base font-semibold">Функции сервиса</h3>
                   </div>
-                </div>
-                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="admin-front-notifications"
-                      checked={settings.adminFrontNotificationsEnabled ?? true}
-                      onCheckedChange={(checked: boolean) =>
-                        setSettings((s) =>
-                          s ? { ...s, adminFrontNotificationsEnabled: checked === true } : s
-                        )
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="admin-front-notifications" className="text-base font-medium cursor-pointer">
-                        {t("admin.settings.popup_notifications")}
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("admin.settings.popup_hint")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="ai-chat-enabled"
-                      checked={settings.aiChatEnabled !== false}
-                      onCheckedChange={(checked: boolean) =>
-                        setSettings((s) => (s ? { ...s, aiChatEnabled: checked === true } : s))
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="ai-chat-enabled" className="text-base font-medium cursor-pointer">{t("admin.settings.ai_chat_label")}</Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("admin.settings.ai_chat_hint")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Включай/выключай ключевые модули клиентского кабинета и админки.</p>
                   <div className="space-y-2">
-                    <Label>{t("admin.settings.notification_group")}</Label>
+                    <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 hover:border-white/10 transition-colors cursor-pointer">
+                      <div className="h-9 w-9 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0"><MessageSquare className="h-4 w-4 text-sky-500" /></div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="tickets-enabled-general" className="text-sm font-medium cursor-pointer">{t("admin.settings.ticket_system")}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.settings.ticket_hint")}</p>
+                      </div>
+                      <Switch
+                        id="tickets-enabled-general"
+                        checked={!!settings.ticketsEnabled}
+                        onCheckedChange={(checked: boolean) => setSettings((s) => (s ? { ...s, ticketsEnabled: checked === true } : s))}
+                      />
+                    </label>
+                    <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 hover:border-white/10 transition-colors cursor-pointer">
+                      <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0"><Bell className="h-4 w-4 text-blue-500" /></div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="admin-front-notifications" className="text-sm font-medium cursor-pointer">{t("admin.settings.popup_notifications")}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.settings.popup_hint")}</p>
+                      </div>
+                      <Switch
+                        id="admin-front-notifications"
+                        checked={settings.adminFrontNotificationsEnabled ?? true}
+                        onCheckedChange={(checked: boolean) => setSettings((s) => s ? { ...s, adminFrontNotificationsEnabled: checked === true } : s)}
+                      />
+                    </label>
+                    <label className="flex items-start gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 hover:border-white/10 transition-colors cursor-pointer">
+                      <div className="h-9 w-9 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-indigo-500" /></div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="ai-chat-enabled" className="text-sm font-medium cursor-pointer">{t("admin.settings.ai_chat_label")}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.settings.ai_chat_hint")}</p>
+                      </div>
+                      <Switch
+                        id="ai-chat-enabled"
+                        checked={settings.aiChatEnabled !== false}
+                        onCheckedChange={(checked: boolean) => setSettings((s) => (s ? { ...s, aiChatEnabled: checked === true } : s))}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* === Уведомления в Telegram === */}
+                <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 via-teal-500/5 to-sky-500/5 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-cyan-500/20 flex items-center justify-center"><Send className="h-4 w-4 text-cyan-500" /></div>
+                    <h3 className="text-base font-semibold">Уведомления в Telegram-группу</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Бот шлёт системные уведомления (новые клиенты, оплаты, тикеты, бэкапы) в указанную группу. Если группа без тем — всё в общий чат, иначе можно разрулить по топикам ниже.</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">ID группы</Label>
                     <Input
                       value={settings.notificationTelegramGroupId ?? ""}
                       onChange={(e) => setSettings((s) => (s ? { ...s, notificationTelegramGroupId: e.target.value.trim() || null } : s))}
                       placeholder="-1001234567890"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      {t("admin.settings.notification_group_hint")}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">{t("admin.settings.notification_group_hint")}</p>
                   </div>
                   {settings.notificationTelegramGroupId?.trim() && (
-                    <div className="space-y-3 pl-4 border-l-2 border-primary/30">
-                      <p className="text-sm font-medium text-muted-foreground">{t("admin.settings.topics")}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("admin.settings.topics_hint")}
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-white/10 bg-card/40 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 w-6 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500" />
+                        <p className="text-sm font-medium">{t("admin.settings.topics")}</p>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{t("admin.settings.topics_hint")}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">{t("admin.settings.topic_new_clients")}</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.settings.topic_new_clients")}</Label>
                           <Input
                             value={settings.notificationTopicNewClients ?? ""}
                             onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicNewClients: e.target.value.trim() || null } : s))}
                             placeholder={t("admin.settings.topic_id_placeholder")}
-                            className="h-8 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">{t("admin.settings.topic_payments")}</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.settings.topic_payments")}</Label>
                           <Input
                             value={settings.notificationTopicPayments ?? ""}
                             onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicPayments: e.target.value.trim() || null } : s))}
                             placeholder={t("admin.settings.topic_id_placeholder")}
-                            className="h-8 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">{t("admin.settings.topic_tickets")}</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.settings.topic_tickets")}</Label>
                           <Input
                             value={settings.notificationTopicTickets ?? ""}
                             onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicTickets: e.target.value.trim() || null } : s))}
                             placeholder={t("admin.settings.topic_id_placeholder")}
-                            className="h-8 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">{t("admin.settings.topic_backups")}</Label>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.settings.topic_backups")}</Label>
                           <Input
                             value={settings.notificationTopicBackups ?? ""}
                             onChange={(e) => setSettings((s) => (s ? { ...s, notificationTopicBackups: e.target.value.trim() || null } : s))}
                             placeholder={t("admin.settings.topic_id_placeholder")}
-                            className="h-8 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.service_name")}</Label>
-                  <Input
-                    value={settings.serviceName}
-                    onChange={(e) => setSettings((s) => (s ? { ...s, serviceName: e.target.value } : s))}
-                  />
-                  <p className="text-xs text-muted-foreground">{t("admin.settings.service_name_hint")}</p>
-                </div>
+                {/* === Брендинг === */}
+                <div className="rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-violet-500/5 to-fuchsia-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-purple-500/20 flex items-center justify-center"><Building className="h-4 w-4 text-purple-500" /></div>
+                    <h3 className="text-base font-semibold">Брендинг</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Имя сервиса, логотипы, фавикон, публичный URL — всё что видит клиент в кабинете и боте.</p>
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.service_name")}</Label>
+                    <Input
+                      value={settings.serviceName}
+                      onChange={(e) => setSettings((s) => (s ? { ...s, serviceName: e.target.value } : s))}
+                    />
+                    <p className="text-[11px] text-muted-foreground">{t("admin.settings.service_name_hint")}</p>
+                  </div>
                 <div className="space-y-2">
                   <Label>{t("admin.settings.logo")}</Label>
                   {settings.logo ? (
@@ -1241,8 +1245,16 @@ export function SettingsPage() {
                     {t("admin.settings.app_url_hint")}
                   </p>
                 </div>
+                </div>
+                {/* === Локализация === */}
+                <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-yellow-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-amber-500/20 flex items-center justify-center"><LanguagesIcon className="h-4 w-4 text-amber-500" /></div>
+                    <h3 className="text-base font-semibold">Локализация</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Языки и валюты, доступные клиенту. Звёздочка ★ — язык/валюта по умолчанию для новых пользователей.</p>
                 <div className="space-y-2">
-                  <Label>{t("admin.settings.languages")}</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.languages")}</Label>
                   <div className="flex flex-wrap gap-2">
                     {(() => {
                       const preset = installedLangCodes.length ? installedLangCodes : FALLBACK_LANGS;
@@ -1341,12 +1353,14 @@ export function SettingsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-2 rounded-lg border p-4 bg-muted/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <KeyRound className="h-4 w-4 text-primary shrink-0" />
-                    <Label className="text-base font-medium">{t("admin.settings.security")}</Label>
+                </div>
+                {/* === Безопасность === */}
+                <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-rose-500/5 via-red-500/5 to-pink-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-rose-500/20 flex items-center justify-center"><Shield className="h-4 w-4 text-rose-500" /></div>
+                    <h3 className="text-base font-semibold">{t("admin.settings.security")}</h3>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">{t("admin.settings.2fa_hint")}</p>
+                  <p className="text-xs text-muted-foreground">{t("admin.settings.2fa_hint")}</p>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-muted/40 border">
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-primary/10 text-primary">
@@ -1999,66 +2013,85 @@ export function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.trial_days")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={settings.trialDays}
-                    onChange={(e) =>
-                      setSettings((s) => (s ? { ...s, trialDays: parseInt(e.target.value, 10) || 0 } : s))
-                    }
-                  />
+              <CardContent className="space-y-5 p-4 sm:p-6">
+                {/* === Длительность и сервер === */}
+                <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-green-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-emerald-500/20 flex items-center justify-center"><Gift className="h-4 w-4 text-emerald-500" /></div>
+                    <h3 className="text-base font-semibold">Длительность и сервер</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Сколько дней триал длится и через какой Squad-сервер раздавать пробный доступ. Если Squad не выбран — триал не активируется.</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.trial_days")}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={settings.trialDays}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, trialDays: parseInt(e.target.value, 10) || 0 } : s))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.trial_squad")}</Label>
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                        value={settings.trialSquadUuid ?? ""}
+                        onChange={(e) => setSettings((s) => s ? { ...s, trialSquadUuid: e.target.value || null } : s)}
+                      >
+                        <option value="">{t("admin.settings.trial_squad_none")}</option>
+                        {squads.map((s) => (
+                          <option key={s.uuid} value={s.uuid}>{s.name || s.uuid}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.trial_squad")}</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    value={settings.trialSquadUuid ?? ""}
-                    onChange={(e) => setSettings((s) => s ? { ...s, trialSquadUuid: e.target.value || null } : s)}
-                  >
-                    <option value="">{t("admin.settings.trial_squad_none")}</option>
-                    {squads.map((s) => (
-                      <option key={s.uuid} value={s.uuid}>{s.name || s.uuid}</option>
-                    ))}
-                  </select>
+
+                {/* === Лимиты === */}
+                <div className="rounded-2xl border border-teal-500/20 bg-gradient-to-br from-teal-500/5 via-cyan-500/5 to-sky-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-teal-500/20 flex items-center justify-center"><Sliders className="h-4 w-4 text-teal-500" /></div>
+                    <h3 className="text-base font-semibold">Лимиты на триале</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Ограничение устройств и трафика. Пусто = без лимита.</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.trial_device_limit")}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={settings.trialDeviceLimit ?? ""}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, trialDeviceLimit: e.target.value === "" ? null : parseInt(e.target.value, 10) || 0 } : s))}
+                        placeholder={t("admin.settings.trial_no_limit")}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t("admin.settings.trial_traffic_limit")}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={settings.trialTrafficLimitBytes != null ? (settings.trialTrafficLimitBytes / (1024 ** 3)).toFixed(1) : ""}
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          if (v === "") {
+                            setSettings((s) => (s ? { ...s, trialTrafficLimitBytes: null } : s));
+                            return;
+                          }
+                          const n = parseFloat(v);
+                          if (Number.isNaN(n)) return;
+                          setSettings((s) => (s ? { ...s, trialTrafficLimitBytes: Math.round(n * 1024 ** 3) } : s));
+                        }}
+                        placeholder={t("admin.settings.trial_no_limit")}
+                      />
+                      <p className="text-[11px] text-muted-foreground">{t("admin.settings.trial_traffic_hint")}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.trial_device_limit")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={settings.trialDeviceLimit ?? ""}
-                    onChange={(e) =>
-                      setSettings((s) => (s ? { ...s, trialDeviceLimit: e.target.value === "" ? null : parseInt(e.target.value, 10) || 0 } : s))
-                    }
-                    placeholder={t("admin.settings.trial_no_limit")}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.trial_traffic_limit")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={settings.trialTrafficLimitBytes != null ? (settings.trialTrafficLimitBytes / (1024 ** 3)).toFixed(1) : ""}
-                    onChange={(e) => {
-                      const v = e.target.value.trim();
-                      if (v === "") {
-                        setSettings((s) => (s ? { ...s, trialTrafficLimitBytes: null } : s));
-                        return;
-                      }
-                      const n = parseFloat(v);
-                      if (Number.isNaN(n)) return;
-                      setSettings((s) => (s ? { ...s, trialTrafficLimitBytes: Math.round(n * 1024 ** 3) } : s));
-                    }}
-                    placeholder={t("admin.settings.trial_no_limit")}
-                  />
-                  <p className="text-xs text-muted-foreground">{t("admin.settings.trial_traffic_hint")}</p>
-                </div>
+
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving} className="w-full sm:w-auto h-11 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-semibold shadow-lg shadow-emerald-500/20">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                   {saving ? t("admin.settings.saving") : t("admin.settings.save")}
                 </Button>
               </CardContent>
@@ -2164,45 +2197,73 @@ export function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.referral_level_1")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={settings.defaultReferralPercent ?? 30}
-                    onChange={(e) =>
-                      setSettings((s) => (s ? { ...s, defaultReferralPercent: Number(e.target.value) || 0 } : s))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.referral_level_2")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={settings.referralPercentLevel2 ?? 10}
-                    onChange={(e) =>
-                      setSettings((s) => (s ? { ...s, referralPercentLevel2: Number(e.target.value) || 0 } : s))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("admin.settings.referral_level_3")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={settings.referralPercentLevel3 ?? 10}
-                    onChange={(e) =>
-                      setSettings((s) => (s ? { ...s, referralPercentLevel3: Number(e.target.value) || 0 } : s))
-                    }
-                  />
+              <CardContent className="space-y-5 p-4 sm:p-6">
+                <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-purple-500/5 to-fuchsia-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-violet-500/20 flex items-center justify-center"><Network className="h-4 w-4 text-violet-500" /></div>
+                    <h3 className="text-base font-semibold">3-уровневая реферальная сеть</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Процент с каждого пополнения, который начисляется на баланс реферера. Уровень 1 — прямой реф; уровень 2 — реф вашего рефа; уровень 3 — реф второго уровня.</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-violet-500/30 bg-card/40 p-4 space-y-2 relative overflow-hidden">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/20 to-violet-500/5 blur-xl" />
+                      <div className="relative flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-violet-500/15 text-violet-500 text-xs font-bold">L1</span>
+                        <Label className="text-sm font-medium">{t("admin.settings.referral_level_1")}</Label>
+                      </div>
+                      <div className="relative flex items-baseline gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="text-2xl font-bold tabular-nums h-14"
+                          value={settings.defaultReferralPercent ?? 30}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, defaultReferralPercent: Number(e.target.value) || 0 } : s))}
+                        />
+                        <span className="text-2xl font-bold text-violet-500">%</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-purple-500/30 bg-card/40 p-4 space-y-2 relative overflow-hidden">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-500/5 blur-xl" />
+                      <div className="relative flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-purple-500/15 text-purple-500 text-xs font-bold">L2</span>
+                        <Label className="text-sm font-medium">{t("admin.settings.referral_level_2")}</Label>
+                      </div>
+                      <div className="relative flex items-baseline gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="text-2xl font-bold tabular-nums h-14"
+                          value={settings.referralPercentLevel2 ?? 10}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, referralPercentLevel2: Number(e.target.value) || 0 } : s))}
+                        />
+                        <span className="text-2xl font-bold text-purple-500">%</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-fuchsia-500/30 bg-card/40 p-4 space-y-2 relative overflow-hidden">
+                      <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-500/5 blur-xl" />
+                      <div className="relative flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-fuchsia-500/15 text-fuchsia-500 text-xs font-bold">L3</span>
+                        <Label className="text-sm font-medium">{t("admin.settings.referral_level_3")}</Label>
+                      </div>
+                      <div className="relative flex items-baseline gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="text-2xl font-bold tabular-nums h-14"
+                          value={settings.referralPercentLevel3 ?? 10}
+                          onChange={(e) => setSettings((s) => (s ? { ...s, referralPercentLevel3: Number(e.target.value) || 0 } : s))}
+                        />
+                        <span className="text-2xl font-bold text-fuchsia-500">%</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving} className="w-full sm:w-auto h-11 px-6 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:opacity-90 text-white font-semibold shadow-lg shadow-violet-500/20">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                   {saving ? t("admin.settings.saving") : t("admin.settings.save")}
                 </Button>
               </CardContent>
@@ -3234,22 +3295,26 @@ export function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/40">
+              <CardContent className="space-y-5 p-4 sm:p-6">
+                <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 via-teal-500/5 to-sky-500/5 p-5 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-cyan-500/20 flex items-center justify-center"><Mail className="h-4 w-4 text-cyan-500" /></div>
+                    <h3 className="text-base font-semibold">SMTP-сервер</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Параметры почтового сервера для отправки email с письмами регистрации, восстановления пароля и системных уведомлений.</p>
+                <label className="flex items-center gap-3 p-3.5 rounded-xl bg-card/40 border border-white/5 cursor-pointer">
                   <input
                     type="checkbox"
                     id="skipEmailVerification"
                     checked={settings.skipEmailVerification ?? false}
                     onChange={(e) => setSettings((s) => (s ? { ...s, skipEmailVerification: e.target.checked } : s))}
-                    className="rounded border"
+                    className="rounded border w-4 h-4"
                   />
-                  <Label htmlFor="skipEmailVerification" className="cursor-pointer">
-                    {t("admin.settings.skip_email")}
-                  </Label>
-                  <span className="text-xs text-muted-foreground ml-2">
-                    ({t("admin.settings.smtp_no_confirm_hint")})
-                  </span>
-                </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">{t("admin.settings.skip_email")}</span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{t("admin.settings.smtp_no_confirm_hint")}</p>
+                  </div>
+                </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t("admin.settings.smtp_host")}</Label>
@@ -3318,19 +3383,25 @@ export function SettingsPage() {
                     />
                   </div>
                 </div>
+                </div>
               </CardContent>
             </Card>
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5" />
-                  {t("admin.settings.telegram_title")}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.settings.telegram_bot_hint")}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="mt-6 overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-sky-500/10 via-blue-500/10 to-cyan-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-sky-500/30 via-blue-500/20 to-cyan-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <MessageCircle className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500">
+                      {t("admin.settings.telegram_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.telegram_bot_hint")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="space-y-2">
                   <Label>{t("admin.settings.telegram_bot_token")}</Label>
                   <Input
