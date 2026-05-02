@@ -368,36 +368,76 @@ export function DashboardLayout() {
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-background animate-pulse" />
               )}
             </Button>
-            {/* Theme picker */}
+            {/* Theme picker — стиль из кабинета */}
             <div className="relative">
-              <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-9 px-2.5 rounded-xl border border-transparent hover:border-white/10" onClick={() => setShowThemePanel(!showThemePanel)}>
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-9 px-2.5 rounded-xl border border-transparent hover:border-white/10 bg-background/20 hover:bg-background/40" onClick={() => setShowThemePanel(!showThemePanel)}>
                 <Palette className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{t("admin.header.theme")}</span>
               </Button>
               {showThemePanel && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowThemePanel(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-white/10 bg-card/95 backdrop-blur-2xl p-4 shadow-2xl">
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">{t("admin.header.mode")}</p>
-                    <div className="flex gap-1 mb-4">
-                      {MODE_OPTIONS.map((opt) => (
-                        <button key={opt.value} onClick={() => setMode(opt.value)}
-                          className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
-                            themeConfig.mode === opt.value ? "bg-gradient-to-r from-primary to-fuchsia-500 text-white shadow-md" : "bg-muted/50 hover:bg-muted")}>
-                          <opt.icon className="h-3.5 w-3.5" />{opt.label}
-                        </button>
-                      ))}
+                  <div className={cn(
+                    "absolute right-0 top-full z-50 mt-3 w-[calc(100vw-2rem)] sm:w-[320px] max-w-[320px] rounded-[2rem] border border-white/40 dark:border-white/10 bg-slate-200/60 dark:bg-slate-900/60 backdrop-blur-[32px] p-5 shadow-[0_10px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_60px_rgba(0,0,0,0.5)] transition-all duration-300 origin-top-right",
+                    "opacity-100 scale-100 pointer-events-auto translate-y-0"
+                  )}>
+                    <div className="mb-5">
+                      <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">{t("admin.header.mode")}</h4>
+                      <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
+                        {MODE_OPTIONS.map((opt) => {
+                          const isActive = themeConfig.mode === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => setMode(opt.value)}
+                              className={cn(
+                                "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all duration-300",
+                                isActive
+                                  ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                              )}
+                            >
+                              <opt.icon className="h-3.5 w-3.5" />
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">{t("admin.header.accent")}</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => (
-                        <button key={key} onClick={() => setAccent(key)}
-                          className={cn("flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] transition-all",
-                            themeConfig.accent === key ? "ring-2 ring-primary bg-muted" : "hover:bg-muted/50")}>
-                          <div className="h-6 w-6 rounded-full border-2 border-foreground/10 shadow-inner" style={{ backgroundColor: palette.swatch }} />
-                          <span className="text-muted-foreground truncate w-full text-center">{palette.label}</span>
-                        </button>
-                      ))}
+
+                    <div>
+                      <h4 className="mb-3 text-sm font-semibold tracking-tight text-foreground">{t("admin.header.accent")}</h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(Object.entries(ACCENT_PALETTES) as [ThemeAccent, typeof ACCENT_PALETTES["default"]][]).map(([key, palette]) => {
+                          const isActive = themeConfig.accent === key;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => setAccent(key)}
+                              className={cn(
+                                "group flex flex-col items-center gap-2 rounded-xl p-2 transition-all duration-300",
+                                isActive ? "bg-primary/10" : "hover:bg-muted/60"
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "relative flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
+                                  isActive ? "scale-110 ring-4 ring-primary/20" : "group-hover:scale-110"
+                                )}
+                                style={{ backgroundColor: palette.swatch }}
+                              >
+                                {isActive && <Check className="h-4 w-4 text-white drop-shadow-md" />}
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-medium tracking-tight truncate w-full text-center transition-colors",
+                                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                              )}>
+                                {palette.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </>
