@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, ChevronUp, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw, Shield, Terminal, FileText, MapPin, GripVertical, Smile, Sliders, MessageSquare, Eye, EyeOff, Megaphone, Trash, Bell } from "lucide-react";
+import { RefreshCw, Download, Upload, Link2, Settings2, Gift, Users, ArrowLeftRight, Mail, MessageCircle, CreditCard, ChevronDown, ChevronUp, Copy, Check, Bot, FileJson, Palette, Wallet, Package, Plus, Trash2, KeyRound, Loader2, Sparkles, Layers, Globe, BarChart3, RotateCw, Shield, Terminal, FileText, MapPin, GripVertical, Smile, Sliders, MessageSquare, Eye, Megaphone, Trash, Bell } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_PALETTES } from "@/contexts/theme";
