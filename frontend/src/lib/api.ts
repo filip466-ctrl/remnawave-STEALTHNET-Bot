@@ -2106,6 +2106,7 @@ export type UpdateSettingsPayload = {
   forceSubscribeMessage?: string | null;
   blacklistEnabled?: boolean;
   botAutoDeleteUnknownMessages?: boolean;
+  botInfoBlock?: string | null;
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
   sellOptionsTrafficProducts?: string | null;
@@ -2478,6 +2479,8 @@ export interface AdminSettings {
   blacklistEnabled?: boolean;
   /** Авто-удаление нераспознанных сообщений в боте (стикеры, случайный текст и т.п.) */
   botAutoDeleteUnknownMessages?: boolean;
+  /** Кастомный инфо-блок: показывается в главном меню бота и в кабинете. Пусто = скрыт. */
+  botInfoBlock?: string | null;
   /** Продажа опций: доп. трафик, устройства, серверы */
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
@@ -3566,4 +3569,6 @@ export interface PublicConfig {
   giftExpiryNotificationDays?: number;
   giftReferralEnabled?: boolean;
   giftMessageMaxLength?: number;
+  /** Кастомный инфо-блок (тех. работы, акции, контакты). Пусто = скрыт. Поддерживает многострочный текст. */
+  botInfoBlock?: string | null;
 }

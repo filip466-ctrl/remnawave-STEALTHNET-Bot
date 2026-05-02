@@ -1628,6 +1628,7 @@ const updateSettingsSchema = z.object({
   giftMessageMaxLength: z.number().int().min(0).max(1000).optional(),
   // Поведение бота
   botAutoDeleteUnknownMessages: z.boolean().optional(),
+  botInfoBlock: z.string().max(2000).nullable().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -2421,11 +2422,12 @@ adminRouter.patch("/settings", async (req, res) => {
     ["giftReferralEnabled", "gift_referral_enabled"],
     ["giftMessageMaxLength", "gift_message_max_length"],
     ["botAutoDeleteUnknownMessages", "bot_auto_delete_unknown_messages"],
+    ["botInfoBlock", "bot_info_block"],
   ];
   for (const [key, dbKey] of giftKeys) {
     const v = updates[key];
     if (v === undefined) continue;
-    const val = typeof v === "boolean" ? (v ? "true" : "false") : String(v);
+    const val = v === null ? "" : typeof v === "boolean" ? (v ? "true" : "false") : String(v);
     await prisma.systemSetting.upsert({
       where: { key: dbKey },
       create: { key: dbKey, value: val },

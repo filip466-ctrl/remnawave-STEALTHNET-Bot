@@ -355,6 +355,12 @@ export function ClientDashboardPage() {
           </div>
         )}
 
+        {config?.botInfoBlock?.trim() && (
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-md px-4 py-3 text-sm whitespace-pre-line shadow-sm">
+            {config.botInfoBlock.trim()}
+          </div>
+        )}
+
         {/* 1. Статус, срок, тариф, трафик, устройства — с иконками */}
         <section data-tour="subscription" className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl p-5 shadow-sm overflow-hidden transition-all duration-300">
           <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-5">
@@ -777,6 +783,12 @@ export function ClientDashboardPage() {
           </div>
         </div>
       </motion.section>
+
+      {config?.botInfoBlock?.trim() && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-md px-5 py-4 text-sm whitespace-pre-line shadow-sm">
+          {config.botInfoBlock.trim()}
+        </div>
+      )}
 
       {/* Cards grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

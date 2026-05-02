@@ -712,8 +712,10 @@ function buildMainMenuText(opts: {
   menuLineVisibility?: Record<string, boolean> | null;
   menuTextCustomEmojiIds?: Record<string, string> | null;
   botEmojis?: Record<string, { unicode?: string; tgEmojiId?: string }> | null;
+  /** Кастомный инфо-блок (тех. работы, акции, контакты). Скрывается если пусто. */
+  infoBlock?: string | null;
 }): { text: string; entities: CustomEmojiEntity[] } {
-  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuLineVisibility, menuTextCustomEmojiIds, botEmojis } = opts;
+  const { serviceName, balance, currency, subscription, tariffDisplayName, menuTexts, menuLineVisibility, menuTextCustomEmojiIds, botEmojis, infoBlock } = opts;
   const name = serviceName.trim() || "Кабинет";
   const balanceStr = formatMoney(balance, currency);
   const lines: string[] = [];
@@ -802,6 +804,21 @@ function buildMainMenuText(opts: {
       }
     }
     pushLine("chooseAction", t(menuTexts, "chooseAction"));
+  }
+
+  // Кастомный инфо-блок: пустая строка-разделитель + сам блок построчно.
+  // Скрывается если null/empty. Каждая строка обрабатывается отдельно для корректной позиции entities.
+  const trimmedInfo = infoBlock?.trim();
+  if (trimmedInfo) {
+    lines.push("");
+    lineStartKeys.push(null);
+    lineEntitiesByIndex.push([]);
+    for (const rawLine of trimmedInfo.split("\n")) {
+      const { text: processed, entities } = applyCustomEmojiPlaceholders(rawLine, botEmojis);
+      lines.push(processed);
+      lineStartKeys.push(null);
+      lineEntitiesByIndex.push(entities);
+    }
   }
 
   const text = lines.join("\n");
@@ -1041,6 +1058,7 @@ bot.command("start", async (ctx) => {
       menuLineVisibility: config?.botMenuLineVisibility ?? null,
       menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
       botEmojis: config?.botEmojis ?? null,
+      infoBlock: config?.botInfoBlock ?? null,
     });
     const caption = text.length > TELEGRAM_CAPTION_MAX ? text.slice(0, TELEGRAM_CAPTION_MAX - 3) + "..." : text;
     const captionEntities = text.length > TELEGRAM_CAPTION_MAX && entities.length ? entities.filter((e) => e.offset + e.length <= TELEGRAM_CAPTION_MAX - 3) : entities;
@@ -1795,6 +1813,7 @@ bot.on("callback_query:data", async (ctx) => {
         menuLineVisibility: config?.botMenuLineVisibility ?? null,
         menuTextCustomEmojiIds: config?.menuTextCustomEmojiIds ?? null,
         botEmojis: config?.botEmojis ?? null,
+        infoBlock: config?.botInfoBlock ?? null,
       });
       const hasVideoInstructionsCb = config?.videoInstructionsEnabled && (config?.videoInstructions?.length ?? 0) > 0;
       const hasSupportLinks = !!(config?.supportLink || config?.agreementLink || config?.offerLink || config?.instructionsLink || hasVideoInstructionsCb);

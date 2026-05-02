@@ -625,6 +625,7 @@ export function SettingsPage() {
         forceSubscribeMessage: settings.forceSubscribeMessage ?? null,
         blacklistEnabled: settings.blacklistEnabled ?? false,
         botAutoDeleteUnknownMessages: settings.botAutoDeleteUnknownMessages ?? false,
+        botInfoBlock: settings.botInfoBlock ?? null,
         allowUserThemeChange: (settings as any).allowUserThemeChange ?? true,
         sellOptionsEnabled: settings.sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: settings.sellOptionsTrafficEnabled ?? false,
@@ -1840,6 +1841,26 @@ export function SettingsPage() {
                     />
                     <Label className="text-sm">Включить автоматическое удаление</Label>
                   </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base font-medium">Инфо-блок (объявления)</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Произвольный текст, который показывается в главном меню бота и в кабинете клиента.
+                    Используйте для объявлений тех. работ, акций, контактов поддержки и т.п. Скрывается, если поле пустое.
+                    Поддерживается многострочный текст; до 2000 символов.
+                  </p>
+                  <Textarea
+                    value={settings.botInfoBlock ?? ""}
+                    onChange={(e) =>
+                      setSettings((s) => (s ? { ...s, botInfoBlock: e.target.value.length ? e.target.value : null } : s))
+                    }
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="📢 Тех. работы 12.05 с 03:00 до 05:00 МСК&#10;💬 Поддержка: @support_bot"
+                  />
                 </div>
 
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
