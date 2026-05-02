@@ -18,8 +18,10 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { CabinetLayout } from "@/pages/cabinet/cabinet-layout";
 
 // Хелпер: конвертирует named-export модуль в shape, который понимает React.lazy.
-const named = <T extends string>(p: Promise<Record<string, unknown>>, name: T) =>
-  p.then((m) => ({ default: m[name] as React.ComponentType }));
+// `props` дженерик нужен чтобы lazy-компонент не схлопнулся в ComponentType<{}> и
+// продолжал принимать свои реальные props (см. LandingPage с `config`).
+const named = <Props,>(p: Promise<Record<string, unknown>>, name: string) =>
+  p.then((m) => ({ default: m[name] as React.ComponentType<Props> }));
 
 // === Admin pages (lazy chunks) ===
 const LoginPage = lazy(() => named(import("@/pages/login"), "LoginPage"));
@@ -72,7 +74,7 @@ const ClientTicketsPage = lazy(() => named(import("@/pages/cabinet/client-ticket
 const ClientCustomBuildPage = lazy(() => named(import("@/pages/cabinet/client-custom-build"), "ClientCustomBuildPage"));
 const ClientGiftsPage = lazy(() => named(import("@/pages/cabinet/client-gifts"), "ClientGiftsPage"));
 const GiftActivatePage = lazy(() => named(import("@/pages/gift-activate"), "GiftActivatePage"));
-const LandingPage = lazy(() => named(import("@/pages/landing"), "LandingPage"));
+const LandingPage = lazy(() => named<{ config: PublicConfig }>(import("@/pages/landing"), "LandingPage"));
 
 import type { PublicConfig } from "@/lib/api";
 
