@@ -107,6 +107,12 @@ export interface ContestFormPayload {
   dailyMessage: string | null;
   buttonText?: string | null;
   buttonUrl?: string | null;
+  /** Включены ли напоминания для этого контеста (issue #35) */
+  reminderEnabled?: boolean;
+  /** Интервал между напоминаниями в часах. 0 = не слать periodic-напоминания (только startNotification + deadline). */
+  reminderIntervalHours?: number;
+  /** CSV часов до endAt: "24,1" → за 24ч и за 1ч до окончания. Пусто = выкл. */
+  reminderDeadlineHoursBefore?: string;
 }
 
 export interface ContestListItem {
@@ -125,6 +131,9 @@ export interface ContestListItem {
   dailyMessage: string | null;
   buttonText?: string | null;
   buttonUrl?: string | null;
+  reminderEnabled?: boolean;
+  reminderIntervalHours?: number;
+  reminderDeadlineHoursBefore?: string;
   status: ContestStatus;
   createdAt: string;
   updatedAt: string;

@@ -689,6 +689,11 @@ model Contest {
   lastDailyReminderAt     DateTime? @map("last_daily_reminder_at")
   buttonText              String?   @map("button_text") @db.Text
   buttonUrl               String?   @map("button_url") @db.Text
+  // Конфиг напоминаний (issue #35). Если null/default — поведение как раньше (1 раз в день).
+  reminderEnabled              Boolean   @default(true) @map("reminder_enabled")
+  reminderIntervalHours        Int       @default(24)   @map("reminder_interval_hours") // 0 = выкл периодических, >0 = каждые N часов
+  reminderDeadlineHoursBefore  String    @default("")   @map("reminder_deadline_hours_before") @db.Text // CSV "24,1" — отправить за N часов до endAt
+  reminderDeadlineSentJson     String?   @map("reminder_deadline_sent_json") @db.Text // {"24":"2026-01-01T...","1":"..."} — какие deadline-напоминания уже отправлены
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
