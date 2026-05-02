@@ -325,7 +325,7 @@ export function DashboardLayout() {
 
       {/* ═══ Main content ═══ */}
       <main className="flex-1 min-w-0 flex flex-col md:pl-[290px] w-full relative z-10">
-        <header className="sticky top-3 z-40 mx-3 sm:mx-4 mt-3 flex h-14 shrink-0 items-center justify-between gap-3 px-4 md:px-5 rounded-2xl bg-white/10 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all">
+        <header className="sticky top-3 z-40 mx-3 sm:mx-4 mt-3 flex h-16 shrink-0 items-center justify-between gap-3 px-4 md:px-5 rounded-[1.35rem] bg-white/10 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0 rounded-xl" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
