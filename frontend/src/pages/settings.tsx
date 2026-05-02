@@ -869,99 +869,104 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t("admin.settings.title")}</h1>
-        <p className="text-muted-foreground">{t("admin.settings.subtitle")}</p>
+      {/* ═══ HERO ═══ */}
+      <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-sky-500/10 via-indigo-500/10 to-fuchsia-500/10 backdrop-blur-3xl shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-fuchsia-500/10 pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-gradient-to-br from-sky-500/20 to-fuchsia-500/20 blur-3xl pointer-events-none" />
+        <div className="relative px-6 py-7 sm:px-8 sm:py-8 flex items-start gap-5">
+          <div className="h-16 w-16 rounded-3xl bg-gradient-to-br from-sky-500/30 via-indigo-500/20 to-fuchsia-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+            <Settings2 className="h-8 w-8 text-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-500 via-indigo-500 to-fuchsia-500">
+              {t("admin.settings.title")}
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-2 leading-relaxed max-w-2xl">
+              {t("admin.settings.subtitle")}
+            </p>
+          </div>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-10 gap-2 p-2 h-auto bg-muted/50 rounded-2xl border shadow-sm">
-          <TabsTrigger value="general" className="gap-2 py-3 px-4 rounded-xl">
-            <Settings2 className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_general")}
+        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-1.5 p-1.5 h-auto bg-muted/40 rounded-2xl border border-white/10 shadow-sm backdrop-blur-md">
+          <TabsTrigger value="general" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-500 data-[state=active]:to-zinc-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Settings2 className="h-4 w-4 shrink-0" />{t("admin.settings.tab_general")}
           </TabsTrigger>
-          <TabsTrigger value="trial" className="gap-2 py-3 px-4 rounded-xl">
-            <Gift className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_trial")}
+          <TabsTrigger value="trial" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Gift className="h-4 w-4 shrink-0" />{t("admin.settings.tab_trial")}
           </TabsTrigger>
-          <TabsTrigger value="referral" className="gap-2 py-3 px-4 rounded-xl">
-            <Users className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_referral")}
+          <TabsTrigger value="referral" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Users className="h-4 w-4 shrink-0" />{t("admin.settings.tab_referral")}
           </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2 py-3 px-4 rounded-xl">
-            <CreditCard className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_payments")}
+          <TabsTrigger value="payments" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <CreditCard className="h-4 w-4 shrink-0" />{t("admin.settings.tab_payments")}
           </TabsTrigger>
-          <TabsTrigger value="bot" className="gap-2 py-3 px-4 rounded-xl">
-            <Bot className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_bot")}
+          <TabsTrigger value="bot" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-sky-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Bot className="h-4 w-4 shrink-0" />{t("admin.settings.tab_bot")}
           </TabsTrigger>
-          <TabsTrigger value="ai" className="gap-2 py-3 px-4 rounded-xl">
-            <Sparkles className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_ai")}
+          <TabsTrigger value="ai" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-fuchsia-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Sparkles className="h-4 w-4 shrink-0" />{t("admin.settings.tab_ai")}
           </TabsTrigger>
-          <TabsTrigger value="mail-telegram" className="gap-2 py-3 px-4 rounded-xl">
-            <Mail className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_mail_telegram")}
+          <TabsTrigger value="mail-telegram" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Mail className="h-4 w-4 shrink-0" />{t("admin.settings.tab_mail_telegram")}
           </TabsTrigger>
-          <TabsTrigger value="subpage" className="gap-2 py-3 px-4 rounded-xl">
-            <FileJson className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_subpage")}
+          <TabsTrigger value="subpage" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <FileJson className="h-4 w-4 shrink-0" />{t("admin.settings.tab_subpage")}
           </TabsTrigger>
-          <TabsTrigger value="theme" className="gap-2 py-3 px-4 rounded-xl">
-            <Palette className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_theme")}
+          <TabsTrigger value="theme" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Palette className="h-4 w-4 shrink-0" />{t("admin.settings.tab_theme")}
           </TabsTrigger>
-          <TabsTrigger value="options" className="gap-2 py-3 px-4 rounded-xl">
-            <Package className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_options")}
+          <TabsTrigger value="options" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Package className="h-4 w-4 shrink-0" />{t("admin.settings.tab_options")}
           </TabsTrigger>
-          <TabsTrigger value="custom-build" className="gap-2 py-3 px-4 rounded-xl">
-            <Layers className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_custom_build")}
+          <TabsTrigger value="custom-build" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Layers className="h-4 w-4 shrink-0" />{t("admin.settings.tab_custom_build")}
           </TabsTrigger>
-          <TabsTrigger value="oauth" className="gap-2 py-3 px-4 rounded-xl">
-            <KeyRound className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_oauth")}
+          <TabsTrigger value="oauth" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-zinc-500 data-[state=active]:to-slate-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <KeyRound className="h-4 w-4 shrink-0" />{t("admin.settings.tab_oauth")}
           </TabsTrigger>
-          <TabsTrigger value="landing" className="gap-2 py-3 px-4 rounded-xl">
-            <Globe className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_landing")}
+          <TabsTrigger value="landing" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Globe className="h-4 w-4 shrink-0" />{t("admin.settings.tab_landing")}
           </TabsTrigger>
-          <TabsTrigger value="server-ssh" className="gap-2 py-3 px-4 rounded-xl">
-            <Terminal className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_ssh")}
+          <TabsTrigger value="server-ssh" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-stone-500 data-[state=active]:to-zinc-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Terminal className="h-4 w-4 shrink-0" />{t("admin.settings.tab_ssh")}
           </TabsTrigger>
-          <TabsTrigger value="proxy-settings" className="gap-2 py-3 px-4 rounded-xl">
-            <Shield className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_proxy")}
+          <TabsTrigger value="proxy-settings" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Shield className="h-4 w-4 shrink-0" />{t("admin.settings.tab_proxy")}
           </TabsTrigger>
-          <TabsTrigger value="nalog-settings" className="gap-2 py-3 px-4 rounded-xl">
-            <FileText className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_nalog")}
+          <TabsTrigger value="nalog-settings" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-600 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <FileText className="h-4 w-4 shrink-0" />{t("admin.settings.tab_nalog")}
           </TabsTrigger>
-          <TabsTrigger value="geo-map" className="gap-2 py-3 px-4 rounded-xl">
-            <MapPin className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_map")}
+          <TabsTrigger value="geo-map" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <MapPin className="h-4 w-4 shrink-0" />{t("admin.settings.tab_map")}
           </TabsTrigger>
-          <TabsTrigger value="gifts" className="gap-2 py-3 px-4 rounded-xl">
-            <Gift className="h-4 w-4 shrink-0" />
-            Подарки
+          <TabsTrigger value="gifts" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-fuchsia-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <Gift className="h-4 w-4 shrink-0" />Подарки
           </TabsTrigger>
-          <TabsTrigger value="sync" className="gap-2 py-3 px-4 rounded-xl">
-            <ArrowLeftRight className="h-4 w-4 shrink-0" />
-            {t("admin.settings.tab_sync")}
+          <TabsTrigger value="sync" className="gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <ArrowLeftRight className="h-4 w-4 shrink-0" />{t("admin.settings.tab_sync")}
           </TabsTrigger>
         </TabsList>
 
         <form onSubmit={handleSubmit}>
           <TabsContent value="general">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.settings.general_title")}</CardTitle>
-                <p className="text-sm text-muted-foreground">{t("admin.settings.general_subtitle")}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-slate-500/10 via-zinc-500/10 to-stone-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-500/5 via-transparent to-zinc-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-slate-500/30 via-zinc-500/20 to-stone-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <Settings2 className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-500 via-zinc-500 to-stone-500">
+                      {t("admin.settings.general_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.general_subtitle")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="space-y-3 rounded-lg border p-4 bg-muted/20">
                   <div className="flex items-center gap-3">
                     <Switch
@@ -1979,12 +1984,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="trial">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.settings.trial_title")}</CardTitle>
-                <p className="text-sm text-muted-foreground">{t("admin.settings.trial_subtitle")}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-green-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-green-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500/30 via-teal-500/20 to-green-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <Gift className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 via-teal-500 to-green-500">
+                      {t("admin.settings.trial_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.trial_subtitle")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="space-y-2">
                   <Label>{t("admin.settings.trial_days")}</Label>
                   <Input
@@ -2051,14 +2066,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="subpage">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.settings.subpage_title")}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.settings.subpage_editor_hint")}
-                </p>
-              </CardHeader>
-              <CardContent>
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-rose-500/10 via-pink-500/10 to-fuchsia-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-fuchsia-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-rose-500/30 via-pink-500/20 to-fuchsia-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <FileJson className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-rose-500 via-pink-500 to-fuchsia-500">
+                      {t("admin.settings.subpage_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.subpage_editor_hint")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="p-4 sm:p-6">
                 <div className="p-4 rounded-lg border bg-muted/40 mb-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <input
@@ -2126,14 +2149,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="referral">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("admin.settings.referral_title")}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.settings.referral_subtitle")}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-violet-500/10 via-purple-500/10 to-fuchsia-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-fuchsia-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500/30 via-purple-500/20 to-fuchsia-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <Users className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500">
+                      {t("admin.settings.referral_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.referral_subtitle")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="space-y-2">
                   <Label>{t("admin.settings.referral_level_1")}</Label>
                   <Input
@@ -2179,14 +2210,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <CardTitle>{t("admin.settings.payments_general")}</CardTitle>
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-yellow-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-yellow-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-500/30 via-orange-500/20 to-yellow-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <CreditCard className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500">
+                      {t("admin.settings.payments_general")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">Платёжные провайдеры, авто-продление подписки, общие настройки оплат.</p>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4 p-4 rounded-xl border bg-card/50">
                   <div className="space-y-1">
                     <Label className="text-base font-semibold">{t("admin.settings.auto_renew")}</Label>
@@ -3047,18 +3086,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="ai">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  {t("admin.settings.ai_title")}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.settings.ai_subtitle")}{" "}
-                  {t("admin.settings.ai_integration_hint")}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-fuchsia-500/10 via-pink-500/10 to-purple-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-pink-500/20 to-purple-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <Sparkles className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 via-pink-500 to-purple-500">
+                      {t("admin.settings.ai_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.ai_subtitle")} {t("admin.settings.ai_integration_hint")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t("admin.settings.ai_groq_key")}</Label>
@@ -3176,17 +3219,22 @@ export function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="mail-telegram">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  {t("admin.settings.smtp_title")}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.settings.smtp_subtitle")}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="overflow-hidden border-white/10">
+              <div className="relative bg-gradient-to-br from-cyan-500/10 via-teal-500/10 to-sky-500/10 p-6 sm:p-8 border-b border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-sky-500/5 pointer-events-none" />
+                <div className="relative flex items-start gap-5">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cyan-500/30 via-teal-500/20 to-sky-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                    <Mail className="h-7 w-7 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 via-teal-500 to-sky-500">
+                      {t("admin.settings.smtp_title")}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.smtp_subtitle")}</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/40">
                   <input
                     type="checkbox"
@@ -3365,29 +3413,32 @@ export function SettingsPage() {
         </form>
 
         <TabsContent value="theme">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between rounded-xl border p-4 bg-background/50 mb-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-pink-500/10 via-rose-500/10 to-fuchsia-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 via-transparent to-fuchsia-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-pink-500/30 via-rose-500/20 to-fuchsia-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Palette className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-500">
+                    {t("admin.settings.theme_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.theme_global_hint")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 p-4 bg-card/40">
                 <div className="space-y-0.5">
-                  <Label className="text-base">{t("admin.settings.theme_user_choice")}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.settings.theme_user_choice_hint")}
-                  </p>
+                  <Label className="text-base font-medium">{t("admin.settings.theme_user_choice")}</Label>
+                  <p className="text-xs text-muted-foreground">{t("admin.settings.theme_user_choice_hint")}</p>
                 </div>
                 <Switch
                   checked={Boolean((settings as any)?.allowUserThemeChange ?? true)}
                   onCheckedChange={(c: boolean) => setSettings((s) => s ? { ...s, allowUserThemeChange: c } : s)}
                 />
               </div>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                {t("admin.settings.theme_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.theme_global_hint")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
               <div>
                 <Label className="text-sm font-medium mb-3 block">{t("admin.settings.theme_accent")}</Label>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -3440,17 +3491,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="options">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                {t("admin.settings.options_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.options_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-yellow-500/10 via-amber-500/10 to-orange-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-orange-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-yellow-500/30 via-amber-500/20 to-orange-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Package className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500">
+                    {t("admin.settings.options_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.options_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="flex items-center gap-2">
                 <Switch
                   id="sell-options-enabled"
@@ -3627,17 +3683,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="custom-build">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                {t("admin.settings.custom_build_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.custom_build_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-indigo-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500/30 via-violet-500/20 to-indigo-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Layers className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-500 via-violet-500 to-indigo-500">
+                    {t("admin.settings.custom_build_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.custom_build_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
                 <Switch
                   id="custom-build-enabled"
@@ -3774,17 +3835,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="oauth">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5" />
-                {t("admin.settings.oauth_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.oauth_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-zinc-500/10 via-slate-500/10 to-stone-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-500/5 via-transparent to-stone-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-zinc-500/30 via-slate-500/20 to-stone-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <KeyRound className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-500 via-slate-500 to-stone-500">
+                    {t("admin.settings.oauth_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.oauth_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -3896,41 +3962,45 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="landing">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                {t("admin.settings.landing_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.landing_subtitle")}
-              </p>
-              <div className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSaving(true);
-                    setMessage("");
-                    try {
-                      const updated = await api.resetLandingText(token);
-                      setSettings((prev) => (prev ? { ...prev, ...updated } : prev));
-                      setMessage(t("admin.settings.landing_texts_reset"));
-                    } catch {
-                      setMessage(t("admin.settings.landing_reset_error"));
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  {t("admin.settings.landing_reset_texts")}
-                </Button>
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-green-500/10 via-emerald-500/10 to-teal-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-teal-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500/30 via-emerald-500/20 to-teal-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Globe className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500">
+                    {t("admin.settings.landing_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.landing_subtitle")}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 rounded-xl"
+                    disabled={saving}
+                    onClick={async () => {
+                      setSaving(true);
+                      setMessage("");
+                      try {
+                        const updated = await api.resetLandingText(token);
+                        setSettings((prev) => (prev ? { ...prev, ...updated } : prev));
+                        setMessage(t("admin.settings.landing_texts_reset"));
+                      } catch {
+                        setMessage(t("admin.settings.landing_reset_error"));
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                    {t("admin.settings.landing_reset_texts")}
+                  </Button>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+            <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
                   <p className="font-medium">{t("admin.settings.landing_enable")}</p>
@@ -4370,17 +4440,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="server-ssh">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Terminal className="h-5 w-5" />
-                {t("admin.settings.ssh_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.ssh_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-stone-500/10 via-zinc-500/10 to-slate-600/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-stone-500/5 via-transparent to-slate-600/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-stone-500/30 via-zinc-500/20 to-slate-600/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Terminal className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-stone-400 via-zinc-400 to-slate-400">
+                    {t("admin.settings.ssh_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.ssh_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               {!sshConfig ? (
                 <p className="text-sm text-muted-foreground py-4">
                   {t("admin.settings.ssh_not_found")}
@@ -4470,17 +4545,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="proxy-settings">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                {t("admin.settings.proxy_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.proxy_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-orange-500/10 via-red-500/10 to-rose-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-rose-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500/30 via-red-500/20 to-rose-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Shield className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-red-500 to-rose-500">
+                    {t("admin.settings.proxy_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.proxy_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">{t("admin.settings.proxy_enabled")}</Label>
@@ -4563,18 +4643,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="nalog-settings">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                {t("admin.settings.nalog_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.nalog_subtitle")}
-                {t("admin.settings.nalog_selfemployed_hint")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-yellow-600/10 via-amber-600/10 to-orange-600/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-600/5 via-transparent to-orange-600/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-yellow-600/30 via-amber-600/20 to-orange-600/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <FileText className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-600 via-amber-600 to-orange-600">
+                    {t("admin.settings.nalog_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.nalog_subtitle")} {t("admin.settings.nalog_selfemployed_hint")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">{t("admin.settings.nalog_enabled")}</Label>
@@ -4677,17 +4761,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="geo-map">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                {t("admin.settings.map_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.map_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-teal-500/10 via-cyan-500/10 to-sky-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 via-transparent to-sky-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/20 to-sky-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <MapPin className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500">
+                    {t("admin.settings.map_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.map_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label className="text-base font-medium">{t("admin.settings.map_enabled")}</Label>
@@ -4751,17 +4840,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="gifts">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Gift className="h-5 w-5" />
-                Подарки и дополнительные подписки
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Настройки системы подарков, кодов и дополнительных подписок
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-pink-500/10 via-fuchsia-500/10 to-rose-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 via-transparent to-rose-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-pink-500/30 via-fuchsia-500/20 to-rose-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <Gift className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-fuchsia-500 to-rose-500">
+                    Подарки и доп. подписки
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">Настройки системы подарков, кодов и дополнительных подписок</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="flex items-center gap-3">
                 <Switch
                   id="gift-subscriptions-enabled"
@@ -4938,17 +5032,22 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="sync">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5" />
-                {t("admin.settings.sync_title")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.settings.sync_subtitle")}
-              </p>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-3">
+          <Card className="overflow-hidden border-white/10">
+            <div className="relative bg-gradient-to-br from-violet-500/10 via-indigo-500/10 to-blue-500/10 p-6 sm:p-8 border-b border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+              <div className="relative flex items-start gap-5">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500/30 via-indigo-500/20 to-blue-500/30 flex items-center justify-center shadow-xl border border-white/20 shrink-0">
+                  <ArrowLeftRight className="h-7 w-7 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500">
+                    {t("admin.settings.sync_title")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t("admin.settings.sync_subtitle")}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="flex flex-wrap items-center gap-3 p-4 sm:p-6">
               <Button
                 variant="outline"
                 onClick={handleSyncFromRemna}
