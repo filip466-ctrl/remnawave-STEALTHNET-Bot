@@ -147,23 +147,59 @@ export async function createLavaInvoice(params: CreateLavaInvoiceParams): Promis
 /**
  * Проверка подписи webhook'а Lava.
  * Lava кладёт сигнатуру в заголовок `Authorization` (в некоторых версиях используется имя `Signature`),
- * подпись — HMAC-SHA256(rawBody, additionalKey) → hex.
- * Сравнение — timingSafeEqual для защиты от утечек по времени.
+ * Алгоритм Lava (по их PHP-примеру + тестовому вектору саппорта 04.05.2026):
+ *   1) JSON.parse(rawBody)
+ *   2) ksort (PHP: top-level ключи отсортированы по алфавиту)
+ *   3) json_encode (без флагов — но в Lava-payload нет слэшей/unicode, так что
+ *      обычный JSON.stringify даёт байт-в-байт то же что PHP json_encode)
+ *   4) HMAC-SHA256(canonicalJson, additionalKey) → hex
+ *
+ * Тестовый вектор от саппорта Lava (key="test"):
+ *   {"type":1,"amount":"10.00","status":"success","credited":"10.00",
+ *    "order_id":"test","pay_time":"2026-05-01 13:57:36","invoice_id":"test",
+ *    "pay_service":"test","custom_fields":null,"payer_details":null}
+ *   → 9af43dede4417ee68fdfc2ed7d772c41443a23eed2472329dd239ea7657f3e92
+ *
+ * Если в payload появятся слэши или unicode — нужен дополнительный escape под
+ * стиль PHP (`/` → `\/`, `é` → `é`). Lava-вебхуки обычно без этого, но
+ * fallback-проверка raw body оставлена на случай когда Lava пришлёт сигнатуру
+ * не от canonical, а от raw (исторические клиенты, debug, ручной test).
  */
 export function verifyLavaWebhookSignature(additionalKey: string, rawBody: string, signatureHeader: string | undefined): boolean {
   const key = additionalKey?.trim();
   const sig = signatureHeader?.trim();
   if (!key || !sig) return false;
-  const expected = createHmac("sha256", key).update(rawBody).digest("hex");
+
+  // Основной путь: canonical JSON с отсортированными top-level ключами.
+  let canonical: string | null = null;
   try {
-    const expectedBuf = Buffer.from(expected, "hex");
-    const providedBuf = Buffer.from(sig, "hex");
-    if (expectedBuf.length !== providedBuf.length) return false;
-    return timingSafeEqual(expectedBuf, providedBuf);
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const sorted: Record<string, unknown> = {};
+      for (const k of Object.keys(parsed).sort()) sorted[k] = parsed[k];
+      canonical = JSON.stringify(sorted);
+    }
   } catch {
-    // если hex невалидный — просто строковое сравнение как fallback
-    return createHash("sha256").update(expected).digest("hex") === createHash("sha256").update(sig).digest("hex");
+    // невалидный JSON — оставляем canonical=null, проверим только raw
   }
+
+  const candidates = [canonical, rawBody].filter((s): s is string => typeof s === "string" && s.length > 0);
+  for (const body of candidates) {
+    const expected = createHmac("sha256", key).update(body).digest("hex");
+    try {
+      const expectedBuf = Buffer.from(expected, "hex");
+      const providedBuf = Buffer.from(sig, "hex");
+      if (expectedBuf.length === providedBuf.length && timingSafeEqual(expectedBuf, providedBuf)) {
+        return true;
+      }
+    } catch {
+      // невалидный hex в заголовке — fallback на полное хэширование строк
+      if (createHash("sha256").update(expected).digest("hex") === createHash("sha256").update(sig).digest("hex")) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 function extractLavaError(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
