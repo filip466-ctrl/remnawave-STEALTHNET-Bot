@@ -87,3 +87,4 @@ temp/
 git-manager.bat
 git-manager.py
 git-manager.sh
+scripts/node_modules/

@@ -6,7 +6,8 @@ import {
   Megaphone, Tag, BarChart3, FileText, ExternalLink, Sun, Moon, Monitor,
   Palette, Menu, X, Database, Target, UserCog, Send, CalendarClock, Globe, Server, MessageSquare, Trophy,
   Network, ShieldAlert, Key, Map, Video, Languages, Gift, Sparkles, Rocket, Bot,
-  Bell, ChevronRight, Check, ShoppingBag,
+  ChevronRight, Check, ShoppingBag,
+  Activity, Inbox, ClipboardList, TrendingUp, Mail,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAdminLanguageSync } from "@/i18n/use-language-sync";
@@ -15,8 +16,9 @@ import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/c
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api, type AdminNotificationCounters } from "@/lib/api";
+import { InboxBell } from "@/components/inbox-bell";
 
-const PANEL_VERSION = "3.3.3";
+const PANEL_VERSION = "4.3.0";
 const GITHUB_URL = "https://github.com/systemmaster1200-eng/remnawave-STEALTHNET-Bot";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; section: string; category: string };
@@ -36,6 +38,9 @@ function useNavSections(): NavItem[] {
   return [
     { to: "/admin", label: t("admin.nav.dashboard"), icon: LayoutDashboard, section: "dashboard", category: "overview" },
     { to: "/admin/analytics", label: t("admin.nav.analytics"), icon: BarChart3, section: "analytics", category: "overview" },
+    { to: "/admin/business-analytics", label: "Бизнес-аналитика", icon: TrendingUp, section: "analytics", category: "overview" },
+    { to: "/admin/anti-fraud", label: "Anti-fraud", icon: ShieldAlert, section: "analytics", category: "overview" },
+    { to: "/admin/bot-conversations", label: "Активность клиентов", icon: MessageSquare, section: "clients", category: "management" },
     { to: "/admin/sales-report", label: t("admin.nav.sales_report"), icon: FileText, section: "sales-report", category: "overview" },
     { to: "/admin/traffic-abuse", label: t("admin.nav.traffic_abuse"), icon: ShieldAlert, section: "traffic-abuse", category: "overview" },
     { to: "/admin/geo-map", label: t("admin.nav.geo_map"), icon: Map, section: "geo-map", category: "overview" },
@@ -62,6 +67,12 @@ function useNavSections(): NavItem[] {
     { to: "/admin/bots", label: t("admin.nav.clone_bots"), icon: Bot, section: "bots", category: "settings" },
     { to: "/admin/admins", label: t("admin.nav.managers"), icon: UserCog, section: "admins", category: "settings" },
     { to: "/admin/api-keys", label: t("admin.nav.api_keys"), icon: Key, section: "api-keys", category: "settings" },
+    { to: "/admin/antibot", label: "Антибот", icon: Shield, section: "antibot", category: "settings" },
+    { to: "/admin/diagnostics", label: "Диагностика", icon: Activity, section: "diagnostics", category: "settings" },
+    { to: "/admin/email-templates", label: "Email-шаблоны", icon: Mail, section: "settings", category: "settings" },
+    { to: "/admin/bot-messages", label: "Тексты бота", icon: Bot, section: "settings", category: "settings" },
+    { to: "/admin/webhook-inbox", label: "Webhook inbox", icon: Inbox, section: "webhook-inbox", category: "settings" },
+    { to: "/admin/audit", label: "Аудит-лог", icon: ClipboardList, section: "audit", category: "settings" },
   ];
 }
 
@@ -231,7 +242,7 @@ export function DashboardLayout() {
       </div>
 
       {/* ═══ Desktop sidebar ═══ */}
-      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-50 rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
+      <aside className="hidden md:flex flex-col shrink-0 fixed left-0 top-3 bottom-3 w-[290px] z-[70] rounded-r-[2rem] border-y border-r border-white/20 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-xl shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_-1px_1px_0_rgba(255,255,255,0.15)] transition-all overflow-hidden">
         <div className="flex h-16 items-center justify-center gap-3 px-4 relative z-10">
           <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
           {brand.logo ? (
@@ -276,11 +287,11 @@ export function DashboardLayout() {
         {mobileMenuOpen && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-background/50 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
+              className="fixed inset-0 z-[69] bg-background/50 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
             <motion.aside
               initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 z-50 w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
+              className="fixed left-0 top-0 bottom-0 z-[70] w-[290px] flex flex-col md:hidden bg-primary/20 dark:bg-primary/30 backdrop-blur-xl border-r border-white/30 dark:border-primary/40 shadow-[20px_0_40px_-10px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_0_40px_hsl(var(--primary)/0.2),0_0_40px_hsl(var(--primary)/0.2)] overflow-hidden"
             >
               <div className="flex h-16 items-center justify-center px-4 relative z-10">
                 <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent"></div>
@@ -327,7 +338,7 @@ export function DashboardLayout() {
 
       {/* ═══ Main content ═══ */}
       <main className="flex-1 min-w-0 flex flex-col md:pl-[290px] w-full relative z-10">
-        <header className="sticky top-3 z-40 mx-3 sm:mx-4 mt-3 flex h-16 shrink-0 items-center justify-between gap-3 px-4 md:px-5 rounded-[1.35rem] bg-white/10 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all">
+        <header className="sticky top-3 z-[70] mx-3 sm:mx-4 mt-3 flex h-16 shrink-0 items-center justify-between gap-3 px-4 md:px-5 rounded-[1.35rem] bg-white/10 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Button variant="ghost" size="icon" className="md:hidden shrink-0 rounded-xl" onClick={() => setMobileMenuOpen(true)}>
               <Menu className="h-5 w-5" />
@@ -363,13 +374,14 @@ export function DashboardLayout() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Notifications bell */}
-            <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-9 px-2.5 rounded-xl relative" title={notificationsEnabled ? "Уведомления включены" : "Уведомления выключены"} disabled>
-              <Bell className={cn("h-4 w-4", notificationsEnabled ? "text-foreground" : "text-muted-foreground/40")} />
-              {notificationToasts.length > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-background animate-pulse" />
-              )}
-            </Button>
+            {/* Real-time toast indicator (legacy, низ-приоритет) */}
+            {notificationToasts.length > 0 && (
+              <span title={notificationsEnabled ? "Уведомления включены" : "Уведомления выключены"} className="flex items-center justify-center h-9 w-2">
+                <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              </span>
+            )}
+            {/* Inbox Bell (counters → tickets/webhooks/payments/cron failures/etc.) */}
+            <InboxBell />
             {/* Theme picker — стиль из кабинета */}
             <div className="relative">
               <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-9 px-2.5 rounded-xl border border-transparent hover:border-white/10 bg-background/20 hover:bg-background/40" onClick={() => setShowThemePanel(!showThemePanel)}>

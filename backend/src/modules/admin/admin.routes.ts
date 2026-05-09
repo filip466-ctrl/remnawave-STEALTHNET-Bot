@@ -421,6 +421,7 @@ function tariffToJson(t: {
   price: number;
   currency: string;
   sortOrder: number;
+  lavatopOfferId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   priceOptions?: { id: string; durationDays: number; price: number; sortOrder: number }[];
@@ -444,6 +445,7 @@ function tariffToJson(t: {
     price: t.price,
     currency: t.currency,
     sortOrder: t.sortOrder,
+    lavatopOfferId: t.lavatopOfferId ?? null,
     priceOptions: (t.priceOptions ?? []).map((o) => ({
       id: o.id,
       durationDays: o.durationDays,
@@ -583,6 +585,8 @@ const createTariffSchema = z.object({
   price: z.number().min(0).optional(), // legacy: используется как fallback если priceOptions не заданы
   currency: z.string().max(10).optional(),
   sortOrder: z.number().int().optional(),
+  /** UUID оффера в Lava.top для этого тарифа. При оплате через Lava.top создаётся MONTHLY-подписка. */
+  lavatopOfferId: z.string().max(200).nullable().optional(),
   priceOptions: z.array(priceOptionInputSchema).min(1).max(20).optional(),
 });
 const updateTariffSchema = z.object({
@@ -599,6 +603,7 @@ const updateTariffSchema = z.object({
   deviceDiscountTiers: z.array(deviceDiscountTierSchema).max(20).optional(),
   price: z.number().min(0).optional(),
   currency: z.string().max(10).optional(),
+  lavatopOfferId: z.string().max(200).nullable().optional(),
   sortOrder: z.number().int().optional(),
   priceOptions: z.array(priceOptionInputSchema).min(1).max(20).optional(),
 });
@@ -652,6 +657,7 @@ adminRouter.post("/tariffs", async (req, res) => {
       price: legacyPrice,
       currency: (body.data.currency ?? "usd").toLowerCase(),
       sortOrder: body.data.sortOrder ?? 0,
+      lavatopOfferId: body.data.lavatopOfferId?.trim() || null,
       priceOptions: body.data.priceOptions
         ? {
           create: body.data.priceOptions.map((o, idx) => ({
@@ -675,7 +681,7 @@ adminRouter.patch("/tariffs/:id", async (req, res) => {
   if (!idParse.success) return res.status(400).json({ message: "Invalid id" });
   const body = updateTariffSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ message: "Неверные данные", errors: body.error.flatten() });
-  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; includedDevices?: number; pricePerExtraDevice?: number; maxExtraDevices?: number; deviceDiscountTiers?: { minExtraDevices: number; discountPercent: number }[]; price?: number; currency?: string; sortOrder?: number } = {};
+  const data: { name?: string; description?: string | null; durationDays?: number; internalSquadUuids?: string[]; trafficLimitBytes?: bigint | null; trafficResetMode?: string; deviceLimit?: number | null; includedDevices?: number; pricePerExtraDevice?: number; maxExtraDevices?: number; deviceDiscountTiers?: { minExtraDevices: number; discountPercent: number }[]; price?: number; currency?: string; sortOrder?: number; lavatopOfferId?: string | null } = {};
   if (body.data.name != null) data.name = body.data.name;
   if (body.data.description !== undefined) data.description = body.data.description ?? null;
   if (body.data.internalSquadUuids != null) data.internalSquadUuids = body.data.internalSquadUuids;
@@ -688,6 +694,7 @@ adminRouter.patch("/tariffs/:id", async (req, res) => {
   if (body.data.deviceDiscountTiers !== undefined) data.deviceDiscountTiers = body.data.deviceDiscountTiers;
   if (body.data.currency !== undefined) data.currency = body.data.currency.toLowerCase();
   if (body.data.sortOrder != null) data.sortOrder = body.data.sortOrder;
+  if (body.data.lavatopOfferId !== undefined) data.lavatopOfferId = body.data.lavatopOfferId?.trim() || null;
   // Если priceOptions переданы — синхронизируем legacy поля с минимальной опцией.
   if (body.data.priceOptions && body.data.priceOptions.length > 0) {
     const sorted = [...body.data.priceOptions].sort((a, b) => a.price - b.price);
@@ -1357,28 +1364,144 @@ adminRouter.get("/settings", asyncRoute(async (_req, res) => {
   return res.json(config);
 }));
 
-/** Базовый конфиг страницы подписки (subpage-00000000-0000-0000-0000-000000000000.json) для визуального редактора */
-adminRouter.get("/default-subscription-page-config", asyncRoute(async (_req, res) => {
+/** Версия панели — для мониторинга. Под auth, чтобы не светить наружу. */
+adminRouter.get("/version", asyncRoute(async (_req, res) => {
+  return res.json({ version: "4.3.0" });
+}));
+
+/**
+ * GET /api/admin/lavatop/products
+ *
+ * Прокси к Lava.top API: возвращает список всех продуктов оператора со
+ * вложенными офферами. UI админки использует это чтобы показать удобный
+ * список offer ID — оператор копирует нужный UUID в поле тарифа.
+ *
+ * Аутентификация — текущий API-key из system_settings.lavatop_api_key.
+ */
+adminRouter.get("/lavatop/products", asyncRoute(async (_req, res) => {
+  const config = await getSystemConfig();
+  const apiKey = (config as { lavatopApiKey?: string | null }).lavatopApiKey?.trim();
+  if (!apiKey) {
+    return res.status(400).json({ message: "Lava.top API-ключ не настроен. Сначала введите его в Settings → Платежи → Lava.top." });
+  }
+  try {
+    const r = await fetch("https://gate.lava.top/api/v2/products", {
+      method: "GET",
+      headers: { "X-Api-Key": apiKey, Accept: "application/json" },
+    });
+    const text = await r.text();
+    if (r.status === 401) {
+      return res.status(401).json({ message: "Lava.top: неверный API-ключ (401)" });
+    }
+    if (!r.ok) {
+      return res.status(r.status).json({ message: `Lava.top API ${r.status}: ${text.slice(0, 300)}` });
+    }
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch {
+      return res.status(502).json({ message: "Lava.top вернул невалидный JSON" });
+    }
+    type LavatopOffer = {
+      id: string;
+      name?: string;
+      description?: string;
+      prices?: { currency: string; amount: number; periodicity: string }[];
+    };
+    type LavatopProduct = {
+      id: string;
+      title?: string;
+      description?: string;
+      type?: string;
+      offers?: LavatopOffer[];
+    };
+    const data = parsed as { items?: LavatopProduct[] } | LavatopProduct[];
+    const items: LavatopProduct[] = Array.isArray(data)
+      ? (data as LavatopProduct[])
+      : Array.isArray(data?.items) ? data.items : [];
+
+    // Нормализуем: плоский список офферов с привязкой к продукту
+    const offers = items.flatMap((p) =>
+      (p.offers ?? []).map((o) => ({
+        offerId: o.id,
+        offerName: o.name ?? "",
+        offerDescription: (o.description ?? "").slice(0, 200),
+        productId: p.id,
+        productTitle: p.title ?? "",
+        productType: p.type ?? "",
+        prices: (o.prices ?? []).map((pr) => ({
+          currency: pr.currency,
+          amount: pr.amount,
+          periodicity: pr.periodicity,
+        })),
+      })),
+    );
+
+    return res.json({
+      productCount: items.length,
+      offerCount: offers.length,
+      offers,
+      products: items.map((p) => ({ id: p.id, title: p.title, type: p.type, offerCount: (p.offers ?? []).length })),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(502).json({ message: `Lava.top: нет связи (${msg})` });
+  }
+}));
+
+/**
+ * Базовый конфиг страницы подписки (subpage-00000000-0000-0000-0000-000000000000.json)
+ * для визуального редактора. В Docker файл подмонтирован как volume
+ * (см. docker-compose.yml), поэтому изменения файла на хосте подхватываются
+ * без пересборки контейнера.
+ *
+ * Логика поиска (по убыванию приоритета):
+ *   1. /app/subpage-...json (volume-mount или COPY из образа) — primary
+ *   2. process.cwd()-варианты для dev-окружения (npm run dev из backend/)
+ *   3. /app/defaults/subpage-...json — fallback из образа, если primary
+ *      сломан (пустой каталог при отсутствии файла на хосте, битый JSON и т.п.)
+ *
+ * Кэш на 30 секунд в памяти, чтобы не читать файл при каждом GET.
+ * `?fresh=1` сбрасывает кэш — используется кнопкой «Перезагрузить с сервера» в UI.
+ */
+let _defaultSubpageCache: { data: unknown; ts: number } | null = null;
+const SUBPAGE_CACHE_TTL_MS = 30_000;
+
+async function tryReadJsonFile(filePath: string): Promise<unknown | null> {
+  try {
+    const raw = await readFile(filePath, "utf-8");
+    return JSON.parse(raw) as unknown;
+  } catch {
+    // ENOENT, EISDIR (volume на отсутствующий файл монтируется как пустой каталог),
+    // невалидный JSON — все случаи прозрачно скипаем и идём к следующему кандидату.
+    return null;
+  }
+}
+
+adminRouter.get("/default-subscription-page-config", asyncRoute(async (req, res) => {
+  // ?fresh=1 — принудительный сброс кэша (используется при ручной перезагрузке)
+  const fresh = req.query.fresh === "1" || req.query.fresh === "true";
+  if (!fresh && _defaultSubpageCache && Date.now() - _defaultSubpageCache.ts < SUBPAGE_CACHE_TTL_MS) {
+    return res.json(_defaultSubpageCache.data);
+  }
+
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const fileName = "subpage-00000000-0000-0000-0000-000000000000.json";
   const candidates = [
+    // 1. Primary: /app/subpage-...json (Docker volume-mount или COPY из образа)
     path.join(process.cwd(), fileName),
+    // 2. Dev: запуск из backend/ (npm run dev)
     path.join(process.cwd(), "..", fileName),
     path.join(__dirname, "..", "..", "..", "..", fileName),
     path.join(__dirname, "..", "..", "..", "..", "..", fileName),
+    // 3. Fallback из образа (всегда валидный snapshot версии на момент сборки)
+    path.join(process.cwd(), "defaults", fileName),
+    "/app/defaults/" + fileName,
   ];
-  let lastErr: unknown;
+
   for (const configPath of candidates) {
-    try {
-      const raw = await readFile(configPath, "utf-8");
-      const data = JSON.parse(raw) as unknown;
+    const data = await tryReadJsonFile(configPath);
+    if (data !== null) {
+      _defaultSubpageCache = { data, ts: Date.now() };
       return res.json(data);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException)?.code === "ENOENT") {
-        lastErr = e;
-        continue;
-      }
-      throw e;
     }
   }
   return res.status(404).json({ message: "Default config file not found" });
@@ -1400,6 +1523,8 @@ const updateSettingsSchema = z.object({
   logo: z.string().max(5_500_000).nullable().optional(),
   logoBot: z.string().max(5_500_000).nullable().optional(),
   favicon: z.string().max(5_500_000).nullable().optional(),
+  cabinetDesign: z.enum(["classic", "stealth"]).optional(),
+  cabinetDesignApplyInBrowser: z.boolean().optional(),
   remnaClientUrl: z.string().max(2000).nullable().optional(),
   smtpHost: z.string().max(255).nullable().optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
@@ -1422,6 +1547,8 @@ const updateSettingsSchema = z.object({
   plategaMerchantId: z.string().max(200).nullable().optional(),
   plategaSecret: z.string().max(500).nullable().optional(),
   plategaMethods: z.string().max(2000).nullable().optional(),
+  /** HMAC секрет для проверки подписи webhook'ов Platega — security fix против форджинга платежей. */
+  plategaWebhookSecret: z.string().max(500).nullable().optional(),
   paymentProvidersConfig: z.string().max(5000).nullable().optional(),
   gramadsApiKey: z.string().max(1000).nullable().optional(),
   yoomoneyClientId: z.string().max(200).nullable().optional(),
@@ -1430,6 +1557,10 @@ const updateSettingsSchema = z.object({
   yoomoneyNotificationSecret: z.string().max(500).nullable().optional(),
   yookassaShopId: z.string().max(200).nullable().optional(),
   yookassaSecretKey: z.string().max(500).nullable().optional(),
+  /** Basic-auth username для webhook ЮKassa — security fix против форджинга платежей. */
+  yookassaWebhookBasicUser: z.string().max(200).nullable().optional(),
+  /** Basic-auth password для webhook ЮKassa — security fix против форджинга платежей. */
+  yookassaWebhookBasicPassword: z.string().max(500).nullable().optional(),
   cryptopayApiToken: z.string().max(500).nullable().optional(),
   cryptopayTestnet: z.boolean().optional(),
   heleketMerchantId: z.string().max(500).nullable().optional(),
@@ -1437,6 +1568,13 @@ const updateSettingsSchema = z.object({
   lavaShopId: z.string().max(200).nullable().optional(),
   lavaSecretKey: z.string().max(500).nullable().optional(),
   lavaAdditionalKey: z.string().max(500).nullable().optional(),
+  lavatopApiKey: z.string().max(500).nullable().optional(),
+  lavatopDefaultOfferId: z.string().max(200).nullable().optional(),
+  // Приветствие в боте при /start
+  botWelcomeEnabled: z.boolean().optional(),
+  botWelcomeText: z.string().max(4000).nullable().optional(),
+  botWelcomeImage: z.string().max(5_500_000).nullable().optional(), // data URL base64
+  botWelcomeShowOnce: z.boolean().optional(),
   overpayApiUrl: z.string().max(500).nullable().optional(),
   overpayProjectId: z.string().max(100).nullable().optional(),
   overpayLogin: z.string().max(200).nullable().optional(),
@@ -1481,6 +1619,11 @@ const updateSettingsSchema = z.object({
   autoBroadcastCron: z.string().max(100).nullable().optional(),
   adminFrontNotificationsEnabled: z.boolean().optional(),
   skipEmailVerification: z.boolean().optional(),
+  signupProtectionEnabled: z.boolean().optional(),
+  emailDomainBlocklist: z.string().max(10000).optional(),
+  emailPatternBlocklist: z.string().max(10000).optional(),
+  signupMaxPerIpPerHour: z.number().int().min(1).max(1000).optional(),
+  happCryptEnabled: z.boolean().optional(),
   useRemnaSubscriptionPage: z.boolean().optional(),
   aiChatEnabled: z.boolean().optional(),
   customBuildEnabled: z.boolean().optional(),
@@ -1767,6 +1910,21 @@ adminRouter.patch("/settings", async (req, res) => {
       update: { value: val },
     });
   }
+  if (updates.cabinetDesign !== undefined) {
+    await prisma.systemSetting.upsert({
+      where: { key: "cabinet_design" },
+      create: { key: "cabinet_design", value: updates.cabinetDesign },
+      update: { value: updates.cabinetDesign },
+    });
+  }
+  if (updates.cabinetDesignApplyInBrowser !== undefined) {
+    const val = updates.cabinetDesignApplyInBrowser ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "cabinet_design_apply_in_browser" },
+      create: { key: "cabinet_design_apply_in_browser", value: val },
+      update: { value: val },
+    });
+  }
   if (updates.remnaClientUrl !== undefined) {
     const val = updates.remnaClientUrl ?? "";
     await prisma.systemSetting.upsert({
@@ -1863,6 +2021,10 @@ adminRouter.patch("/settings", async (req, res) => {
     const val = updates.plategaMethods ?? "";
     await prisma.systemSetting.upsert({ where: { key: "platega_methods" }, create: { key: "platega_methods", value: val }, update: { value: val } });
   }
+  if (updates.plategaWebhookSecret !== undefined) {
+    const val = updates.plategaWebhookSecret ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "platega_webhook_secret" }, create: { key: "platega_webhook_secret", value: val }, update: { value: val } });
+  }
   if (updates.paymentProvidersConfig !== undefined) {
     const val = updates.paymentProvidersConfig ?? "";
     await prisma.systemSetting.upsert({ where: { key: "payment_providers_config" }, create: { key: "payment_providers_config", value: val }, update: { value: val } });
@@ -1897,6 +2059,14 @@ adminRouter.patch("/settings", async (req, res) => {
     const val = updates.yookassaSecretKey ?? "";
     await prisma.systemSetting.upsert({ where: { key: "yookassa_secret_key" }, create: { key: "yookassa_secret_key", value: val }, update: { value: val } });
   }
+  if (updates.yookassaWebhookBasicUser !== undefined) {
+    const val = updates.yookassaWebhookBasicUser ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "yookassa_webhook_basic_user" }, create: { key: "yookassa_webhook_basic_user", value: val }, update: { value: val } });
+  }
+  if (updates.yookassaWebhookBasicPassword !== undefined) {
+    const val = updates.yookassaWebhookBasicPassword ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "yookassa_webhook_basic_password" }, create: { key: "yookassa_webhook_basic_password", value: val }, update: { value: val } });
+  }
   if (updates.cryptopayApiToken !== undefined) {
     const val = updates.cryptopayApiToken ?? "";
     await prisma.systemSetting.upsert({ where: { key: "cryptopay_api_token" }, create: { key: "cryptopay_api_token", value: val }, update: { value: val } });
@@ -1924,6 +2094,30 @@ adminRouter.patch("/settings", async (req, res) => {
   if (updates.lavaAdditionalKey !== undefined) {
     const val = updates.lavaAdditionalKey ?? "";
     await prisma.systemSetting.upsert({ where: { key: "lava_additional_key" }, create: { key: "lava_additional_key", value: val }, update: { value: val } });
+  }
+  if (updates.lavatopApiKey !== undefined) {
+    const val = updates.lavatopApiKey ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "lavatop_api_key" }, create: { key: "lavatop_api_key", value: val }, update: { value: val } });
+  }
+  if (updates.lavatopDefaultOfferId !== undefined) {
+    const val = updates.lavatopDefaultOfferId ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "lavatop_default_offer_id" }, create: { key: "lavatop_default_offer_id", value: val }, update: { value: val } });
+  }
+  if (updates.botWelcomeEnabled !== undefined) {
+    const val = updates.botWelcomeEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({ where: { key: "bot_welcome_enabled" }, create: { key: "bot_welcome_enabled", value: val }, update: { value: val } });
+  }
+  if (updates.botWelcomeText !== undefined) {
+    const val = updates.botWelcomeText ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "bot_welcome_text" }, create: { key: "bot_welcome_text", value: val }, update: { value: val } });
+  }
+  if (updates.botWelcomeImage !== undefined) {
+    const val = updates.botWelcomeImage ?? "";
+    await prisma.systemSetting.upsert({ where: { key: "bot_welcome_image" }, create: { key: "bot_welcome_image", value: val }, update: { value: val } });
+  }
+  if (updates.botWelcomeShowOnce !== undefined) {
+    const val = updates.botWelcomeShowOnce ? "true" : "false";
+    await prisma.systemSetting.upsert({ where: { key: "bot_welcome_show_once" }, create: { key: "bot_welcome_show_once", value: val }, update: { value: val } });
   }
   if (updates.overpayApiUrl !== undefined) {
     const val = updates.overpayApiUrl ?? "";
@@ -2160,6 +2354,45 @@ adminRouter.patch("/settings", async (req, res) => {
     await prisma.systemSetting.upsert({
       where: { key: "skip_email_verification" },
       create: { key: "skip_email_verification", value: val },
+      update: { value: val },
+    });
+  }
+  // Антибот-защита регистраций
+  if (updates.signupProtectionEnabled !== undefined) {
+    const val = updates.signupProtectionEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "signup_protection_enabled" },
+      create: { key: "signup_protection_enabled", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.emailDomainBlocklist !== undefined) {
+    await prisma.systemSetting.upsert({
+      where: { key: "email_domain_blocklist" },
+      create: { key: "email_domain_blocklist", value: updates.emailDomainBlocklist ?? "" },
+      update: { value: updates.emailDomainBlocklist ?? "" },
+    });
+  }
+  if (updates.emailPatternBlocklist !== undefined) {
+    await prisma.systemSetting.upsert({
+      where: { key: "email_pattern_blocklist" },
+      create: { key: "email_pattern_blocklist", value: updates.emailPatternBlocklist ?? "" },
+      update: { value: updates.emailPatternBlocklist ?? "" },
+    });
+  }
+  if (updates.signupMaxPerIpPerHour !== undefined) {
+    const val = String(Math.max(1, updates.signupMaxPerIpPerHour));
+    await prisma.systemSetting.upsert({
+      where: { key: "signup_max_per_ip_per_hour" },
+      create: { key: "signup_max_per_ip_per_hour", value: val },
+      update: { value: val },
+    });
+  }
+  if (updates.happCryptEnabled !== undefined) {
+    const val = updates.happCryptEnabled ? "true" : "false";
+    await prisma.systemSetting.upsert({
+      where: { key: "happ_crypt_enabled" },
+      create: { key: "happ_crypt_enabled", value: val },
       update: { value: val },
     });
   }
@@ -3687,6 +3920,7 @@ export const ADMIN_ALLOWED_SECTIONS = [
   "settings",
   "languages",
   "api-keys",
+  "antibot",
 ] as const;
 
 /** Список админов и менеджеров (только ADMIN). */

@@ -9,6 +9,11 @@ http {
     keepalive_timeout 65;
     client_max_body_size 200M;
 
+    # PWA: правильный MIME для webmanifest (иначе Safari не признаёт PWA)
+    types {
+        application/manifest+json  webmanifest;
+    }
+
     gzip on;
     gzip_vary on;
     gzip_proxied any;
@@ -59,18 +64,6 @@ http {
         root /var/www/stealthnet;
         index index.html;
 
-        location ^~ /api/uploads/ {
-            set $api_backend "api:5000";
-            proxy_pass http://$api_backend;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            expires 30d;
-            add_header Cache-Control "public, immutable";
-        }
-
         location ^~ /api/ {
             set $api_backend "api:5000";
             proxy_pass http://$api_backend;
@@ -84,8 +77,43 @@ http {
             proxy_read_timeout 60s;
         }
 
+        # Корень и /index.html идут через api → SSR-подстановка бренда в meta-теги
+        # (для красивого Telegram/Twitter превью). Остальная статика — с диска.
+        location = / {
+            set $api_backend "api:5000";
+            proxy_pass http://$api_backend/_spa;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        location = /index.html {
+            set $api_backend "api:5000";
+            proxy_pass http://$api_backend/_spa;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         location / {
-            try_files $uri $uri/ /index.html;
+            try_files $uri $uri/ @spa;
+        }
+        location @spa {
+            set $api_backend "api:5000";
+            proxy_pass http://$api_backend/_spa;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        location = /manifest.webmanifest {
+            expires off;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Content-Type "application/manifest+json" always;
         }
 
         # Service Worker — без кэша, чтобы браузер всегда проверял обновления

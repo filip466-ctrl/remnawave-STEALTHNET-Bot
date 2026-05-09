@@ -3,12 +3,7 @@
 
 # Stage 1: build 3proxy
 FROM alpine:3.19 AS proxybuilder
-# Fallback-зеркала + ретраи для apk — dl-cdn.alpinelinux.org периодически недоступен.
-# Пробуем основное зеркало, при неудаче переключаемся на Яндекс, потом на Tsinghua.
-RUN set -eux; \
-    apk add --no-cache make gcc musl-dev wget \
-    || (printf 'https://mirror.yandex.ru/mirrors/alpine/v3.19/main\nhttps://mirror.yandex.ru/mirrors/alpine/v3.19/community\n' > /etc/apk/repositories && apk update && apk add --no-cache make gcc musl-dev wget) \
-    || (printf 'https://mirrors.tuna.tsinghua.edu.cn/alpine/v3.19/main\nhttps://mirrors.tuna.tsinghua.edu.cn/alpine/v3.19/community\n' > /etc/apk/repositories && apk update && apk add --no-cache make gcc musl-dev wget)
+RUN apk add --no-cache make gcc musl-dev wget
 WORKDIR /build
 RUN wget -q https://github.com/3proxy/3proxy/archive/0.9.4.tar.gz -O 3proxy.tar.gz && \
     tar xzf 3proxy.tar.gz && \
@@ -17,7 +12,7 @@ RUN wget -q https://github.com/3proxy/3proxy/archive/0.9.4.tar.gz -O 3proxy.tar.
     cp bin/3proxy bin/socks bin/proxy /build/
 
 # Stage 2: node + agent + 3proxy
-FROM node:22-alpine
+FROM node:20-alpine
 WORKDIR /app
 
 COPY --from=proxybuilder /build/3proxy /build/socks /build/proxy /usr/local/bin/

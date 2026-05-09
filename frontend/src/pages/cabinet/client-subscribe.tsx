@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCabinetDesign } from "@/lib/use-cabinet-design";
+import { StealthSubscribe } from "@/pages/cabinet/stealth/stealth-subscribe";
 import {
   Wifi,
   Copy,
@@ -189,7 +191,17 @@ function getText(map: Record<string, string> | undefined, locale: string): strin
   return map[locale] || map.ru || map.en || Object.values(map)[0] || "";
 }
 
+/**
+ * Switcher: Stealth-design wizard или Classic. Хуки в каждой ветке вызываются
+ * только в соответствующем компоненте, поэтому правила хуков не нарушены.
+ */
 export function ClientSubscribePage() {
+  const design = useCabinetDesign();
+  if (design === "stealth") return <StealthSubscribe />;
+  return <ClassicSubscribePage />;
+}
+
+function ClassicSubscribePage() {
   const { state } = useClientAuth();
   const isMiniapp = useCabinetMiniapp();
   const token = state.token ?? null;
@@ -384,9 +396,15 @@ export function ClientSubscribePage() {
                     <div className="flex flex-wrap gap-2.5 pl-7 pt-1">
                       {block.buttons?.map((btn, btnIndex) => {
                         const isSubscription = btn.type === "subscriptionLink";
+                        // Бэкенд уже отдаёт зашифрованную (happ://crypt4/...) ссылку в subscriptionUrl,
+                        // поэтому шаблоны {{HAPP_CRYPT3_LINK}} и {{HAPP_CRYPT4_LINK}} разрешаются той
+                        // же строкой — это безопасно: если ссылка не зашифрована (старая Remna),
+                        // подставится обычный URL и Happ всё равно её примет.
                         const href = isSubscription
                           ? btn.link
                               .replace(/\{\{SUBSCRIPTION_LINK\}\}/g, subscriptionUrl || "")
+                              .replace(/\{\{HAPP_CRYPT3_LINK\}\}/g, subscriptionUrl || "")
+                              .replace(/\{\{HAPP_CRYPT4_LINK\}\}/g, subscriptionUrl || "")
                               .replace(/\{\{USERNAME\}\}/g, "")
                           : btn.link;
                         const label = getText(btn.text, locale);

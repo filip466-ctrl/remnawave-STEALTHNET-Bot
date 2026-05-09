@@ -772,14 +772,37 @@ export const api = {
   async getApiKeys(token: string): Promise<ApiKeyListItem[]> {
     return request("/admin/api-keys", { token });
   },
-  async createApiKey(token: string, data: { name: string; description?: string }): Promise<ApiKeyCreated> {
+  async createApiKey(
+    token: string,
+    data: {
+      name: string;
+      description?: string;
+      expiresAt?: string | null;
+      allowedIps?: string[] | null;
+    }
+  ): Promise<ApiKeyCreated> {
     return request("/admin/api-keys", { method: "POST", body: JSON.stringify(data), token });
+  },
+  async updateApiKey(
+    token: string,
+    id: string,
+    data: {
+      name?: string;
+      description?: string | null;
+      expiresAt?: string | null;
+      allowedIps?: string[] | null;
+    }
+  ): Promise<ApiKeyListItem> {
+    return request(`/admin/api-keys/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
   },
   async toggleApiKey(token: string, id: string, isActive: boolean): Promise<void> {
     return request(`/admin/api-keys/${id}/toggle`, { method: "PATCH", body: JSON.stringify({ isActive }), token });
   },
   async deleteApiKey(token: string, id: string): Promise<void> {
     return request(`/admin/api-keys/${id}`, { method: "DELETE", token });
+  },
+  async getApiKeyUsage(token: string, id: string, limit = 100): Promise<ApiKeyUsageItem[]> {
+    return request(`/admin/api-keys/${id}/usage?limit=${limit}`, { token });
   },
 
   async getAdminBots(token: string): Promise<{ items: AdminBotListItem[] }> {
@@ -934,9 +957,13 @@ export const api = {
     return request(`/admin/contests/${id}`, { method: "DELETE", token });
   },
 
-  /** Базовый конфиг страницы подписки для визуального редактора (subpage-*.json) */
-  async getDefaultSubscriptionPageConfig(token: string): Promise<SubscriptionPageConfig | null> {
-    return request("/admin/default-subscription-page-config", { token });
+  /**
+   * Базовый конфиг страницы подписки для визуального редактора (subpage-*.json).
+   * @param fresh — true: бэкенд игнорирует in-memory кэш и читает файл заново
+   *                (используется при кнопке «Перезагрузить с сервера»).
+   */
+  async getDefaultSubscriptionPageConfig(token: string, fresh = false): Promise<SubscriptionPageConfig | null> {
+    return request(`/admin/default-subscription-page-config${fresh ? "?fresh=1" : ""}`, { token });
   },
 
   async updateSettings(token: string, data: UpdateSettingsPayload): Promise<AdminSettings> {
@@ -1665,6 +1692,27 @@ export const api = {
     return request("/client/lava/create-payment", { method: "POST", body: JSON.stringify(data), token });
   },
 
+  /** Lava.top — создание invoice через product/offer модель (RUB/USD/EUR) */
+  async lavatopCreatePayment(
+    token: string,
+    data: {
+      amount?: number;
+      currency?: string;
+      tariffId?: string;
+      tariffPriceOptionId?: string;
+      deviceCount?: number;
+      proxyTariffId?: string;
+      singboxTariffId?: string;
+      promoCode?: string;
+      email?: string;
+      offerId?: string;
+      extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string };
+      customBuild?: { days: number; devices: number; trafficGb?: number };
+    }
+  ): Promise<{ paymentId: string; payUrl: string }> {
+    return request("/client/lavatop/create-payment", { method: "POST", body: JSON.stringify(data), token });
+  },
+
   /** Overpay — создание платёжной формы (Карты/СБП), возвращает ссылку на оплату */
   async overpayCreatePayment(
     token: string,
@@ -2373,6 +2421,7 @@ export type UpdateSettingsPayload = {
   logo?: string | null;
   logoBot?: string | null;
   favicon?: string | null;
+  cabinetDesign?: "classic" | "stealth";
   remnaClientUrl?: string | null;
   smtpHost?: string | null;
   smtpPort?: number;
@@ -2395,12 +2444,15 @@ export type UpdateSettingsPayload = {
   plategaMerchantId?: string | null;
   plategaSecret?: string | null;
   plategaMethods?: string | null;
+  plategaWebhookSecret?: string | null;
   yoomoneyClientId?: string | null;
   yoomoneyClientSecret?: string | null;
   yoomoneyReceiverWallet?: string | null;
   yoomoneyNotificationSecret?: string | null;
   yookassaShopId?: string | null;
   yookassaSecretKey?: string | null;
+  yookassaWebhookBasicUser?: string | null;
+  yookassaWebhookBasicPassword?: string | null;
   cryptopayApiToken?: string | null;
   cryptopayTestnet?: boolean;
   heleketMerchantId?: string | null;
@@ -2408,6 +2460,13 @@ export type UpdateSettingsPayload = {
   lavaShopId?: string | null;
   lavaSecretKey?: string | null;
   lavaAdditionalKey?: string | null;
+  lavatopApiKey?: string | null;
+  lavatopDefaultOfferId?: string | null;
+  botWelcomeEnabled?: boolean;
+  botWelcomeText?: string | null;
+  botWelcomeImage?: string | null;
+  botWelcomeShowOnce?: boolean;
+  cabinetDesignApplyInBrowser?: boolean;
   overpayApiUrl?: string | null;
   overpayProjectId?: string | null;
   overpayLogin?: string | null;
@@ -2454,6 +2513,11 @@ export type UpdateSettingsPayload = {
   autoBroadcastCron?: string | null;
   adminFrontNotificationsEnabled?: boolean;
   skipEmailVerification?: boolean;
+  signupProtectionEnabled?: boolean;
+  emailDomainBlocklist?: string;
+  emailPatternBlocklist?: string;
+  signupMaxPerIpPerHour?: number;
+  happCryptEnabled?: boolean;
   useRemnaSubscriptionPage?: boolean;
   aiChatEnabled?: boolean;
   customBuildEnabled?: boolean;
@@ -2721,6 +2785,7 @@ export interface AdminSettings {
   logo?: string | null;
   logoBot?: string | null;
   favicon?: string | null;
+  cabinetDesign?: "classic" | "stealth";
   remnaClientUrl?: string | null;
   smtpHost?: string | null;
   smtpPort?: number;
@@ -2764,6 +2829,13 @@ export interface AdminSettings {
   lavaShopId?: string | null;
   lavaSecretKey?: string | null;
   lavaAdditionalKey?: string | null;
+  lavatopApiKey?: string | null;
+  lavatopDefaultOfferId?: string | null;
+  botWelcomeEnabled?: boolean;
+  botWelcomeText?: string | null;
+  botWelcomeImage?: string | null;
+  botWelcomeShowOnce?: boolean;
+  cabinetDesignApplyInBrowser?: boolean;
   overpayApiUrl?: string | null;
   overpayProjectId?: string | null;
   overpayLogin?: string | null;
@@ -2834,6 +2906,16 @@ export interface AdminSettings {
   adminFrontNotificationsEnabled?: boolean;
   /** Регистрация без подтверждения почты */
   skipEmailVerification?: boolean;
+  /** Master switch для антибот-защиты регистраций */
+  signupProtectionEnabled?: boolean;
+  /** Доп. список заблокированных email-доменов (через запятую) */
+  emailDomainBlocklist?: string;
+  /** Regex-паттерны для блокировки email (по строке на каждый) */
+  emailPatternBlocklist?: string;
+  /** Макс. регистраций с одного IP в час */
+  signupMaxPerIpPerHour?: number;
+  /** Шифровать subscriptionUrl в happ://crypt4/... (длинная ссылка, по умолчанию выкл) */
+  happCryptEnabled?: boolean;
   /** Кнопка VPN в боте ведёт на страницу подписки Remna */
   useRemnaSubscriptionPage?: boolean;
   /** AI-чат в кабинете включён */
@@ -3070,12 +3152,27 @@ export interface ApiKeyListItem {
   prefix: string;
   isActive: boolean;
   lastUsedAt: string | null;
+  lastUsedIp: string | null;
+  expiresAt: string | null;
+  /** JSON-string of CIDR list, e.g. '["192.0.2.0/24"]' or null */
+  allowedIps: string | null;
   createdAt: string;
 }
 
 export interface ApiKeyCreated extends ApiKeyListItem {
   keyHash: string;
   rawKey: string;
+}
+
+export interface ApiKeyUsageItem {
+  id: string;
+  apiKeyId: string;
+  ts: string;
+  ip: string | null;
+  ua: string | null;
+  method: string;
+  path: string;
+  statusCode: number;
 }
 
 export interface TrafficAbuser {
@@ -3465,6 +3562,7 @@ export interface TariffRecord {
   price: number;
   currency: string;
   sortOrder: number;
+  lavatopOfferId?: string | null;
   priceOptions: TariffPriceOption[];
   createdAt: string;
   updatedAt: string;
@@ -3486,6 +3584,7 @@ export type CreateTariffPayload = {
   price?: number;
   currency?: string;
   sortOrder?: number;
+  lavatopOfferId?: string | null;
   priceOptions?: { durationDays: number; price: number }[];
 };
 
@@ -3504,6 +3603,7 @@ export type UpdateTariffPayload = {
   price?: number;
   currency?: string;
   sortOrder?: number;
+  lavatopOfferId?: string | null;
   priceOptions?: { durationDays: number; price: number }[];
 };
 
@@ -3828,6 +3928,7 @@ export interface PublicConfig {
   serviceName: string;
   logo?: string | null;
   favicon?: string | null;
+  cabinetDesign?: "classic" | "stealth";
   remnaClientUrl?: string | null;
   publicAppUrl?: string | null;
   telegramBotUsername?: string | null;
@@ -3838,6 +3939,7 @@ export interface PublicConfig {
   cryptopayEnabled?: boolean;
   heleketEnabled?: boolean;
   lavaEnabled?: boolean;
+  lavatopEnabled?: boolean;
   overpayEnabled?: boolean;
   paymentProviders?: { id: string; label: string; sortOrder: number }[];
   trialEnabled?: boolean;

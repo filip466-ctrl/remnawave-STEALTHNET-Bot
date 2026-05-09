@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { User, Wallet, Copy, Check, CreditCard, Loader2, Link2, Mail, Fingerprint, CalendarDays, Shield, KeyRound, Monitor, Trash2, Zap } from "lucide-react";
+import { useCabinetDesign } from "@/lib/use-cabinet-design";
+import { StealthProfile } from "@/pages/cabinet/stealth/stealth-profile";
 import { QRCodeSVG } from "qrcode.react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
@@ -40,6 +42,12 @@ function formatPaymentStatus(status: string, t: (key: string) => string): string
 }
 
 export function ClientProfilePage() {
+  const design = useCabinetDesign();
+  if (design === "stealth") return <StealthProfile />;
+  return <ClassicProfilePage />;
+}
+
+function ClassicProfilePage() {
   const { t } = useTranslation();
   const { state, refreshProfile } = useClientAuth();
   const [payments, setPayments] = useState<ClientPayment[]>([]);
@@ -50,6 +58,7 @@ export function ClientProfilePage() {
   const [cryptopayEnabled, setCryptopayEnabled] = useState(false);
   const [heleketEnabled, setHeleketEnabled] = useState(false);
   const [lavaEnabled, setLavaEnabled] = useState(false);
+  // Lava.top removed from balance top-up — оставлен только для тарифов (см. client-tariffs.tsx)
   const [overpayEnabled, setOverpayEnabled] = useState(false);
   const [paymentProviders, setPaymentProviders] = useState<{ id: string; label: string; sortOrder: number }[]>([]);
   const [publicAppUrl, setPublicAppUrl] = useState<string | null>(null);
@@ -437,6 +446,9 @@ export function ClientProfilePage() {
       setTopUpLoading(false);
     }
   }
+
+  // Lava.top — только subscription для тарифов, не для top-up. Кнопка отсутствует, функция оставлена закомменченной для возможного будущего использования.
+  // async function startTopUpLavatop() { ... }
 
   async function startTopUpOverpay() {
     if (!token || !client) return;
@@ -1179,6 +1191,7 @@ export function ClientProfilePage() {
                 { id: "yookassa", enabled: yookassaEnabled, onClick: () => startTopUpYookassa(), label: providerLabel("yookassa", t("cabinet.tariffs.sbp_cards_ru")), icon: "card" },
                 { id: "yoomoney", enabled: yoomoneyEnabled, onClick: () => startTopUpYoomoneyForm("AC"), label: providerLabel("yoomoney", t("cabinet.tariffs.yoomoney_cards")), icon: "card" },
                 { id: "lava", enabled: lavaEnabled && currency.toLowerCase() === "rub", onClick: () => startTopUpLava(), label: providerLabel("lava", "LAVA"), icon: "card" },
+                // Lava.top — только subscription для тарифов, не для top-up баланса
                 { id: "overpay", enabled: overpayEnabled, onClick: () => startTopUpOverpay(), label: providerLabel("overpay", "Overpay"), icon: "card" },
               ];
 

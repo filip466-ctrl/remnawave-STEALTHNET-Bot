@@ -10,6 +10,12 @@ if (!API_URL) {
 function getHeaders(token?: string): HeadersInit {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (token) h["Authorization"] = `Bearer ${token}`;
+  // Идентифицируем все вызовы из бота через X-Telegram-Bot-Token, чтобы:
+  // 1) бэкенд знал какому клону принадлежит запрос (resolveBotForClientRequest)
+  // 2) IP-rate-limit'ы пропускали бот-трафик (skip-условие в app.ts).
+  // Без этого заголовка все регистрации через /start блокируются по IP бот-контейнера.
+  const botToken = process.env.BOT_TOKEN || "";
+  if (botToken) h["X-Telegram-Bot-Token"] = botToken;
   return h;
 }
 
@@ -102,6 +108,13 @@ export async function getPublicConfig(): Promise<{
   yoomoneyEnabled?: boolean;
   yookassaEnabled?: boolean;
   cryptopayEnabled?: boolean;
+  heleketEnabled?: boolean;
+  lavaEnabled?: boolean;
+  lavatopEnabled?: boolean;
+  botWelcomeEnabled?: boolean;
+  botWelcomeText?: string | null;
+  botWelcomeImage?: string | null;
+  botWelcomeShowOnce?: boolean;
   botButtons?: { id: string; visible: boolean; label: string; order: number; style?: string; iconCustomEmojiId?: string; onePerRow?: boolean; emojiKey?: string }[] | null;
   /** Кнопок в ряд в главном меню: 1 или 2 */
   botButtonsPerRow?: 1 | 2;
@@ -167,7 +180,7 @@ export async function registerByTelegram(body: {
   utm_campaign?: string;
   utm_content?: string;
   utm_term?: string;
-}): Promise<{ token: string; client: { id: string; telegramUsername?: string | null; preferredLang?: string; preferredCurrency: string; balance: number; trialUsed?: boolean; referralCode?: string | null } }> {
+}): Promise<{ token: string; client: { id: string; telegramUsername?: string | null; preferredLang?: string; preferredCurrency: string; balance: number; trialUsed?: boolean; referralCode?: string | null; onboardingCompleted?: boolean } }> {
   return fetchJson("/api/client/auth/register", { method: "POST", body });
 }
 
@@ -315,6 +328,35 @@ export async function createCryptopayPayment(
 ): Promise<{ paymentId: string; payUrl: string }> {
   const res = await fetchJson<{ paymentId: string; payUrl: string }>("/api/client/cryptopay/create-payment", { method: "POST", body, token });
   return { paymentId: res.paymentId, payUrl: res.payUrl };
+}
+
+/** Heleket — создать инвойс на крипту, вернуть ссылку на оплату */
+export async function createHeleketPayment(
+  token: string,
+  body: { amount?: number; currency?: string; tariffId?: string; tariffPriceOptionId?: string; deviceCount?: number; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+): Promise<{ paymentId: string; payUrl: string }> {
+  return fetchJson("/api/client/heleket/create-payment", { method: "POST", body, token });
+}
+
+/** LAVA Business — создать счёт (RUB: СБП / Карты / СберPay) */
+export async function createLavaPayment(
+  token: string,
+  body: { amount?: number; currency?: string; tariffId?: string; tariffPriceOptionId?: string; deviceCount?: number; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+): Promise<{ paymentId: string; payUrl: string }> {
+  return fetchJson("/api/client/lava/create-payment", { method: "POST", body, token });
+}
+
+/** Помечает что онбординг (приветствие в боте) завершён — `client.onboardingCompleted=true` */
+export async function completeOnboarding(token: string): Promise<{ message: string }> {
+  return fetchJson("/api/client/complete-onboarding", { method: "POST", token });
+}
+
+/** Lava.top — создать invoice через product/offer модель (RUB/USD/EUR) */
+export async function createLavatopPayment(
+  token: string,
+  body: { amount?: number; currency?: string; tariffId?: string; tariffPriceOptionId?: string; deviceCount?: number; proxyTariffId?: string; singboxTariffId?: string; promoCode?: string; email?: string; offerId?: string; extraOption?: { kind: "traffic" | "devices" | "servers"; productId: string } }
+): Promise<{ paymentId: string; payUrl: string }> {
+  return fetchJson("/api/client/lavatop/create-payment", { method: "POST", body, token });
 }
 
 /** Обновить профиль (язык, валюта) */

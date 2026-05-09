@@ -99,6 +99,8 @@ const SYSTEM_CONFIG_KEYS = [
   "default_referral_percent", "referral_percent_level_2", "referral_percent_level_3",
   "trial_days", "trial_squad_uuid", "trial_device_limit", "trial_traffic_limit",
   "service_name", "logo", "logo_bot", "favicon", "remna_client_url",
+  // UI design selector for client cabinet/mini app: "classic" (default) | "stealth"
+  "cabinet_design",
   "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_password",
   "smtp_from_email", "smtp_from_name", "public_app_url",
   "telegram_bot_token", "telegram_bot_username", "bot_admin_telegram_ids",
@@ -107,12 +109,17 @@ const SYSTEM_CONFIG_KEYS = [
   "notification_topic_payments",
   "notification_topic_tickets",
   "platega_merchant_id", "platega_secret", "platega_methods", "payment_providers_config",
+  // Webhook secret для проверки HMAC-подписи от Platega (security fix против форджинга платежей).
+  "platega_webhook_secret",
   "gramads_api_key", // Gramads.net — ключ для рекламного кабинета "Продвижение VPN"
   "yoomoney_client_id", "yoomoney_client_secret", "yoomoney_receiver_wallet", "yoomoney_notification_secret",
   "yookassa_shop_id", "yookassa_secret_key", "yookassa_recurring_enabled",
+  // Basic-auth credentials для webhook YooKassa (security fix против форджинга платежей).
+  "yookassa_webhook_basic_user", "yookassa_webhook_basic_password",
   "cryptopay_api_token", "cryptopay_testnet",
   "heleket_merchant_id", "heleket_api_key",
   "lava_shop_id", "lava_secret_key", "lava_additional_key",
+  "lavatop_api_key", "lavatop_default_offer_id",
   "overpay_api_url", "overpay_project_id", "overpay_login", "overpay_password",
   "groq_api_key", "groq_model", "groq_fallback_1", "groq_fallback_2", "groq_fallback_3", "ai_system_prompt",
   "bot_buttons", "bot_buttons_per_row", "bot_back_label", "bot_menu_texts", "bot_menu_line_visibility", "bot_inner_button_styles",
@@ -121,6 +128,10 @@ const SYSTEM_CONFIG_KEYS = [
   "category_emojis", // JSON: { "ordinary": "📦", "premium": "⭐" } — эмодзи категорий по коду
   "subscription_page_config",
   "support_link", "agreement_link", "offer_link", "instructions_link", // Поддержка: тех поддержка, соглашения, оферта, инструкции
+  // Приветственное сообщение бота (показывается при /start, до главного меню)
+  "bot_welcome_enabled", "bot_welcome_text", "bot_welcome_image", "bot_welcome_show_once",
+  // Применять выбранный дизайн (Stealth) и в обычном браузере, не только в Telegram Mini App
+  "cabinet_design_apply_in_browser",
   "tickets_enabled", // Тикет-система: true/false
   "admin_front_notifications_enabled", // Всплывающие уведомления в админке: true/false
   "theme_accent", // Глобальная цветовая тема: default, blue, violet, rose, orange, green, emerald, cyan, amber, red, pink, indigo
@@ -134,6 +145,12 @@ const SYSTEM_CONFIG_KEYS = [
   "google_analytics_id", "yandex_metrika_id", // Маркетинг: счётчики для кабинета
   "auto_broadcast_cron", // Расписание авто-рассылки (cron, например "0 9 * * *" = 9:00 каждый день)
   "skip_email_verification", // Регистрация без подтверждения почты: true/false
+  // Антибот-защита регистраций
+  "signup_protection_enabled", // Master switch: включает email-фильтр и rate-limit по IP
+  "email_domain_blocklist", // Дополнительный список доменов через запятую (расширяет встроенный)
+  "email_pattern_blocklist", // Regex-паттерны (по строке на каждый), блокируют локалпарт email
+  "signup_max_per_ip_per_hour", // Сколько регистраций с одного IP в час разрешено (default: 3)
+  "happ_crypt_enabled", // Шифровать subscriptionUrl в happ://crypt4/... (по умолчанию false: ссылка длинная)
   "use_remna_subscription_page", // Кнопка VPN в боте ведёт на страницу подписки Remna вместо кабинета: true/false
   "ai_chat_enabled", // AI-чат в кабинете включён: true/false
   // Гибкий тариф (собери сам): цена за день, устройство, трафик или безлимит, сквад
@@ -492,6 +509,7 @@ export async function getSystemConfig() {
     logo: map.logo || null,
     logoBot: map.logo_bot || null,
     favicon: map.favicon || null,
+    cabinetDesign: (map.cabinet_design === "stealth" ? "stealth" : "classic") as "classic" | "stealth",
     remnaClientUrl: map.remna_client_url || null,
     smtpHost: map.smtp_host || null,
     smtpPort: map.smtp_port != null && map.smtp_port !== "" ? parseInt(map.smtp_port, 10) : 587,
@@ -512,6 +530,7 @@ export async function getSystemConfig() {
     autoBackupEnabled: map.auto_backup_enabled === "true" || map.auto_backup_enabled === "1",
     autoBackupCron: (map.auto_backup_cron ?? "").trim() || null,
     plategaMerchantId: map.platega_merchant_id || null,
+    plategaWebhookSecret: map.platega_webhook_secret || null,
     plategaSecret: map.platega_secret || null,
     plategaMethods: parsePlategaMethods(map.platega_methods),
     paymentProviders: parsePaymentProviders(map.payment_providers_config),
@@ -522,6 +541,8 @@ export async function getSystemConfig() {
     yoomoneyNotificationSecret: map.yoomoney_notification_secret || null,
     yookassaShopId: map.yookassa_shop_id || null,
     yookassaSecretKey: map.yookassa_secret_key || null,
+    yookassaWebhookBasicUser: map.yookassa_webhook_basic_user || null,
+    yookassaWebhookBasicPassword: map.yookassa_webhook_basic_password || null,
     cryptopayApiToken: (map.cryptopay_api_token ?? "").trim() || null,
     cryptopayTestnet: map.cryptopay_testnet === "true" || map.cryptopay_testnet === "1",
     heleketMerchantId: (map.heleket_merchant_id ?? "").trim() || null,
@@ -529,6 +550,18 @@ export async function getSystemConfig() {
     lavaShopId: (map.lava_shop_id ?? "").trim() || null,
     lavaSecretKey: (map.lava_secret_key ?? "").trim() || null,
     lavaAdditionalKey: (map.lava_additional_key ?? "").trim() || null,
+    lavatopApiKey: (map.lavatop_api_key ?? "").trim() || null,
+    lavatopDefaultOfferId: (map.lavatop_default_offer_id ?? "").trim() || null,
+    /** Приветственное сообщение бота: показывать ли */
+    botWelcomeEnabled: (map.bot_welcome_enabled ?? "").trim() === "true",
+    /** Текст приветствия (поддерживает эмодзи и простые HTML-теги, как остальные тексты бота) */
+    botWelcomeText: (map.bot_welcome_text ?? "") || null,
+    /** Картинка-баннер (data URL base64 PNG/JPG) */
+    botWelcomeImage: (map.bot_welcome_image ?? "") || null,
+    /** Показывать только при первом /start (по флагу client.onboardingCompleted) или каждый раз */
+    botWelcomeShowOnce: (map.bot_welcome_show_once ?? "true").trim() !== "false",
+    /** Применять выбранный дизайн кабинета (Stealth) также в обычном браузере, не только в Telegram Mini App */
+    cabinetDesignApplyInBrowser: (map.cabinet_design_apply_in_browser ?? "").trim() === "true",
     overpayApiUrl: (map.overpay_api_url ?? "").trim() || null,
     overpayProjectId: (map.overpay_project_id ?? "").trim() || null,
     overpayLogin: (map.overpay_login ?? "").trim() || null,
@@ -540,6 +573,20 @@ export async function getSystemConfig() {
     groqFallback3: (map.groq_fallback_3 ?? "").trim() || null,
     aiSystemPrompt: map.ai_system_prompt || "Ты — лучший менеджер техподдержки VPN-сервиса. Твоя цель — вежливо, быстро и точно помогать пользователям с настройкой VPN, тарифами и решением технических проблем. Отвечай кратко и по делу.",
     skipEmailVerification: map.skip_email_verification === "true" || map.skip_email_verification === "1",
+    /** Master switch для антибот-фильтра. По умолчанию включён. */
+    signupProtectionEnabled: (map.signup_protection_enabled ?? "true").trim() !== "false",
+    /** Дополнительный список заблокированных доменов (через запятую) — расширяет встроенный */
+    emailDomainBlocklist: (map.email_domain_blocklist ?? "").trim(),
+    /** Regex-паттерны (по строке) для блокировки email-локалпартов */
+    emailPatternBlocklist: (map.email_pattern_blocklist ?? "").trim(),
+    /** Лимит регистраций с одного IP в час (default 3) */
+    signupMaxPerIpPerHour: Math.max(1, parseInt(map.signup_max_per_ip_per_hour ?? "3", 10) || 3),
+    /**
+     * Шифрование subscriptionUrl в happ://crypt4/...
+     * По умолчанию ВЫКЛ: crypt4-ссылки получаются 1500+ символов и в Telegram-сообщении выглядят как простыня.
+     * Включай только если очень нужно скрыть оригинальный URL подписки.
+     */
+    happCryptEnabled: (map.happ_crypt_enabled ?? "false").trim() === "true",
     useRemnaSubscriptionPage: map.use_remna_subscription_page === "true" || map.use_remna_subscription_page === "1",
     aiChatEnabled: map.ai_chat_enabled !== "false" && map.ai_chat_enabled !== "0",
     customBuildEnabled: map.custom_build_enabled === "true" || map.custom_build_enabled === "1",
@@ -760,7 +807,7 @@ function parseCategoryEmojis(raw: string | undefined): CategoryEmojis {
 
 export type PlategaMethodConfig = { id: number; enabled: boolean; label: string };
 const DEFAULT_PLATEGA_METHODS: PlategaMethodConfig[] = [
-  { id: 2, enabled: true, label: "СПБ" },
+  { id: 2, enabled: true, label: "СБП" },
   { id: 11, enabled: false, label: "Карты" },
   { id: 12, enabled: false, label: "Международный" },
   { id: 13, enabled: false, label: "Криптовалюта" },
@@ -773,7 +820,8 @@ const DEFAULT_PAYMENT_PROVIDERS: PaymentProviderConfig[] = [
   { id: "yookassa", label: "ЮKassa (СБП / Карты)", sortOrder: 2 },
   { id: "yoomoney", label: "ЮMoney (Карты)", sortOrder: 3 },
   { id: "lava", label: "LAVA (СБП / Карты / СберPay)", sortOrder: 4 },
-  { id: "overpay", label: "Overpay (Карты / СБП)", sortOrder: 5 },
+  { id: "lavatop", label: "Lava.top (СБП / Карты)", sortOrder: 5 },
+  { id: "overpay", label: "Overpay (Карты / СБП)", sortOrder: 6 },
 ];
 
 function parsePaymentProviders(raw: string | undefined): PaymentProviderConfig[] {
@@ -807,10 +855,14 @@ function parsePlategaMethods(raw: string | undefined): PlategaMethodConfig[] {
     if (!Array.isArray(parsed)) return DEFAULT_PLATEGA_METHODS;
     return parsed.map((m: unknown) => {
       const x = m as Record<string, unknown>;
+      let label = typeof x.label === "string" ? x.label : String(x.id);
+      // Backward-compat: исправляем legacy опечатку СПБ → СБП (Система Быстрых Платежей).
+      // СПБ в этом контексте — ошибка; стандартное название — СБП.
+      if (label.trim() === "СПБ") label = "СБП";
       return {
         id: typeof x.id === "number" ? x.id : Number(x.id) || 2,
         enabled: Boolean(x.enabled),
-        label: typeof x.label === "string" ? x.label : String(x.id),
+        label,
       };
     });
   } catch {
@@ -998,6 +1050,8 @@ export async function getPublicConfig(forCloneBot?: Pick<Bot, "markupPercent" | 
     logo: full.logo,
     logoBot: full.logoBot ?? null,
     favicon: full.favicon,
+    cabinetDesign: full.cabinetDesign,
+    cabinetDesignApplyInBrowser: (full as { cabinetDesignApplyInBrowser?: boolean }).cabinetDesignApplyInBrowser ?? false,
     remnaClientUrl: full.remnaClientUrl,
     publicAppUrl: full.publicAppUrl,
     telegramBotUsername: (forCloneBot?.username?.trim() || full.telegramBotUsername) ?? null,
@@ -1010,6 +1064,7 @@ export async function getPublicConfig(forCloneBot?: Pick<Bot, "markupPercent" | 
     cryptopayEnabled: Boolean((full as { cryptopayApiToken?: string | null }).cryptopayApiToken?.trim()),
     heleketEnabled: Boolean((full as { heleketMerchantId?: string | null }).heleketMerchantId?.trim() && (full as { heleketApiKey?: string | null }).heleketApiKey?.trim()),
     lavaEnabled: Boolean((full as { lavaShopId?: string | null }).lavaShopId?.trim() && (full as { lavaSecretKey?: string | null }).lavaSecretKey?.trim()),
+    lavatopEnabled: Boolean((full as { lavatopApiKey?: string | null }).lavatopApiKey?.trim()),
     overpayEnabled: Boolean(
       (full as { overpayApiUrl?: string | null }).overpayApiUrl?.trim() &&
       (full as { overpayProjectId?: string | null }).overpayProjectId?.trim() &&
@@ -1053,6 +1108,10 @@ export async function getPublicConfig(forCloneBot?: Pick<Bot, "markupPercent" | 
     forceSubscribeChannelId: full.forceSubscribeChannelId ?? null,
     forceSubscribeMessage: full.forceSubscribeMessage ?? null,
     blacklistEnabled: full.blacklistEnabled ?? false,
+    botWelcomeEnabled: (full as { botWelcomeEnabled?: boolean }).botWelcomeEnabled ?? false,
+    botWelcomeText: (full as { botWelcomeText?: string | null }).botWelcomeText ?? null,
+    botWelcomeImage: (full as { botWelcomeImage?: string | null }).botWelcomeImage ?? null,
+    botWelcomeShowOnce: (full as { botWelcomeShowOnce?: boolean }).botWelcomeShowOnce ?? true,
     showProxyEnabled: await prisma.proxyTariff.count({ where: { enabled: true } }).then((n) => n > 0),
     showSingboxEnabled: await prisma.singboxTariff.count({ where: { enabled: true } }).then((n) => n > 0),
     sellOptionsEnabled: (() => {
