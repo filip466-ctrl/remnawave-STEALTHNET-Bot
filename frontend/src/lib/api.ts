@@ -1668,6 +1668,11 @@ export const api = {
     const qs = status ? `?status=${status}` : "";
     return request(`/admin/withdrawals${qs}`, { token });
   },
+
+  // T-withdrawal (портировано из WolfVPN): заявка клиента на вывод реферального баланса.
+  async createWithdrawal(token: string, data: { amount: number; walletTrc20: string }): Promise<{ message: string; id: string; amount: number; walletTrc20: string; status: string }> {
+    return request("/client/withdrawals", { method: "POST", body: JSON.stringify(data), token });
+  },
   async approveWithdrawal(token: string, id: string, comment?: string): Promise<{ message: string }> {
     return request(`/admin/withdrawals/${id}/approve`, { method: "POST", body: JSON.stringify({ comment: comment ?? null }), token });
   },
