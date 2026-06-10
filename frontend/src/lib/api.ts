@@ -679,6 +679,26 @@ export const api = {
     });
   },
 
+  // T-tariff-restriction (портировано из WolfVPN): задать/снять запрет тарифов клиенту.
+  async setClientTariffRestrictions(token: string, clientId: string, tariffIds: string[], reason: string | null): Promise<{ ok: boolean; restrictedTariffIds: string[]; tariffRestrictionReason: string | null }> {
+    return request(`/admin/clients/${clientId}/tariff-restrictions`, {
+      method: "PATCH",
+      body: JSON.stringify({ tariffIds, reason }),
+      token,
+    });
+  },
+
+  // T-admin-services (портировано из WolfVPN): вкладка «Услуги» — выдать/забрать доп. устройства.
+  async getClientServices(token: string, clientId: string): Promise<{ items: ClientServiceItem[] }> {
+    return request(`/admin/clients/${clientId}/services`, { method: "GET", token });
+  },
+  async grantClientDevices(token: string, clientId: string, payload: { subscriptionId: string; deviceCount: number; monthlyPrice: number }): Promise<{ ok: boolean; newDeviceLimit: number }> {
+    return request(`/admin/clients/${clientId}/services/grant-devices`, { method: "POST", body: JSON.stringify(payload), token });
+  },
+  async removeClientServiceDevices(token: string, clientId: string, subscriptionId: string): Promise<{ ok: boolean; extraDevicesRemoved: number; newDeviceLimit: number; hwidKicked: number }> {
+    return request(`/admin/clients/${clientId}/services/remove-devices`, { method: "POST", body: JSON.stringify({ subscriptionId }), token });
+  },
+
   async deleteClient(token: string, id: string): Promise<{ success: boolean }> {
     return request(`/admin/clients/${id}`, { method: "DELETE", token });
   },
@@ -1281,6 +1301,65 @@ export const api = {
   },
 
   /** История рассылок (пагинация). */
+  // T-direct-send (портировано из WolfVPN): точечная рассылка одному + по списку ID (+ email-канал, вложения).
+  async sendBroadcastToUser(
+    token: string,
+    body: { channel?: "telegram" | "email"; telegramId: string; subject?: string; message: string; buttonText?: string; buttonUrl?: string },
+    attachment?: File | null
+  ): Promise<{ ok: true }> {
+    const form = new FormData();
+    form.append("channel", body.channel ?? "telegram");
+    form.append("telegramId", body.telegramId);
+    form.append("message", body.message);
+    if (body.subject?.trim()) form.append("subject", body.subject.trim());
+    if (body.buttonText?.trim()) form.append("buttonText", body.buttonText.trim());
+    if (body.buttonUrl?.trim()) form.append("buttonUrl", body.buttonUrl.trim());
+    if (attachment) form.append("attachment", attachment, attachment.name);
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_BASE}/admin/broadcast/send-to-user`, { method: "POST", headers, body: form });
+    const text = await res.text();
+    let data: unknown;
+    try { data = text ? JSON.parse(text) : undefined; } catch { throw new Error(res.statusText || "Request failed"); }
+    if (res.status === 401 && token && tokenRefreshFn && !res.url.includes("/auth/")) {
+      const newToken = await tokenRefreshFn();
+      if (newToken) return api.sendBroadcastToUser(newToken, body, attachment);
+    }
+    if (!res.ok) throw new Error((data as { message?: string })?.message ?? res.statusText);
+    return data as { ok: true };
+  },
+
+  async startSendToList(
+    token: string,
+    body: { channel?: "telegram" | "email"; telegramIds: string[]; subject?: string; message: string; buttonText?: string; buttonUrl?: string },
+    attachment?: File | null
+  ): Promise<{ jobId: string; total: number }> {
+    const form = new FormData();
+    form.append("channel", body.channel ?? "telegram");
+    form.append("telegramIds", JSON.stringify(body.telegramIds));
+    form.append("message", body.message);
+    if (body.subject?.trim()) form.append("subject", body.subject.trim());
+    if (body.buttonText?.trim()) form.append("buttonText", body.buttonText.trim());
+    if (body.buttonUrl?.trim()) form.append("buttonUrl", body.buttonUrl.trim());
+    if (attachment) form.append("attachment", attachment, attachment.name);
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_BASE}/admin/broadcast/send-to-list`, { method: "POST", headers, body: form });
+    const text = await res.text();
+    let data: unknown;
+    try { data = text ? JSON.parse(text) : undefined; } catch { throw new Error(res.statusText || "Request failed"); }
+    if (res.status === 401 && token && tokenRefreshFn && !res.url.includes("/auth/")) {
+      const newToken = await tokenRefreshFn();
+      if (newToken) return api.startSendToList(newToken, body, attachment);
+    }
+    if (!res.ok) throw new Error((data as { message?: string })?.message ?? res.statusText);
+    return data as { jobId: string; total: number };
+  },
+
+  async getSendToListStatus(token: string, jobId: string): Promise<ListSendJobStatus> {
+    return request(`/admin/broadcast/send-to-list/${encodeURIComponent(jobId)}`, { token });
+  },
+
   async getBroadcastHistory(token: string, limit = 50, offset = 0): Promise<{ items: BroadcastHistoryItem[]; total: number }> {
     return request(`/admin/broadcast/history?limit=${limit}&offset=${offset}`, { token });
   },
@@ -1602,6 +1681,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+  },
+
+  // T-pwd-reset (портировано из WolfVPN): запрос ссылки сброса + установка нового пароля.
+  async clientForgotPassword(email: string): Promise<{ ok: boolean }> {
+    return request("/client/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+  },
+  async clientResetPassword(token: string, password: string): Promise<{ ok: boolean }> {
+    return request("/client/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
+  },
+
+  // T-pay-wait (портировано из WolfVPN): статус платежа для polling на странице ожидания оплаты.
+  async getPaymentStatus(token: string, id: string): Promise<{ id: string; status: string; amount: number; currency: string; paidAt: string | null }> {
+    return request(`/client/payments/${encodeURIComponent(id)}/status`, { token });
   },
 
   async clientRegister(data: ClientRegisterPayload): Promise<ClientAuthResponse | ClientAuthRequires2FA | { message: string; requiresVerification: true }> {
@@ -2643,6 +2735,16 @@ export interface SyncCreateRemnaForMissingResult {
   errors: string[];
 }
 
+// T-direct-send (портировано из WolfVPN): статус job рассылки по списку.
+export interface ListSendJobStatus {
+  id: string;
+  total: number;
+  sent: number;
+  failed: number;
+  done: boolean;
+  errors: Array<{ telegramId: string; error: string }>;
+}
+
 export interface BroadcastResult {
   ok: boolean;
   sentTelegram: number;
@@ -3040,6 +3142,18 @@ export type UpdateSettingsPayload = {
   giftMessageMaxLength?: number;
 }
 
+// T-admin-services (портировано из WolfVPN): услуга «доп. устройства» на подписке.
+export interface ClientServiceItem {
+  subscriptionId: string;
+  subscriptionIndex: number;
+  tariffName: string | null;
+  tariffEmoji: string | null;
+  includedDevices: number;
+  extraDevices: number;
+  extraDevicesMonthlyPrice: number;
+  linked: boolean;
+}
+
 export interface ClientRecord {
   id: string;
   email: string | null;
@@ -3058,6 +3172,9 @@ export interface ClientRecord {
   personalDiscountPercent: number | null;
   /** если true, скидка сгорит после первой продуктовой покупки. */
   personalDiscountIsOneTime?: boolean;
+  /** T-tariff-restriction: JSON-массив запрещённых клиенту tariffId + текст причины. */
+  restrictedTariffIds?: string | null;
+  tariffRestrictionReason?: string | null;
   createdAt: string;
   /** Количество приглашённых рефералов (приходит с бэкенда) */
   _count?: { referrals: number };
@@ -4552,6 +4669,8 @@ export interface PublicConfig {
   googleAnalyticsId?: string | null;
   yandexMetrikaId?: string | null;
   skipEmailVerification?: boolean;
+  /** T-pwd-reset: вкл/выкл восстановление пароля клиента (по умолчанию выкл). */
+  passwordResetEnabled?: boolean;
   /** true = SMTP настроен и можно слать письма верификации. */
   smtpConfigured?: boolean;
   useRemnaSubscriptionPage?: boolean;

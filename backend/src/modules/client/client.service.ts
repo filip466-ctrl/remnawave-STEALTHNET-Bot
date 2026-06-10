@@ -132,6 +132,8 @@ const SYSTEM_CONFIG_KEYS = [
   "referral_instructions_url", // ссылка на инструкцию по рефералке (кнопка «📖 Инструкции»)
   // T11+T13+T14 (11.05.2026): редактируемые тексты бота + URL'ы для документов и Telegram-прокси.
   "refund_link", // Политика возврата (URL — Telegraph)
+  "tariff_restriction_message", // T-tariff-restriction: дефолтный текст причины ограничения тарифа
+  "password_reset_enabled", // T-pwd-reset: вкл/выкл восстановление пароля клиента (по умолчанию выкл)
   "support_hours_from", "support_hours_to", // Часы работы поддержки (формат "10:00")
   "tg_proxy_text", "tg_proxy_url_primary", "tg_proxy_url_backup", "tg_proxy_servers", // Бесплатный TG-прокси: текст экрана + 2 legacy-URL + список прокси-серверов (JSON)
   "reissue_warning_text", // T13: текст диалога «Обновление подписки»
@@ -525,6 +527,33 @@ export async function getSystemConfig() {
   return data;
 }
 
+/**
+ * T-tariff-restriction (портировано из WolfVPN): проверка, разрешён ли клиенту тариф.
+ * Используется явно перед списанием с баланса (payByBalance). Для внешних платёжек —
+ * бэкстоп в db.ts createPayment. Возвращает { allowed, reason? }.
+ */
+export async function checkTariffRestriction(clientId: string, tariffId: string): Promise<{ allowed: boolean; reason?: string }> {
+  if (!clientId || !tariffId) return { allowed: true };
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { restrictedTariffIds: true, tariffRestrictionReason: true },
+  });
+  if (!client?.restrictedTariffIds) return { allowed: true };
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(client.restrictedTariffIds);
+    if (Array.isArray(parsed)) ids = parsed.map((x) => String(x));
+  } catch { /* битый JSON → ограничений нет */ }
+  if (!ids.includes(tariffId)) return { allowed: true };
+  let reason = (client.tariffRestrictionReason ?? "").trim();
+  if (!reason) {
+    const cfg = await getSystemConfig();
+    reason = (cfg.tariffRestrictionMessage ?? "").trim()
+      || "Покупка этого тарифа ограничена в связи с нарушением условий оферты. Пожалуйста, выберите другой тариф.";
+  }
+  return { allowed: false, reason };
+}
+
 async function loadSystemConfigFromDb() {
   const settings = await prisma.systemSetting.findMany({
     where: { key: { in: SYSTEM_CONFIG_KEYS } },
@@ -614,6 +643,7 @@ async function loadSystemConfigFromDb() {
     groqFallback3: (map.groq_fallback_3 ?? "").trim() || null,
     aiSystemPrompt: map.ai_system_prompt || "Ты — лучший менеджер техподдержки VPN-сервиса. Твоя цель — вежливо, быстро и точно помогать пользователям с настройкой VPN, тарифами и решением технических проблем. Отвечай кратко и по делу.",
     skipEmailVerification: map.skip_email_verification === "true" || map.skip_email_verification === "1",
+    passwordResetEnabled: map.password_reset_enabled === "true" || map.password_reset_enabled === "1",
     /** Master switch для антибот-фильтра. По умолчанию включён. */
     signupProtectionEnabled: (map.signup_protection_enabled ?? "true").trim() !== "false",
     /** Дополнительный список заблокированных доменов (через запятую) — расширяет встроенный */
@@ -674,6 +704,7 @@ async function loadSystemConfigFromDb() {
     referralInstructionsUrl: (map.referral_instructions_url ?? "").trim() || "https://telegra.ph/Kak-polzovatsya-referalnoj-programmoj-i-zarabatyvat-05-28",
     // T11+T13+T14 (11.05.2026): новые редактируемые поля для бота.
     refundLink: (map.refund_link ?? "").trim() || null,
+    tariffRestrictionMessage: (map.tariff_restriction_message ?? "").trim() || null,
     supportHoursFrom: (map.support_hours_from ?? "").trim() || "10:00",
     supportHoursTo: (map.support_hours_to ?? "").trim() || "22:00",
     tgProxyText: (map.tg_proxy_text ?? "").trim() || null,
@@ -1172,6 +1203,7 @@ export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | 
     ),
     paymentProviders: full.paymentProviders,
     skipEmailVerification: full.skipEmailVerification ?? false,
+    passwordResetEnabled: full.passwordResetEnabled ?? false,
     // фронту нужен флаг — настроен ли SMTP.
     // Если SMTP не настроен или skipEmailVerification=true → email привязывается
     // мгновенно (без письма) через POST /client/link-email-direct.

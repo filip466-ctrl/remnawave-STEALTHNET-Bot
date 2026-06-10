@@ -490,6 +490,9 @@ export function ClientLoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="password">{t("cabinet.login.password_label")}</Label>
                 <Input id="password" type="password" name="login_password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="off" data-form-type="other" className="h-12 rounded-xl bg-background/50 backdrop-blur-sm border-white/10 focus-visible:ring-primary/50 transition-all" />
+                <div className="text-right">
+                  <Link to="/cabinet/forgot-password" className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors">Забыли пароль?</Link>
+                </div>
               </div>
               <Button type="submit" className="w-full h-14 rounded-2xl text-base font-bold shadow-xl hover:scale-[1.02] transition-all gap-2" disabled={loading}>
                 {loading ? t("cabinet.login.submit_loading") : t("cabinet.login.submit")}

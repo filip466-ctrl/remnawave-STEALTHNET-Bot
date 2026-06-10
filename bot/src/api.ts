@@ -25,10 +25,14 @@ async function fetchJson<T>(path: string, opts?: { method?: string; body?: unkno
     headers: getHeaders(opts?.token),
     ...(opts?.body !== undefined && { body: JSON.stringify(opts.body) }),
   });
-  const data = (await res.json().catch(() => ({}))) as T | { message?: string };
+  const data = (await res.json().catch(() => ({}))) as T | { message?: string; code?: string };
   if (!res.ok) {
     const msg = typeof (data as { message?: string }).message === "string" ? (data as { message: string }).message : `HTTP ${res.status}`;
-    throw new Error(msg);
+    // T-tariff-restriction (портировано из WolfVPN): прокидываем code (напр. TARIFF_RESTRICTED) для бота.
+    const err = new Error(msg) as Error & { code?: string };
+    const code = (data as { code?: string }).code;
+    if (typeof code === "string") err.code = code;
+    throw err;
   }
   return data as T;
 }

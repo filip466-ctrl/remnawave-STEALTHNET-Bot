@@ -124,6 +124,43 @@ export async function sendLinkEmailVerification(
   }
 }
 
+// T-pwd-reset (портировано из WolfVPN): письмо со ссылкой сброса пароля (действует 1 час).
+export async function sendPasswordResetEmail(
+  config: SmtpConfig,
+  to: string,
+  resetLink: string,
+  serviceName: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isSmtpConfigured(config)) {
+    return { ok: false, error: "SMTP not configured" };
+  }
+  const auth = config.user && config.password ? { user: config.user, pass: config.password } : undefined;
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+  });
+  const from = config.fromName ? `"${config.fromName}" <${config.fromEmail}>` : config.fromEmail!;
+  const subject = `Сброс пароля — ${serviceName}`;
+  const html = `
+    <p>Здравствуйте!</p>
+    <p>Вы запросили сброс пароля в ${serviceName}. Чтобы задать новый пароль, перейдите по ссылке:</p>
+    <p><a href="${resetLink}">${resetLink}</a></p>
+    <p>Ссылка действительна 1 час. Если вы не запрашивали сброс — просто проигнорируйте это письмо, пароль останется прежним.</p>
+  `;
+  try {
+    await transporter.sendMail({ from, to, subject, html });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
 export type EmailAttachment = { filename: string; content: Buffer };
 
 /**

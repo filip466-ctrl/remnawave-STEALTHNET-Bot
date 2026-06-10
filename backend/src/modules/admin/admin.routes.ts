@@ -61,7 +61,8 @@ import { markPaymentPaid } from "../payment/mark-paid.service.js";
 // выдача подписки идёт через createAdditionalSubscription (создание новой Subscription).
 import { registerBackupRoutes } from "../backup/backup.routes.js";
 import { invalidateBrandCache } from "../branding/spa-html.js";
-import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob, cancelBroadcastJob, listBroadcastHistory, getBroadcastHistoryItem } from "../broadcast/broadcast.service.js";
+import { getBroadcastRecipientsCount, startBroadcastJob, getBroadcastJob, cancelBroadcastJob, listBroadcastHistory, getBroadcastHistoryItem, sendDirectTelegramMessage, sendDirectEmail, startListSendJob, getListSendJob } from "../broadcast/broadcast.service.js";
+import { applyDevicesToSubscription, removeAllExtraDevicesForSub } from "../subscription/extras.helper.js";
 import { uploadMascotImage, uploadVideo, uploadTicketAttachment, mascotUrl, videoUploadUrl, removeUploadedFile } from "../../lib/upload.js";
 import {
   filesToAttachments,
@@ -1214,6 +1215,8 @@ adminRouter.get("/clients/:id", async (req, res) => {
       referralPercent: true,
       personalDiscountPercent: true,
       personalDiscountIsOneTime: true,
+      restrictedTariffIds: true,
+      tariffRestrictionReason: true,
       createdAt: true,
       _count: { select: { referrals: true } },
       // текущий реферер для inline-редактора в карточке клиента.
@@ -1275,12 +1278,97 @@ adminRouter.patch("/clients/:id", async (req, res) => {
       referralPercent: true,
       personalDiscountPercent: true,
       personalDiscountIsOneTime: true,
+      restrictedTariffIds: true,
+      tariffRestrictionReason: true,
       createdAt: true,
       _count: { select: { referrals: true } },
     },
   });
   return res.json(updated);
 });
+
+// T-admin-services (портировано из WolfVPN): вкладка «Услуги» — выдать/забрать доп. устройства подписке (action manage_services).
+adminRouter.get("/clients/:id/services", requireAction("manage_services"), asyncRoute(async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const subs = await prisma.subscription.findMany({
+    where: { ownerId: parsed.data.id },
+    orderBy: { subscriptionIndex: "asc" },
+    select: {
+      id: true,
+      subscriptionIndex: true,
+      remnawaveUuid: true,
+      extraDevices: true,
+      extraDevicesMonthlyPrice: true,
+      tariff: { select: { name: true, menuEmoji: true, includedDevices: true, deviceLimit: true } },
+    },
+  });
+  const items = subs.map((s) => ({
+    subscriptionId: s.id,
+    subscriptionIndex: s.subscriptionIndex,
+    tariffName: s.tariff?.name ?? null,
+    tariffEmoji: s.tariff?.menuEmoji ?? null,
+    includedDevices: s.tariff?.includedDevices ?? s.tariff?.deviceLimit ?? 1,
+    extraDevices: s.extraDevices ?? 0,
+    extraDevicesMonthlyPrice: s.extraDevicesMonthlyPrice ?? 0,
+    linked: !!s.remnawaveUuid,
+  }));
+  return res.json({ items });
+}));
+
+const grantDevicesSchema = z.object({
+  subscriptionId: z.string().min(1),
+  deviceCount: z.number().int().min(1).max(50),
+  monthlyPrice: z.number().min(0).max(1_000_000),
+});
+adminRouter.post("/clients/:id/services/grant-devices", requireAction("manage_services"), asyncRoute(async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const body = grantDevicesSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: body.error.issues[0]?.message ?? "Проверьте параметры выдачи" });
+  const sub = await prisma.subscription.findFirst({ where: { id: body.data.subscriptionId, ownerId: parsed.data.id }, select: { id: true } });
+  if (!sub) return res.status(404).json({ message: "Подписка не найдена у клиента" });
+  const result = await applyDevicesToSubscription(body.data.subscriptionId, body.data.deviceCount, body.data.monthlyPrice);
+  if (!result.ok) return res.status(502).json({ message: result.error ?? "Не удалось выдать устройства" });
+  return res.json({ ok: true, newDeviceLimit: result.newDeviceLimit });
+}));
+
+const removeServicesSchema = z.object({ subscriptionId: z.string().min(1) });
+adminRouter.post("/clients/:id/services/remove-devices", requireAction("manage_services"), asyncRoute(async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const body = removeServicesSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Не указана подписка" });
+  const sub = await prisma.subscription.findFirst({ where: { id: body.data.subscriptionId, ownerId: parsed.data.id }, select: { id: true } });
+  if (!sub) return res.status(404).json({ message: "Подписка не найдена у клиента" });
+  const result = await removeAllExtraDevicesForSub(body.data.subscriptionId);
+  if (!result.ok) return res.status(502).json({ message: result.error ?? "Не удалось забрать услугу" });
+  return res.json({ ok: true, extraDevicesRemoved: result.extraDevicesRemoved, newDeviceLimit: result.newDeviceLimit, hwidKicked: result.hwidKicked });
+}));
+
+// T-tariff-restriction (портировано из WolfVPN): задать/снять запрет тарифов клиенту.
+const tariffRestrictionsSchema = z.object({
+  tariffIds: z.array(z.string()).default([]),
+  reason: z.string().max(2000).nullable().optional(),
+});
+adminRouter.patch("/clients/:id/tariff-restrictions", asyncRoute(async (req, res) => {
+  const parsed = clientIdParam.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid client id" });
+  const body = tariffRestrictionsSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Invalid input", errors: body.error.flatten() });
+  const client = await prisma.client.findUnique({ where: { id: parsed.data.id }, select: { id: true } });
+  if (!client) return res.status(404).json({ message: "Клиент не найден" });
+  const ids = [...new Set(body.data.tariffIds.map((x) => String(x)).filter(Boolean))];
+  const reason = (body.data.reason ?? "").trim() || null;
+  await prisma.client.update({
+    where: { id: parsed.data.id },
+    data: {
+      restrictedTariffIds: ids.length > 0 ? JSON.stringify(ids) : null,
+      tariffRestrictionReason: reason,
+    },
+  });
+  return res.json({ ok: true, restrictedTariffIds: ids, tariffRestrictionReason: reason });
+}));
 
 const setClientPasswordSchema = z.object({
   newPassword: z.string().min(8, "Пароль не менее 8 символов"),
@@ -3608,6 +3696,55 @@ const broadcastUpload = multer({
 adminRouter.get("/broadcast/recipients-count", asyncRoute(async (_req, res) => {
   const counts = await getBroadcastRecipientsCount();
   return res.json(counts);
+}));
+
+const DIRECT_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// T-direct-send (портировано из WolfVPN): точечная отправка ОДНОМУ — Telegram (по id) или Email. Multipart.
+adminRouter.post("/broadcast/send-to-user", broadcastUpload.single("attachment"), asyncRoute(async (req, res) => {
+  const channel = req.body.channel === "email" ? "email" : "telegram";
+  const recipient = String(req.body.telegramId ?? req.body.recipient ?? "").trim();
+  const message = String(req.body.message ?? "").trim();
+  if (!message || message.length > 4096) return res.status(400).json({ message: "Текст сообщения: 1–4096 символов" });
+  const subject = req.body.subject ? String(req.body.subject).slice(0, 300) : undefined;
+  const buttonText = req.body.buttonText ? String(req.body.buttonText).slice(0, 64) : undefined;
+  const buttonUrl = req.body.buttonUrl ? String(req.body.buttonUrl).slice(0, 500) : undefined;
+  const attachment = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype, originalname: req.file.originalname } : undefined;
+
+  let result: { ok: boolean; error?: string };
+  if (channel === "email") {
+    if (!DIRECT_EMAIL_RE.test(recipient)) return res.status(400).json({ message: "Введите корректный email" });
+    result = await sendDirectEmail(recipient, subject, message, attachment);
+  } else {
+    if (!/^\d+$/.test(recipient)) return res.status(400).json({ message: "Telegram ID — только цифры" });
+    result = await sendDirectTelegramMessage(recipient, message, { buttonText, buttonUrl, attachment });
+  }
+  if (!result.ok) return res.status(502).json({ message: result.error ?? "Не удалось отправить сообщение" });
+  return res.json({ ok: true });
+}));
+
+// T-list-send (портировано из WolfVPN): рассылка по списку — Telegram (id) или Email, in-memory job. Multipart.
+adminRouter.post("/broadcast/send-to-list", broadcastUpload.single("attachment"), asyncRoute(async (req, res) => {
+  const channel = req.body.channel === "email" ? "email" : "telegram";
+  let recipients: string[] = [];
+  try { const raw = JSON.parse(String(req.body.telegramIds ?? "[]")); if (Array.isArray(raw)) recipients = raw.map((x) => String(x)); } catch { /* ignore */ }
+  const message = String(req.body.message ?? "").trim();
+  if (recipients.length === 0) return res.status(400).json({ message: "Список получателей пуст" });
+  if (recipients.length > 10000) return res.status(400).json({ message: "Слишком много получателей (макс. 10000)" });
+  if (!message || message.length > 4096) return res.status(400).json({ message: "Текст сообщения: 1–4096 символов" });
+  const subject = req.body.subject ? String(req.body.subject).slice(0, 300) : undefined;
+  const buttonText = req.body.buttonText ? String(req.body.buttonText).slice(0, 64) : undefined;
+  const buttonUrl = req.body.buttonUrl ? String(req.body.buttonUrl).slice(0, 500) : undefined;
+  const attachment = req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype, originalname: req.file.originalname } : undefined;
+  const { jobId, total } = startListSendJob(recipients, message, { channel, subject, buttonText, buttonUrl, attachment });
+  if (total === 0) return res.status(400).json({ message: channel === "email" ? "Не найдено корректных email" : "Не найдено корректных числовых ID" });
+  return res.json({ jobId, total });
+}));
+
+adminRouter.get("/broadcast/send-to-list/:jobId", asyncRoute(async (req, res) => {
+  const job = getListSendJob(req.params.jobId);
+  if (!job) return res.status(404).json({ message: "Задача не найдена или устарела" });
+  return res.json(job);
 }));
 
 adminRouter.post(

@@ -129,6 +129,11 @@ model Client {
   /// Источник регистрации: "web" | "telegram" | "google" | "apple" | "miniapp"
   /// Полезно для фильтра "удалить всех веб-регистраций за час"
   registrationSource         String?   @map("registration_source") @db.VarChar(20)
+  /// T-tariff-restriction (портировано из WolfVPN): JSON-массив tariffId, запрещённых
+  /// клиенту к покупке/продлению. NULL/пусто → ограничений нет.
+  restrictedTariffIds        String?   @map("restricted_tariff_ids")
+  /// Переопределение текста причины ограничения. Пусто → system_settings.tariff_restriction_message → дефолт.
+  tariffRestrictionReason    String?   @map("tariff_restriction_reason")
   createdAt                  DateTime  @default(now()) @map("created_at")
   updatedAt                  DateTime  @updatedAt @map("updated_at")
 

@@ -16,6 +16,7 @@
  */
 import { prisma } from "../../db.js";
 import {
+  remnaGetUser,
   remnaGetUserHwidDevices,
   remnaDeleteUserHwidDevice,
   remnaUpdateUser,
@@ -105,4 +106,44 @@ export async function removeAllExtraDevicesForSub(subId: string): Promise<Remove
     hwidKicked: removedHwids,
     newDeviceLimit: includedDevices,
   };
+}
+
+export interface GrantDevicesResult {
+  ok: boolean;
+  newDeviceLimit: number;
+  error?: string;
+}
+
+// T-admin-services (портировано из WolfVPN): ВЫДАТЬ доп. устройства подписке (как покупка юзера,
+// но инициирует админ — без оплаты). hwidDeviceLimit += N в Remna + extraDevices/monthlyPrice += в БД.
+// monthlyPrice (₽/30 дней) попадает в цену продления автоматически (см. client.routes расчёт).
+export async function applyDevicesToSubscription(subId: string, deviceCount: number, monthlyPrice: number): Promise<GrantDevicesResult> {
+  if (!Number.isFinite(deviceCount) || deviceCount <= 0) {
+    return { ok: false, newDeviceLimit: 0, error: "Количество устройств должно быть больше 0" };
+  }
+  const sub = await prisma.subscription.findUnique({
+    where: { id: subId },
+    select: { id: true, remnawaveUuid: true },
+  });
+  if (!sub) return { ok: false, newDeviceLimit: 0, error: "subscription not found" };
+  if (!sub.remnawaveUuid) return { ok: false, newDeviceLimit: 0, error: "not linked to remna" };
+
+  const userRes = await remnaGetUser(sub.remnawaveUuid);
+  if (userRes.error) return { ok: false, newDeviceLimit: 0, error: userRes.error };
+  const u = userRes.data as Record<string, unknown> | null;
+  const inner = (u?.response ?? u) as Record<string, unknown> | undefined;
+  const current = typeof inner?.hwidDeviceLimit === "number" ? inner.hwidDeviceLimit : 0;
+  const newDevices = current + deviceCount;
+
+  const updateRes = await remnaUpdateUser({ uuid: sub.remnawaveUuid, hwidDeviceLimit: newDevices });
+  if (updateRes.error) return { ok: false, newDeviceLimit: 0, error: updateRes.error };
+
+  await prisma.subscription.update({
+    where: { id: sub.id },
+    data: {
+      extraDevices: { increment: deviceCount },
+      extraDevicesMonthlyPrice: { increment: Math.max(0, monthlyPrice) },
+    },
+  });
+  return { ok: true, newDeviceLimit: newDevices };
 }

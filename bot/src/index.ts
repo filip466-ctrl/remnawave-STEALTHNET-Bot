@@ -1968,6 +1968,15 @@ composer.command("support", async (ctx) => {
  */
 type ConfigSnapshot = Awaited<ReturnType<typeof api.getPublicConfig>>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// T-tariff-restriction (портировано из WolfVPN): при отказе-ограничении (code TARIFF_RESTRICTED)
+// показываем ЯВНУЮ кнопку «🏠 Главное меню» (чтобы юзер не застрял), иначе обычный backToMenu.
+function tariffErrMarkup(e: unknown, config: ConfigSnapshot | null, backStyle: Parameters<typeof backToMenu>[1], emojiIds: Parameters<typeof backToMenu>[2]): ReturnType<typeof backToMenu> {
+  if ((e as { code?: string } | null)?.code === "TARIFF_RESTRICTED") {
+    return { inline_keyboard: [[{ text: "🏠 Главное меню", callback_data: "menu:main" }]] };
+  }
+  return backToMenu(config?.botBackLabel ?? null, backStyle, emojiIds);
+}
+
 async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: TariffItem, option: TariffPriceOption | null, extraDevices: number, config: ConfigSnapshot | null, innerStyles: InnerButtonStyles | undefined, innerEmojiIds: InnerEmojiIds | undefined, token: string, subExtrasMonthlyPrice: number = 0): Promise<void> {
   const opts = sortedPriceOptions(tariff.priceOptions);
   const eff = option ?? opts[0] ?? null;
@@ -3218,7 +3227,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, `✅ ${result.message}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3243,7 +3252,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3287,7 +3296,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, receiptPromptText(savedEmailPx), receiptPromptKeyboard(tokRcptP, savedEmailPx));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3306,7 +3315,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3352,7 +3361,7 @@ composer.on("callback_query:data", async (ctx) => {
           await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка";
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
         return;
       }
@@ -3386,7 +3395,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, `✅ ${result.message}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3411,7 +3420,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3455,7 +3464,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, receiptPromptText(savedEmailSb), receiptPromptKeyboard(tokRcptSb, savedEmailSb));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3474,7 +3483,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3520,7 +3529,7 @@ composer.on("callback_query:data", async (ctx) => {
           await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка";
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
         return;
       }
@@ -3618,7 +3627,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, `✅ ${resultMessage}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3697,7 +3706,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3794,7 +3803,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, receiptPromptText(savedEmailYk), receiptPromptKeyboard(tokRcptT, savedEmailYk));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮKassa";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -3865,7 +3874,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msg.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), msg.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -4210,7 +4219,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, titleLines.join("\n"), { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -4331,7 +4340,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, `✅ ${result.message}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -4414,7 +4423,7 @@ composer.on("callback_query:data", async (ctx) => {
             await editMessageContent(ctx, "❌ Ошибка авторизации. Отправьте /start", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
           }
         } else {
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
       }
       return;
@@ -4475,7 +4484,7 @@ composer.on("callback_query:data", async (ctx) => {
             await editMessageContent(ctx, "❌ Ошибка авторизации. Отправьте /start", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
           }
         } else {
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
       }
       return;
@@ -4536,7 +4545,7 @@ composer.on("callback_query:data", async (ctx) => {
         extraOptionTargetSub.delete(userId);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -4603,7 +4612,7 @@ composer.on("callback_query:data", async (ctx) => {
         extraOptionTargetSub.delete(userId);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -4953,7 +4962,7 @@ composer.on("callback_query:data", async (ctx) => {
         await showPaymentMethodsForTariff(ctx, userId, tariff, onlyOpt, 0, config, innerStyles, innerEmojiIds, token);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка загрузки";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5005,7 +5014,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, bodyLines.join("\n"), { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5471,7 +5480,7 @@ composer.on("callback_query:data", async (ctx) => {
         }, entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5509,7 +5518,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, yooTopup.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTopup.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5542,7 +5551,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, receiptPromptText(savedEmailTp), receiptPromptKeyboard(tokRcptTp, savedEmailTp));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮKassa";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5561,7 +5570,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, cpTopup.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), cpTopup.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа Crypto Bot";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5580,7 +5589,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, lvTopup.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), lvTopup.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа Lava";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5599,7 +5608,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, lvTopup.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), lvTopup.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа Lava.top";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5618,7 +5627,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, hkTopup.text, payUrlMarkup(payment.payUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), hkTopup.entities);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания платежа Heleket";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5679,7 +5688,7 @@ composer.on("callback_query:data", async (ctx) => {
           await editMessageContent(ctx, yooTopup.text, payUrlMarkup(payment.paymentUrl, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds), yooTopup.entities);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮMoney";
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
         return;
       }
@@ -5705,7 +5714,7 @@ composer.on("callback_query:data", async (ctx) => {
           await editMessageContent(ctx, receiptPromptText(savedEmailTp2), receiptPromptKeyboard(tokRcptTp2, savedEmailTp2));
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Ошибка создания платежа ЮKassa";
-          await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
         }
         return;
       }
@@ -5827,7 +5836,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5922,7 +5931,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, lines.join("\n"), { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка загрузки триалов";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5957,7 +5966,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка активации";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -5991,7 +6000,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, `✅ ${result.message}${linkBlock}`, { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка активации";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6088,7 +6097,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, bodyLines.join("\n").trim(), { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6149,7 +6158,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка загрузки";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6283,7 +6292,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6423,7 +6432,7 @@ composer.on("callback_query:data", async (ctx) => {
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6727,7 +6736,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6845,7 +6854,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка загрузки";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6868,7 +6877,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка переноса";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -6921,7 +6930,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка получения ссылки";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -7037,7 +7046,7 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, msgText, { inline_keyboard: buttons });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка создания кода";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -7053,7 +7062,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка удаления";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -7096,7 +7105,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка загрузки";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }
@@ -7112,7 +7121,7 @@ composer.on("callback_query:data", async (ctx) => {
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка отмены";
-        await editMessageContent(ctx, `❌ ${msg}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
       }
       return;
     }

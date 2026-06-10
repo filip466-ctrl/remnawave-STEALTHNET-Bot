@@ -25,7 +25,8 @@ import {
 } from "../notification/telegram-notify.service.js";
 import { requireClientAuth } from "./client.middleware.js";
 import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient, remnaGetUserHwidDevices, remnaDeleteUserHwidDevice, encryptSubscriptionUrlInPlace, remnaRevokeUserSubscription } from "../remna/remna.client.js";
-import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured } from "../mail/mail.service.js";
+import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured, sendPasswordResetEmail } from "../mail/mail.service.js";
+import { signClientPasswordResetToken, verifyClientPasswordResetToken } from "../auth/auth.service.js";
 import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
 import { activateTariffForClient, activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { upsertPrimarySubscription, upsertSubscriptionByRemnaUuid } from "../subscription/subscription.helpers.js";
@@ -42,6 +43,7 @@ import { createLavaInvoice, isLavaConfigured } from "../lava/lava.service.js";
 import { createLavatopInvoice, isLavatopConfigured } from "../lavatop/lavatop.service.js";
 import { createOverpayPayformOrder, isOverpayConfigured } from "../overpay/overpay.service.js";
 import { applyPersonalDiscount } from "./personal-discount.js";
+import { checkTariffRestriction } from "./client.service.js";
 import { getBotByToken, getPrimaryBot, paymentSnapshotTopup, paymentSnapshotProduct, applyMarkup } from "../bot/bot.service.js";
 import { extractBotTokenFromRequest, optionalBot, type ReqWithBot } from "../bot/bot.middleware.js";
 import { uploadTicketAttachment } from "../../lib/upload.js";
@@ -82,14 +84,38 @@ function extractCurrentExpireAt(data: unknown): Date | null {
  * Иначе минимум = basePrice.
  * Если targetSubId не передан или sub не найдена → коэффициент = 1 (полная цена).
  */
+// T-extras-prorata-fix (портировано из WolfVPN): expireAt из Remna, если в БД пусто
+// (частый рассинхрон для primary #0 — иначе coef=1 и цена за полный месяц вместо pro-rata).
+function extractRemnaExpireAt(data: unknown): Date | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const inner = (d.response && typeof d.response === "object" ? d.response : d) as Record<string, unknown>;
+  const raw = inner.expireAt ?? inner.expire_at;
+  if (typeof raw === "string" || typeof raw === "number") {
+    const dt = new Date(raw);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+  return null;
+}
+
+async function resolveSubExpireAt(expireAtDb: Date | null, remnawaveUuid: string | null | undefined): Promise<Date | null> {
+  if (expireAtDb) return expireAtDb;
+  if (!remnawaveUuid) return null;
+  const u = await remnaGetUser(remnawaveUuid).catch(() => null);
+  if (!u || u.error || !u.data) return null;
+  return extractRemnaExpireAt(u.data);
+}
+
 async function calculateDevicesProrataPriceCoefficient(targetSubId: string | null | undefined): Promise<number> {
   if (!targetSubId) return 1;
   const sub = await prisma.subscription.findUnique({
     where: { id: targetSubId },
-    select: { expireAt: true },
+    select: { expireAt: true, remnawaveUuid: true },
   }).catch(() => null);
-  if (!sub?.expireAt) return 1;
-  const daysLeft = (sub.expireAt.getTime() - Date.now()) / 86_400_000;
+  if (!sub) return 1;
+  const expireAt = await resolveSubExpireAt(sub.expireAt, sub.remnawaveUuid);
+  if (!expireAt) return 1;
+  const daysLeft = (expireAt.getTime() - Date.now()) / 86_400_000;
   return Math.max(1, daysLeft / 30);
 }
 
@@ -105,10 +131,12 @@ async function calculateDevicesProrataPriceCoefficientForPrimary(clientId: strin
   if (!client?.remnawaveUuid) return 1;
   const primarySub = await prisma.subscription.findFirst({
     where: { ownerId: clientId, remnawaveUuid: client.remnawaveUuid },
-    select: { expireAt: true },
+    select: { expireAt: true, remnawaveUuid: true },
   }).catch(() => null);
-  if (!primarySub?.expireAt) return 1;
-  const daysLeft = (primarySub.expireAt.getTime() - Date.now()) / 86_400_000;
+  // Даже если primarySub не найдена / expireAt пуст — берём дату из Remna по uuid клиента.
+  const expireAt = await resolveSubExpireAt(primarySub?.expireAt ?? null, primarySub?.remnawaveUuid ?? client.remnawaveUuid);
+  if (!expireAt) return 1;
+  const daysLeft = (expireAt.getTime() - Date.now()) / 86_400_000;
   return Math.max(1, daysLeft / 30);
 }
 
@@ -572,6 +600,51 @@ function parseTelegramUser(initData: string): { id: number; username?: string } 
     return null;
   }
 }
+
+// T-pwd-reset (портировано из WolfVPN): запрос сброса пароля. respondOk всегда (защита от перебора email).
+const forgotPasswordSchema = z.object({ email: z.string().email() });
+clientAuthRouter.post("/forgot-password", async (req, res) => {
+  const cfg = await getSystemConfig();
+  if (!cfg.passwordResetEnabled) return res.status(404).json({ message: "Восстановление пароля временно недоступно" });
+  const body = forgotPasswordSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: "Введите корректный email" });
+  const email = body.data.email.toLowerCase().trim();
+  const respondOk = () => res.json({ ok: true });
+  try {
+    const client = await prisma.client.findUnique({ where: { email }, select: { id: true, passwordHash: true, isBlocked: true } });
+    if (!client || !client.passwordHash || client.isBlocked) return respondOk();
+    const config = await getSystemConfig();
+    const smtpConfig = {
+      host: config.smtpHost || "", port: config.smtpPort, secure: config.smtpSecure,
+      user: config.smtpUser, password: config.smtpPassword, fromEmail: config.smtpFromEmail, fromName: config.smtpFromName,
+    };
+    const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
+    if (!isSmtpConfigured(smtpConfig) || !appUrl) return respondOk();
+    const token = signClientPasswordResetToken({ clientId: client.id, pv: client.passwordHash.slice(-12) }, env.JWT_SECRET);
+    const resetLink = `${appUrl}/cabinet/reset-password?token=${encodeURIComponent(token)}`;
+    await sendPasswordResetEmail(smtpConfig, email, resetLink, config.serviceName ?? "VPN").catch(() => {});
+    return respondOk();
+  } catch {
+    return respondOk();
+  }
+});
+
+// T-pwd-reset: установка нового пароля по токену из письма (одноразовый — pv инвалидируется после смены).
+const resetPasswordSchema = z.object({ token: z.string().min(10), password: z.string().min(8, "Минимум 8 символов") });
+clientAuthRouter.post("/reset-password", async (req, res) => {
+  const cfg = await getSystemConfig();
+  if (!cfg.passwordResetEnabled) return res.status(404).json({ message: "Восстановление пароля временно недоступно" });
+  const body = resetPasswordSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ message: body.error.issues[0]?.message ?? "Проверьте данные" });
+  const payload = verifyClientPasswordResetToken(body.data.token, env.JWT_SECRET);
+  if (!payload) return res.status(400).json({ message: "Ссылка недействительна или устарела" });
+  const client = await prisma.client.findUnique({ where: { id: payload.clientId }, select: { id: true, passwordHash: true, isBlocked: true } });
+  if (!client || !client.passwordHash || client.isBlocked) return res.status(400).json({ message: "Ссылка недействительна" });
+  if (client.passwordHash.slice(-12) !== payload.pv) return res.status(400).json({ message: "Ссылка уже использована — запросите сброс заново" });
+  const newHash = await hashPassword(body.data.password);
+  await prisma.client.update({ where: { id: client.id }, data: { passwordHash: newHash } });
+  return res.json({ ok: true });
+});
 
 const telegramMiniappSchema = z.object({ initData: z.string().min(1) });
 
@@ -3578,6 +3651,13 @@ clientRouter.post("/payments/balance", async (req, res) => {
 
   const { tariffId, tariffPriceOptionId, deviceCount, proxyTariffId, singboxTariffId, promoCode: promoCodeStr, extendsSecondarySubId, removeExtrasOnActivate, asAdditional } = parsed.data;
 
+  // T-tariff-restriction (портировано из WolfVPN): запрет покупки/продления тарифа клиенту (оплата балансом).
+  // Внешние платёжки покрыты бэкстопом в db.ts createPayment; здесь — явная проверка до списания.
+  if (tariffId) {
+    const restr = await checkTariffRestriction(clientRaw.id, tariffId);
+    if (!restr.allowed) return res.status(403).json({ message: restr.reason, code: "TARIFF_RESTRICTED" });
+  }
+
   if (proxyTariffId) {
     const tariff = await prisma.proxyTariff.findUnique({ where: { id: proxyTariffId } });
     if (!tariff || !tariff.enabled) return res.status(400).json({ message: "Прокси-тариф не найден" });
@@ -4934,7 +5014,8 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
     const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-    const returnUrl = appUrl ? `${appUrl}/cabinet?yookassa=success` : "";
+    // T-pay-wait (портировано из WolfVPN): после оплаты ЮKassa возвращаем на страницу ожидания (polling статуса).
+    const returnUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : "";
     // добавляем tg:<id> в description, чтобы админ мог
     // быстро искать платежи по telegram_id в кабинете YooKassa (раньше там был
     // только orderId UUID, который никак не связать с клиентом без БД).
@@ -6614,6 +6695,23 @@ clientRouter.get("/payments", async (req, res) => {
       createdAt: p.createdAt.toISOString(),
       paidAt: p.paidAt?.toISOString() ?? null,
     })),
+  });
+});
+
+// T-pay-wait (портировано из WolfVPN): статус конкретного платежа для polling на странице ожидания оплаты.
+clientRouter.get("/payments/:id/status", async (req, res) => {
+  const clientId = (req as unknown as { clientId: string }).clientId;
+  const p = await prisma.payment.findFirst({
+    where: { id: req.params.id, clientId },
+    select: { id: true, status: true, amount: true, currency: true, paidAt: true },
+  });
+  if (!p) return res.status(404).json({ message: "Платёж не найден" });
+  return res.json({
+    id: p.id,
+    status: p.status,
+    amount: p.amount,
+    currency: p.currency,
+    paidAt: p.paidAt?.toISOString() ?? null,
   });
 });
 

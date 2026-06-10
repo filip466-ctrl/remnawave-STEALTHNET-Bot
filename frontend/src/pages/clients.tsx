@@ -26,7 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Pencil, Trash2, Ban, ShieldCheck, Wifi, Ticket, KeyRound, Search,
   Copy, Check, Smartphone, Activity, User, Users, HardDrive, Link,
-  RefreshCw, Loader2, Package, Gift, Coins, MailX, MailCheck, RotateCw,
+  RefreshCw, Loader2, Package, Gift, Coins, MailX, MailCheck, RotateCw, Plus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -717,6 +717,9 @@ function ClientEditModal({
   token: string;
 }) {
   const { t } = useTranslation();
+  const { state } = useAuth();
+  // T-admin-services (портировано из WolfVPN): доступ к вкладке «Услуги» — ADMIN или action manage_services.
+  const canManageServices = state.admin?.role === "ADMIN" || (Array.isArray(state.admin?.allowedSections) && state.admin.allowedSections.includes("action:manage_services"));
   const [tab, setTab] = useState("profile");
   const [remnaUser, setRemnaUser] = useState<RemnaUserFull | null>(null);
   const [, setRemnaLoading] = useState(false);
@@ -1022,6 +1025,11 @@ function ClientEditModal({
                   <TabsTrigger value="actions" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
                     <Activity className="h-3.5 w-3.5" /> {t("admin.clients.actions")}
                   </TabsTrigger>
+                  {canManageServices && (
+                    <TabsTrigger value="services" className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all">
+                      <Gift className="h-3.5 w-3.5" /> Услуги
+                    </TabsTrigger>
+                  )}
                 </>
               )}
             </TabsList>
@@ -1573,6 +1581,9 @@ function ClientEditModal({
                     {savingPassword ? t("admin.clients.saving") : t("admin.clients.set_password")}
                   </Button>
                 </div>
+
+                <hr />
+                <TariffRestrictionsSection clientId={editing.id} editing={editing} token={token} />
               </div>
             </TabsContent>
 
@@ -1601,6 +1612,13 @@ function ClientEditModal({
             {(editing.remnawaveUuid || secondarySubs.some((s) => s.remnawaveUuid)) && (
               <TabsContent value="devices">
                 <ClientAllDevicesTab clientId={editing.id} token={token} />
+              </TabsContent>
+            )}
+
+            {/* ────── Услуги (T-admin-services, портировано из WolfVPN) ────── */}
+            {canManageServices && (
+              <TabsContent value="services">
+                <ClientServicesTab clientId={editing.id} token={token} />
               </TabsContent>
             )}
 
@@ -1889,6 +1907,237 @@ function ClientBulkActionsPanel({
 // вкладка «Устройства» — со ВСЕХ подписок.
 // Каждое устройство показывается с бейджем подписки (#index + tariff name).
 // ─────────────────────────────────────────────────────────────────────────────
+// T-tariff-restriction (портировано из WolfVPN): секция запрета тарифов клиенту в карточке.
+function TariffRestrictionsSection({ clientId, editing, token }: { clientId: string; editing: ClientRecord; token: string }) {
+  const [tariffs, setTariffs] = useState<{ id: string; name: string }[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.getTariffs(token).then((r) => setTariffs(r.items.map((t) => ({ id: t.id, name: t.name })))).catch(() => setTariffs([])).finally(() => setLoading(false));
+    let ids: string[] = [];
+    try { if (editing.restrictedTariffIds) { const p = JSON.parse(editing.restrictedTariffIds); if (Array.isArray(p)) ids = p.map(String); } } catch { /* битый JSON */ }
+    setSelected(new Set(ids));
+    setReason(editing.tariffRestrictionReason ?? "");
+  }, [token, editing.restrictedTariffIds, editing.tariffRestrictionReason]);
+
+  const toggle = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  async function save() {
+    setSaving(true); setMsg(null);
+    try {
+      await api.setClientTariffRestrictions(token, clientId, [...selected], reason.trim() || null);
+      setMsg("Сохранено ✓");
+      setTimeout(() => setMsg(null), 2500);
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Ошибка"); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Ban className="h-4 w-4 text-amber-500" />
+        <h4 className="font-semibold text-sm">Ограничение тарифов</h4>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Отметь тарифы, которые клиенту ЗАПРЕЩЕНО покупать и продлевать. При попытке оплаты он увидит окно с причиной (на сайте и в боте).</p>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Загрузка тарифов…</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {tariffs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => toggle(t.id)}
+              className={cn(
+                "px-2.5 py-1.5 rounded-xl text-xs border transition-all",
+                selected.has(t.id) ? "bg-red-500 text-white border-red-500 shadow" : "bg-background/40 border-white/10 hover:border-white/30"
+              )}
+            >
+              {selected.has(t.id) ? "🚫 " : ""}{t.name}
+            </button>
+          ))}
+          {tariffs.length === 0 && <span className="text-xs text-muted-foreground">Тарифы не найдены</span>}
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Причина (текст в окне у клиента; пусто → общий шаблон)</Label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder="Напр.: Покупка ограничена в связи с нарушением п. 5.3 оферты."
+          className="flex w-full rounded-xl border border-white/10 bg-background/60 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 resize-y"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Сохранить
+        </Button>
+        {selected.size > 0 && <span className="text-[11px] text-red-500 font-medium">запрещено тарифов: {selected.size}</span>}
+        {msg && <span className="text-[11px] text-muted-foreground">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
+// T-admin-services (портировано из WolfVPN): вкладка «Услуги» — выдать/забрать доп. устройства подписке.
+function ClientServicesTab({ clientId, token }: { clientId: string; token: string }) {
+  const [items, setItems] = useState<import("@/lib/api").ClientServiceItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [grantSubId, setGrantSubId] = useState("");
+  const [grantCount, setGrantCount] = useState(1);
+  const [grantPrice, setGrantPrice] = useState(0);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api.getClientServices(token, clientId)
+      .then((r) => setItems(r.items))
+      .catch(() => setItems(null))
+      .finally(() => setLoading(false));
+  }, [token, clientId]);
+  useEffect(() => { load(); }, [load]);
+
+  const linkedSubs = (items ?? []).filter((s) => s.linked);
+
+  async function grant() {
+    if (!grantSubId || grantCount < 1) { setError("Выберите подписку и количество"); return; }
+    setBusy("grant"); setError("");
+    try {
+      await api.grantClientDevices(token, clientId, { subscriptionId: grantSubId, deviceCount: grantCount, monthlyPrice: Math.max(0, grantPrice) });
+      setGrantOpen(false); setGrantCount(1); setGrantPrice(0); setGrantSubId("");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось выдать услугу");
+    } finally { setBusy(null); }
+  }
+
+  async function remove(subId: string) {
+    if (!confirm("Забрать все доп. устройства этой подписки? Лимит вернётся к базовому тарифу, лишние устройства будут отключены, а цена продления уменьшится.")) return;
+    setBusy(subId); setError("");
+    try {
+      await api.removeClientServiceDevices(token, clientId, subId);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось забрать услугу");
+    } finally { setBusy(null); }
+  }
+
+  if (loading) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Gift className="h-4 w-4" /> Услуги клиента
+        </h3>
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" onClick={load} title="Обновить"><RefreshCw className="h-4 w-4" /></Button>
+          <Button size="sm" className="gap-1.5" onClick={() => { setGrantOpen((v) => !v); setError(""); setGrantSubId(linkedSubs[0]?.subscriptionId ?? ""); }}>
+            <Plus className="h-4 w-4" /> Выдать
+          </Button>
+        </div>
+      </div>
+
+      {error && <div className="rounded-xl bg-destructive/10 text-destructive text-sm p-3">{error}</div>}
+
+      {/* Форма выдачи */}
+      {grantOpen && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <p className="text-sm font-semibold flex items-center gap-2"><Smartphone className="h-4 w-4" /> Выдать доп. устройства</p>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">На какую подписку</Label>
+            <select
+              value={grantSubId}
+              onChange={(e) => setGrantSubId(e.target.value)}
+              className="w-full h-10 rounded-xl border border-white/10 bg-background/60 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {linkedSubs.length === 0 && <option value="">Нет подписок с VPN</option>}
+              {linkedSubs.map((s) => (
+                <option key={s.subscriptionId} value={s.subscriptionId}>
+                  {s.subscriptionIndex === 0 ? "Главная" : `#${s.subscriptionIndex}`}{s.tariffName ? ` — ${s.tariffName}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Кол-во устройств</Label>
+              <Input type="number" min={1} max={50} value={grantCount} onChange={(e) => setGrantCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))} className="h-10 rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Цена ₽/мес</Label>
+              <Input type="number" min={0} value={grantPrice} onChange={(e) => setGrantPrice(Math.max(0, Number(e.target.value) || 0))} className="h-10 rounded-xl" />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            💡 Цена/мес войдёт в стоимость продления подписки (как при покупке клиентом). Поставьте 0 — устройства выдадутся бесплатно и не добавят к цене продления.
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={grant} disabled={busy === "grant" || !grantSubId} className="gap-1.5">
+              {busy === "grant" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Выдать
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setGrantOpen(false)}>Отмена</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Список подписок и услуг */}
+      <div className="space-y-3">
+        {(items ?? []).map((s) => {
+          const totalMax = s.includedDevices + s.extraDevices;
+          const hasExtras = s.extraDevices > 0;
+          return (
+            <div key={s.subscriptionId} className="rounded-[1.5rem] border border-white/10 bg-foreground/[0.02] p-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <span className={cn("inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-semibold border", s.subscriptionIndex === 0 ? "bg-primary/10 text-primary border-primary/30" : "bg-muted text-muted-foreground border-white/10")}>
+                  {s.tariffEmoji && <span>{s.tariffEmoji}</span>}
+                  {s.subscriptionIndex === 0 ? "Главная" : `#${s.subscriptionIndex}`}
+                </span>
+                {s.tariffName && <span className="text-muted-foreground">{s.tariffName}</span>}
+                {!s.linked && <span className="ml-auto text-[10px] text-amber-500">не привязана к VPN</span>}
+              </div>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Лимит устройств: </span>
+                  <span className="font-semibold">{totalMax}</span>
+                  <span className="text-[11px] text-muted-foreground"> ({s.includedDevices} базовых{hasExtras ? ` + ${s.extraDevices} доп.` : ""})</span>
+                </div>
+                {hasExtras ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      доп. услуга: +{s.extraDevices} устр · {s.extraDevicesMonthlyPrice.toLocaleString("ru-RU")} ₽/мес
+                    </span>
+                    <Button size="sm" variant="ghost" className="text-destructive gap-1.5" disabled={busy === s.subscriptionId} onClick={() => remove(s.subscriptionId)}>
+                      {busy === s.subscriptionId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Забрать
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Доп. услуг нет</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {(items ?? []).length === 0 && (
+          <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+            <Gift className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">У клиента нет подписок</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClientAllDevicesTab({ clientId, token }: { clientId: string; token: string }) {
   const { t } = useTranslation();
   const [data, setData] = useState<import("@/lib/api").ClientAllDevicesResponse | null>(null);
