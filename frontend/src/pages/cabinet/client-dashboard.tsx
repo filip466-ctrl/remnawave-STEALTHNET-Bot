@@ -397,16 +397,7 @@ function ClassicDashboardPage() {
           <span className="inline-flex items-center leading-none">{t("cabinet.dashboard.choose_tariff")}</span>
         </Link>
       </Button>
-      {/* T-expired-extend : если главная подписка #0 истекла — даём продлить ИМЕННО её,
-          а не только «Выбрать тариф». rootSubId есть всегда пока подписка #0 существует в БД (даже EXPIRED). */}
-      {rootSubId && (
-        <Button variant="outline" className="gap-2 h-11 px-6 rounded-xl border-primary/30 hover:bg-primary/10 [&_svg]:self-center [&_span]:leading-none" asChild>
-          <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-2">
-            <RefreshCw className="h-4 w-4 shrink-0" />
-            <span className="inline-flex items-center leading-none">Продлить подписку #0</span>
-          </Link>
-        </Button>
-      )}
+      {/* Кнопка «Продлить подписку #0» убрана из hero — продление теперь на самих карточках подписок (ниже). */}
     </div>
   );
 
@@ -733,15 +724,7 @@ function ClassicDashboardPage() {
                   <span className="inline-flex items-center leading-none">{t("cabinet.dashboard.connect_vpn")}</span>
                 </Link>
               </Button>
-              {/* продлить главную подписку (#0) — как в боте */}
-              {rootSubId && (
-                <Button variant="outline" className="w-full gap-2 h-12 rounded-xl text-md border-primary/30 hover:bg-primary/10 [&_svg]:self-center [&_span]:leading-none" asChild>
-                  <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex w-full items-center justify-center gap-2">
-                    <RefreshCw className="h-5 w-5 shrink-0" />
-                    <span className="inline-flex items-center leading-none">Продлить подписку #0</span>
-                  </Link>
-                </Button>
-              )}
+              {/* Кнопка «Продлить #0» убрана — продление теперь на карточках подписок ниже. */}
               {/* дополнительные пробники доступны рядом с активной подпиской. */}
               {showMultiTrials && (
                 <Button className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg h-12 rounded-xl hover:scale-[1.02] transition-transform duration-300 [&_svg]:self-center [&_span]:leading-none" onClick={activateTrial} disabled={trialLoading}>
@@ -938,15 +921,7 @@ function ClassicDashboardPage() {
                 )}
               </Button>
             )}
-            {/* продлить главную подписку (#0) */}
-            {vpnUrl && rootSubId && (
-              <Button variant="outline" size="lg" className="w-full gap-2 rounded-xl h-14 hover:scale-105 transition-transform border-primary/30 hover:bg-primary/10 [&_svg]:self-center [&_span]:leading-none" asChild>
-                <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-2 leading-none">
-                  <RefreshCw className="h-5 w-5 shrink-0" />
-                  <span className="inline-flex items-center text-base font-medium leading-none">Продлить #0</span>
-                </Link>
-              </Button>
-            )}
+            {/* Кнопка «Продлить #0» убрана — продление теперь на карточках подписок ниже. */}
             {showAnyTrial && (
               <Button size="lg" className="w-full gap-2 shadow-xl bg-green-600 hover:bg-green-700 text-white rounded-xl h-14 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" onClick={activateTrial} disabled={trialLoading}>
                 {trialLoading ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" /> : <Gift className="h-5 w-5 shrink-0" />}
