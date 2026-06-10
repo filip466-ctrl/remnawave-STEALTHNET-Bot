@@ -1,4 +1,4 @@
--- конструктор уведомлений автосписания.
+-- T-autorenew (12.05.2026, WolfVPN): конструктор уведомлений автосписания.
 
 CREATE TABLE IF NOT EXISTS "auto_renew_notifications" (
   "id" TEXT NOT NULL,

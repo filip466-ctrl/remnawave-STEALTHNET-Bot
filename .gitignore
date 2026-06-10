@@ -1,0 +1,39 @@
+# === secrets (НИКОГДА в git!) ===
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# === deps & build ===
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.vite/
+
+# === backups, dumps, temp ===
+backups/
+temp/
+*.bak
+*.bak-*
+*.log
+*.dump
+*.tar.gz
+*.zip
+*.rar
+*.rar
+
+# === prod bind-mounts / runtime ===
+backend/subpage-*.json
+**/subpage-*.json
+
+# === OS / editor junk ===
+.DS_Store
+**/._*
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,6 +1,3 @@
-
-
-
 <div align="center">
   <img src="https://cdn.jsdelivr.net/gh/hampusborgos/country-flags@main/svg/us.svg" alt="EN" width="20" /> EN
   <a title="Russian" style="text-decoration: none;" href="docs/ru/README.md">
@@ -38,14 +35,11 @@
 </p>
 
 <p align="center">
-<img width="1500" height="636" alt="AdminMiniApp 3" src="https://github.com/user-attachments/assets/81b8d321-3d0a-4d59-bec1-8f804ef5a5ba" />
-
-
+  <img src="https://github.com/user-attachments/assets/ecd37b8e-68ef-4616-92da-550f8bd9cdb5" width="830" alt="STEALTHNET screenshot 1" />
 </p>
-
-
-
-
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/5c504c46-0b00-47d1-b767-7afed7f36983" width="830" alt="STEALTHNET screenshot 2" />
+</p>
 
 
 <p align="center">

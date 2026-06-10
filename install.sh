@@ -253,97 +253,15 @@ generate_nginx_initial() {
 obtain_ssl() {
   info "Получение SSL-сертификата от Let's Encrypt..."
 
-  # ── 0. Pre-flight: проверяем что порт 80 не занят другим процессом ──
-  # Если на хосте уже что-то слушает 80 (системный nginx/apache/etc.) — docker
-  # compose не сможет забиндить порт, и certbot никогда не достучится по challenge'у.
-  # Lets the user fix the conflict ДО долгого ожидания certbot timeout.
-  if command -v ss >/dev/null 2>&1; then
-    PORT80_USER=$(ss -tlnp 2>/dev/null | awk '$4 ~ /:80$/ {for (i=1; i<=NF; i++) if ($i ~ /users:/) {sub(/.*pid=/, "", $i); sub(/,.*/, "", $i); print $i; exit}}')
-    if [ -n "$PORT80_USER" ]; then
-      # Это может быть сам наш docker-proxy (после перезапуска install.sh) — проверим что это НЕ docker.
-      PORT80_CMD=$(ps -p "$PORT80_USER" -o comm= 2>/dev/null || echo "")
-      if [ -n "$PORT80_CMD" ] && [ "$PORT80_CMD" != "docker-proxy" ] && [ "$PORT80_CMD" != "containerd-shim" ]; then
-        warn "Порт 80 уже занят процессом '$PORT80_CMD' (PID $PORT80_USER). Docker не сможет биндить порт, certbot не получит сертификат."
-        echo "  Остановите конфликтующий процесс (например 'sudo systemctl stop nginx' / 'sudo systemctl stop apache2') и повторите."
-        exit 1
-      fi
-    fi
-  fi
-
   # 1. Запускаем nginx с HTTP-only конфигом
   generate_nginx_initial
 
   info "Запуск nginx (HTTP-only) для ACME-challenge..."
-  # --no-deps ОЧЕНЬ важно: в docker-compose.yml nginx имеет depends_on=frontend+api.
-  # Без --no-deps команда подтягивает api (build занимает 1-3 мин на медленной VPS)
-  # и frontend (одноразовый билд). Юзер видит "висит" и пугается. Для ACME-challenge
-  # nginx нужен сам по себе — он отдаёт static из /var/www/certbot, без бэкенда.
-  docker compose --profile builtin-nginx up -d --no-deps nginx 2>&1 | tail -5
+  docker compose --profile builtin-nginx up -d nginx 2>/dev/null || true
+  sleep 3
 
-  # ── Ожидание готовности nginx ──
-  # Раньше было `sleep 3` — на медленных VPS этого мало, certbot стартовал
-  # пока nginx ещё не поднял listen, и Lets Encrypt получал connection refused.
-  # Теперь опросом ждём пока nginx начнёт отвечать на 80 (до 30 секунд).
-  info "Ждём готовности nginx (до 30 сек)..."
-  i=0
-  while [ $i -lt 30 ]; do
-    if curl -sf --max-time 2 -o /dev/null "http://127.0.0.1/" 2>/dev/null \
-       || curl -sf --max-time 2 -o /dev/null "http://127.0.0.1/.well-known/acme-challenge/test" 2>/dev/null; then
-      break
-    fi
-    # любой ответ от nginx (даже 404) показывает что он готов
-    code=$(curl -s --max-time 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1/" 2>/dev/null || echo 000)
-    if [ "$code" != "000" ]; then break; fi
-    sleep 1
-    i=$((i+1))
-  done
-  if [ $i -ge 30 ]; then
-    warn "nginx не ответил за 30 сек. Проверяю что биндинг порта работает:"
-    ss -tlnp 2>/dev/null | grep ':80' || true
-    docker logs stealthnet-nginx --tail 20 2>&1 || true
-  else
-    success "nginx готов (через ${i} сек), запускаю certbot"
-  fi
-
-  # ── Проверки которые часто вызывают баги: docker iptables, firewalld, DOCKER-USER ──
-  if [ -f /etc/docker/daemon.json ] && grep -q '"iptables".*false' /etc/docker/daemon.json 2>/dev/null; then
-    warn "В /etc/docker/daemon.json установлено iptables:false — Docker НЕ создаёт DNAT правил и порт 80 не доступен извне. Удалите эту опцию."
-  fi
-  if command -v iptables >/dev/null 2>&1; then
-    DROP_IN_DOCKER_USER=$(iptables -L DOCKER-USER -nv 2>/dev/null | awk 'NR>2 && $3 == "DROP" {c++} END{print c+0}')
-    if [ "${DROP_IN_DOCKER_USER:-0}" -gt 0 ]; then
-      warn "В iptables цепочке DOCKER-USER найдены DROP правила — они могут блокировать входящий трафик к контейнерам. Проверьте: 'iptables -L DOCKER-USER -nv'"
-    fi
-  fi
-  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
-    warn "Активен firewalld — он часто конфликтует с docker iptables. Если certbot упадёт — добавьте порт: 'firewall-cmd --add-port=80/tcp --permanent && firewall-cmd --reload'"
-  fi
-
-  # ── Внешняя проверка достижимости через сторонний прокси ──
-  # Кладём тестовый файл в /var/www/certbot/.well-known/acme-challenge/, дёргаем
-  # его через https://api.allorigins.win/raw?url=... — если ответ совпадает
-  # с тем что положили, значит challenge будет доступен Lets Encrypt.
-  TEST_TOKEN="install-test-$(date +%s)-$$"
-  TEST_NAME="install-test-$(date +%s)"
-  docker compose --profile builtin-nginx exec -T nginx sh -c "mkdir -p /var/www/certbot/.well-known/acme-challenge/ && echo '$TEST_TOKEN' > /var/www/certbot/.well-known/acme-challenge/$TEST_NAME" 2>/dev/null || true
-  info "Внешняя проверка достижимости challenge через allorigins.win..."
-  EXT_RESP=$(curl -sf --max-time 15 "https://api.allorigins.win/raw?url=http%3A%2F%2F${DOMAIN}%2F.well-known%2Facme-challenge%2F${TEST_NAME}" 2>/dev/null || echo "")
-  if [ "$EXT_RESP" = "$TEST_TOKEN" ]; then
-    success "Challenge доступен извне ✓ (получен правильный ответ через прокси)"
-  else
-    warn "Challenge НЕ доступен извне — Lets Encrypt не сможет проверить домен."
-    echo "  Ожидался: '$TEST_TOKEN'"
-    echo "  Получено: '$EXT_RESP'"
-    echo "  Возможные причины:"
-    echo "  • DNS A-запись для $DOMAIN не указывает на этот сервер ($(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || echo 'IP не определён'))"
-    echo "  • Хостинг блокирует входящий 80 порт на уровне VPS (проверьте панель управления)"
-    echo "  • Firewall: ufw / iptables / firewalld режет 80"
-    echo "  Certbot всё равно попробуется — но скорее всего тоже упадёт."
-  fi
-
-  # 2. Запускаем certbot — webroot режим (через nginx)
-  info "Запуск certbot (webroot)..."
-  CERTBOT_OK=0
+  # 2. Запускаем certbot для получения сертификата (--entrypoint переопределяет цикл "renew" из compose)
+  info "Запуск certbot..."
   docker compose --profile builtin-nginx run --rm --entrypoint certbot certbot \
     certonly \
     --webroot \
@@ -352,41 +270,17 @@ obtain_ssl() {
     --agree-tos \
     --no-eff-email \
     -d "$DOMAIN" \
-    --force-renewal 2>&1 && CERTBOT_OK=1
-
-  # ── Fallback: standalone режим если webroot не сработал ──
-  # Например, если nginx не отдаёт challenge файлы по какой-то причине, или
-  # маппинг порта в docker-compose битый — standalone режим certbot biндит
-  # 80 порт прямо в своём контейнере (а наш nginx надо остановить).
-  if [ "$CERTBOT_OK" = "0" ]; then
-    warn "webroot режим не сработал, пробую --standalone (certbot забиндит 80 сам)..."
-    docker compose --profile builtin-nginx stop nginx 2>/dev/null || true
-    sleep 2
-    docker compose --profile builtin-nginx run --rm --service-ports --entrypoint certbot certbot \
-      certonly \
-      --standalone \
-      --email "$CERTBOT_EMAIL" \
-      --agree-tos \
-      --no-eff-email \
-      -d "$DOMAIN" \
-      --force-renewal 2>&1 && CERTBOT_OK=1
-  fi
-
-  if [ "$CERTBOT_OK" = "0" ]; then
-    error "Не удалось получить SSL-сертификат ни через webroot, ни через standalone!"
-    echo ""
-    echo "  Проверьте:"
-    echo "  1. DNS-запись A для $DOMAIN указывает на этот сервер ($(curl -s https://api.ipify.org 2>/dev/null || echo IP-не-определён))"
-    echo "  2. Порты 80 и 443 открыты в фаерволе (ufw allow 80,443/tcp)"
-    echo "  3. Домен $DOMAIN доступен извне (можно проверить из другой сети)"
-    echo "  4. Если у вас уже работает свой системный nginx/apache на 80 — выберите режим '2) Свой nginx' в install.sh"
-    echo ""
-    echo "  Текущее состояние портов:"
-    ss -tlnp 2>/dev/null | grep -E ':80|:443' || echo "  ничего не слушает 80/443"
-    echo ""
-    echo "  После исправления запустите: bash install.sh"
-    exit 1
-  fi
+    --force-renewal 2>&1 || {
+      error "Не удалось получить SSL-сертификат!"
+      echo ""
+      echo "  Проверьте:"
+      echo "  1. DNS-запись A для $DOMAIN указывает на этот сервер"
+      echo "  2. Порты 80 и 443 открыты в фаерволе"
+      echo "  3. Домен $DOMAIN доступен извне"
+      echo ""
+      echo "  После исправления запустите: bash install.sh"
+      exit 1
+    }
 
   success "SSL-сертификат получен"
 
