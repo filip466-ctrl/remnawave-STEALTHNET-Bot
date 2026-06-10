@@ -27,7 +27,8 @@ import { requireClientAuth } from "./client.middleware.js";
 import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient, remnaGetUserHwidDevices, remnaDeleteUserHwidDevice, encryptSubscriptionUrlInPlace, remnaRevokeUserSubscription } from "../remna/remna.client.js";
 import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured, sendPasswordResetEmail } from "../mail/mail.service.js";
 import { signClientPasswordResetToken, verifyClientPasswordResetToken } from "../auth/auth.service.js";
-import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
+import { createPlategaTransaction, isPlategaConfigured, getPlategaTransactionStatus } from "../platega/platega.service.js";
+import { markPaymentPaid } from "../payment/mark-paid.service.js";
 import { activateTariffForClient, activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
 import { upsertPrimarySubscription, upsertSubscriptionByRemnaUuid } from "../subscription/subscription.helpers.js";
 import { saveRedirectAndBuildUrl } from "../payment-redirect/payment-redirect.util.js";
@@ -3541,12 +3542,6 @@ clientRouter.post("/payments/platega", async (req, res) => {
   const orderId = randomUUID();
   const paymentKind = tariffIdToStore ? "tariff" : proxyTariffIdToStore ? "proxy" : singboxTariffIdToStore ? "singbox" : metadataExtra ? "option" : "topup";
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-  const returnUrl = appUrl
-    ? `${appUrl}/cabinet/dashboard?payment=success&payment_kind=${paymentKind}&oid=${orderId}`
-    : "";
-  const failedUrl = appUrl
-    ? `${appUrl}/cabinet/dashboard?payment=failed&payment_kind=${paymentKind}&oid=${orderId}`
-    : "";
   // добавляем tg:<id> в description для удобного поиска
   // в кабинете Plategá (зеркалит логику YooKassa/CryptoPay).
   const plategaClient = await prisma.client.findUnique({
@@ -3590,6 +3585,11 @@ clientRouter.post("/payments/platega", async (req, res) => {
       metadata: paymentMeta ? JSON.stringify(paymentMeta) : null,
     }),
   });
+
+  // T-pay-wait: после оплаты/отмены Platega ведём на страницу ожидания (polling + API-reconciliation),
+  // НЕ на дашборд. id=payment.id — фронт поллит статус именно этого платежа.
+  const returnUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}&kind=${paymentKind}` : "";
+  const failedUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}&kind=${paymentKind}` : "";
 
   const result = await createPlategaTransaction(plategaConfig, {
     amount: snap.amount,
@@ -4643,7 +4643,7 @@ clientRouter.post("/yoomoney/create-form-payment", async (req, res) => {
 
   const serviceName = config.serviceName?.trim() || "STEALTHNET";
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-  const successURL = appUrl ? `${appUrl}/cabinet?yoomoney_form=success` : "";
+  const successURL = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : "";
   const targets = tariffIdToStore
     ? `Тариф ${serviceName} #${orderId}`
     : proxyTariffIdToStore
@@ -4703,7 +4703,7 @@ clientRouter.get("/yoomoney/form-payment/:paymentId", async (req, res) => {
   } catch { /* ignore */ }
 
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-  const successURL = appUrl ? `${appUrl}/cabinet?yoomoney_form=success` : "";
+  const successURL = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : "";
 
   return res.json({
     receiver,
@@ -5879,8 +5879,8 @@ clientRouter.post("/lava/create-payment", async (req, res) => {
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
     const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
     const hookUrl = appUrl ? `${appUrl}/api/webhooks/lava` : undefined;
-    const successUrl = appUrl ? `${appUrl}/cabinet?lava=success` : undefined;
-    const failUrl = appUrl ? `${appUrl}/cabinet?lava=fail` : undefined;
+    const successUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : undefined;
+    const failUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : undefined;
 
     const result = await createLavaInvoice({
       config: lavaConfig,
@@ -6186,8 +6186,8 @@ clientRouter.post("/lavatop/create-payment", async (req, res) => {
     });
 
     const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-    const redirectUrl = appUrl ? `${appUrl}/cabinet?lavatop=success` : undefined;
-    const failUrl = appUrl ? `${appUrl}/cabinet?lavatop=fail` : undefined;
+    const redirectUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : undefined;
+    const failUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : undefined;
 
     // Для покупки тарифа используем подписку MONTHLY — Lava.top будет авто-списывать
     // ежемесячно, и при каждом списании webhook продлит тариф у клиента (см. lavatop
@@ -6447,7 +6447,7 @@ clientRouter.post("/overpay/create-payment", async (req, res) => {
 
     const serviceName = config.serviceName?.trim() || "STEALTHNET";
     const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
-    const returnUrl = appUrl ? `${appUrl}/cabinet?overpay=return` : undefined;
+    const returnUrl = appUrl ? `${appUrl}/cabinet/payment-wait?id=${payment.id}` : undefined;
 
     const clientRow = await prisma.client.findUnique({
       where: { id: clientId },
@@ -6701,11 +6701,41 @@ clientRouter.get("/payments", async (req, res) => {
 // T-pay-wait (портировано из WolfVPN): статус конкретного платежа для polling на странице ожидания оплаты.
 clientRouter.get("/payments/:id/status", async (req, res) => {
   const clientId = (req as unknown as { clientId: string }).clientId;
-  const p = await prisma.payment.findFirst({
+  const STATUS_SELECT = { id: true, status: true, amount: true, currency: true, paidAt: true, provider: true, externalId: true } as const;
+  let p = await prisma.payment.findFirst({
     where: { id: req.params.id, clientId },
-    select: { id: true, status: true, amount: true, currency: true, paidAt: true },
+    select: STATUS_SELECT,
   });
   if (!p) return res.status(404).json({ message: "Платёж не найден" });
+
+  // Active reconciliation: webhook Platega нужно вручную включать в её кабинете, и если он
+  // не настроен — платёж висит PENDING, а страница ожидания крутится вечно. Поэтому при
+  // PENDING сами опрашиваем Platega API о статусе и помечаем платёж, не дожидаясь webhook'а.
+  // markPaymentPaid идемпотентен (PENDING→PAID flip + активация тарифа/баланса/рефералки).
+  if (p.status === "PENDING" && p.provider === "platega" && p.externalId) {
+    try {
+      const cfg = await getSystemConfig();
+      const merchantId = (cfg.plategaMerchantId || "").trim();
+      const secret = (cfg.plategaSecret || "").trim();
+      if (merchantId && secret) {
+        const st = await getPlategaTransactionStatus({ merchantId, secret }, p.externalId);
+        if ("ok" in st && st.ok) {
+          const up = st.status.toUpperCase();
+          const SUCCESS = new Set(["CONFIRMED", "PAID", "SUCCESS", "SUCCEEDED", "COMPLETED", "SUCCESSFUL", "APPROVED"]);
+          const FAILED = new Set(["CANCELED", "CANCELLED", "FAILED", "DECLINED", "REJECTED", "ERROR", "EXPIRED"]);
+          if (SUCCESS.has(up)) {
+            await markPaymentPaid(p.id).catch((e) => console.error("[payments/status] reconcile markPaid failed", e));
+          } else if (FAILED.has(up)) {
+            await prisma.payment.updateMany({ where: { id: p.id, status: "PENDING" }, data: { status: "FAILED" } });
+          }
+          p = (await prisma.payment.findFirst({ where: { id: req.params.id, clientId }, select: STATUS_SELECT })) ?? p;
+        }
+      }
+    } catch (e) {
+      console.error("[payments/status] Platega reconciliation error", e);
+    }
+  }
+
   return res.json({
     id: p.id,
     status: p.status,
