@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Package, Calendar, Wifi, Smartphone, CreditCard, Loader2, Gift, Tag, Check, Wallet, ChevronDown, Shield, Zap, ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -116,7 +118,7 @@ function ClassicTariffsPage() {
   const [payModal, setPayModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string } | null>(null);
+  const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string; paymentId?: string } | null>(null);
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
 
@@ -127,16 +129,21 @@ function ClassicTariffsPage() {
   const [selectedPriceOptionId, setSelectedPriceOptionId] = useState<string | null>(null);
   /** Сколько ДОП. устройств клиент докупает поверх tariff.includedDevices (0..maxExtraDevices). */
   const [selectedExtraDevices, setSelectedExtraDevices] = useState<number>(0);
+  // T-extend-devices (WolfVPN): при продлении — сохранить докупленные доп.устройства (цена выше)
+  // или удалить (стандартная цена тарифа). false = сохранить (дефолт, как в боте). Передаётся
+  // в backend как removeExtrasOnActivate (он сам пересчитает цену/уберёт устройства после оплаты).
+  const [removeExtrasOnExtend, setRemoveExtrasOnExtend] = useState(false);
 
-  // мульти-подписки как в боте.
+  // T-unify-cabinet (30.05.2026, WolfVPN): мульти-подписки как в боте.
   // Список подписок клиента — нужен для режима продления (берём tariffId подписки).
-  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null }[]>([]);
+  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null; extraDevices: number; extraDevicesMonthlyPrice: number }[]>([]);
   const [buyMode, setBuyMode] = useState<{ kind: "new" } | { kind: "extend"; subId: string; label: string }>({ kind: "new" });
 
   // T-unify-cabinet: ?extend=<subId> — пришли с кнопки «Продлить» конкретной подписки.
   // Как в боте (pay_tariff_ext): продлеваем ИМЕННО её и СТРОГО ТЕМ ЖЕ тарифом —
   // поэтому каталог фильтруется до тарифа подписки (см. displayTariffs ниже).
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const extendParam = searchParams.get("extend");
   const extendTarget = extendParam ? userSubs.find((s) => s.id === extendParam) ?? null : null;
 
@@ -146,13 +153,25 @@ function ClassicTariffsPage() {
    *  - обычная покупка из каталога → ВСЕГДА новая подписка (как в боте: каталог не продлевает).
    *    asAdditional=true когда у клиента уже есть подписки (маркер «доп.»), иначе backend создаст первую.
    */
-  function purchaseExtra(): { extendsSecondarySubId?: string; asAdditional?: boolean } {
-    if (buyMode.kind === "extend") return { extendsSecondarySubId: buyMode.subId };
+  function purchaseExtra(): { extendsSecondarySubId?: string; asAdditional?: boolean; removeExtrasOnActivate?: boolean } {
+    if (buyMode.kind === "extend") return { extendsSecondarySubId: buyMode.subId, removeExtrasOnActivate: removeExtrasOnExtend };
     if (userSubs.length > 0) return { asAdditional: true };
     return {};
   }
 
-  // в режиме продления (?extend) показываем в каталоге
+  // T-extend-devices (WolfVPN): доплата за СОХРАНЯЕМЫЕ доп.устройства при продлении подписки.
+  // extraDevicesMonthlyPrice хранится за 30 дней → масштабируем на длительность опции.
+  // Возвращает 0 если не продление / устройства удаляются / у подписки нет доп.устройств / тариф не тот.
+  function extendExtraCost(tf: { id?: string; durationDays?: number; priceOptions?: TariffPriceOption[] }): number {
+    if (!extendTarget || removeExtrasOnExtend || (extendTarget.extraDevices ?? 0) <= 0) return 0;
+    if (extendTarget.tariffId && tf.id && extendTarget.tariffId !== tf.id) return 0;
+    const opts = tf.priceOptions ?? [];
+    const opt = (selectedPriceOptionId ? opts.find((o) => o.id === selectedPriceOptionId) : null) ?? opts[0];
+    const days = opt?.durationDays ?? tf.durationDays ?? EXTRA_DEVICE_BASE_DAYS;
+    return Math.round((extendTarget.extraDevicesMonthlyPrice ?? 0) * (Math.max(1, days) / EXTRA_DEVICE_BASE_DAYS));
+  }
+
+  // T-unify-cabinet (30.05.2026, WolfVPN): в режиме продления (?extend) показываем в каталоге
   // ТОЛЬКО тариф продлеваемой подписки — продлить можно строго тем же тарифом (как бот pay_tariff_ext).
   const displayTariffs = (extendTarget?.tariffId)
     ? tariffs
@@ -174,11 +193,17 @@ function ClassicTariffsPage() {
   const useCategoryCardLayout = isMobileOrMiniapp;
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
+  // Раскрываем категорию по умолчанию (мобильный аккордеон), чтобы сразу была видна
+  // карточка тарифа с кнопкой оплаты. При продлении (?extend) раскрываем ИМЕННО категорию
+  // продлеваемого тарифа — иначе единственная видимая категория осталась бы свёрнутой.
   useEffect(() => {
-    if (useCategoryCardLayout && tariffs.length > 0) {
-      setExpandedCategoryId((prev) => (prev === null ? tariffs[0].id : prev));
-    }
-  }, [useCategoryCardLayout, tariffs]);
+    if (!useCategoryCardLayout || tariffs.length === 0) return;
+    const visible = extendTarget?.tariffId
+      ? tariffs.filter((c) => c.tariffs.some((tf) => tf.id === extendTarget.tariffId))
+      : tariffs;
+    if (visible.length === 0) return;
+    setExpandedCategoryId((prev) => (prev && visible.some((c) => c.id === prev) ? prev : visible[0].id));
+  }, [useCategoryCardLayout, tariffs, extendTarget?.tariffId]);
 
   useEffect(() => {
     api.getPublicTariffs().then((r) => {
@@ -232,7 +257,7 @@ function ClassicTariffsPage() {
     }).catch(() => { /* not critical */ });
   }, [token]);
 
-  // загружаем ВСЕ подписки клиента (root + secondary),
+  // T-unify-cabinet (30.05.2026, WolfVPN): загружаем ВСЕ подписки клиента (root + secondary),
   // чтобы предложить выбор «продлить конкретную / купить новую» — точь-в-точь как в боте.
   const loadUserSubs = useCallback(() => {
     if (!token) return;
@@ -252,6 +277,8 @@ function ClassicTariffsPage() {
           expireAt,
           emoji: it.tariffMenuEmoji ?? null,
           tariffId: it.tariffId ?? null,
+          extraDevices: it.extraDevices ?? 0,
+          extraDevicesMonthlyPrice: it.extraDevicesMonthlyPrice ?? 0,
         };
       });
       setUserSubs(list);
@@ -278,7 +305,8 @@ function ClassicTariffsPage() {
     const unitPrice = opt?.price ?? baseTariff.price;
     const optDays = opt?.durationDays ?? baseTariff.durationDays ?? 30;
     const { extrasTotal } = applyExtrasPrice(baseTariff.pricePerExtraDevice ?? 0, selectedExtraDevices, baseTariff.deviceDiscountTiers, optDays);
-    const total = unitPrice + extrasTotal;
+    // T-extend-devices: при продлении с сохранением устройств — добавляем их стоимость за период.
+    const total = unitPrice + extrasTotal + extendExtraCost(baseTariff);
     const tariffWithOption: TariffForPay = {
       ...baseTariff,
       durationDays: opt?.durationDays ?? baseTariff.durationDays,
@@ -286,7 +314,7 @@ function ClassicTariffsPage() {
     };
     setSelectedPriceOptionId(opt?.id ?? null);
     setPurchaseModal(null);
-    // строго как в боте.
+    // T-unify-cabinet (30.05.2026, WolfVPN): строго как в боте.
     //  • Пришли по «Продлить» (?extend) → продление ИМЕННО этой подписки тем же тарифом.
     //  • Иначе (каталог) → ВСЕГДА новая подписка. Каталог НЕ продлевает чужие подписки.
     if (extendTarget) {
@@ -326,7 +354,7 @@ function ClassicTariffsPage() {
         setPromoResult(null);
         setPromoInput("");
         setPayModal(null);
-        alert(activateRes.message);
+        toast.success("Промокод активирован 🎉", activateRes.message);
         await refreshProfile();
         return;
       }
@@ -366,7 +394,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "Platega" });
+      if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "Platega", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -390,7 +418,7 @@ function ClassicTariffsPage() {
       setPromoInput("");
       setPromoResult(null);
       setBuyMode({ kind: "new" });
-      alert(res.message);
+      toast.success("Оплата прошла ✨", res.message);
       await refreshProfile();
       loadUserSubs(); // T-unify-cabinet: подписок стало больше — обновляем список для след. покупки
     } catch (e) {
@@ -418,7 +446,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "ЮMoney" });
+      if (res.paymentUrl) setReadyUrl({ url: res.paymentUrl, provider: "ЮMoney", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -444,7 +472,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.confirmationUrl) setReadyUrl({ url: res.confirmationUrl, provider: "ЮKassa" });
+      if (res.confirmationUrl) setReadyUrl({ url: res.confirmationUrl, provider: "ЮKassa", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -466,7 +494,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Crypto Bot" });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Crypto Bot", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -488,7 +516,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket" });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Heleket", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -510,7 +538,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "LAVA" });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "LAVA", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -532,7 +560,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Lava.top" });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Lava.top", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -554,7 +582,7 @@ function ClassicTariffsPage() {
         promoCode: promoResult ? promoInput.trim() : undefined,
         ...purchaseExtra(),
       });
-      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Overpay" });
+      if (res.payUrl) setReadyUrl({ url: res.payUrl, provider: "Overpay", paymentId: res.paymentId });
     } catch (e) {
       setPayError(e instanceof Error ? e.message : t("cabinet.tariffs.error_payment"));
     } finally {
@@ -584,7 +612,18 @@ function ClassicTariffsPage() {
           url={readyUrl.url}
           provider={readyUrl.provider}
           onBack={() => setReadyUrl(null)}
-          onPaid={() => closePayment()}
+          onPaid={() => {
+            const pid = readyUrl.paymentId;
+            const u = readyUrl.url, prov = readyUrl.provider;
+            closePayment();
+            if (pid) {
+              // T-pay-wait: ведём на страницу ожидания оплаты (polling статуса + анимация успеха).
+              navigate(`/cabinet/payment-wait?id=${encodeURIComponent(pid)}`, { state: { url: u, provider: prov } });
+            } else {
+              toast.info("Ожидаем подтверждение оплаты 💳", "После успешной оплаты подписка активируется автоматически в течение минуты.");
+              window.setTimeout(() => { refreshProfile(); loadUserSubs(); }, 5000);
+            }
+          }}
           compact={isMobileOrMiniapp}
         />
       );
@@ -876,30 +915,57 @@ function ClassicTariffsPage() {
               </p>
             </div>
 
-            {/* контекст продления (пришли с кнопки «Продлить» из дашборда) */}
+            {/* T-unify-cabinet (30.05.2026, WolfVPN): контекст продления (пришли с кнопки «Продлить» из дашборда) */}
             {extendTarget && (
               <Card className="rounded-3xl border border-primary/30 bg-primary/5 backdrop-blur-xl shadow-lg">
-                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-inner shrink-0">
-                      <RefreshCw className="h-6 w-6" />
+                <CardContent className="flex flex-col gap-4 pt-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-inner shrink-0">
+                        <RefreshCw className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-lg text-foreground truncate">
+                          Продление: Подписка #{extendTarget.subscriptionIndex}
+                        </p>
+                        <p className="text-sm text-muted-foreground font-medium">
+                          Выбранный тариф продлит именно эту подписку{extendTarget.label ? ` · ${extendTarget.label}` : ""}. Трафик сохранится.
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-lg text-foreground truncate">
-                        Продление: Подписка #{extendTarget.subscriptionIndex}
-                      </p>
-                      <p className="text-sm text-muted-foreground font-medium">
-                        Выбранный тариф продлит именно эту подписку{extendTarget.label ? ` · ${extendTarget.label}` : ""}. Трафик сохранится.
-                      </p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto rounded-xl shrink-0 gap-2"
+                      onClick={() => { const p = new URLSearchParams(searchParams); p.delete("extend"); setSearchParams(p, { replace: true }); }}
+                    >
+                      Отменить продление
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto rounded-xl shrink-0 gap-2"
-                    onClick={() => { const p = new URLSearchParams(searchParams); p.delete("extend"); setSearchParams(p, { replace: true }); }}
-                  >
-                    Отменить продление
-                  </Button>
+                  {extendTarget.extraDevices > 0 && (
+                    <div className="space-y-2 border-t border-primary/20 pt-3">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        На подписке докуплено доп. устройств: <span className="font-bold text-foreground">{extendTarget.extraDevices}</span>. Что делаем при продлении?
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRemoveExtrasOnExtend(false)}
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-all ${!removeExtrasOnExtend ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 hover:bg-muted/30"}`}
+                        >
+                          <p className="text-sm font-semibold text-foreground">✓ Сохранить устройства</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Цена выше — с учётом {extendTarget.extraDevices} доп. устройств</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRemoveExtrasOnExtend(true)}
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-all ${removeExtrasOnExtend ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 hover:bg-muted/30"}`}
+                        >
+                          <p className="text-sm font-semibold text-foreground">Удалить устройства</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Стандартная цена тарифа</p>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -950,7 +1016,9 @@ function ClassicTariffsPage() {
                 {displayTariffs.map((cat, catIndex) => (
                   <Collapsible
                     key={cat.id}
-                    open={expandedCategoryId === cat.id}
+                    // При продлении (?extend) видимая категория единственная — раскрываем её
+                    // принудительно, без зависимости от тайминга загрузки userSubs/tariffs.
+                    open={displayTariffs.length === 1 || expandedCategoryId === cat.id}
                     onOpenChange={(open) => setExpandedCategoryId(open ? cat.id : null)}
                   >
                     <motion.div
@@ -1011,11 +1079,12 @@ function ClassicTariffsPage() {
                                   <span className="text-lg font-bold tabular-nums whitespace-nowrap text-foreground" title={formatMoney(tf.price, tf.currency)}>
                                     {(() => {
                                       const opts = tf.priceOptions ?? [];
+                                      const dev = extendExtraCost(tf);
                                       if (opts.length > 1) {
                                         const min = opts.reduce((a, b) => (a.price < b.price ? a : b));
-                                        return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price, tf.currency)}</>;
+                                        return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price + dev, tf.currency)}</>;
                                       }
-                                      return formatMoney(tf.price, tf.currency);
+                                      return formatMoney(tf.price + dev, tf.currency);
                                     })()}
                                   </span>
                                   {token ? (
@@ -1104,11 +1173,12 @@ function ClassicTariffsPage() {
                               <span className="text-2xl font-black tabular-nums truncate min-w-0 text-foreground text-center" title={formatMoney(tf.price, tf.currency)}>
                                 {(() => {
                                   const opts = tf.priceOptions ?? [];
+                                  const dev = extendExtraCost(tf);
                                   if (opts.length > 1) {
                                     const min = opts.reduce((a, b) => (a.price < b.price ? a : b));
-                                    return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price, tf.currency)}</>;
+                                    return <>{t("cabinet.tariffs.from_price", { defaultValue: "от" })} {formatMoney(min.price + dev, tf.currency)}</>;
                                   }
-                                  return formatMoney(tf.price, tf.currency);
+                                  return formatMoney(tf.price + dev, tf.currency);
                                 })()}
                               </span>
                               {token ? (
@@ -1173,6 +1243,8 @@ function ClassicTariffsPage() {
         setSelectedExtraDevices={setSelectedExtraDevices}
         onClose={() => setPurchaseModal(null)}
         onConfirm={confirmPurchase}
+        extendKeepDevices={(extendTarget && !removeExtrasOnExtend) ? (extendTarget.extraDevices ?? 0) : 0}
+        extendDeviceMonthlyPrice={extendTarget?.extraDevicesMonthlyPrice ?? 0}
       />
     </>
   );
@@ -1188,6 +1260,8 @@ function UnifiedPurchaseModal({
   setSelectedExtraDevices,
   onClose,
   onConfirm,
+  extendKeepDevices,
+  extendDeviceMonthlyPrice,
 }: {
   modal: { tariff: TariffForPay } | null;
   selectedPriceOptionId: string | null;
@@ -1196,8 +1270,14 @@ function UnifiedPurchaseModal({
   setSelectedExtraDevices: (v: number) => void;
   onClose: () => void;
   onConfirm: () => void;
+  /** T-extend-devices: сохраняемые доп.устройства при продлении (0 если удаляем/не продление). */
+  extendKeepDevices?: number;
+  extendDeviceMonthlyPrice?: number;
 }) {
+  const [agree, setAgree] = useState(false);
   const tariff = modal?.tariff;
+  // Сброс галочки согласия при открытии модалки под новый тариф.
+  useEffect(() => { setAgree(false); }, [modal]);
   if (!tariff) return null;
 
   const opts = [...(tariff.priceOptions ?? [])].sort((a, b) =>
@@ -1241,7 +1321,9 @@ function UnifiedPurchaseModal({
   }, null as { extras: number; perDev: number } | null);
 
   const { extrasTotal: appliedExtras, pct: appliedPct } = applyExtrasPrice(pricePerExtra, selectedExtraDevices, tiers, selectedDays);
-  const finalTotal = unitPrice + appliedExtras;
+  // T-extend-devices: стоимость СОХРАНЯЕМЫХ доп.устройств при продлении (масштаб от 30 дней к длительности опции).
+  const extendDevicesCost = (extendKeepDevices ?? 0) > 0 ? Math.round((extendDeviceMonthlyPrice ?? 0) * (selectedDays / EXTRA_DEVICE_BASE_DAYS)) : 0;
+  const finalTotal = unitPrice + appliedExtras + extendDevicesCost;
   // Базовая сумма без скидки = pricePerExtra × extras × коэффициент длительности (для отображения «сэкономлено»).
   const baseExtrasNoDiscount = pricePerExtra * selectedExtraDevices * (selectedDays / EXTRA_DEVICE_BASE_DAYS);
   const savedAmount = baseExtrasNoDiscount - appliedExtras;
@@ -1310,7 +1392,7 @@ function UnifiedPurchaseModal({
                       <p className={cn("text-sm font-bold", isActive && "text-primary")}>
                         {opt.durationDays} {formatRuDays(opt.durationDays).replace(/^\d+\s/, "")}
                       </p>
-                      {/* полная стоимость подписки за период */}
+                      {/* T-unify-cabinet (30.05.2026, WolfVPN): полная стоимость подписки за период */}
                       <p className={cn("text-[13px] font-extrabold tabular-nums mt-0.5", isActive ? "text-primary" : "text-foreground")}>
                         {formatMoney(opt.price, tariff.currency)}
                       </p>
@@ -1412,6 +1494,12 @@ function UnifiedPurchaseModal({
                 </span>
               </div>
             )}
+            {extendDevicesCost > 0 && (
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-xs text-muted-foreground">Сохранение {extendKeepDevices} доп. устр</span>
+                <span className="text-xs font-medium tabular-nums">+{formatMoney(extendDevicesCost, tariff.currency)}</span>
+              </div>
+            )}
             {savedAmount > 0 && (
               <div className="flex items-baseline justify-between mb-1 text-emerald-500 dark:text-emerald-400">
                 <span className="text-xs flex items-center gap-1">
@@ -1439,13 +1527,29 @@ function UnifiedPurchaseModal({
           </section>
         </div>
 
-        <DialogFooter className="relative mt-4 gap-2 sm:gap-2 flex-col sm:flex-row">
+        {/* ── Согласие с документами (обязательно перед оплатой) ── */}
+        <div className="relative mt-4 flex items-start gap-2.5 rounded-2xl border border-white/10 bg-foreground/[0.03] dark:bg-white/[0.02] p-3.5">
+          <Checkbox
+            id="agree-pay"
+            checked={agree}
+            onCheckedChange={(v) => setAgree(v === true)}
+            className="mt-0.5 shrink-0 border-white/50 bg-white/10 data-[state=checked]:bg-fuchsia-500 data-[state=checked]:border-fuchsia-500 data-[state=checked]:text-white"
+          />
+          <Label htmlFor="agree-pay" className="text-xs font-normal leading-relaxed text-muted-foreground cursor-pointer">
+            Нажимая кнопку «К оплате», я подтверждаю, что ознакомился и согласен с условиями{" "}
+            <Link to="/cabinet/documents/offer" target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">Публичной оферты</Link>,{" "}
+            <Link to="/cabinet/documents/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">Политикой обработки персональных данных</Link>{" "}и{" "}
+            <Link to="/cabinet/documents/refund" target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">Политикой возврата</Link>.
+          </Label>
+        </div>
+
+        <DialogFooter className="relative mt-3 gap-2 sm:gap-2 flex-col sm:flex-row">
           <Button variant="outline" onClick={onClose} className="rounded-xl">
             Отмена
           </Button>
           <Button
             onClick={onConfirm}
-            disabled={!selectedOpt}
+            disabled={!selectedOpt || !agree}
             className="rounded-xl gap-2 h-11 px-6 text-base font-bold bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 hover:from-primary/90 hover:via-fuchsia-500/90 hover:to-purple-500/90 shadow-lg shadow-primary/30"
           >
             <CreditCard className="h-4 w-4" />
