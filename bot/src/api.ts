@@ -1115,6 +1115,12 @@ export type SubscriptionListItem = {
   /** для триальных — тарифы, в которые можно конвертировать
    *  (переход на их сквады). Пусто — только тариф триала. */
   convertTariffIds?: string[];
+  /** имя триала (показывается вместо тарифа). */
+  trialName?: string | null;
+  /** false → у триала нет кнопок продления/конвертации вовсе. */
+  trialConvertEnabled?: boolean;
+  /** конвертация триала разрешена в любой тариф. */
+  trialConvertAllTariffs?: boolean;
 };
 
 /** Убрать ВСЕ доп. устройства с подписки (extraDevices=0, hwid kick в Remna). */

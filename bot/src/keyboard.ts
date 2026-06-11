@@ -1092,6 +1092,7 @@ export function subDetailButtons(
   autoRenewEnabled?: boolean, // текущее состояние автосписания для этой подписки
   subscriptionUrl?: string | null, // прямой URL подписки — кнопка «Инструкции» открывает его без промежуточного экрана
   extraDevicesCount?: number, // для кнопки «Убрать дополнительные устройства»
+  trialConvertEnabled?: boolean, // false → у триала вообще нет кнопки продления/конвертации
 ): InlineMarkup {
   const connectId = emojiIds?.connect;
   const tariffPay = resolveStyle(toStyle(innerStyles?.tariffPay), "success");
@@ -1132,10 +1133,12 @@ export function subDetailButtons(
   }
   // новый порядок по запросу клиента —
   // Инструкции / Локации / Продлить / Автосписание / Обновить подписку / К списку подписок.
-  // T15.4: для trial-подписок — иконка карты (оплата конвертирует триал в платную подписку).
-  // Тех. flow тот же: pay_tariff_ext / pay_tariff — после успешной оплаты trial_id → null.
-  const renewLabel = isTrial ? "💳 Продлить" : "💰 Продлить";
-  rows.push([btn(renewLabel, extendCallback, undefined, tariffEmoji)]);
+  // триал: кнопка называется «Конвертировать», а при запрете
+  // конвертации в настройках триала — кнопки нет вовсе.
+  const renewLabel = isTrial ? "💳 Конвертировать" : "💰 Продлить";
+  if (!isTrial || trialConvertEnabled !== false) {
+    rows.push([btn(renewLabel, extendCallback, undefined, tariffEmoji)]);
+  }
   // кнопка «🔄 Включить/выключить автосписание».
   // Не показываем для триал-подписок (там нет смысла — это бесплатная конвертация в платную).
   if (!isTrial && tariffId) {

@@ -2730,7 +2730,7 @@ clientRouter.get("/subscription", async (req, res) => {
   // EXPIRED Remna-юзера, тогда как subscriptions хранит актуального). Бот берёт из subscriptions — кабинет теперь тоже.
   const rootSub = await prisma.subscription.findFirst({
     where: { ownerId: client.id, subscriptionIndex: 0, remnawaveUuid: { not: null } },
-    select: { remnawaveUuid: true, trialId: true, tariff: { select: { name: true } }, trial: { select: { name: true, convertEnabled: true } } },
+    select: { remnawaveUuid: true, trialId: true, expireAt: true, tariff: { select: { name: true } }, trial: { select: { name: true, convertEnabled: true } } },
   });
   const effectiveUuid = rootSub?.remnawaveUuid ?? client.remnawaveUuid;
   if (!effectiveUuid) {
@@ -2742,6 +2742,24 @@ clientRouter.get("/subscription", async (req, res) => {
   }
   const result = await remnaGetUser(effectiveUuid);
   if (result.error) {
+    // подписка не должна «пропадать», если Remna недоступна
+    // или юзер там удалён: отдаём синтетический EXPIRED-объект из данных БД,
+    // чтобы кабинет показал карточку с бейджем «Истекла» вместо «Нет подписки».
+    if (rootSub) {
+      const dbName = (rootSub.trialId ? rootSub.trial?.name?.trim() : undefined) ?? rootSub.tariff?.name?.trim() ?? null;
+      return res.json({
+        subscription: {
+          status: "EXPIRED",
+          expireAt: rootSub.expireAt?.toISOString() ?? null,
+        },
+        tariffDisplayName: dbName,
+        currentPricePerDay: null,
+        isTrial: Boolean(rootSub.trialId),
+        trialName: rootSub.trialId ? (rootSub.trial?.name ?? null) : null,
+        trialConvertEnabled: rootSub.trialId ? (rootSub.trial?.convertEnabled ?? true) : true,
+        message: null,
+      });
+    }
     return res.json({ subscription: null, tariffDisplayName: null, currentPricePerDay: null, message: result.error });
   }
 

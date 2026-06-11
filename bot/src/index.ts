@@ -2067,6 +2067,17 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
         : "";
       convNote = `\n\n${head} — вторая подписка не создаётся.${daysPart}`;
     }
+    // покупка заменяет активный триал (полностью, с удалением).
+    // Показываем предупреждение с именем заменяемого пробника.
+    if (!convNote) {
+      const subsAll = await api.getAllSubscriptions(token);
+      const trialsOwned = (subsAll.items ?? []).filter((s) => s.trialId);
+      if (trialsOwned.length > 0) {
+        const tname = trialsOwned[0].trialName ?? trialsOwned[0].tariffDisplayName;
+        convNote = `\n\n⚠️ Покупка заменит ваш пробный период «${tname}» — дни и трафик пробника не переносятся.`
+          + (trialsOwned.length > 1 ? `\nПробников несколько (${trialsOwned.length}) — выбрать, какой заменить, можно в личном кабинете.` : "");
+      }
+    }
   } catch { /* превью не критично — не блокируем оплату */ }
   // convNote добавляется СУФФИКСОМ: префикс сместил бы offsets pay.entities (custom emoji).
   const finalText = `${desc && opts.length === 1 ? `${desc}\n\n${pay.text}` : pay.text}${convNote}`;
@@ -4976,17 +4987,25 @@ composer.on("callback_query:data", async (ctx) => {
           }
         } catch { /* ignore — пропустим check если эндпоинт упал */ }
 
-        // конвертация триала: если у триала настроены целевые
-        // тарифы — сначала даём выбрать, на какой тариф переходить (бэкенд при
-        // оплате заменит сквады/трафик на новый тариф).
+        // конвертация триала: запрещена тогглом → отказ; разрешена
+        // в любой тариф (convertAllTariffs) или в список convertTariffIds — даём
+        // выбрать, на какой тариф переходить (дни и остаток трафика сохранятся).
+        if (sec.trialId && sec.trialConvertEnabled === false) {
+          await editMessageContent(ctx, "Этот пробный период нельзя конвертировать или продлить.", {
+            inline_keyboard: [[{ text: "← Назад", callback_data: `sub:detail:${sec.type}:${sid}` }]],
+          });
+          return;
+        }
         const trialConvertIds = (sec.convertTariffIds ?? []).filter((id) => id && id !== sec.tariffId);
-        if (sec.trialId && trialConvertIds.length > 0) {
+        if (sec.trialId && (sec.trialConvertAllTariffs === true || trialConvertIds.length > 0)) {
           const { items: catItems } = await api.getPublicTariffs();
           const allTariffs = catItems?.flatMap((c: TariffCategory) => c.tariffs) ?? [];
           const own = allTariffs.find((t: TariffItem) => t.id === sec.tariffId);
-          const targets = trialConvertIds
-            .map((id) => allTariffs.find((t: TariffItem) => t.id === id))
-            .filter((t): t is TariffItem => Boolean(t));
+          const targets = sec.trialConvertAllTariffs === true
+            ? allTariffs.filter((t: TariffItem) => t.id !== sec.tariffId)
+            : trialConvertIds
+                .map((id) => allTariffs.find((t: TariffItem) => t.id === id))
+                .filter((t): t is TariffItem => Boolean(t));
           if (targets.length > 0) {
             const options = [
               ...(own ? [{ id: own.id, name: own.name }] : []),
@@ -5000,7 +5019,7 @@ composer.on("callback_query:data", async (ctx) => {
             rows.push([{ text: "← Назад", callback_data: `sub:detail:${sec.type}:${sid}` }]);
             await editMessageContent(
               ctx,
-              "🔄 Переход на платный тариф\n\nВыберите тариф — сервера и лимит трафика обновятся под него:",
+              "🔄 Переход на платный тариф\n\nВыберите тариф — дни и остаток трафика пробного периода сохранятся:",
               { inline_keyboard: rows },
             );
             return;
@@ -6424,7 +6443,7 @@ composer.on("callback_query:data", async (ctx) => {
           // T15.4: пробрасываем isTrialSub → CTA «Конвертировать в платную» вместо «Продлить».
           // пробрасываем subUrl — кнопка «📲 Инструкции по установке»
           // открывает его напрямую (без промежуточного экрана со ссылкой).
-          subDetailButtons(subType, subId, backToSubsListLabel(config?.botEmojis ?? null), innerStyles, innerEmojiIds, item.tariffId, tariffHasLocations, isTrialSub, item.autoRenewEnabled === true, subUrl, item.extraDevices ?? 0),
+          subDetailButtons(subType, subId, backToSubsListLabel(config?.botEmojis ?? null), innerStyles, innerEmojiIds, item.tariffId, tariffHasLocations, isTrialSub, item.autoRenewEnabled === true, subUrl, item.extraDevices ?? 0, item.trialConvertEnabled),
         );
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
