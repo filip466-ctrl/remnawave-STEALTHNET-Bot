@@ -1679,8 +1679,19 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
   const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
 
   // покупается ТОТ ЖЕ тариф → это продление: дни складываются
-  // 1:1, сквады/трафик/устройства не трогаются. UI показывает «будет продлена».
+  // 1:1, сквады/трафик не трогаются. UI переключает оплату в extend-флоу
+  // (extendsSecondarySubId) — там честно считается доплата за доп. устройства
+  // и работает выбор «сохранить/убрать», единый для ЛЮБОЙ подписки.
   if (convertible.sameTariff) {
+    const extSub = await prisma.subscription.findUnique({
+      where: { id: convertible.id },
+      select: { extraDevices: true, extraDevicesMonthlyPrice: true },
+    });
+    const extDevices = extSub?.extraDevices ?? 0;
+    const extMonthly = extSub?.extraDevicesMonthlyPrice ?? 0;
+    const keepCostForPeriod = extDevices > 0 && purchasedDays > 0
+      ? Math.round(extMonthly * (purchasedDays / 30) * 100) / 100
+      : 0;
     return res.json({
       willConvert: true,
       mode: "extend",
@@ -1695,6 +1706,15 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
       convertedDays: remainingDays,
       purchasedDays,
       totalDays: purchasedDays + remainingDays,
+      extras: extDevices > 0 ? {
+        extraDevices: extDevices,
+        extraDevicesMonthlyPrice: extMonthly,
+        newIncludedDevices: Math.max(1, tariff.includedDevices ?? 1),
+        /** «сохранить»: доплата за устройства на купленный период. */
+        keep: { totalDevices: Math.max(1, tariff.includedDevices ?? 1) + extDevices, convertedDays: remainingDays, totalDays: purchasedDays + remainingDays, extraCost: keepCostForPeriod },
+        /** «убрать»: без доплаты, устройств меньше. */
+        drop: { totalDevices: Math.max(1, tariff.includedDevices ?? 1), convertedDays: remainingDays, totalDays: purchasedDays + remainingDays, extraCost: 0 },
+      } : undefined,
     });
   }
 

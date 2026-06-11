@@ -4476,13 +4476,14 @@ export interface TariffConversionPreview {
   convertedDays?: number;
   purchasedDays?: number;
   totalDays?: number;
-  /** выбор судьбы доп. устройств при конвертации. */
+  /** выбор судьбы доп. устройств (конвертация и same-tariff продление). */
   extras?: {
     extraDevices: number;
     extraDevicesMonthlyPrice: number;
     newIncludedDevices: number;
-    keep: { totalDevices: number; convertedDays: number; totalDays: number };
-    drop: { totalDevices: number; convertedDays: number; totalDays: number };
+    /** extraCost — доплата за устройства на купленный период (mode=extend). */
+    keep: { totalDevices: number; convertedDays: number; totalDays: number; extraCost?: number };
+    drop: { totalDevices: number; convertedDays: number; totalDays: number; extraCost?: number };
   };
 }
 

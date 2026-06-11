@@ -166,6 +166,15 @@ function ClassicTariffsPage() {
    */
   function purchaseExtra(): { extendsSecondarySubId?: string; asAdditional?: boolean; removeExtrasOnActivate?: boolean } {
     if (buyMode.kind === "extend") return { extendsSecondarySubId: buyMode.subId, removeExtrasOnActivate: removeExtrasOnExtend };
+    // same-tariff (single-режим): покупка того же тарифа = честное
+    // продление через extend-флоу — там единая для всех подписок логика доплаты
+    // за устройства и выбора «сохранить/убрать».
+    if (convPreview?.willConvert && convPreview.mode === "extend" && convPreview.subscription) {
+      return {
+        extendsSecondarySubId: convPreview.subscription.id,
+        ...(((convPreview.extras?.extraDevices ?? 0) > 0) ? { removeExtrasOnActivate: !convKeepExtras } : {}),
+      };
+    }
     const base: { asAdditional?: boolean; removeExtrasOnActivate?: boolean } = userSubs.length > 0 ? { asAdditional: true } : {};
     // конвертация (single-категория): юзер выбрал убрать доп.
     // устройства — их остаточная ценность уйдёт в дни нового тарифа.
@@ -838,6 +847,50 @@ function ClassicTariffsPage() {
                       <p className="text-xs font-bold text-violet-400">
                         Итого: {formatRuDays(convPreview.totalDays ?? 0)} нового тарифа
                       </p>
+                    )}
+
+                    {/* same-tariff продление: выбор судьбы доп. устройств
+                        (как в обычном продлении — доплата за период или удаление). */}
+                    {convPreview.mode === "extend" && convPreview.extras && convPreview.extras.extraDevices > 0 && (
+                      <div className="space-y-2 pt-1.5">
+                        <p className="text-xs font-bold">
+                          У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setConvKeepExtras(true)}
+                          className={cn(
+                            "w-full text-left rounded-xl border p-3 transition-all",
+                            convKeepExtras ? "border-violet-500/50 bg-violet-500/10" : "border-white/10 bg-white/[0.03] hover:border-white/25",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">
+                            <Smartphone className="h-3.5 w-3.5 text-violet-400" />
+                            Сохранить устройства (+{formatMoney(convPreview.extras.keep.extraCost ?? 0, tariff.currency)})
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                            Всего {convPreview.extras.keep.totalDevices} устройств. К оплате добавится доплата за устройства
+                            на новый период — итого спишется {formatMoney(tariff.price + (convPreview.extras.keep.extraCost ?? 0), tariff.currency)}.
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConvKeepExtras(false)}
+                          className={cn(
+                            "w-full text-left rounded-xl border p-3 transition-all",
+                            !convKeepExtras ? "border-violet-500/50 bg-violet-500/10" : "border-white/10 bg-white/[0.03] hover:border-white/25",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">
+                            <Zap className="h-3.5 w-3.5 text-violet-400" />
+                            Убрать устройства — без доплаты
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                            Останется {convPreview.extras.drop.totalDevices} устройств (только из тарифа).
+                            Спишется ровно {formatMoney(tariff.price, tariff.currency)}.
+                          </p>
+                        </button>
+                      </div>
                     )}
 
                     {/* выбор судьбы докупленных доп. устройств. */}

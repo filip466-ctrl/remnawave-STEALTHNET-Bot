@@ -77,7 +77,9 @@ export function StealthTariffs() {
   // Механика как в основном кабинете: каталог фильтруется до тарифа подписки,
   // оплата уходит с extendsSecondarySubId — единый код для любой подписки.
   const extendParam = searchParams.get("extend");
-  const [extendTarget, setExtendTarget] = useState<{ id: string; label: string; tariffId: string | null; isTrial: boolean; convertTariffIds: string[] } | null>(null);
+  const [extendTarget, setExtendTarget] = useState<{ id: string; label: string; tariffId: string | null; isTrial: boolean; convertTariffIds: string[]; extraDevices: number; extraDevicesMonthlyPrice: number } | null>(null);
+  // судьба доп. устройств при продлении (true = сохранить, цена выше).
+  const [extKeepExtras, setExtKeepExtras] = useState(true);
 
   const [categories, setCategories] = useState<PublicTariffCategory[]>([]);
   const [config, setConfig] = useState<PublicConfig | null>(null);
@@ -160,7 +162,10 @@ export function StealthTariffs() {
         tariffId: it.tariffId ?? null,
         isTrial: Boolean(it.trialId),
         convertTariffIds: it.convertTariffIds ?? [],
+        extraDevices: it.extraDevices ?? 0,
+        extraDevicesMonthlyPrice: it.extraDevicesMonthlyPrice ?? 0,
       });
+      setExtKeepExtras(true);
     }).catch(() => { if (alive) { setExtendTarget(null); setMySubs([]); } });
     return () => { alive = false; };
   }, [extendParam, state.token]);
@@ -197,8 +202,20 @@ export function StealthTariffs() {
   const currentTariff = currentCat?.tariffs.find((t) => t.id === selectedTariffId) as TariffLite | undefined;
   const priceOptions: PriceOption[] = currentTariff?.priceOptions ?? [];
   const currentOption = priceOptions.find((o) => o.id === selectedPriceOptionId);
-  const totalPrice = currentOption?.price ?? currentTariff?.price ?? 0;
+  const basePrice = currentOption?.price ?? currentTariff?.price ?? 0;
   const days = currentOption?.durationDays ?? currentTariff?.durationDays ?? 30;
+  // доплата за СОХРАНЯЕМЫЕ доп. устройства при продлении
+  // (цена хранится за 30 дней — масштабируем на выбранный срок). Раньше stealth
+  // не показывал её, и бэк списывал больше, чем юзер видел в «Итого».
+  const extendExtrasCost = extendTarget && extKeepExtras && extendTarget.extraDevices > 0
+    ? Math.round(extendTarget.extraDevicesMonthlyPrice * (Math.max(1, days) / 30))
+    : 0;
+  // same-tariff продление (single-режим, без ?extend): доплата за
+  // сохраняемые устройства из превью — чтобы «Итого» совпадало со списанием.
+  const convExtendExtrasCost = !extendTarget && convPreview?.mode === "extend" && convKeepExtras && (convPreview.extras?.extraDevices ?? 0) > 0
+    ? Math.round((convPreview.extras?.extraDevicesMonthlyPrice ?? 0) * (Math.max(1, days) / 30))
+    : 0;
+  const totalPrice = basePrice + extendExtrasCost + convExtendExtrasCost;
   const pricePerDay = days > 0 ? totalPrice / days : 0;
   const currency = currentTariff?.currency ?? "rub";
 
@@ -290,9 +307,22 @@ export function StealthTariffs() {
         // режим продления конкретной подписки (?extend=) —
         // оплата продлевает ИМЕННО её, а не создаёт новую.
         ...(extendTarget ? { extendsSecondarySubId: extendTarget.id } : {}),
+        // юзер выбрал продлить БЕЗ доп. устройств — бэк удалит их
+        // после успешной оплаты и не начислит доплату.
+        ...(extendTarget && extendTarget.extraDevices > 0 && !extKeepExtras
+          ? { removeExtrasOnActivate: true }
+          : {}),
+        // same-tariff (single-режим): покупка того же тарифа = честное
+        // продление через extend-флоу (единая логика доплаты/устройств).
+        ...(!extendTarget && convPreview?.mode === "extend" && convPreview.subscription
+          ? {
+              extendsSecondarySubId: convPreview.subscription.id,
+              ...(((convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras) ? { removeExtrasOnActivate: true } : {}),
+            }
+          : {}),
         // конвертация: юзер выбрал убрать доп. устройства —
         // их остаточная ценность уйдёт в дни нового тарифа.
-        ...(convPreview?.willConvert && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras
+        ...(convPreview?.willConvert && convPreview.mode !== "extend" && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras
           ? { removeExtrasOnActivate: true }
           : {}),
       };
@@ -361,6 +391,33 @@ export function StealthTariffs() {
               <p className="text-[11px] text-zinc-400 truncate">{extendTarget.label} — выберите срок и способ оплаты</p>
             </div>
           </div>
+          {/* доп. устройства подписки: сохранить (доплата) или убрать. */}
+          {extendTarget.extraDevices > 0 && (
+            <div className="relative mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setExtKeepExtras(true)}
+                className={cn(
+                  "rounded-xl border p-2.5 text-left transition-all",
+                  extKeepExtras ? "border-rose-500/50 bg-rose-500/10" : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                )}
+              >
+                <p className="text-[11px] font-bold">📱 +{extendTarget.extraDevices} устройств</p>
+                <p className="text-[10px] text-zinc-400">сохранить (+{fmtPrice(Math.round(extendTarget.extraDevicesMonthlyPrice * (Math.max(1, days) / 30)), currency)})</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExtKeepExtras(false)}
+                className={cn(
+                  "rounded-xl border p-2.5 text-left transition-all",
+                  !extKeepExtras ? "border-rose-500/50 bg-rose-500/10" : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                )}
+              >
+                <p className="text-[11px] font-bold">⚡ Убрать</p>
+                <p className="text-[10px] text-zinc-400">без доплаты, устройства отключатся</p>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -512,6 +569,42 @@ export function StealthTariffs() {
               </p>
               {convPreview.mode !== "extend" && (convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
                 <p className="text-xs font-bold text-rose-400">Итого: {convPreview.totalDays} дн. нового тарифа</p>
+              )}
+
+              {/* same-tariff продление: устройства — сохранить (доплата) или убрать. */}
+              {convPreview.mode === "extend" && convPreview.extras && convPreview.extras.extraDevices > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-bold">
+                    У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConvKeepExtras(true)}
+                    className={cn(
+                      "w-full text-left rounded-xl border p-3 transition-all",
+                      convKeepExtras ? "border-rose-500/50 bg-rose-500/10" : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                    )}
+                  >
+                    <p className="text-xs font-bold">📱 Сохранить устройства (+{fmtPrice(convPreview.extras.keep.extraCost ?? 0, currency)})</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                      Всего {convPreview.extras.keep.totalDevices} устройств. Доплата за устройства
+                      добавится к «Итого» выше.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConvKeepExtras(false)}
+                    className={cn(
+                      "w-full text-left rounded-xl border p-3 transition-all",
+                      !convKeepExtras ? "border-rose-500/50 bg-rose-500/10" : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                    )}
+                  >
+                    <p className="text-xs font-bold">⚡ Убрать устройства — без доплаты</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                      Останется {convPreview.extras.drop.totalDevices} устройств (только из тарифа).
+                    </p>
+                  </button>
+                </div>
               )}
 
               {/* выбор судьбы доп. устройств при конвертации. */}
