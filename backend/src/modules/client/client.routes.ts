@@ -29,8 +29,7 @@ import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remn
 import { isSmtpConfigured, sendEmail } from "../mail/mail.service.js";
 import { renderEmailTemplate } from "../email-templates/email-templates.service.js";
 import { signClientPasswordResetToken, verifyClientPasswordResetToken } from "../auth/auth.service.js";
-import { createPlategaTransaction, isPlategaConfigured, getPlategaTransactionStatus } from "../platega/platega.service.js";
-import { markPaymentPaid } from "../payment/mark-paid.service.js";
+import { createPlategaTransaction, isPlategaConfigured } from "../platega/platega.service.js";
 import { activateTariffForClient, activateTariffByPaymentId, findConvertibleSubscription, computeConvertedDays } from "../tariff/tariff-activation.service.js";
 import { upsertPrimarySubscription, upsertSubscriptionByRemnaUuid } from "../subscription/subscription.helpers.js";
 import { saveRedirectAndBuildUrl } from "../payment-redirect/payment-redirect.util.js";
@@ -6791,42 +6790,17 @@ clientRouter.get("/payments", async (req, res) => {
 });
 
 // T-pay-wait (портировано из WolfVPN): статус конкретного платежа для polling на странице ожидания оплаты.
+// active reconciliation Platega УДАЛЁН по просьбе владельца:
+// статус платежа меняет ТОЛЬКО webhook (см. platega.webhooks.routes.ts) — без
+// постоянных опросов Platega API при каждом poll'е страницы ожидания. Webhook
+// должен быть включён в кабинете Platega.
 clientRouter.get("/payments/:id/status", async (req, res) => {
   const clientId = (req as unknown as { clientId: string }).clientId;
-  const STATUS_SELECT = { id: true, status: true, amount: true, currency: true, paidAt: true, provider: true, externalId: true } as const;
-  let p = await prisma.payment.findFirst({
+  const p = await prisma.payment.findFirst({
     where: { id: req.params.id, clientId },
-    select: STATUS_SELECT,
+    select: { id: true, status: true, amount: true, currency: true, paidAt: true },
   });
   if (!p) return res.status(404).json({ message: "Платёж не найден" });
-
-  // Active reconciliation: webhook Platega нужно вручную включать в её кабинете, и если он
-  // не настроен — платёж висит PENDING, а страница ожидания крутится вечно. Поэтому при
-  // PENDING сами опрашиваем Platega API о статусе и помечаем платёж, не дожидаясь webhook'а.
-  // markPaymentPaid идемпотентен (PENDING→PAID flip + активация тарифа/баланса/рефералки).
-  if (p.status === "PENDING" && p.provider === "platega" && p.externalId) {
-    try {
-      const cfg = await getSystemConfig();
-      const merchantId = (cfg.plategaMerchantId || "").trim();
-      const secret = (cfg.plategaSecret || "").trim();
-      if (merchantId && secret) {
-        const st = await getPlategaTransactionStatus({ merchantId, secret }, p.externalId);
-        if ("ok" in st && st.ok) {
-          const up = st.status.toUpperCase();
-          const SUCCESS = new Set(["CONFIRMED", "PAID", "SUCCESS", "SUCCEEDED", "COMPLETED", "SUCCESSFUL", "APPROVED"]);
-          const FAILED = new Set(["CANCELED", "CANCELLED", "FAILED", "DECLINED", "REJECTED", "ERROR", "EXPIRED"]);
-          if (SUCCESS.has(up)) {
-            await markPaymentPaid(p.id).catch((e) => console.error("[payments/status] reconcile markPaid failed", e));
-          } else if (FAILED.has(up)) {
-            await prisma.payment.updateMany({ where: { id: p.id, status: "PENDING" }, data: { status: "FAILED" } });
-          }
-          p = (await prisma.payment.findFirst({ where: { id: req.params.id, clientId }, select: STATUS_SELECT })) ?? p;
-        }
-      }
-    } catch (e) {
-      console.error("[payments/status] Platega reconciliation error", e);
-    }
-  }
 
   return res.json({
     id: p.id,
