@@ -460,7 +460,11 @@ export function StealthTariffs() {
       {/* без single-режима: подписка с этим тарифом уже есть —
           предлагаем продлить её, либо продолжить покупку ещё одной. */}
       {!extendTarget && !convPreview?.willConvert && (() => {
-        const dup = selectedTariffId ? mySubs.find((s) => s.tariffId === selectedTariffId) : null;
+        // среди ВСЕХ подписок с этим тарифом предлагаем «самую живую».
+        const matches = selectedTariffId ? mySubs.filter((s) => s.tariffId === selectedTariffId) : [];
+        const dup = matches.length > 0
+          ? [...matches].sort((a, b) => (b.expireAt ? Date.parse(b.expireAt) : 0) - (a.expireAt ? Date.parse(a.expireAt) : 0))[0]
+          : null;
         if (!dup) return null;
         return (
           <div className="relative overflow-hidden rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.07] p-4">

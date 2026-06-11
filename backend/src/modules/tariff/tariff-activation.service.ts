@@ -797,25 +797,38 @@ export async function findConvertibleSubscription(
   });
   if (!tariff?.categoryId || !tariff.category?.singleSubscriptionMode) return null;
 
-  const candidate = await prisma.subscription.findFirst({
-    where: {
-      ownerId: clientId,
-      purchasedAsGift: false,
-      giftStatus: null,
-      remnawaveUuid: { not: null },
-      tariff: { categoryId: tariff.categoryId },
-    },
-    orderBy: { expireAt: { sort: "desc", nulls: "last" } },
-    select: {
-      id: true,
-      subscriptionIndex: true,
-      tariffId: true,
-      expireAt: true,
-      currentPricePerDay: true,
-      trialId: true,
-      tariff: { select: { name: true } },
-    },
-  });
+  const commonWhere = {
+    ownerId: clientId,
+    purchasedAsGift: false,
+    giftStatus: null,
+    remnawaveUuid: { not: null },
+  } as const;
+  const candidateSelect = {
+    id: true,
+    subscriptionIndex: true,
+    tariffId: true,
+    expireAt: true,
+    currentPricePerDay: true,
+    trialId: true,
+    tariff: { select: { name: true } },
+  } as const;
+
+  // приоритет универсален для ЛЮБОЙ подписки (не только #0):
+  // 1) подписка с ТЕМ ЖЕ тарифом (не триал) → продление именно её;
+  // 2) иначе любая подписка с тарифом этой категории → конвертация «самой живой».
+  // Без приоритета у клиента с несколькими подписками категории «самая живая»
+  // перехватывала конвертацию, хотя рядом была подписка ровно с этим тарифом.
+  const candidate =
+    (await prisma.subscription.findFirst({
+      where: { ...commonWhere, tariffId, trialId: null },
+      orderBy: { expireAt: { sort: "desc", nulls: "last" } },
+      select: candidateSelect,
+    })) ??
+    (await prisma.subscription.findFirst({
+      where: { ...commonWhere, tariff: { categoryId: tariff.categoryId } },
+      orderBy: { expireAt: { sort: "desc", nulls: "last" } },
+      select: candidateSelect,
+    }));
   if (!candidate) return null;
   return {
     id: candidate.id,

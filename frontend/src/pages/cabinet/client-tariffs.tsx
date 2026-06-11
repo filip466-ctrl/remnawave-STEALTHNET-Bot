@@ -756,7 +756,12 @@ function ClassicTariffsPage() {
         {/* без single-режима: подписка с этим тарифом уже есть —
             предлагаем продлить её вместо покупки второй (но не блокируем покупку). */}
         {buyMode.kind === "new" && !convPreview?.willConvert && (() => {
-          const dupSub = userSubs.find((s) => s.tariffId === tariff.id);
+          // среди ВСЕХ подписок с этим тарифом предлагаем «самую живую»
+          // (max expireAt) — а не первую по индексу.
+          const matches = userSubs.filter((s) => s.tariffId === tariff.id);
+          const dupSub = matches.length > 0
+            ? [...matches].sort((a, b) => (b.expireAt ? Date.parse(b.expireAt) : 0) - (a.expireAt ? Date.parse(a.expireAt) : 0))[0]
+            : null;
           if (!dupSub) return null;
           return (
             <div className="relative overflow-hidden border rounded-2xl p-4 bg-indigo-500/[0.06] border-indigo-500/20">
