@@ -370,6 +370,15 @@ const addsubPending = new Map<number, string>();
 const extendingSecondaryPending = new Map<number, { tariffId: string; secondaryId: string }>();
 
 /**
+ * выбор тарифа для КОНВЕРТАЦИИ триала.
+ * Если у триала задан convertTariffIds, перед продлением показываем экран выбора
+ * тарифа. callback_data 64-байтный лимит не вмещает sid+tariffId (два cuid),
+ * поэтому список кэшируется per-user, кнопки ссылаются на индекс
+ * (`pay_ext_pickt:<i>`).
+ */
+const trialConvertPickCache = new Map<number, { sid: string; options: { id: string; name: string }[] }>();
+
+/**
  * отложенное удаление доп. устройств.
  * Юзер нажал «🗑 Убрать устройства, продлить за X ₽» → запоминаем; реальный
  * removeExtraDevices вызываем ТОЛЬКО при подтверждении способа оплаты в handler'е.
@@ -1389,6 +1398,7 @@ function buildTariffDiscountArg(
  * Парсинг start-параметра.
  * Новый формат (через __): ref_CODE__s_SOURCE__m_MEDIUM__k_CAMPAIGN__n_CONTENT__t_TERM
  * Старый формат (через _c_): ref_CODE_c_SOURCE_CAMPAIGN
+ * Кампания без рефкода: c_SOURCE_CAMPAIGN (например /start c_vk_winter)
  */
 function parseStartPayload(payload: string): {
   refCode?: string;
@@ -1413,6 +1423,26 @@ function parseStartPayload(payload: string): {
     return out;
   }
 
+  const parseCampaignPart = (campaignPart: string): void => {
+    const parts = campaignPart.split("_").filter(Boolean);
+    if (parts.length >= 2) {
+      out.utm_source = parts[0];
+      out.utm_campaign = parts.length === 2 ? parts[1] : parts[parts.length - 1];
+      if (parts.length >= 3) out.utm_medium = parts.slice(1, -1).join("_");
+    } else if (parts.length === 1) {
+      out.utm_source = parts[0];
+    }
+  };
+
+  // Кампания без рефкода: payload начинается сразу с `c_`.
+  // этот формат раньше не парсился вовсе — поиск `_c_` находит
+  // подчёркивание ПЕРЕД `c`, а в "c_vk_winter" его нет. UTM терялись, а fallback
+  // в обработчике /start записывал весь payload клиенту как refCode.
+  if (/^c_/i.test(payload)) {
+    parseCampaignPart(payload.slice(2));
+    return out;
+  }
+
   const cIdx = payload.indexOf("_c_");
   const refPart = cIdx >= 0 ? payload.slice(0, cIdx) : payload;
   const campaignPart = cIdx >= 0 ? payload.slice(cIdx + 3) : "";
@@ -1420,14 +1450,7 @@ function parseStartPayload(payload: string): {
     const code = refPart.replace(/^ref_?/i, "").trim();
     if (code) out.refCode = code;
   }
-  if (campaignPart) {
-    const parts = campaignPart.split("_").filter(Boolean);
-    if (parts.length >= 2) {
-      out.utm_source = parts[0];
-      out.utm_campaign = parts.length === 2 ? parts[1] : parts[parts.length - 1];
-      if (parts.length >= 3) out.utm_medium = parts.slice(1, -1).join("_");
-    }
-  }
+  if (campaignPart) parseCampaignPart(campaignPart);
   return out;
 }
 
@@ -1495,8 +1518,12 @@ composer.command("start", async (ctx) => {
       const tariffName = result.tariffName ?? "Подписка";
       const supportLink = giftCfg?.supportLink || "";
       // подсказка «если инструкция не открылась» (подарочная подписка).
+      // приписка редактируется в админке («Тексты бота» →
+      // bot_gift_url_note); раньше «до 4 устройств» было захардкожено.
+      const giftUrlNote = (giftCfg?.botGiftUrlNote ?? "").trim()
+        || "💡 Подписка обновляется автоматически\n1️⃣ подписка - до 4️⃣ устройств одновременно";
       const urlBlock = result.subscriptionUrl
-        ? `Ссылка подписки:\n${result.subscriptionUrl}\n\n💡 Подписка обновляется автоматически\n1️⃣ подписка - до 4️⃣ устройств одновременно\n\n${instructionFallbackText(giftCfg)}`
+        ? `Ссылка подписки:\n${result.subscriptionUrl}\n\n${giftUrlNote}\n\n${instructionFallbackText(giftCfg)}`
         : "";
       let receiverText: string;
       if (hasTrafficLimit) {
@@ -1609,7 +1636,13 @@ composer.command("start", async (ctx) => {
   const isPromo = /^promo_/i.test(payload);
   const promoCode = isPromo ? payload.replace(/^promo_/i, "") : undefined;
   const parsed = parseStartPayload(payload);
-  const refCode = !isPromo ? (parsed.refCode ?? (payload.replace(/^ref_?/i, "").trim() || undefined)) : undefined;
+  // Fallback «голый payload = рефкод» — только если payload реально похож на
+  // рефкод (без префиксов c_/ref_). Раньше `payload.replace(/^ref_?/i, "")`
+  // при отсутствии префикса возвращал строку как есть, и кампанийные ссылки
+  // вида `c_vk_winter` записывались клиенту как referralCode.
+  const isCampaignOnly = /^c_/i.test(payload);
+  const bareRefFallback = !isCampaignOnly && !/^ref_?/i.test(payload) ? payload.trim() || undefined : undefined;
+  const refCode = !isPromo ? (parsed.refCode ?? bareRefFallback) : undefined;
 
   try {
     const config = await api.getPublicConfig();
@@ -1914,7 +1947,11 @@ composer.command("referral", async (ctx) => {
     const rows: ({ text: string; url: string } | { text: string; callback_data: string })[][] = [];
     rows.push([{ text: "📢 Поделиться ссылкой", url: shareUrl }]);
     rows.push([{ text: "💳 Оплатить/продлить доступ", callback_data: "menu:tariffs" }]);
-    rows.push([{ text: "💰 Заявка на вывод (от 3000₽)", callback_data: "withdraw:start" }]);
+    // кнопка вывода скрывается тогглом из админки;
+    // мин. сумма — из настройки withdrawal_min_amount (была захардкожена 3000₽).
+    if (cfg?.withdrawalsEnabled !== false) {
+      rows.push([{ text: `💰 Заявка на вывод (от ${cfg?.withdrawalMinAmount ?? 3000}₽)`, callback_data: "withdraw:start" }]);
+    }
     rows.push([{ text: "🏠 Главное меню", callback_data: "menu:main" }]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await ctx.reply(lines.join("\n"), { reply_markup: { inline_keyboard: rows as any } });
@@ -2015,7 +2052,24 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
   // увидел rich-text (как на эталонных скринах 4 / Unblock и Безлимитная Unblock).
   // Для тарифов с несколькими opts (Стандартная) описание уже показано в picker'е длительности.
   const desc = ((tariff as TariffItem & { description?: string | null }).description ?? "").trim();
-  const finalText = desc && opts.length === 1 ? `${desc}\n\n${pay.text}` : pay.text;
+  // предупреждение о конвертации (режим «одна подписка из
+  // категории»): покупка обновит существующую подписку, а не создаст вторую.
+  let convNote = "";
+  try {
+    const conv = await api.tariffConversionPreview(token, { tariffId: tariff.id, priceOptionId: eff?.id });
+    if (conv.willConvert && conv.subscription) {
+      const subName = conv.subscription.tariffName ? `«${conv.subscription.tariffName}»` : `#${conv.subscription.index}`;
+      const head = conv.subscription.isTrial
+        ? "🔄 Пробная подписка станет платной"
+        : `🔄 Подписка ${subName} будет обновлена`;
+      const daysPart = (conv.convertedDays ?? 0) > 0 && (conv.remainingDays ?? 0) > 0
+        ? `\nОстаток ${conv.remainingDays} дн. → ${conv.convertedDays} дн. по цене нового тарифа. Итого: ${conv.totalDays} дн.`
+        : "";
+      convNote = `\n\n${head} — вторая подписка не создаётся.${daysPart}`;
+    }
+  } catch { /* превью не критично — не блокируем оплату */ }
+  // convNote добавляется СУФФИКСОМ: префикс сместил бы offsets pay.entities (custom emoji).
+  const finalText = `${desc && opts.length === 1 ? `${desc}\n\n${pay.text}` : pay.text}${convNote}`;
   await editMessageContent(ctx, finalText, tariffPaymentMethodButtons(tariff.id, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, !!config?.cryptopayEnabled, tariff.currency, !!config?.heleketEnabled, !!config?.lavaEnabled, !!config?.lavatopEnabled, config?.botEmojis ?? null), pay.entities);
 }
 
@@ -4102,7 +4156,9 @@ composer.on("callback_query:data", async (ctx) => {
       }
       // новый текст по эталону клиента.
       // Заголовок «📦 Дополнительные опции» рисует titleWithEmoji — НЕ дублируем эмодзи в тексте.
-      const optsText = [
+      // текст редактируется в админке («Тексты бота» →
+      // bot_extra_options_text); раньше был захардкожен здесь.
+      const optsText = (config?.botExtraOptionsText ?? "").trim() || [
         "Дополнительные опции",
         "",
         "Каждая подписка поддерживает до 4 устройств одновременно.",
@@ -4853,6 +4909,43 @@ composer.on("callback_query:data", async (ctx) => {
       return;
     }
 
+    // выбор тарифа для конвертации триала (см. trialConvertPickCache).
+    // Юзер выбрал, на какой тариф переходить — открываем стандартный флоу продления
+    // с выбранным тарифом (backend заменит сквады/трафик: trial → convertMode).
+    if (data.startsWith("pay_ext_pickt:")) {
+      const idx = Number(data.slice("pay_ext_pickt:".length));
+      const cached = trialConvertPickCache.get(userId);
+      const choice = cached && Number.isInteger(idx) ? cached.options[idx] : undefined;
+      if (!cached || !choice) {
+        await editMessageContent(ctx, "Выбор устарел — откройте продление заново.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const { items } = await api.getPublicTariffs();
+        const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === choice.id);
+        if (!tariff) {
+          await editMessageContent(ctx, "❌ Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          return;
+        }
+        extendingSecondaryPending.set(userId, { tariffId: tariff.id, secondaryId: cached.sid });
+        addsubPending.delete(userId);
+        const opts = sortedPriceOptions(tariff.priceOptions);
+        if (opts.length > 1) {
+          tariffOptionsCache.set(userId, { tariffId: tariff.id, options: opts });
+          const bestId = bestPricePerDayOptionId(opts);
+          await editMessageContent(ctx, `🔄 Переход на «${tariff.name}»\n\nВыберите длительность:`, tariffOptionPickerButtons(opts, tariff.currency, bestId, null, innerStyles, innerEmojiIds, null, config?.botEmojis ?? null));
+          return;
+        }
+        const onlyOpt = opts[0] ?? null;
+        if (onlyOpt) selectedTariffOption.set(userId, { tariffId: tariff.id, option: onlyOpt, extraDevices: 0 });
+        await showPaymentMethodsForTariff(ctx, userId, tariff, onlyOpt, 0, config, innerStyles, innerEmojiIds, token);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка";
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     // «💰 Продлить» для ЛЮБОЙ подписки (primary или доп.).
     // Короткий callback (только subscriptionId) — пара tariffId+subId не влезает в 64-байтовый
     // Telegram callback_data. Резолвим tariffId из подписки на стороне бота.
@@ -4882,6 +4975,37 @@ composer.on("callback_query:data", async (ctx) => {
             return;
           }
         } catch { /* ignore — пропустим check если эндпоинт упал */ }
+
+        // конвертация триала: если у триала настроены целевые
+        // тарифы — сначала даём выбрать, на какой тариф переходить (бэкенд при
+        // оплате заменит сквады/трафик на новый тариф).
+        const trialConvertIds = (sec.convertTariffIds ?? []).filter((id) => id && id !== sec.tariffId);
+        if (sec.trialId && trialConvertIds.length > 0) {
+          const { items: catItems } = await api.getPublicTariffs();
+          const allTariffs = catItems?.flatMap((c: TariffCategory) => c.tariffs) ?? [];
+          const own = allTariffs.find((t: TariffItem) => t.id === sec.tariffId);
+          const targets = trialConvertIds
+            .map((id) => allTariffs.find((t: TariffItem) => t.id === id))
+            .filter((t): t is TariffItem => Boolean(t));
+          if (targets.length > 0) {
+            const options = [
+              ...(own ? [{ id: own.id, name: own.name }] : []),
+              ...targets.map((t) => ({ id: t.id, name: t.name })),
+            ];
+            trialConvertPickCache.set(userId, { sid, options });
+            const rows = options.map((o, i) => ([{
+              text: own && i === 0 ? `💎 ${o.name}` : `➡️ ${o.name}`,
+              callback_data: `pay_ext_pickt:${i}`,
+            }]));
+            rows.push([{ text: "← Назад", callback_data: `sub:detail:${sec.type}:${sid}` }]);
+            await editMessageContent(
+              ctx,
+              "🔄 Переход на платный тариф\n\nВыберите тариф — сервера и лимит трафика обновятся под него:",
+              { inline_keyboard: rows },
+            );
+            return;
+          }
+        }
 
         const { items } = await api.getPublicTariffs();
         const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === sec.tariffId);
@@ -5792,7 +5916,10 @@ composer.on("callback_query:data", async (ctx) => {
       const rows: ({ text: string; url: string } | { text: string; callback_data: string })[][] = [];
       rows.push([{ text: "📢 Поделиться ссылкой", url: shareUrl }]);
       rows.push([{ text: "💳 Оплатить/продлить доступ", callback_data: "menu:tariffs" }]);
-      rows.push([{ text: "💰 Заявка на вывод (от 3000₽)", callback_data: "withdraw:start" }]);
+      // кнопка вывода скрывается тогглом; мин. сумма из настройки.
+      if (config?.withdrawalsEnabled !== false) {
+        rows.push([{ text: `💰 Заявка на вывод (от ${config?.withdrawalMinAmount ?? 3000}₽)`, callback_data: "withdraw:start" }]);
+      }
       rows.push([{ text: "🏠 Главное меню", callback_data: "menu:main" }]);
 
       const { text: refText, entities: refEntities } = titleWithEmoji("LINK", lines.join("\n"), config?.botEmojis);
@@ -5808,12 +5935,20 @@ composer.on("callback_query:data", async (ctx) => {
     // Шаг 4: withdraw:confirm:<amount>:<wallet> → создаём заявку
     if (data === "withdraw:start") {
       try {
+        // мин. сумма из настройки + общий выключатель фичи.
+        if (config?.withdrawalsEnabled === false) {
+          await editMessageContent(ctx, "💰 Заявки на вывод временно отключены.", {
+            inline_keyboard: [[{ text: "👥 К рефералке", callback_data: "menu:referral" }]],
+          });
+          return;
+        }
+        const withdrawMin = config?.withdrawalMinAmount ?? 3000;
         const me = await api.getMe(token);
         const balance = me?.balance ?? 0;
-        if (balance < 3000) {
+        if (balance < withdrawMin) {
           await editMessageContent(
             ctx,
-            `💰 Заявка на вывод (USDT TRC20)\n\n⚠️ Минимальная сумма вывода — 3000₽\n\nВаш текущий баланс: ${balance.toFixed(2)}₽\n\nПродолжайте приглашать друзей по реферальной ссылке — и накопите нужную сумму!`,
+            `💰 Заявка на вывод (USDT TRC20)\n\n⚠️ Минимальная сумма вывода — ${withdrawMin}₽\n\nВаш текущий баланс: ${balance.toFixed(2)}₽\n\nПродолжайте приглашать друзей по реферальной ссылке — и накопите нужную сумму!`,
             {
               inline_keyboard: [
                 [{ text: "👥 К рефералке", callback_data: "menu:referral" }],
@@ -5827,7 +5962,7 @@ composer.on("callback_query:data", async (ctx) => {
         awaitingWithdrawWallet.delete(userId);
         await editMessageContent(
           ctx,
-          `💰 Заявка на вывод (USDT TRC20)\n\nВведите сумму для вывода (минимум 3000₽).\nДоступно: ${balance.toFixed(2)}₽`,
+          `💰 Заявка на вывод (USDT TRC20)\n\nВведите сумму для вывода (минимум ${withdrawMin}₽).\nДоступно: ${balance.toFixed(2)}₽`,
           {
             inline_keyboard: [
               [{ text: "❌ Отмена", callback_data: "menu:referral" }],
@@ -5846,7 +5981,8 @@ composer.on("callback_query:data", async (ctx) => {
       const parts = data.slice("withdraw:confirm:".length).split(":");
       const amount = parseFloat(parts[0] ?? "0");
       const wallet = parts.slice(1).join(":");
-      if (!Number.isFinite(amount) || amount < 3000 || !wallet) {
+      const withdrawConfirmMin = config?.withdrawalMinAmount ?? 3000;
+      if (!Number.isFinite(amount) || amount < withdrawConfirmMin || !wallet) {
         await editMessageContent(ctx, "❌ Некорректные данные заявки. Попробуйте снова.", {
           inline_keyboard: [[{ text: "💰 К рефералке", callback_data: "menu:referral" }]],
         });
@@ -7391,8 +7527,11 @@ composer.on("message:text", async (ctx) => {
     const amount = parseFloat(raw);
     // «👥 К рефералке» → «↩️ Отмена» во время ввода данных заявки.
     const backRef = { reply_markup: { inline_keyboard: [[{ text: "↩️ Отмена", callback_data: "menu:referral" }]] } };
-    if (!Number.isFinite(amount) || amount < 3000) {
-      await ctx.reply("❌ Минимальная сумма вывода — 3000₽. Введите корректную сумму или нажмите «Отмена».", backRef);
+    // мин. сумма из настройки (была захардкожена 3000₽).
+    const wdCfg = await api.getPublicConfig().catch(() => null);
+    const withdrawMin = wdCfg?.withdrawalMinAmount ?? 3000;
+    if (!Number.isFinite(amount) || amount < withdrawMin) {
+      await ctx.reply(`❌ Минимальная сумма вывода — ${withdrawMin}₽. Введите корректную сумму или нажмите «Отмена».`, backRef);
       return;
     }
     try {

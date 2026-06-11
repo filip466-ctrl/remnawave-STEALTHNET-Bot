@@ -794,6 +794,34 @@ export const api = {
     });
   },
 
+  /** привязать клиенту подписку на существующего Remna-юзера
+   *  (по username или uuid), не создавая нового. */
+  async adminAttachRemnaSubscription(
+    token: string,
+    clientId: string,
+    payload: { query: string; tariffId?: string },
+  ): Promise<{ ok: boolean; subscriptionId: string; subscriptionIndex: number; remnawaveUuid: string; expireAt: string | null; message?: string }> {
+    return request(`/admin/clients/${clientId}/attach-remna-subscription`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    });
+  },
+
+  /** ручное продление КОНКРЕТНОЙ подписки админом (компенсация/бонус).
+   *  Единый механизм с оплаченным продлением — для любой подписки (включая index 0). */
+  async adminGrantExtendSubscription(
+    token: string,
+    subscriptionId: string,
+    payload: { tariffId?: string; tariffPriceOptionId?: string; customDurationDays?: number; note?: string; createPaymentRecord?: boolean },
+  ): Promise<{ ok: boolean; paymentId: string | null; subscriptionId: string; tariff: { id: string; name: string; durationDays: number }; message?: string }> {
+    return request(`/admin/subscriptions/${encodeURIComponent(subscriptionId)}/grant-extend`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    });
+  },
+
   async clientRemnaSquadAdd(token: string, clientId: string, squadUuid: string): Promise<unknown> {
     return request(`/admin/clients/${clientId}/remna/squads/add`, { method: "POST", body: JSON.stringify({ squadUuid }), token });
   },
@@ -1506,11 +1534,11 @@ export const api = {
     return request("/admin/tariff-categories", { token });
   },
 
-  async createTariffCategory(token: string, data: { name: string; sortOrder?: number; emojiKey?: string | null }): Promise<TariffCategoryRecord> {
+  async createTariffCategory(token: string, data: { name: string; sortOrder?: number; emojiKey?: string | null; singleSubscriptionMode?: boolean }): Promise<TariffCategoryRecord> {
     return request("/admin/tariff-categories", { method: "POST", body: JSON.stringify(data), token });
   },
 
-  async updateTariffCategory(token: string, id: string, data: { name?: string; sortOrder?: number; emojiKey?: string | null }): Promise<TariffCategoryRecord> {
+  async updateTariffCategory(token: string, id: string, data: { name?: string; sortOrder?: number; emojiKey?: string | null; singleSubscriptionMode?: boolean }): Promise<TariffCategoryRecord> {
     return request(`/admin/tariff-categories/${id}`, { method: "PATCH", body: JSON.stringify(data), token });
   },
 
@@ -1792,6 +1820,8 @@ export const api = {
       tariffMenuEmoji?: string | null;
       extraDevices?: number;
       extraDevicesMonthlyPrice?: number;
+      /** для триальных — тарифы, в которые можно конвертировать. */
+      convertTariffIds?: string[];
     }>;
   }> {
     return request("/client/subscription/all", { token });
@@ -1915,6 +1945,18 @@ export const api = {
       extendsSecondarySubId?: string; asAdditional?: boolean; asGift?: boolean; removeExtrasOnActivate?: boolean }
   ): Promise<{ message: string; paymentId: string; newBalance: number }> {
     return request("/client/payments/balance", { method: "POST", body: JSON.stringify(data), token });
+  },
+
+  /** Превью конвертации для режима «одна подписка из категории»:
+   *  узнаём ДО оплаты, конвертирует ли покупка существующую подписку, и как
+   *  пересчитается остаток дней. */
+  async clientTariffConversionPreview(
+    token: string,
+    params: { tariffId: string; priceOptionId?: string }
+  ): Promise<TariffConversionPreview> {
+    const q = new URLSearchParams({ tariffId: params.tariffId });
+    if (params.priceOptionId) q.set("priceOptionId", params.priceOptionId);
+    return request(`/client/tariff-conversion-preview?${q.toString()}`, { token });
   },
 
   /** Оплата опции (доп. трафик/устройства/сервер) с баланса.
@@ -2875,6 +2917,9 @@ export type UpdateSettingsPayload = {
   defaultReferralPercent?: number;
   referralPercentLevel2?: number;
   referralPercentLevel3?: number;
+  /** заявки на вывод: вкл/выкл + мин. сумма. */
+  withdrawalsEnabled?: boolean;
+  withdrawalMinAmount?: number;
   trialDays?: number;
   trialSquadUuid?: string | null;
   trialDeviceLimit?: number | null;
@@ -3491,6 +3536,10 @@ export interface AdminSettings {
   adminFrontNotificationsEnabled?: boolean;
   /** Регистрация без подтверждения почты */
   skipEmailVerification?: boolean;
+  /** заявки на вывод реф. баланса: вкл/выкл. */
+  withdrawalsEnabled?: boolean;
+  /** мин. сумма заявки на вывод (₽). */
+  withdrawalMinAmount?: number;
   /** Master switch для антибот-защиты регистраций */
   signupProtectionEnabled?: boolean;
   /** Доп. список заблокированных email-доменов (через запятую) */
@@ -4117,6 +4166,8 @@ export interface TariffCategoryRecord {
   name: string;
   emojiKey: string | null;
   sortOrder: number;
+  /** Режим «одна подписка из категории» — покупка конвертирует существующую подписку. */
+  singleSubscriptionMode?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -4178,6 +4229,8 @@ export interface TrialRecord {
   enabled: boolean;
   sortOrder: number;
   description: string | null;
+  /** тарифы, в которые можно конвертировать триал (переход на их сквады). */
+  convertTariffIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -4191,6 +4244,8 @@ export type CreateTrialPayload = {
   enabled?: boolean;
   sortOrder?: number;
   description?: string | null;
+  /** тарифы, в которые можно конвертировать триал. */
+  convertTariffIds?: string[] | null;
 };
 
 export type UpdateTrialPayload = Partial<CreateTrialPayload>;
@@ -4399,7 +4454,25 @@ export interface PublicTariffCategory {
   name: string;
   emojiKey: string | null;
   emoji: string;
+  /** Режим «одна подписка из категории»: покупка конвертирует существующую подписку. */
+  singleSubscriptionMode?: boolean;
   tariffs: PublicTariff[];
+}
+
+/** Превью конвертации (режим «одна подписка из категории»). */
+export interface TariffConversionPreview {
+  willConvert: boolean;
+  subscription?: {
+    id: string;
+    index: number;
+    tariffName: string | null;
+    expireAt: string | null;
+    isTrial: boolean;
+  };
+  remainingDays?: number;
+  convertedDays?: number;
+  purchasedDays?: number;
+  totalDays?: number;
 }
 
 export type PublicTariff = {
@@ -4674,6 +4747,9 @@ export interface PublicConfig {
   googleAnalyticsId?: string | null;
   yandexMetrikaId?: string | null;
   skipEmailVerification?: boolean;
+  /** заявки на вывод реф. баланса: вкл/выкл + мин. сумма. */
+  withdrawalsEnabled?: boolean;
+  withdrawalMinAmount?: number;
   /** T-pwd-reset: вкл/выкл восстановление пароля клиента (по умолчанию выкл). */
   passwordResetEnabled?: boolean;
   /** true = SMTP настроен и можно слать письма верификации. */

@@ -439,6 +439,8 @@ export function SettingsPage() {
         defaultReferralPercent: data.defaultReferralPercent ?? 30,
         referralPercentLevel2: (data as AdminSettings).referralPercentLevel2 ?? 10,
         referralPercentLevel3: (data as AdminSettings).referralPercentLevel3 ?? 10,
+        withdrawalsEnabled: (data as AdminSettings).withdrawalsEnabled ?? true,
+        withdrawalMinAmount: (data as AdminSettings).withdrawalMinAmount ?? 3000,
         plategaMethods: (data as AdminSettings).plategaMethods ?? DEFAULT_PLATEGA_METHODS,
         botButtons: (() => {
           const raw = (data as AdminSettings).botButtons;
@@ -753,6 +755,8 @@ export function SettingsPage() {
         defaultReferralPercent: settings.defaultReferralPercent,
         referralPercentLevel2: settings.referralPercentLevel2 ?? 10,
         referralPercentLevel3: settings.referralPercentLevel3 ?? 10,
+        withdrawalsEnabled: settings.withdrawalsEnabled ?? true,
+        withdrawalMinAmount: settings.withdrawalMinAmount ?? 3000,
         trialDays: settings.trialDays,
         trialSquadUuid: settings.trialSquadUuid ?? null,
         trialDeviceLimit: settings.trialDeviceLimit ?? null,
@@ -2565,6 +2569,37 @@ export function SettingsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* заявки на вывод реф. баланса: вкл/выкл + мин. сумма.
+                    Выключение прячет кнопку в боте и блок в кабинете/на сайте. */}
+                <div className="rounded-2xl border border-white/10 bg-card/50 p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-base font-semibold">💸 Заявки на вывод</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Вывод реферального баланса (USDT TRC20). Выключено — кнопка в боте и блок
+                        в кабинете/на сайте скрываются, API отклоняет новые заявки.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.withdrawalsEnabled ?? true}
+                      onCheckedChange={(v) => setSettings((s) => (s ? { ...s, withdrawalsEnabled: v } : s))}
+                    />
+                  </div>
+                  {(settings.withdrawalsEnabled ?? true) && (
+                    <div className="grid gap-1.5 max-w-xs">
+                      <Label className="text-xs text-muted-foreground">Минимальная сумма заявки (₽)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-11 rounded-xl tabular-nums"
+                        value={settings.withdrawalMinAmount ?? 3000}
+                        onChange={(e) => setSettings((s) => (s ? { ...s, withdrawalMinAmount: Math.max(1, Number(e.target.value) || 1) } : s))}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {message && <p className="text-sm text-muted-foreground">{message}</p>}
                 <Button type="submit" disabled={saving} className="w-full sm:w-auto h-11 px-6 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:opacity-90 text-white font-semibold shadow-lg shadow-violet-500/20">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

@@ -14,6 +14,7 @@ import {
   generateReferralCode,
   getSystemConfig,
   getPublicConfig,
+  isSystemSmtpConfigured,
   type SellOptionTrafficProduct,
   type SellOptionDeviceProduct,
   type SellOptionServerProduct,
@@ -25,11 +26,12 @@ import {
 } from "../notification/telegram-notify.service.js";
 import { requireClientAuth } from "./client.middleware.js";
 import { remnaCreateUser, remnaUpdateUser, isRemnaConfigured, remnaGetUser, remnaGetUserByUsername, remnaGetUserByEmail, remnaGetUserByTelegramId, extractRemnaUuid, remnaUsernameFromClient, remnaGetUserHwidDevices, remnaDeleteUserHwidDevice, encryptSubscriptionUrlInPlace, remnaRevokeUserSubscription } from "../remna/remna.client.js";
-import { sendVerificationEmail, sendLinkEmailVerification, isSmtpConfigured, sendPasswordResetEmail } from "../mail/mail.service.js";
+import { isSmtpConfigured, sendEmail } from "../mail/mail.service.js";
+import { renderEmailTemplate } from "../email-templates/email-templates.service.js";
 import { signClientPasswordResetToken, verifyClientPasswordResetToken } from "../auth/auth.service.js";
 import { createPlategaTransaction, isPlategaConfigured, getPlategaTransactionStatus } from "../platega/platega.service.js";
 import { markPaymentPaid } from "../payment/mark-paid.service.js";
-import { activateTariffForClient, activateTariffByPaymentId } from "../tariff/tariff-activation.service.js";
+import { activateTariffForClient, activateTariffByPaymentId, findConvertibleSubscription, computeConvertedDays } from "../tariff/tariff-activation.service.js";
 import { upsertPrimarySubscription, upsertSubscriptionByRemnaUuid } from "../subscription/subscription.helpers.js";
 import { saveRedirectAndBuildUrl } from "../payment-redirect/payment-redirect.util.js";
 import { createProxySlotsByPaymentId } from "../proxy/proxy-slots-activation.service.js";
@@ -350,12 +352,16 @@ clientAuthRouter.post("/register", async (req, res) => {
     void clientIp;
 
     const verificationLink = `${appUrl}/cabinet/verify-email?token=${verificationToken}`;
-    const sendResult = await sendVerificationEmail(
-      smtpConfig,
-      data.email!,
-      verificationLink,
-      config.serviceName
-    );
+    // письмо рендерится из редактируемого шаблона
+    // (админка → Email-шаблоны), а не из захардкоженного HTML.
+    const verificationTpl = await renderEmailTemplate("email_verification", {
+      verifyUrl: verificationLink,
+      hours: "24",
+      serviceName: config.serviceName ?? "STEALTHNET",
+    });
+    const sendResult = verificationTpl
+      ? await sendEmail(smtpConfig, data.email!, verificationTpl.subject, verificationTpl.body)
+      : { ok: false as const, error: "email_verification template missing" };
     console.log(`[register] Email send result to ${data.email}:`, sendResult);
     if (!sendResult.ok) {
       await prisma.pendingEmailRegistration.deleteMany({ where: { verificationToken } }).catch(() => {});
@@ -612,7 +618,13 @@ clientAuthRouter.post("/forgot-password", async (req, res) => {
   const email = body.data.email.toLowerCase().trim();
   const respondOk = () => res.json({ ok: true });
   try {
-    const client = await prisma.client.findUnique({ where: { email }, select: { id: true, passwordHash: true, isBlocked: true } });
+    // поиск регистронезависимый. Регистрация/логин хранят email
+    // как ввёл юзер, а здесь он приводился к lowercase — юзер с «Test@example.com»
+    // в БД не находился, и письмо сброса молча не отправлялось (при ok:true в ответе).
+    const client = await prisma.client.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true, email: true, passwordHash: true, isBlocked: true },
+    });
     if (!client || !client.passwordHash || client.isBlocked) return respondOk();
     const config = await getSystemConfig();
     const smtpConfig = {
@@ -623,7 +635,14 @@ clientAuthRouter.post("/forgot-password", async (req, res) => {
     if (!isSmtpConfigured(smtpConfig) || !appUrl) return respondOk();
     const token = signClientPasswordResetToken({ clientId: client.id, pv: client.passwordHash.slice(-12) }, env.JWT_SECRET);
     const resetLink = `${appUrl}/cabinet/reset-password?token=${encodeURIComponent(token)}`;
-    await sendPasswordResetEmail(smtpConfig, email, resetLink, config.serviceName ?? "VPN").catch(() => {});
+    const resetTpl = await renderEmailTemplate("password_reset", {
+      resetUrl: resetLink,
+      minutes: "60",
+      serviceName: config.serviceName ?? "STEALTHNET",
+    });
+    if (resetTpl) {
+      await sendEmail(smtpConfig, client.email ?? email, resetTpl.subject, resetTpl.body).catch(() => {});
+    }
     return respondOk();
   } catch {
     return respondOk();
@@ -1636,6 +1655,57 @@ clientRouter.post("/link-telegram", async (req, res) => {
  * Используется когда SMTP не настроен или skipEmailVerification=true в админке.
  * В обоих случаях нет смысла слать письмо — либо нельзя, либо не требуется.
  */
+/**
+ * Превью конвертации для режима «одна подписка из категории».
+ *
+ * UI (кабинет/миниаппки/бот) зовёт перед оплатой тарифа: если покупка
+ * конвертирует существующую подписку — показываем юзеру красивое предупреждение
+ * с расчётом (какая подписка, сколько дней остатка, во сколько они превратятся).
+ */
+clientRouter.get("/tariff-conversion-preview", async (req, res) => {
+  const client = (req as unknown as { client: { id: string } }).client;
+  const tariffId = typeof req.query.tariffId === "string" ? req.query.tariffId : "";
+  const priceOptionId = typeof req.query.priceOptionId === "string" ? req.query.priceOptionId : null;
+  if (!tariffId) return res.status(400).json({ message: "tariffId обязателен" });
+
+  const convertible = await findConvertibleSubscription(client.id, tariffId);
+  if (!convertible) return res.json({ willConvert: false });
+
+  const tariff = await prisma.tariff.findUnique({
+    where: { id: tariffId },
+    select: { name: true, durationDays: true, price: true, priceOptions: { select: { id: true, durationDays: true, price: true } } },
+  });
+  if (!tariff) return res.json({ willConvert: false });
+
+  const option = priceOptionId ? tariff.priceOptions.find((o) => o.id === priceOptionId) ?? null : null;
+  const purchasedDays = option?.durationDays ?? tariff.durationDays;
+  const newPrice = option?.price ?? tariff.price;
+  const newPricePerDay = purchasedDays > 0 ? newPrice / purchasedDays : 0;
+
+  const remainingMs = convertible.expireAt ? convertible.expireAt.getTime() - Date.now() : 0;
+  const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
+  const convertedDays = computeConvertedDays({
+    remainingDays,
+    oldPricePerDay: convertible.currentPricePerDay ?? null,
+    newPricePerDay,
+  });
+
+  return res.json({
+    willConvert: true,
+    subscription: {
+      id: convertible.id,
+      index: convertible.subscriptionIndex,
+      tariffName: convertible.tariffName,
+      expireAt: convertible.expireAt?.toISOString() ?? null,
+      isTrial: convertible.trialId != null,
+    },
+    remainingDays,
+    convertedDays,
+    purchasedDays,
+    totalDays: purchasedDays + convertedDays,
+  });
+});
+
 const linkEmailDirectSchema = z.object({ email: z.string().email() });
 clientRouter.post("/link-email-direct", async (req, res) => {
   const client = (req as unknown as { client: { id: string; email: string | null } }).client;
@@ -1646,17 +1716,11 @@ clientRouter.post("/link-email-direct", async (req, res) => {
 
   // Защита от обхода: метод работает только если SMTP не настроен ИЛИ
   // skipEmailVerification=true. Иначе админ хочет полноценную верификацию.
+  // критерий «SMTP настроен» обязан совпадать с публичным
+  // smtpConfigured (по нему фронт выбирает direct vs request) — раньше здесь
+  // дефолтился порт 587 и при пустом порте юзер попадал в тупик.
   const config = await getSystemConfig();
-  const smtpConfig = {
-    host: config.smtpHost || "",
-    port: config.smtpPort ?? 587,
-    secure: config.smtpSecure ?? false,
-    user: config.smtpUser ?? null,
-    password: config.smtpPassword ?? null,
-    fromEmail: config.smtpFromEmail ?? null,
-    fromName: config.smtpFromName ?? null,
-  };
-  const smtpOk = isSmtpConfigured(smtpConfig);
+  const smtpOk = isSystemSmtpConfigured(config);
   if (smtpOk && !config.skipEmailVerification) {
     return res.status(400).json({ message: "Требуется верификация. Используйте /link-email-request." });
   }
@@ -1704,7 +1768,14 @@ clientRouter.post("/link-email-request", async (req, res) => {
   const appUrl = (config.publicAppUrl || "").replace(/\/$/, "");
   const verificationLink = appUrl ? `${appUrl}/cabinet/verify-link-email?token=${verificationToken}` : "";
   if (!verificationLink) return res.status(500).json({ message: "Не задан URL приложения в настройках" });
-  const sendResult = await sendLinkEmailVerification(smtpConfig, email, verificationLink, config.serviceName ?? "STEALTHNET");
+  const linkTpl = await renderEmailTemplate("link_email", {
+    verifyUrl: verificationLink,
+    hours: "24",
+    serviceName: config.serviceName ?? "STEALTHNET",
+  });
+  const sendResult = linkTpl
+    ? await sendEmail(smtpConfig, email, linkTpl.subject, linkTpl.body)
+    : { ok: false as const, error: "link_email template missing" };
   if (!sendResult.ok) {
     await prisma.pendingEmailLink.deleteMany({ where: { verificationToken } }).catch(() => {});
     return res.status(500).json({ message: "Не удалось отправить письмо. Попробуйте позже." });
@@ -1792,19 +1863,29 @@ clientRouter.get("/referral-stats", async (req, res) => {
 });
 
 // создание заявки на вывод реф. баланса (USDT TRC20).
-// Минимум 3000₽. При создании баланс замораживается (decrement) — при reject
-// админом средства возвращаются. При approve — клиенту приходит уведомление.
+// настройки в админке: withdrawals_enabled (вкл/выкл фичи целиком)
+// и withdrawal_min_amount (мин. сумма; раньше было захардкожено 3000₽).
+// При создании баланс замораживается (decrement) — при reject админом средства
+// возвращаются. При approve — клиенту приходит уведомление.
 const withdrawCreateSchema = z.object({
-  amount: z.number().positive().min(3000, "Минимальная сумма вывода — 3000₽").max(1e7),
+  amount: z.number().positive().max(1e7),
   walletTrc20: z.string().min(20).max(64).regex(/^T[A-Za-z0-9]{33}$/, "Некорректный TRC20-адрес (должен начинаться с T)"),
 });
 clientRouter.post("/withdrawals", async (req, res) => {
   const clientId = (req as unknown as { clientId: string }).clientId;
+  const wdCfg = await getSystemConfig();
+  if (wdCfg.withdrawalsEnabled === false) {
+    return res.status(403).json({ message: "Заявки на вывод временно отключены" });
+  }
   const parsed = withdrawCreateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Некорректные данные", errors: parsed.error.flatten() });
   }
   const { amount, walletTrc20 } = parsed.data;
+  const minAmount = wdCfg.withdrawalMinAmount ?? 3000;
+  if (amount < minAmount) {
+    return res.status(400).json({ message: `Минимальная сумма вывода — ${minAmount}₽` });
+  }
 
   // Атомарный debit — либо есть баланс >= amount, либо отказ.
   const debit = await prisma.client.updateMany({
@@ -2764,6 +2845,9 @@ clientRouter.get("/subscription/all", async (req, res) => {
     extraDevices: number;
     /** суммарная цена за все доп. устройства на 30 дней. */
     extraDevicesMonthlyPrice: number;
+    /** для триальных подписок — тарифы, в которые
+     *  можно конвертировать (помимо тарифа триала). UI показывает их при продлении. */
+    convertTariffIds: string[];
   };
 
   const allSubs = await prisma.subscription.findMany({
@@ -2783,6 +2867,7 @@ clientRouter.get("/subscription/all", async (req, res) => {
       extraDevices: true,
       extraDevicesMonthlyPrice: true,
       tariff: { select: { id: true, name: true, menuEmoji: true } },
+      trial: { select: { convertTariffIds: true } },
     },
     orderBy: { subscriptionIndex: "asc" },
   });
@@ -2820,6 +2905,13 @@ clientRouter.get("/subscription/all", async (req, res) => {
       tariffMenuEmoji: sub.tariff?.menuEmoji?.trim() || null,
       extraDevices: sub.extraDevices ?? 0,
       extraDevicesMonthlyPrice: sub.extraDevicesMonthlyPrice ?? 0,
+      convertTariffIds: (() => {
+        if (!sub.trialId || !sub.trial?.convertTariffIds) return [];
+        try {
+          const parsed = JSON.parse(sub.trial.convertTariffIds) as unknown;
+          return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
+        } catch { return []; }
+      })(),
     });
   }
 
@@ -7189,6 +7281,8 @@ publicConfigRouter.get("/tariffs", async (req, res) => {
           name: c.name,
           emojiKey: c.emojiKey ?? null,
           emoji,
+          // UI показывает предупреждение о конвертации при покупке из single-категории.
+          singleSubscriptionMode: c.singleSubscriptionMode,
           tariffs: c.tariffs.map((t) => tariffToJson(t, markupPct)),
         };
       }),

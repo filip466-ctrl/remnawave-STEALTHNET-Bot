@@ -26,7 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Pencil, Trash2, Ban, ShieldCheck, Wifi, Ticket, KeyRound, Search,
   Copy, Check, Smartphone, Activity, User, Users, HardDrive, Link,
-  RefreshCw, Loader2, Package, Gift, Coins, MailX, MailCheck, RotateCw, Plus,
+  RefreshCw, Loader2, Package, Gift, Coins, MailX, MailCheck, RotateCw, Plus, Zap,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -2277,6 +2277,18 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
   const { t } = useTranslation();
   const [data, setData] = useState<import("@/lib/api").ClientSubsOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  // ручное продление конкретной подписки (компенсация/бонус).
+  const [extendFor, setExtendFor] = useState<{ subId: string; label: string } | null>(null);
+  const [extendDays, setExtendDays] = useState<number>(30);
+  const [extendNote, setExtendNote] = useState("");
+  const [extendBusy, setExtendBusy] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
+  const [extendDone, setExtendDone] = useState<string | null>(null);
+  // привязка существующего Remna-юзера как подписки клиента.
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachQuery, setAttachQuery] = useState("");
+  const [attachBusy, setAttachBusy] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -2287,6 +2299,45 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
   }, [token, clientId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function grantExtend() {
+    if (!extendFor || extendDays < 1) return;
+    setExtendBusy(true);
+    setExtendError(null);
+    try {
+      const r = await api.adminGrantExtendSubscription(token, extendFor.subId, {
+        customDurationDays: extendDays,
+        note: extendNote.trim() || undefined,
+      });
+      setExtendDone(`Подписка продлена на ${r.tariff.durationDays} дн. (${r.tariff.name})`);
+      setExtendFor(null);
+      setExtendNote("");
+      load();
+      setTimeout(() => setExtendDone(null), 4000);
+    } catch (e) {
+      setExtendError(e instanceof Error ? e.message : "Ошибка продления");
+    } finally {
+      setExtendBusy(false);
+    }
+  }
+
+  async function attachRemna() {
+    if (!attachQuery.trim()) return;
+    setAttachBusy(true);
+    setAttachError(null);
+    try {
+      const r = await api.adminAttachRemnaSubscription(token, clientId, { query: attachQuery.trim() });
+      setExtendDone(`Remna-юзер привязан как подписка #${r.subscriptionIndex}`);
+      setAttachOpen(false);
+      setAttachQuery("");
+      load();
+      setTimeout(() => setExtendDone(null), 4000);
+    } catch (e) {
+      setAttachError(e instanceof Error ? e.message : "Ошибка привязки");
+    } finally {
+      setAttachBusy(false);
+    }
+  }
 
   if (loading) return <p className="text-sm text-muted-foreground">{t("admin.clients.loading_short", "Загрузка…")}</p>;
   if (!data || data.items.length === 0) return null;
@@ -2303,10 +2354,20 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
           <Package className="h-4 w-4" />
           {t("admin.clients.subs_overview", "Подписки клиента")} ({data.items.length})
         </h3>
-        <div className="ml-auto flex flex-wrap gap-3 text-[11px]">
+        <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px]">
           <span className="text-green-500">✓ ACTIVE: {activeCount}</span>
           <span className="text-muted-foreground">📱 Devices: {totalDevices}</span>
           <span className="text-muted-foreground">📊 Traffic: {formatTrafficBytes(totalTrafficUsed)}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 gap-1 text-[10px]"
+            title="Привязать существующего Remna-юзера как подписку клиента"
+            onClick={() => { setAttachOpen(true); setAttachError(null); }}
+          >
+            <Link className="h-3 w-3" />
+            Привязать Remna
+          </Button>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={load}>
             <RefreshCw className="h-3 w-3" />
           </Button>
@@ -2324,7 +2385,8 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
               <th className="text-left py-2 pr-2 font-medium">{t("admin.clients.expires", "Истекает")}</th>
               <th className="text-right py-2 pr-2 font-medium">{t("admin.clients.traffic", "Трафик")}</th>
               <th className="text-right py-2 pr-2 font-medium">{t("admin.clients.devices", "HWID")}</th>
-              <th className="text-right py-2 font-medium">Squads</th>
+              <th className="text-right py-2 pr-2 font-medium">Squads</th>
+              <th className="text-right py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -2393,8 +2455,27 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
                   <td className="py-2 pr-2 text-right">
                     {it.remna ? `${it.remna.deviceCount} / ${it.remna.hwidDeviceLimit ?? "∞"}` : "—"}
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 pr-2 text-right">
                     {it.remna?.activeSquadsCount ?? 0}
+                  </td>
+                  <td className="py-2 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 gap-1 text-[10px] text-primary hover:bg-primary/10"
+                      title="Продлить подписку вручную (компенсация/бонус)"
+                      onClick={() => {
+                        setExtendFor({
+                          subId: it.subscriptionId,
+                          label: `${isPrimary ? "Главная" : `#${it.subscriptionIndex}`}${it.tariffName ? ` — ${it.tariffName}` : ""}`,
+                        });
+                        setExtendDays(30);
+                        setExtendError(null);
+                      }}
+                    >
+                      <Zap className="h-3 w-3" />
+                      Продлить
+                    </Button>
                   </td>
                 </tr>
               );
@@ -2403,9 +2484,129 @@ function ClientSubsOverviewBlock({ clientId, token }: { clientId: string; token:
         </table>
       </div>
 
+      {extendDone && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500 font-medium">
+          ✓ {extendDone}
+        </div>
+      )}
+
       <div className="text-[10px] text-muted-foreground italic">
         {t("admin.clients.overview_hint", "Ниже — детали и настройки главной подписки. Управление конкретной подпиской — в карточке подписки.")}
       </div>
+
+      {/* привязка существующего Remna-юзера */}
+      <Dialog open={attachOpen} onOpenChange={(o) => { if (!o && !attachBusy) setAttachOpen(false); }}>
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-emerald-500/5 border border-white/10 flex items-center justify-center shadow-inner">
+                <Link className="h-4 w-4 text-emerald-500" />
+              </div>
+              Привязать Remna-юзера
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Подписка клиента на уже существующего юзера панели Remnawave — новый юзер не создаётся.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Username или UUID Remna-юзера</Label>
+              <Input
+                value={attachQuery}
+                onChange={(e) => setAttachQuery(e.target.value)}
+                placeholder="например: alice_1 или 6f3c…-uuid"
+                className="rounded-xl font-mono"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Срок подписки подтянется из Remna, TG/email клиента привяжутся к Remna-юзеру.
+              Один Remna-юзер можно привязать только к одной подписке.
+            </p>
+            {attachError && (
+              <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive font-medium">
+                {attachError}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setAttachOpen(false)} disabled={attachBusy}>Отмена</Button>
+              <Button size="sm" onClick={attachRemna} disabled={attachBusy || !attachQuery.trim()} className="gap-1.5 rounded-xl">
+                {attachBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+                Привязать
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* мини-диалог ручного продления подписки */}
+      <Dialog open={!!extendFor} onOpenChange={(o) => { if (!o && !extendBusy) setExtendFor(null); }}>
+        <DialogContent className="bg-background/85 backdrop-blur-3xl border-white/10 rounded-[2rem] max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-primary/25 to-primary/5 border border-white/10 flex items-center justify-center shadow-inner">
+                <Zap className="h-4 w-4 text-primary" />
+              </div>
+              Продлить подписку
+            </DialogTitle>
+            <DialogDescription className="text-xs">{extendFor?.label}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Срок продления (дней)</Label>
+              <div className="flex gap-2">
+                {[7, 30, 90, 365].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setExtendDays(d)}
+                    className={cn(
+                      "flex-1 rounded-xl border px-2 py-2 text-xs font-bold transition-all",
+                      extendDays === d
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-white/10 bg-white/[0.03] text-muted-foreground hover:border-white/25",
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                min={1}
+                max={3650}
+                value={extendDays}
+                onChange={(e) => setExtendDays(Math.max(1, Math.min(3650, Number(e.target.value) || 1)))}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Заметка (видна только админам)</Label>
+              <Input
+                value={extendNote}
+                onChange={(e) => setExtendNote(e.target.value)}
+                placeholder="Например: компенсация за простой"
+                className="rounded-xl"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Продление по тарифу подписки, бесплатно (admin grant): дни добавятся к текущему сроку,
+              доп. устройства сохранятся, клиент получит уведомление в Telegram.
+            </p>
+            {extendError && (
+              <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive font-medium">
+                {extendError}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setExtendFor(null)} disabled={extendBusy}>Отмена</Button>
+              <Button size="sm" onClick={grantExtend} disabled={extendBusy || extendDays < 1} className="gap-1.5 rounded-xl">
+                {extendBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                Продлить на {extendDays} дн.
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

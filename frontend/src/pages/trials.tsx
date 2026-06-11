@@ -205,6 +205,9 @@ function TrialFormDialog({
   const [enabled, setEnabled] = useState(trial?.enabled ?? true);
   const [sortOrder, setSortOrder] = useState<number>(trial?.sortOrder ?? 0);
   const [description, setDescription] = useState(trial?.description ?? "");
+  // тарифы, в которые можно конвертировать триал после
+  // пробного периода (переход на их сквады). Пусто — только тариф триала.
+  const [convertIds, setConvertIds] = useState<string[]>(trial?.convertTariffIds ?? []);
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -235,6 +238,8 @@ function TrialFormDialog({
         enabled,
         sortOrder,
         description: description.trim() || null,
+        // сам тариф триала всегда доступен — храним только дополнительные.
+        convertTariffIds: convertIds.filter((id) => id !== tariffId),
       };
       if (mode === "edit" && trial) {
         await api.updateTrial(token, trial.id, payload);
@@ -327,6 +332,39 @@ function TrialFormDialog({
           />
           <p className="text-[10px] text-muted-foreground">
             Если задан — на время триала клиент получит именно столько ГБ. При конвертации в платную подписку выставляется полный лимит из тарифа.
+          </p>
+        </div>
+
+        {/* тарифы для конвертации триала (переход на их сквады). */}
+        <div className="grid gap-1.5">
+          <Label className="text-xs">
+            Конвертация после триала <span className="text-[10px] opacity-60">в какие тарифы можно перейти</span>
+          </Label>
+          <div className="flex flex-wrap gap-1.5">
+            {tariffs.filter((t) => t.id !== tariffId).map((t) => {
+              const on = convertIds.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setConvertIds((prev) => on ? prev.filter((x) => x !== t.id) : [...prev, t.id])}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                    on
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-input bg-background text-muted-foreground hover:border-primary/30"
+                  }`}
+                >
+                  {on ? "✓ " : ""}{t.categoryName} — {t.name}
+                </button>
+              );
+            })}
+            {tariffs.filter((t) => t.id !== tariffId).length === 0 && (
+              <span className="text-[11px] text-muted-foreground">Других тарифов нет.</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            После пробного периода клиент сможет перейти на выбранные тарифы (сквады и трафик
+            обновятся под новый тариф). Тариф самого триала доступен всегда. Пусто — только он.
           </p>
         </div>
 

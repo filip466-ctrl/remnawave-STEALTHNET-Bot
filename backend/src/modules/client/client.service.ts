@@ -142,6 +142,10 @@ const SYSTEM_CONFIG_KEYS = [
   "gift_intro_text", // T11: приглашение на экране «Подарить подписку» (скрин 11)
   "bot_devices_text", // текст шапки экрана «📱 Мои устройства»
   "bot_instruction_fallback_text", // подсказка «если инструкция не открылась»
+  "bot_extra_options_text", // текст экрана «📦 Дополнительные опции» (был захардкожен в боте)
+  "bot_gift_url_note", // приписка под ссылкой подписки при активации подарка (была захардкожена)
+  // заявки на вывод реф. баланса: вкл/выкл + мин. сумма (была захардкожена 3000₽)
+  "withdrawals_enabled", "withdrawal_min_amount",
   // Приветственное сообщение бота (показывается при /start, до главного меню)
   "bot_welcome_enabled", "bot_welcome_text", "bot_welcome_image", "bot_welcome_show_once",
   // Применять выбранный дизайн (Stealth) и в обычном браузере, не только в Telegram Mini App
@@ -733,6 +737,14 @@ async function loadSystemConfigFromDb() {
     giftIntroText: (map.gift_intro_text ?? "").trim() || null,
     botDevicesText: (map.bot_devices_text ?? "").trim() || null,
     botInstructionFallbackText: (map.bot_instruction_fallback_text ?? "").trim() || null,
+    botExtraOptionsText: (map.bot_extra_options_text ?? "").trim() || null,
+    botGiftUrlNote: (map.bot_gift_url_note ?? "").trim() || null,
+    // дефолт true (фича существовала всегда) — выключение явное.
+    withdrawalsEnabled: map.withdrawals_enabled !== "false" && map.withdrawals_enabled !== "0",
+    withdrawalMinAmount: (() => {
+      const n = Number(map.withdrawal_min_amount);
+      return Number.isFinite(n) && n > 0 ? n : 3000;
+    })(),
     videoInstructionsEnabled: map.video_instructions_enabled === "true" || map.video_instructions_enabled === "1",
     videoInstructions: (() => {
       try { return JSON.parse(map.video_instructions || "[]") as { id: string; title: string; telegramFileId: string; sortOrder: number }[]; } catch { return []; }
@@ -1055,6 +1067,18 @@ function hasLeadingEmoji(label: string): boolean {
 /** Публичный конфиг для сайта/бота (без паролей и секретов). botButtons с подставленными эмодзи.
  * v5.0.0: параметр forCloneBot оставлен как опциональный stub после выпила multi-bot.
  * Раньше тут применялась наценка клона (markupPercent), теперь всегда 0. */
+/**
+ * Единый критерий «SMTP настроен» для решения direct-привязки vs верификации почты.
+ *
+ * фронт (онбординг) читал smtpConfigured из публичного
+ * конфига (host && port && fromEmail), а /link-email-direct считал по-своему —
+ * с дефолтом порта 587. При незаполненном порте фронт шёл в direct, а бэк отвечал
+ * «Требуется верификация» — юзер упирался в тупик. Критерий обязан совпадать.
+ */
+export function isSystemSmtpConfigured(cfg: { smtpHost?: string | null; smtpPort?: number | null; smtpFromEmail?: string | null }): boolean {
+  return Boolean(cfg.smtpHost?.trim() && cfg.smtpPort && cfg.smtpFromEmail?.trim());
+}
+
 export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | null; username?: string | null; token?: string | null } | null) {
   const full = await getSystemConfig();
   const markupPct = 0;
@@ -1207,7 +1231,7 @@ export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | 
     // фронту нужен флаг — настроен ли SMTP.
     // Если SMTP не настроен или skipEmailVerification=true → email привязывается
     // мгновенно (без письма) через POST /client/link-email-direct.
-    smtpConfigured: Boolean(full.smtpHost?.trim() && full.smtpPort && full.smtpFromEmail?.trim()),
+    smtpConfigured: isSystemSmtpConfigured(full),
     useRemnaSubscriptionPage: full.useRemnaSubscriptionPage ?? false,
     aiChatEnabled: full.aiChatEnabled ?? true,
     trialEnabled,
@@ -1249,6 +1273,10 @@ export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | 
     giftIntroText: (full as { giftIntroText?: string | null }).giftIntroText ?? null,
     botDevicesText: (full as { botDevicesText?: string | null }).botDevicesText ?? null,
     botInstructionFallbackText: (full as { botInstructionFallbackText?: string | null }).botInstructionFallbackText ?? null,
+    botExtraOptionsText: (full as { botExtraOptionsText?: string | null }).botExtraOptionsText ?? null,
+    botGiftUrlNote: (full as { botGiftUrlNote?: string | null }).botGiftUrlNote ?? null,
+    withdrawalsEnabled: (full as { withdrawalsEnabled?: boolean }).withdrawalsEnabled ?? true,
+    withdrawalMinAmount: (full as { withdrawalMinAmount?: number }).withdrawalMinAmount ?? 3000,
     videoInstructionsEnabled: full.videoInstructionsEnabled ?? false,
     videoInstructions: full.videoInstructionsEnabled ? (full.videoInstructions ?? []) : [],
     ticketsEnabled: (full as { ticketsEnabled?: boolean }).ticketsEnabled ?? false,

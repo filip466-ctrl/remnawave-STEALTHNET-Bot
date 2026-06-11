@@ -163,6 +163,13 @@ export async function getPublicConfig(): Promise<{
   botDevicesText?: string | null;
   /** подсказка «если инструкция не открылась». */
   botInstructionFallbackText?: string | null;
+  /** редактируемый текст экрана «📦 Дополнительные опции». */
+  botExtraOptionsText?: string | null;
+  /** приписка под ссылкой подписки при активации подарка. */
+  botGiftUrlNote?: string | null;
+  /** заявки на вывод реф. баланса: вкл/выкл + мин. сумма. */
+  withdrawalsEnabled?: boolean;
+  withdrawalMinAmount?: number;
   videoInstructionsEnabled?: boolean;
   videoInstructions?: { id: string; title: string; telegramFileId: string; sortOrder: number }[];
   ticketsEnabled?: boolean;
@@ -556,6 +563,24 @@ export async function toggleAutoRenew(
 /** Активировать триал */
 export async function activateTrial(token: string): Promise<{ message: string }> {
   return fetchJson("/api/client/trial", { method: "POST", body: {}, token });
+}
+
+/** Превью конвертации (режим «одна подписка из категории»):
+ * узнаём до оплаты, обновит ли покупка существующую подписку. */
+export async function tariffConversionPreview(
+  token: string,
+  params: { tariffId: string; priceOptionId?: string }
+): Promise<{
+  willConvert: boolean;
+  subscription?: { id: string; index: number; tariffName: string | null; expireAt: string | null; isTrial: boolean };
+  remainingDays?: number;
+  convertedDays?: number;
+  purchasedDays?: number;
+  totalDays?: number;
+}> {
+  const q = new URLSearchParams({ tariffId: params.tariffId });
+  if (params.priceOptionId) q.set("priceOptionId", params.priceOptionId);
+  return fetchJson(`/api/client/tariff-conversion-preview?${q.toString()}`, { token });
 }
 
 /** Оплата тарифа или прокси-тарифа балансом */
@@ -1087,6 +1112,9 @@ export type SubscriptionListItem = {
   extraDevices?: number;
   /** цена за все доп. устройства на 30 дней. */
   extraDevicesMonthlyPrice?: number;
+  /** для триальных — тарифы, в которые можно конвертировать
+   *  (переход на их сквады). Пусто — только тариф триала. */
+  convertTariffIds?: string[];
 };
 
 /** Убрать ВСЕ доп. устройства с подписки (extraDevices=0, hwid kick в Remna). */

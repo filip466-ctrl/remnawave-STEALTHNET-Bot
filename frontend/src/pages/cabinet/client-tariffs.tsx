@@ -7,7 +7,7 @@ import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetDesign } from "@/lib/use-cabinet-design";
 import { StealthTariffs } from "@/pages/cabinet/stealth/stealth-tariffs";
 import { api } from "@/lib/api";
-import type { PublicTariffCategory } from "@/lib/api";
+import type { PublicTariffCategory, TariffConversionPreview } from "@/lib/api";
 import { formatRuDays } from "@/lib/i18n";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,10 @@ function ClassicTariffsPage() {
   const [payModal, setPayModal] = useState<{ tariff: TariffForPay } | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  // превью конвертации (режим «одна подписка из категории»):
+  // показывается в модалке оплаты, чтобы юзер ДО оплаты понимал, что покупка
+  // обновит существующую подписку, а не создаст вторую.
+  const [convPreview, setConvPreview] = useState<TariffConversionPreview | null>(null);
   const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string; paymentId?: string } | null>(null);
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
@@ -136,7 +140,7 @@ function ClassicTariffsPage() {
 
   // T-unify-cabinet (30.05.2026, WolfVPN): мульти-подписки как в боте.
   // Список подписок клиента — нужен для режима продления (берём tariffId подписки).
-  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null; extraDevices: number; extraDevicesMonthlyPrice: number }[]>([]);
+  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null; extraDevices: number; extraDevicesMonthlyPrice: number; isTrial: boolean; convertTariffIds: string[] }[]>([]);
   const [buyMode, setBuyMode] = useState<{ kind: "new" } | { kind: "extend"; subId: string; label: string }>({ kind: "new" });
 
   // T-unify-cabinet: ?extend=<subId> — пришли с кнопки «Продлить» конкретной подписки.
@@ -173,9 +177,14 @@ function ClassicTariffsPage() {
 
   // T-unify-cabinet (30.05.2026, WolfVPN): в режиме продления (?extend) показываем в каталоге
   // ТОЛЬКО тариф продлеваемой подписки — продлить можно строго тем же тарифом (как бот pay_tariff_ext).
-  const displayTariffs = (extendTarget?.tariffId)
+  // для ТРИАЛЬНОЙ подписки дополнительно показываем тарифы из
+  // настройки триала convertTariffIds — переход с пробного сквада на боевой.
+  const extendAllowedTariffIds = extendTarget?.tariffId
+    ? [extendTarget.tariffId, ...(extendTarget.isTrial ? extendTarget.convertTariffIds : [])]
+    : null;
+  const displayTariffs = extendAllowedTariffIds
     ? tariffs
-        .map((c) => ({ ...c, tariffs: c.tariffs.filter((tf) => tf.id === extendTarget.tariffId) }))
+        .map((c) => ({ ...c, tariffs: c.tariffs.filter((tf) => extendAllowedTariffIds.includes(tf.id)) }))
         .filter((c) => c.tariffs.length > 0)
     : tariffs;
 
@@ -279,6 +288,8 @@ function ClassicTariffsPage() {
           tariffId: it.tariffId ?? null,
           extraDevices: it.extraDevices ?? 0,
           extraDevicesMonthlyPrice: it.extraDevicesMonthlyPrice ?? 0,
+          isTrial: Boolean(it.trialId),
+          convertTariffIds: it.convertTariffIds ?? [],
         };
       });
       setUserSubs(list);
@@ -286,6 +297,24 @@ function ClassicTariffsPage() {
   }, [token]);
 
   useEffect(() => { loadUserSubs(); }, [loadUserSubs]);
+
+  // Подгружаем превью конвертации при открытии модалки оплаты (только для
+  // обычной покупки — явное продление и так работает с конкретной подпиской).
+  useEffect(() => {
+    if (!payModal || !token || buyMode.kind !== "new") {
+      setConvPreview(null);
+      return;
+    }
+    let alive = true;
+    api.clientTariffConversionPreview(token, {
+      tariffId: payModal.tariff.id,
+      priceOptionId: selectedPriceOptionId ?? undefined,
+    })
+      .then((p) => { if (alive) setConvPreview(p); })
+      .catch(() => { if (alive) setConvPreview(null); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payModal, token, buyMode.kind]);
 
   // Запрос на покупку тарифа: открываем единую модалку.
   function requestBuy(tariff: TariffForPay) {
@@ -688,6 +717,74 @@ function ClassicTariffsPage() {
             </div>
           )}
         </div>
+
+        {/* переход с триала на другой тариф: сквады/трафик заменятся. */}
+        {buyMode.kind === "extend" && extendTarget?.isTrial && extendTarget.tariffId && tariff.id !== extendTarget.tariffId && (
+          <div className={cn(
+            "relative overflow-hidden border rounded-2xl p-4",
+            "bg-violet-500/[0.06] border-violet-500/20",
+          )}>
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-transparent to-fuchsia-500/5 pointer-events-none" />
+            <div className="relative z-10 flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-violet-500/15 shrink-0">
+                <RefreshCw className="h-4 w-4 text-violet-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold">Переход с пробного тарифа</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Пробная подписка станет платной «<b>{tariff.name}</b>»: сервера и лимит
+                  трафика обновятся под новый тариф, отсчёт срока начнётся с момента оплаты.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Конвертация (режим «одна подписка из категории»): покупка обновит
+            существующую подписку, а не создаст вторую. Показываем расчёт. */}
+        <AnimatePresence>
+          {convPreview?.willConvert && convPreview.subscription && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className={cn(
+                "relative overflow-hidden border",
+                isMobileOrMiniapp ? "rounded-2xl p-4 bg-violet-500/[0.08] border-violet-500/20" : "rounded-2xl p-4 bg-violet-500/[0.06] border-violet-500/20",
+              )}>
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-transparent to-fuchsia-500/5 pointer-events-none" />
+                <div className="relative z-10 flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-violet-500/15 shrink-0">
+                    <RefreshCw className="h-4 w-4 text-violet-400" />
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-bold">
+                      {convPreview.subscription.isTrial
+                        ? "Пробная подписка станет платной"
+                        : `Подписка #${convPreview.subscription.index} будет обновлена`}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Покупка не создаст вторую подписку — она обновит
+                      {convPreview.subscription.tariffName ? <> «<b>{convPreview.subscription.tariffName}</b>»</> : " текущую"}
+                      {" "}до нового тарифа.
+                      {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 ? (
+                        <> Остаток <b>{formatRuDays(convPreview.remainingDays ?? 0)}</b> превратится в{" "}
+                        <b className="text-violet-400">{formatRuDays(convPreview.convertedDays ?? 0)}</b> по цене нового тарифа.</>
+                      ) : null}
+                    </p>
+                    {(convPreview.totalDays ?? 0) > 0 && (
+                      <p className="text-xs font-bold text-violet-400">
+                        Итого: {formatRuDays(convPreview.totalDays ?? 0)} нового тарифа
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Промокод */}
         <div className={cn("space-y-3", !isMobileOrMiniapp && "bg-background/40 border border-border/50 rounded-2xl p-4 focus-within:border-primary/50 focus-within:bg-background/60 hover:border-primary/30 transition-all duration-300 relative overflow-hidden group")}>

@@ -417,6 +417,11 @@ model TariffCategory {
   name      String
   emojiKey  String?  @map("emoji_key") // ordinary | premium — подставляется эмодзи из настройки category_emojis
   sortOrder Int      @default(0) @map("sort_order")
+  // режим «одна подписка из категории».
+  // При покупке тарифа из такой категории, если у клиента уже есть подписка с тарифом
+  // этой категории — она КОНВЕРТИРУЕТСЯ (pro-rata перенос остатка дней + смена тарифа),
+  // а не создаётся вторая. Единый код для любой подписки (включая index 0).
+  singleSubscriptionMode Boolean @default(false) @map("single_subscription_mode")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1060,6 +1065,11 @@ model Trial {
   enabled           Boolean  @default(true)
   sortOrder         Int      @default(0) @map("sort_order")
   description       String?  @db.Text // опц. описание для клиента (что включено / условия)
+  /// тарифы, в которые можно конвертировать триал после
+  /// пробного периода (JSON-массив tariffId). null/пусто — только тариф триала.
+  /// При конвертации сквады ЗАМЕНЯЮТСЯ на сквады целевого тарифа (переход с
+  /// триального сквада на боевой).
+  convertTariffIds  String?  @map("convert_tariff_ids")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

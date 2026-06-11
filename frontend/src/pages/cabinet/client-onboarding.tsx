@@ -290,9 +290,21 @@ export function ClientOnboardingPage() {
         await api.clientLinkEmailRequest(token, { email: value });
         setEmailSent(true);
       } else {
-        await api.clientLinkEmailDirect(token, { email: value });
-        await refreshProfile();
-        goTo(nextStepAfter("email"));
+        try {
+          await api.clientLinkEmailDirect(token, { email: value });
+          await refreshProfile();
+          goTo(nextStepAfter("email"));
+        } catch (e) {
+          // страховка от рассинхрона с бэком: если direct
+          // отвечает «Требуется верификация» (конфиг SMTP изменился / закэширован),
+          // не показываем юзеру тупик — переключаемся на письмо со ссылкой.
+          if (e instanceof Error && /верификац/i.test(e.message)) {
+            await api.clientLinkEmailRequest(token, { email: value });
+            setEmailSent(true);
+          } else {
+            throw e;
+          }
+        }
       }
     } catch (e) {
       setEmailError(e instanceof Error ? e.message : "Не удалось сохранить email");

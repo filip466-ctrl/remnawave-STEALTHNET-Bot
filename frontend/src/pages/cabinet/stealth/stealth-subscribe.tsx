@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Laptop, Download, Key, Copy, Check, ArrowRight, Smartphone, MonitorSmartphone, Apple, Tv, ExternalLink, Plus } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api, type SubscriptionPageConfig } from "@/lib/api";
@@ -48,6 +48,18 @@ function platformIcon(p: Platform) {
     case "ios": return Apple;
     case "linux": return Tv;
   }
+}
+
+/** Unwrap Remnawave-обёртки (.response / .data.response) до плоского payload. */
+function unwrapSubPayload(sub: unknown): Record<string, unknown> | null {
+  if (!sub || typeof sub !== "object") return null;
+  const o = sub as Record<string, unknown>;
+  if (o.response && typeof o.response === "object") return o.response as Record<string, unknown>;
+  if (o.data && typeof o.data === "object") {
+    const d = o.data as Record<string, unknown>;
+    if (d.response && typeof d.response === "object") return d.response as Record<string, unknown>;
+  }
+  return o;
 }
 
 function getSubscriptionUrl(sub: unknown): string | null {
@@ -108,6 +120,7 @@ function buildDeeplinkHref(rawLink: string, subUrl: string, baseUrl: string, isM
 export function StealthSubscribe() {
   const { state } = useClientAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
   const [platform, setPlatform] = useState<Platform>(() => detectPlatform());
@@ -115,10 +128,19 @@ export function StealthSubscribe() {
   const [selectedAppIdx, setSelectedAppIdx] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  const [subUrl, setSubUrl] = useState<string | null>(null);
+  // мультиподписки. Грузим ВСЕ подписки клиента (единый код
+  // для любой — без спецслучаев на «нулевую») и даём выбрать, какую настраивать.
+  // ?sub=<id> (с дашборда) — предвыбор конкретной подписки.
+  const [subsList, setSubsList] = useState<{ id: string; label: string; emoji: string | null; url: string | null; isActive: boolean }[]>([]);
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
   const [pageConfig, setPageConfig] = useState<SubscriptionPageConfig | null>(null);
   const [publicAppUrl, setPublicAppUrl] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  const subUrl = useMemo(
+    () => subsList.find((s) => s.id === selectedSubId)?.url ?? null,
+    [subsList, selectedSubId],
+  );
 
   const isMiniapp = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -131,17 +153,37 @@ export function StealthSubscribe() {
     let alive = true;
     setLoading(true);
     Promise.all([
-      api.clientSubscription(state.token).catch(() => null),
+      api.clientAllSubscriptions(state.token).catch((): { items: [] } => ({ items: [] })),
       api.getPublicSubscriptionPageConfig().catch(() => null),
       api.getPublicConfig().catch(() => null),
-    ]).then(([sub, cfg, pub]) => {
+    ]).then(([all, cfg, pub]) => {
       if (!alive) return;
-      setSubUrl(getSubscriptionUrl(sub?.subscription));
+      const list = (all.items ?? []).map((it) => {
+        const raw = unwrapSubPayload(it.subscription);
+        const expireAt = typeof raw?.expireAt === "string" ? new Date(raw.expireAt as string) : null;
+        const idx = it.subscriptionIndex ?? 0;
+        return {
+          id: it.id,
+          label: it.tariffDisplayName?.trim() || `Подписка #${idx}`,
+          emoji: it.tariffMenuEmoji ?? null,
+          url: getSubscriptionUrl(it.subscription),
+          isActive: !!expireAt && !Number.isNaN(expireAt.getTime()) && expireAt.getTime() > Date.now(),
+        };
+      }).filter((s) => s.url);
+      setSubsList(list);
+      // Предвыбор: ?sub из URL → первая активная → первая.
+      const requested = searchParams.get("sub");
+      const preselect = (requested && list.find((s) => s.id === requested))
+        || list.find((s) => s.isActive)
+        || list[0]
+        || null;
+      setSelectedSubId(preselect?.id ?? null);
       setPageConfig(cfg);
       const u = (pub as { publicAppUrl?: string | null } | null)?.publicAppUrl ?? "";
       setPublicAppUrl(u || (typeof window !== "undefined" ? window.location.origin : ""));
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.token]);
 
   const apps: AppEntry[] = useMemo(() => {
@@ -218,6 +260,34 @@ export function StealthSubscribe() {
             <h2 className="text-2xl font-bold">Настройка на {PLATFORM_LABELS[platform]}</h2>
             <p className="text-sm text-zinc-400">3 шага для завершения настройки</p>
           </div>
+
+          {/* выбор подписки (если их несколько) — какую настраиваем */}
+          {subsList.length > 1 && (
+            <div className="space-y-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 text-center">Какую подписку настроить</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                {subsList.map((s) => {
+                  const active = s.id === selectedSubId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSubId(s.id)}
+                      className={cn(
+                        "shrink-0 rounded-2xl border px-3.5 py-2 text-xs font-bold transition-all inline-flex items-center gap-2",
+                        active
+                          ? "border-rose-500 bg-rose-500/[0.1] text-white shadow-[0_0_20px_-6px_rgba(255,35,87,0.5)]"
+                          : "border-white/[0.08] bg-zinc-900/60 text-zinc-400 hover:border-white/20",
+                      )}
+                    >
+                      <span className={cn("h-1.5 w-1.5 rounded-full", s.isActive ? "bg-emerald-400" : "bg-zinc-600")} />
+                      {s.emoji ? `${s.emoji} ` : ""}{s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2.5">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 text-center">Выберите клиент</p>

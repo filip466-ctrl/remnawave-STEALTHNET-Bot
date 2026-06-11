@@ -24,10 +24,10 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Wallet, Bitcoin, Check, AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Wallet, Bitcoin, Check, AlertCircle, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
-import { api, type PublicTariffCategory, type PublicConfig } from "@/lib/api";
+import { api, type PublicTariffCategory, type PublicConfig, type TariffConversionPreview } from "@/lib/api";
 import { StadiumButton } from "@/components/stealth/stadium-button";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +71,13 @@ function fmtPricePerDay(n: number, currency: string) {
 export function StealthTariffs() {
   const { state, refreshProfile } = useClientAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // режим продления конкретной подписки (?extend=<subId> с дашборда).
+  // Механика как в основном кабинете: каталог фильтруется до тарифа подписки,
+  // оплата уходит с extendsSecondarySubId — единый код для любой подписки.
+  const extendParam = searchParams.get("extend");
+  const [extendTarget, setExtendTarget] = useState<{ id: string; label: string; tariffId: string | null; isTrial: boolean; convertTariffIds: string[] } | null>(null);
 
   const [categories, setCategories] = useState<PublicTariffCategory[]>([]);
   const [config, setConfig] = useState<PublicConfig | null>(null);
@@ -88,6 +95,8 @@ export function StealthTariffs() {
   const [selectedMethod, setSelectedMethod] = useState<PayMethod | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  // превью конвертации (режим «одна подписка из категории»).
+  const [convPreview, setConvPreview] = useState<TariffConversionPreview | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -118,7 +127,55 @@ export function StealthTariffs() {
     return () => { alive = false; };
   }, []);
 
-  const currentCat = categories.find((c) => c.id === selectedCatId);
+  // Подгружаем подписку для режима продления и предвыбираем её тариф.
+  useEffect(() => {
+    if (!extendParam || !state.token) { setExtendTarget(null); return; }
+    let alive = true;
+    api.clientAllSubscriptions(state.token).then((r) => {
+      if (!alive) return;
+      const it = (r.items ?? []).find((s) => s.id === extendParam);
+      if (!it) { setExtendTarget(null); return; }
+      const idx = it.subscriptionIndex ?? 0;
+      setExtendTarget({
+        id: it.id,
+        label: it.tariffDisplayName?.trim() || `Подписка #${idx}`,
+        tariffId: it.tariffId ?? null,
+        isTrial: Boolean(it.trialId),
+        convertTariffIds: it.convertTariffIds ?? [],
+      });
+    }).catch(() => { if (alive) setExtendTarget(null); });
+    return () => { alive = false; };
+  }, [extendParam, state.token]);
+
+  // В режиме продления каталог сужается до тарифа подписки (как в основном
+  // кабинете). Для триальной подписки добавляются тарифы из настройки триала
+  // convertTariffIds — переход с пробного сквада на боевой.
+  const displayCategories = useMemo(() => {
+    if (!extendTarget?.tariffId) return categories;
+    const allowed = [extendTarget.tariffId, ...(extendTarget.isTrial ? extendTarget.convertTariffIds : [])];
+    const filtered = categories
+      .map((c) => ({ ...c, tariffs: c.tariffs.filter((t) => allowed.includes(t.id)) }))
+      .filter((c) => c.tariffs.length > 0);
+    // Тариф подписки удалён из каталога — fallback на полный список.
+    return filtered.length > 0 ? filtered : categories;
+  }, [categories, extendTarget]);
+
+  // Предвыбор категории/тарифа подписки при входе в режим продления.
+  useEffect(() => {
+    if (!extendTarget?.tariffId || categories.length === 0) return;
+    const cat = categories.find((c) => c.tariffs.some((t) => t.id === extendTarget.tariffId));
+    const tariff = cat?.tariffs.find((t) => t.id === extendTarget.tariffId) as TariffLite | undefined;
+    if (!cat || !tariff) return;
+    setSelectedCatId(cat.id);
+    setSelectedTariffId(tariff.id);
+    const opts = tariff.priceOptions ?? [];
+    if (opts.length > 0) {
+      const def = opts.find((o) => o.durationDays === 30) ?? opts[0];
+      setSelectedPriceOptionId(def.id);
+    }
+  }, [extendTarget?.tariffId, categories]);
+
+  const currentCat = displayCategories.find((c) => c.id === selectedCatId);
   const currentTariff = currentCat?.tariffs.find((t) => t.id === selectedTariffId) as TariffLite | undefined;
   const priceOptions: PriceOption[] = currentTariff?.priceOptions ?? [];
   const currentOption = priceOptions.find((o) => o.id === selectedPriceOptionId);
@@ -149,9 +206,41 @@ export function StealthTariffs() {
     }
   }, [availableMethods, selectedMethod]);
 
+  // Свежий баланс: профиль мог быть не загружен/устаревшим — без этого тайл
+  // «Баланс» показывал 0 и решение о доступности оплаты было неверным.
+  useEffect(() => {
+    refreshProfile().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Balance available?
   const balance = state.client?.balance ?? 0;
   const canPayByBalance = balance >= totalPrice && totalPrice > 0;
+
+  // Если выбран «Баланс», а юзер переключился на тариф дороже остатка —
+  // мягко возвращаем первый доступный метод, чтобы не отправлять заведомо
+  // провальную оплату.
+  useEffect(() => {
+    if (selectedMethod?.kind === "balance" && !canPayByBalance) {
+      setSelectedMethod(availableMethods[0] ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canPayByBalance]);
+
+  // Превью конвертации: если тариф из single-категории и у клиента уже есть
+  // подписка этой категории — покупка обновит её, а не создаст вторую. Показываем
+  // юзеру расчёт до оплаты. В режиме явного продления (?extend) превью не нужно.
+  useEffect(() => {
+    if (!state.token || !selectedTariffId || extendTarget) { setConvPreview(null); return; }
+    let alive = true;
+    api.clientTariffConversionPreview(state.token, {
+      tariffId: selectedTariffId,
+      priceOptionId: selectedPriceOptionId ?? undefined,
+    })
+      .then((p) => { if (alive) setConvPreview(p); })
+      .catch(() => { if (alive) setConvPreview(null); });
+    return () => { alive = false; };
+  }, [state.token, selectedTariffId, selectedPriceOptionId, extendTarget]);
 
   async function applyPromo() {
     if (!state.token || !promoInput.trim()) return;
@@ -179,6 +268,9 @@ export function StealthTariffs() {
         tariffId: selectedTariffId,
         tariffPriceOptionId: selectedPriceOptionId,
         promoCode: promoApplied ?? undefined,
+        // режим продления конкретной подписки (?extend=) —
+        // оплата продлевает ИМЕННО её, а не создаёт новую.
+        ...(extendTarget ? { extendsSecondarySubId: extendTarget.id } : {}),
       };
       let url: string | null = null;
       if (selectedMethod.kind === "platega") {
@@ -232,10 +324,26 @@ export function StealthTariffs() {
 
   return (
     <div className="px-4 pt-2 space-y-4 pb-2">
+      {/* Режим продления: бейдж с подпиской, каталог сужен до её тарифа */}
+      {extendTarget && (
+        <div className="relative overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.07] p-3.5">
+          <div className="absolute inset-0 bg-gradient-to-r from-rose-500/10 to-transparent pointer-events-none" />
+          <div className="relative flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-rose-500/15 shrink-0">
+              <RefreshCw className="h-3.5 w-3.5 text-rose-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold">Продление подписки</p>
+              <p className="text-[11px] text-zinc-400 truncate">{extendTarget.label} — выберите срок и способ оплаты</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Category tabs (только если >1) */}
-      {categories.length > 1 && (
+      {displayCategories.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-          {categories.map((c) => {
+          {displayCategories.map((c) => {
             const active = c.id === selectedCatId;
             return (
               <button
@@ -325,18 +433,47 @@ export function StealthTariffs() {
         </div>
       </div>
 
+      {/* Конвертация: покупка из single-категории обновляет существующую подписку */}
+      {convPreview?.willConvert && convPreview.subscription && (
+        <div className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] p-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-transparent to-transparent pointer-events-none" />
+          <div className="relative flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-rose-500/15 shrink-0">
+              <RefreshCw className="h-4 w-4 text-rose-400" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-bold">
+                {convPreview.subscription.isTrial ? "Пробная подписка станет платной" : "Подписка будет обновлена"}
+              </p>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Покупка не создаст вторую подписку — она обновит
+                {convPreview.subscription.tariffName ? ` «${convPreview.subscription.tariffName}»` : " текущую"} до нового тарифа.
+                {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0
+                  ? ` Остаток ${convPreview.remainingDays} дн. превратится в ${convPreview.convertedDays} дн. по цене нового тарифа.`
+                  : ""}
+              </p>
+              {(convPreview.totalDays ?? 0) > 0 && (
+                <p className="text-xs font-bold text-rose-400">Итого: {convPreview.totalDays} дн. нового тарифа</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Promo */}
+      {/* min-w-0 на input обязателен: flex-item с дефолтным min-width:auto
+          не сжимался на узких экранах и выталкивал кнопку за край контейнера. */}
       <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/40 p-2 flex items-center gap-2">
         <input
           value={promoInput}
           onChange={(e) => { setPromoInput(e.target.value); setPromoMsg(null); }}
           placeholder="Введите промокод"
-          className="flex-1 bg-transparent px-3 py-2.5 text-sm placeholder-zinc-500 outline-none"
+          className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm placeholder-zinc-500 outline-none"
         />
         <button
           onClick={applyPromo}
           disabled={promoBusy || !promoInput.trim()}
-          className="rounded-xl bg-zinc-800/80 hover:bg-zinc-800 px-4 py-2 text-xs font-medium border border-white/[0.06] disabled:opacity-50 transition"
+          className="shrink-0 whitespace-nowrap rounded-xl bg-zinc-800/80 hover:bg-zinc-800 px-4 py-2 text-xs font-medium border border-white/[0.06] disabled:opacity-50 transition"
         >
           {promoBusy ? "..." : promoApplied ? <Check className="h-4 w-4 inline" /> : "Активировать"}
         </button>
@@ -368,16 +505,29 @@ export function StealthTariffs() {
               </button>
             );
           })}
-          {canPayByBalance && (
+          {/* Тайл «Баланс» виден всегда (раньше прятался при нехватке средств,
+              и юзеры думали, что оплаты с баланса в приложении нет вовсе). */}
+          {state.client && (
             <button
-              onClick={() => setSelectedMethod({ kind: "balance", label: `Баланс (${balance.toFixed(0)}${fmtPrice(0, currency).slice(-1)})`, icon: Wallet })}
+              onClick={() => canPayByBalance && setSelectedMethod({ kind: "balance", label: `Баланс (${balance.toFixed(0)}${fmtPrice(0, currency).slice(-1)})`, icon: Wallet })}
+              disabled={!canPayByBalance}
               className={cn(
-                "rounded-2xl border p-4 transition-all flex flex-col items-center gap-2",
-                selectedMethod?.kind === "balance" ? "bg-emerald-500/[0.08] border-emerald-500/30" : "bg-zinc-900/30 border-white/[0.06] hover:border-white/15",
+                "rounded-2xl border p-4 transition-all flex flex-col items-center gap-1.5",
+                selectedMethod?.kind === "balance"
+                  ? "bg-emerald-500/[0.08] border-emerald-500/30"
+                  : canPayByBalance
+                    ? "bg-zinc-900/30 border-white/[0.06] hover:border-white/15"
+                    : "bg-zinc-900/20 border-white/[0.04] opacity-60 cursor-not-allowed",
               )}
             >
-              <Wallet className={cn("h-5 w-5", selectedMethod?.kind === "balance" ? "text-emerald-400" : "text-zinc-500")} />
+              <Wallet className={cn("h-5 w-5", selectedMethod?.kind === "balance" ? "text-emerald-400" : canPayByBalance ? "text-zinc-500" : "text-zinc-600")} />
               <span className="text-[11px] font-bold uppercase tracking-wider">Баланс</span>
+              <span className={cn(
+                "text-[10px] font-medium tabular-nums",
+                canPayByBalance ? "text-emerald-400/90" : "text-zinc-500",
+              )}>
+                {canPayByBalance ? fmtPrice(balance, currency) : `${fmtPrice(balance, currency)} — не хватает`}
+              </span>
             </button>
           )}
         </div>

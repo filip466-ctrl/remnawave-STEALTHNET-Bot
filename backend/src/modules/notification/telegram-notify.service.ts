@@ -357,6 +357,35 @@ export async function notifyTariffActivated(clientId: string, paymentId: string)
 }
 
 /**
+ * алерт админам: платёж прошёл, а активация тарифа УПАЛА.
+ * Раньше в этом случае админ-группа получала обычное «📦 Оплата тарифа», клиент —
+ * «активирован», и проблема всплывала только когда клиент приходил в саппорт.
+ */
+export async function notifyTariffActivationFailed(clientId: string, paymentId: string, error: string): Promise<void> {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { telegramId: true, email: true, telegramUsername: true, id: true },
+  });
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    select: { amount: true, currency: true, provider: true, tariff: { select: { name: true } } },
+  });
+  const lines = [
+    `🚨 <b>Оплата прошла, но активация тарифа УПАЛА</b>`,
+    ``,
+    `👤 Клиент: ${escapeHtml(client ? formatClientLabel(client) : clientId)}`,
+  ];
+  if (client?.telegramId) lines.push(`🆔 TG ID: <code>${escapeHtml(client.telegramId)}</code>`);
+  if (payment?.tariff?.name) lines.push(`📋 Тариф: <b>${escapeHtml(payment.tariff.name)}</b>`);
+  if (payment?.amount != null) lines.push(`💵 Сумма: <b>${formatMoney(payment.amount, payment.currency ?? "RUB")}</b>`);
+  if (payment?.provider) lines.push(`🏦 Провайдер: ${escapeHtml(payment.provider)}`);
+  lines.push(`❌ Ошибка: <code>${escapeHtml(error.slice(0, 300))}</code>`);
+  lines.push(`🧾 Payment: <code>${escapeHtml(paymentId)}</code>`);
+  lines.push(`🕐 ${formatDate(new Date())}`);
+  await sendTelegramToAdminsForEvent("tariff_payment", lines.join("\n"));
+}
+
+/**
  * уведомление клиенту об успешной активации
  * extra-option (доп. устройства / трафик / серверы), после оплаты картой / криптой / etc.
  */

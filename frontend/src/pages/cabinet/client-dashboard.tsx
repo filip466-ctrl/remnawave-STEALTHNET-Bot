@@ -36,6 +36,7 @@ import { api } from "@/lib/api";
 import { formatRuDays } from "@/lib/i18n";
 import type { ClientPayment, ClientReferralStats } from "@/lib/api";
 import { TrialsPickerDialog } from "@/components/cabinet/trials-picker-dialog";
+import { ExtendSubscriptionDialog } from "@/components/payment/extend-subscription-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -150,6 +151,9 @@ function ClassicDashboardPage() {
   const [hasMultiTrials, setHasMultiTrials] = useState<boolean | null>(null);
   const [trialsPickerOpen, setTrialsPickerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // красивая модалка продления вместо редиректа в каталог
+  // (?extend=...). Открывается для ЛЮБОЙ подписки — единый механизм.
+  const [extendSubId, setExtendSubId] = useState<string | null>(null);
   const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
   // T-sec-devices (WolfVPN): кол-во устройств по каждой подписке (subscriptionId → count) — для доп.подписок.
@@ -404,11 +408,12 @@ function ClassicDashboardPage() {
       {/* T-expired-extend (WolfVPN, 2026-06-03): если главная подписка #0 истекла — даём продлить ИМЕННО её,
           а не только «Выбрать тариф». rootSubId есть всегда пока подписка #0 существует в БД (даже EXPIRED). */}
       {rootSubId && (
-        <Button className="gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-lg shadow-primary/30 hover:opacity-90 [&_svg]:self-center [&_span]:leading-none" asChild>
-          <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-2">
-            <RefreshCw className="h-4 w-4 shrink-0" />
-            <span className="inline-flex items-center leading-none">Продлить подписку #0</span>
-          </Link>
+        <Button
+          onClick={() => setExtendSubId(rootSubId)}
+          className="gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-lg shadow-primary/30 hover:opacity-90 [&_svg]:self-center [&_span]:leading-none"
+        >
+          <RefreshCw className="h-4 w-4 shrink-0" />
+          <span className="inline-flex items-center leading-none">Продлить подписку #0</span>
         </Button>
       )}
     </div>
@@ -423,6 +428,17 @@ function ClassicDashboardPage() {
       onActivated={handleTrialActivated}
     />
   );
+
+  // модалка продления подписки (любой — единый механизм) без
+  // редиректа в каталог. После балансовой оплаты обновляем данные дашборда.
+  const extendDialogNode = extendSubId ? (
+    <ExtendSubscriptionDialog
+      subId={extendSubId}
+      open
+      onClose={() => setExtendSubId(null)}
+      onPaidByBalance={() => setRefreshKey((k) => k + 1)}
+    />
+  ) : null;
 
   // T-pay-success-modal (WolfVPN): модалка успешной оплаты при возврате с платёжки — общая для mobile/desktop.
   const paySuccessModalNode = (
@@ -497,11 +513,13 @@ function ClassicDashboardPage() {
               <span className="truncate">{t("cabinet.dashboard.subscription_status")}</span>
             </span>
             {rootSubId && (
-              <Button size="sm" className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none" asChild>
-                <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
-                  <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                  <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
-                </Link>
+              <Button
+                size="sm"
+                onClick={() => setExtendSubId(rootSubId)}
+                className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none"
+              >
+                <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
               </Button>
             )}
           </h2>
@@ -636,14 +654,16 @@ function ClassicDashboardPage() {
                   </span>
                   <span className="truncate">Подписка #{sec.subscriptionIndex ?? ""}</span>
                 </span>
-                <Button size="sm" className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none" asChild>
-                  <Link to={`/cabinet/tariffs?extend=${sec.id}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
-                    <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                    <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
-                  </Link>
+                <Button
+                  size="sm"
+                  onClick={() => setExtendSubId(sec.id)}
+                  className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+                  <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
                 </Button>
               </h2>
-              
+
               <div className="space-y-4 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   {secHasActive ? (
@@ -894,6 +914,7 @@ function ClassicDashboardPage() {
       </div>
       {trialsPickerNode}
       {paySuccessModalNode}
+      {extendDialogNode}
       </>
     );
   }
@@ -990,11 +1011,13 @@ function ClassicDashboardPage() {
                 <span className="truncate">{t("cabinet.dashboard.my_subscription")}</span>
               </div>
               {rootSubId && (
-                <Button size="sm" className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" asChild>
-                  <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
-                    <RefreshCw className="h-4 w-4 shrink-0" />
-                    <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
-                  </Link>
+                <Button
+                  size="sm"
+                  onClick={() => setExtendSubId(rootSubId)}
+                  className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none"
+                >
+                  <RefreshCw className="h-4 w-4 shrink-0" />
+                  <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
                 </Button>
               )}
             </CardTitle>
@@ -1315,11 +1338,13 @@ function ClassicDashboardPage() {
                             Истекла
                           </span>
                         )}
-                        <Button size="sm" className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" asChild>
-                          <Link to={`/cabinet/tariffs?extend=${sec.id}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
-                            <RefreshCw className="h-4 w-4 shrink-0" />
-                            <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
-                          </Link>
+                        <Button
+                          size="sm"
+                          onClick={() => setExtendSubId(sec.id)}
+                          className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none"
+                        >
+                          <RefreshCw className="h-4 w-4 shrink-0" />
+                          <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
                         </Button>
                       </div>
                     </CardTitle>
@@ -1429,6 +1454,7 @@ function ClassicDashboardPage() {
     </div>
     {trialsPickerNode}
     {paySuccessModalNode}
+    {extendDialogNode}
     </>
   );
 }

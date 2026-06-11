@@ -18,6 +18,7 @@ import { prisma } from "../../db.js";
 import { sendTelegramNotification } from "./telegram-notify.js";
 import {
   remnaCreateUser,
+  remnaUpdateUser,
   remnaUsernameFromClient,
   extractRemnaUuid,
   isRemnaConfigured,
@@ -218,6 +219,13 @@ export async function createAdditionalSubscription(
       expireAt,
       hwidDeviceLimit: hwidDeviceLimit ?? undefined,
       activeInternalSquads: tariff.internalSquadUuids,
+      // привязываем TG/email владельца к Remna-юзеру.
+      // Без этого все подписки, созданные через unified-покупку (включая первую
+      // у нового клиента), висели в панели Remna без telegramId/email.
+      // Подарочные (purchasedAsGift) не привязываем к дарителю — получатель
+      // привяжется при redeem (см. redeemGiftCode → remnaUpdateUser).
+      ...(options?.purchasedAsGift !== true && rootClient.telegramId?.trim() && { telegramId: parseInt(rootClient.telegramId, 10) }),
+      ...(options?.purchasedAsGift !== true && rootClient.email?.trim() && { email: rootClient.email.trim() }),
     });
 
     remnaUuid = extractRemnaUuid(createRes.data) ?? undefined;
@@ -665,7 +673,7 @@ export async function redeemGiftCode(
   // Проверяем получателя
   const recipient = await prisma.client.findUnique({
     where: { id: recipientRootClientId },
-    select: { id: true },
+    select: { id: true, telegramId: true, email: true },
   });
   if (!recipient) {
     return { ok: false, error: "Получатель не найден", status: 404 };
@@ -736,6 +744,18 @@ export async function redeemGiftCode(
       data: { status: "ACTIVE", redeemedById: null, redeemedAt: null },
     }).catch(() => {});
     throw err;
+  }
+
+  // перепривязываем Remna-юзера на получателя (TG/email),
+  // иначе подаренная подписка остаётся в панели Remna без привязки. Best-effort:
+  // ошибка Remna не должна ронять redeem (подписка уже передана в БД).
+  if (sub.remnawaveUuid && (recipient.telegramId?.trim() || recipient.email?.trim())) {
+    const rebind = await remnaUpdateUser({
+      uuid: sub.remnawaveUuid,
+      ...(recipient.telegramId?.trim() && { telegramId: parseInt(recipient.telegramId, 10) }),
+      ...(recipient.email?.trim() && { email: recipient.email.trim() }),
+    });
+    if (rebind.error) console.error("[gift] redeem: rebind remna tg/email failed:", rebind.error);
   }
 
   // Логируем для обеих сторон

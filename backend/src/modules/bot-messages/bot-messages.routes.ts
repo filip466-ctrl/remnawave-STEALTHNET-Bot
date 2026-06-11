@@ -44,6 +44,9 @@ const META: BotMessageMeta[] = [
   { key: "bot_payment_text", group: "Тексты экранов бота", label: "Экран «Оплата»", description: "Сообщение при выборе тарифа для оплаты.", valueType: "markdown", variables: ["{{NAME}}", "{{PRICE}}", "{{ACTION}}"] },
   // подсказка для юзера при выдаче subscription URL.
   { key: "bot_instruction_fallback_text", group: "Тексты экранов бота", label: "Подсказка «Если инструкция не открылась»", description: "Показывается под ссылкой подписки и в карточке подписки — на случай если кнопка «📲 Инструкции» не открывает приложение.", valueType: "markdown" },
+  // тексты, которые раньше были захардкожены в боте.
+  { key: "bot_extra_options_text", group: "Тексты экранов бота", label: "Экран «📦 Дополнительные опции»", description: "Текст экрана докупки опций (устройства/трафик). Пусто — текст бота по умолчанию.", valueType: "markdown" },
+  { key: "bot_gift_url_note", group: "Тексты экранов бота", label: "Приписка под ссылкой подарка", description: "Блок под ссылкой подписки при активации подарочного кода (после «Ссылка подписки:»). Пусто — текст по умолчанию.", valueType: "markdown" },
 ];
 
 export const botMessagesRouter = Router();

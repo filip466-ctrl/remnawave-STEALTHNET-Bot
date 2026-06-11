@@ -1,31 +1,35 @@
 /**
  * Stealth Dashboard — главная страница нового дизайна.
  *
- * Структура (вдохновлено Hundler VPN home screen):
+ * мультиподписочность как в основном кабинете:
  *   1. Hero/визуал — мягкое свечение + большое лого/иконка над контентом
- *   2. Карточка «Подписка»:
- *      - Заголовок «Подписка» + бейджи «ДО {date}» и «Осталось N дн.»
- *      - Pill «📱 Устройства {n}/{max}»
- *      - Кнопки: «Продлить» (ghost) → highlight «Установить и настроить VPN»
- *        → grid 2x1 «Промокоды | Мои устройства» → ghost «Реферальная система»
- *   3. Если нет подписки — другой блок: hero + большая красная Buy CTA
+ *   2. Карточка «Подписки»: СПИСОК всех подписок клиента (единый код для любой —
+ *      никаких спецслучаев для «нулевой»). На каждой: статус, «до даты», остаток
+ *      дней, кнопки «Продлить» (/cabinet/tariffs?extend=id) и «Настроить»
+ *      (/cabinet/subscribe?sub=id).
+ *   3. Общие действия: установка VPN, промокоды, устройства, рефералка.
+ *   4. Если подписок нет — hero + большая красная Buy CTA.
  */
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, Settings2, Smartphone, Gift, Users, ChevronRight, Shield, Calendar, Clock } from "lucide-react";
+import { Zap, Settings2, Smartphone, Gift, Users, ChevronRight, Shield, Calendar, Clock, Plus } from "lucide-react";
 import { StealthPromocodeModal } from "@/components/stealth/stealth-promocode-modal";
 import { StealthDevicesModal } from "@/components/stealth/stealth-devices-modal";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import { StadiumButton } from "@/components/stealth/stadium-button";
+import { cn } from "@/lib/utils";
 
-interface SubInfo {
+interface SubCard {
+  id: string;
+  index: number;
+  label: string;
+  emoji: string | null;
   expiresAt: string | null;
   daysLeft: number | null;
-  hasActive: boolean;
-  devicesUsed: number;
-  devicesTotal: number;
+  isActive: boolean;
+  isTrial: boolean;
 }
 
 function formatDate(iso: string | null): string {
@@ -54,7 +58,8 @@ function unwrapRemnaSub(sub: unknown): Record<string, unknown> | null {
 export function StealthDashboard() {
   const { state } = useClientAuth();
   const navigate = useNavigate();
-  const [info, setInfo] = useState<SubInfo | null>(null);
+  const [subs, setSubs] = useState<SubCard[] | null>(null);
+  const [devices, setDevices] = useState<{ used: number; total: number }>({ used: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0); // bump чтобы перезагрузить инфо после модалок
   const [showPromo, setShowPromo] = useState(false);
@@ -65,32 +70,43 @@ export function StealthDashboard() {
     let alive = true;
     setLoading(true);
     Promise.all([
-      api.clientSubscription(state.token).catch(() => null),
+      api.clientAllSubscriptions(state.token).catch((): { items: [] } => ({ items: [] })),
       api.getClientDevices(state.token).catch(() => ({ total: 0 })),
-    ]).then(([sub, devices]) => {
+    ]).then(([all, dev]) => {
       if (!alive) return;
-      // Remnawave-ответ может быть обёрнут в .response или .data.response —
-      // unwrap'аем (логика та же что в classic-dashboard parseSubscription).
-      const s = unwrapRemnaSub(sub?.subscription);
-      const expireAt = typeof s?.expireAt === "string" ? s.expireAt : null;
-      const expDate = expireAt ? new Date(expireAt) : null;
-      const validDate = expDate && !Number.isNaN(expDate.getTime()) ? expDate : null;
-      const hasActive = !!validDate && validDate.getTime() > Date.now();
-      const daysLeft = hasActive
-        ? Math.max(0, Math.ceil((validDate!.getTime() - Date.now()) / 86_400_000))
-        : null;
-      const limit = typeof s?.hwidDeviceLimit === "number" ? s.hwidDeviceLimit
-        : s?.hwidDeviceLimit != null ? Number(s.hwidDeviceLimit) : 0;
-      setInfo({
-        expiresAt: expireAt,
-        daysLeft,
-        hasActive,
-        devicesUsed: devices?.total ?? 0,
-        devicesTotal: Number.isFinite(limit) && limit > 0 ? limit : 0,
+      let devicesTotal = 0;
+      const cards: SubCard[] = (all.items ?? []).map((it) => {
+        const s = unwrapRemnaSub(it.subscription);
+        const expireAt = typeof s?.expireAt === "string" ? s.expireAt : null;
+        const expDate = expireAt ? new Date(expireAt) : null;
+        const validDate = expDate && !Number.isNaN(expDate.getTime()) ? expDate : null;
+        const isActive = !!validDate && validDate.getTime() > Date.now();
+        const daysLeft = isActive
+          ? Math.max(0, Math.ceil((validDate!.getTime() - Date.now()) / 86_400_000))
+          : null;
+        const limit = typeof s?.hwidDeviceLimit === "number" ? s.hwidDeviceLimit
+          : s?.hwidDeviceLimit != null ? Number(s.hwidDeviceLimit) : 0;
+        if (Number.isFinite(limit) && limit > 0) devicesTotal += limit;
+        const idx = it.subscriptionIndex ?? 0;
+        return {
+          id: it.id,
+          index: idx,
+          label: it.tariffDisplayName?.trim() || `Подписка #${idx}`,
+          emoji: it.tariffMenuEmoji ?? null,
+          expiresAt: expireAt,
+          daysLeft,
+          isActive,
+          isTrial: Boolean(it.trialId),
+        };
       });
+      setSubs(cards);
+      setDevices({ used: dev?.total ?? 0, total: devicesTotal });
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [state.token, reloadKey]);
+
+  const hasAnySub = (subs?.length ?? 0) > 0;
+  const hasActiveSub = (subs ?? []).some((s) => s.isActive);
 
   return (
     <div className="px-4 pt-2 space-y-5">
@@ -108,37 +124,98 @@ export function StealthDashboard() {
         </div>
       </div>
 
-      {/* Subscription card */}
+      {/* Subscriptions card */}
       <div className="rounded-3xl bg-zinc-900/70 border border-white/[0.06] p-5 backdrop-blur-md space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-xl font-bold tracking-tight">Подписка</h2>
-          {info?.hasActive ? (
-            <div className="flex flex-col items-end gap-1.5">
-              <span className="text-[9px] font-bold tracking-[0.18em] uppercase text-zinc-500">ДО</span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5 py-1 text-xs font-medium tabular-nums">
-                <Calendar className="h-3 w-3 text-rose-400" strokeWidth={2.2} />
-                {formatDate(info.expiresAt)}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5 py-1 text-xs">
-                <Clock className="h-3 w-3 text-zinc-400" strokeWidth={2.2} />
-                Осталось {info.daysLeft} дн.
-              </span>
-            </div>
-          ) : !loading ? (
+          <h2 className="text-xl font-bold tracking-tight">
+            {(subs?.length ?? 0) > 1 ? "Подписки" : "Подписка"}
+          </h2>
+          {!loading && !hasAnySub && (
             <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
               Нет подписки
             </span>
-          ) : null}
+          )}
         </div>
 
+        {/* Список подписок — единый рендер для любой (включая index 0) */}
+        {hasAnySub && (
+          <div className="space-y-2.5">
+            {(subs ?? []).map((s) => (
+              <div
+                key={s.id}
+                className={cn(
+                  "rounded-2xl border p-3.5 space-y-2.5 transition-colors",
+                  s.isActive
+                    ? "bg-white/[0.03] border-white/[0.07]"
+                    : "bg-zinc-900/40 border-white/[0.04]",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full shrink-0",
+                        s.isActive
+                          ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]"
+                          : "bg-zinc-600",
+                      )}
+                    />
+                    <span className="text-sm font-bold truncate">
+                      {s.emoji ? `${s.emoji} ` : ""}{s.label}
+                    </span>
+                    {s.isTrial && (
+                      <span className="shrink-0 rounded-md bg-rose-500/10 border border-rose-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-400">
+                        проба
+                      </span>
+                    )}
+                  </div>
+                  {s.isActive ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2 py-1 text-[11px] tabular-nums shrink-0">
+                      <Clock className="h-3 w-3 text-zinc-400" strokeWidth={2.2} />
+                      {s.daysLeft} дн.
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-lg bg-zinc-800/80 border border-white/[0.05] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                      истекла
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 tabular-nums">
+                    <Calendar className="h-3 w-3 text-rose-400/80" strokeWidth={2.2} />
+                    до {formatDate(s.expiresAt)}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`)}
+                      className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3 py-1.5 text-xs font-bold text-rose-400 transition inline-flex items-center gap-1.5"
+                    >
+                      <Zap className="h-3 w-3" />
+                      Продлить
+                    </button>
+                    <button
+                      onClick={() => navigate(`/cabinet/subscribe?sub=${encodeURIComponent(s.id)}`)}
+                      className="rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-zinc-300 transition inline-flex items-center gap-1.5"
+                    >
+                      <Settings2 className="h-3 w-3" />
+                      Настроить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Devices pill */}
-        {info && (
+        {hasAnySub && (
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1.5 text-xs">
             <Smartphone className="h-3.5 w-3.5 text-zinc-400" />
             <span className="text-zinc-200">
               Устройства{" "}
               <span className="tabular-nums">
-                {info.devicesUsed}{info.devicesTotal > 0 ? `/${info.devicesTotal}` : ""}
+                {devices.used}{devices.total > 0 ? `/${devices.total}` : ""}
               </span>
             </span>
           </div>
@@ -149,10 +226,10 @@ export function StealthDashboard() {
           <StadiumButton
             variant="ghost"
             size="md"
-            iconLeft={<Zap className="h-4 w-4 text-rose-400" />}
+            iconLeft={hasAnySub ? <Plus className="h-4 w-4 text-rose-400" /> : <Zap className="h-4 w-4 text-rose-400" />}
             onClick={() => navigate("/cabinet/tariffs")}
           >
-            {info?.hasActive ? "Продлить" : "Оформить подписку"}
+            {hasAnySub ? "Оформить ещё подписку" : "Оформить подписку"}
           </StadiumButton>
 
           <StadiumButton
@@ -199,14 +276,14 @@ export function StealthDashboard() {
         </div>
       </div>
 
-      {/* Если подписки нет — большая Buy CTA */}
-      {!loading && info && !info.hasActive && (
+      {/* Если активных подписок нет — большая Buy CTA */}
+      {!loading && !hasActiveSub && (
         <div className="px-1">
           <StadiumButton
             variant="primary" size="lg"
             onClick={() => navigate("/cabinet/tariffs")}
           >
-            Начать бесплатно
+            {hasAnySub ? "Продлить подписку" : "Начать бесплатно"}
           </StadiumButton>
         </div>
       )}

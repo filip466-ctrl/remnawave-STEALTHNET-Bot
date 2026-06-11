@@ -43,6 +43,9 @@ function ClassicReferralPage() {
   const [wSubmitting, setWSubmitting] = useState(false);
   const [wMsg, setWMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const clientBalance = typeof client?.balance === "number" ? client.balance : null;
+  // настройки заявок на вывод из админки (вкл/выкл + мин. сумма).
+  const withdrawalsEnabled = config?.withdrawalsEnabled !== false;
+  const withdrawMin = config?.withdrawalMinAmount ?? 3000;
 
   const siteOrigin = config?.publicAppUrl?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
   const referralLinkSite =
@@ -78,8 +81,8 @@ function ClassicReferralPage() {
   const submitWithdraw = async () => {
     if (!token) return;
     const amt = Math.floor(parseFloat(wAmount.replace(",", ".")));
-    if (!Number.isFinite(amt) || amt < 3000) {
-      setWMsg({ type: "err", text: "Минимальная сумма вывода — 3000 ₽" });
+    if (!Number.isFinite(amt) || amt < withdrawMin) {
+      setWMsg({ type: "err", text: `Минимальная сумма вывода — ${withdrawMin} ₽` });
       return;
     }
     const w = wWallet.trim();
@@ -332,7 +335,9 @@ function ClassicReferralPage() {
         </motion.div>
       </div>
 
-      {/* Маленькая неприметная кнопка вывода реф.средств — в самом низу */}
+      {/* Маленькая неприметная кнопка вывода реф.средств — в самом низу.
+          скрывается тогглом «Заявки на вывод» из админки. */}
+      {withdrawalsEnabled && (
       <div className="flex justify-center pt-2">
         <Dialog open={wOpen} onOpenChange={(o) => { setWOpen(o); if (!o) setWMsg(null); }}>
           <DialogTrigger asChild>
@@ -357,8 +362,8 @@ function ClassicReferralPage() {
                 <Input value={wWallet} onChange={(e) => { setWWallet(e.target.value); setWMsg(null); }} placeholder="T..." className="font-mono" disabled={wSubmitting} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Сумма, ₽ (минимум 3000)</label>
-                <Input value={wAmount} onChange={(e) => { setWAmount(e.target.value.replace(/[^\d.,]/g, "")); setWMsg(null); }} inputMode="decimal" placeholder="3000" disabled={wSubmitting} />
+                <label className="text-xs font-medium text-muted-foreground">Сумма, ₽ (минимум {withdrawMin})</label>
+                <Input value={wAmount} onChange={(e) => { setWAmount(e.target.value.replace(/[^\d.,]/g, "")); setWMsg(null); }} inputMode="decimal" placeholder={String(withdrawMin)} disabled={wSubmitting} />
               </div>
               {wMsg && (
                 <p className={`text-sm font-medium ${wMsg.type === "ok" ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>{wMsg.text}</p>
@@ -374,6 +379,7 @@ function ClassicReferralPage() {
           </DialogContent>
         </Dialog>
       </div>
+      )}
     </div>
   );
 }
