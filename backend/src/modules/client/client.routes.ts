@@ -3977,8 +3977,11 @@ clientRouter.post("/payments/balance", async (req, res) => {
   //    Старая ветка `activateTariffForClient` (которая продлевала Subscription[0]) удалена,
   //    потому что: «обычная покупка тарифа» должна создавать НОВУЮ подписку, а не складывать
   //    дни в primary. Хочешь продлить — нажми «Продлить подписку» (передаст extendsSecondarySubId).
-  let activateResult: { ok: true; subscriptionId?: string } | { ok: false; error: string; status: number };
+  let activateResult: { ok: true; subscriptionId?: string; convertedDays?: number } | { ok: false; error: string; status: number };
   let isExtendingSecondary = false;
+  // покупка сконвертировала существующую подписку
+  // (режим «одна подписка из категории») вместо создания новой.
+  let isConverted = false;
   let createdSubscriptionId: string | null = null;
 
   if (extendsSecondarySubId) {
@@ -4000,26 +4003,46 @@ clientRouter.post("/payments/balance", async (req, res) => {
     isExtendingSecondary = true;
     createdSubscriptionId = extendsSecondarySubId;
   } else {
-    // Любая «новая покупка тарифа» — через единый createAdditionalSubscription.
-    // Для свежего клиента она получит subscriptionIndex=0 (= главная). Для уже имеющего
-    // подписки — следующий свободный индекс. Без затирания/смешивания.
     void asAdditional;
-    const { createAdditionalSubscription } = await import("../gift/gift.service.js");
-    const addResult = await createAdditionalSubscription(clientRaw.id, {
-      id: tariff.id,
-      name: tariff.name,
-      price: tariffPaySnap.amount,
-      durationDays: selectedOption?.durationDays ?? tariff.durationDays,
-      trafficLimitBytes: tariff.trafficLimitBytes,
-      deviceLimit: tariff.deviceLimit,
-      includedDevices: tariff.includedDevices,
-      internalSquadUuids: tariff.internalSquadUuids,
-      trafficResetMode: tariff.trafficResetMode ?? undefined,
-    }, { extraDevices: requestedExtras, skipConfigCheck: true });
-    activateResult = addResult.ok
-      ? { ok: true, subscriptionId: addResult.data.subscriptionId }
-      : { ok: false, error: addResult.error, status: addResult.status };
-    if (addResult.ok) createdSubscriptionId = addResult.data.subscriptionId;
+    // режим «одна подписка из категории»: если тариф из
+    // single-категории и у клиента уже есть подписка с тарифом этой категории —
+    // КОНВЕРТИРУЕМ её (pro-rata остатка + смена тарифа/сквадов), а не создаём вторую.
+    // Балансовый путь активирует напрямую (мимо activateTariffByPaymentId), поэтому
+    // конверт-ветка нужна и здесь.
+    const { findConvertibleSubscription, extendSecondarySubscription } = await import("../tariff/tariff-activation.service.js");
+    const convertible = await findConvertibleSubscription(clientRaw.id, tariff.id);
+    if (convertible) {
+      activateResult = await extendSecondarySubscription(
+        convertible.id,
+        tariff,
+        selectedOption ? { id: selectedOption.id, durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
+        requestedExtras,
+        false,
+        /* convertMode */ true,
+      );
+      isConverted = activateResult.ok;
+      createdSubscriptionId = convertible.id;
+    } else {
+      // Любая «новая покупка тарифа» — через единый createAdditionalSubscription.
+      // Для свежего клиента она получит subscriptionIndex=0 (= главная). Для уже имеющего
+      // подписки — следующий свободный индекс. Без затирания/смешивания.
+      const { createAdditionalSubscription } = await import("../gift/gift.service.js");
+      const addResult = await createAdditionalSubscription(clientRaw.id, {
+        id: tariff.id,
+        name: tariff.name,
+        price: tariffPaySnap.amount,
+        durationDays: selectedOption?.durationDays ?? tariff.durationDays,
+        trafficLimitBytes: tariff.trafficLimitBytes,
+        deviceLimit: tariff.deviceLimit,
+        includedDevices: tariff.includedDevices,
+        internalSquadUuids: tariff.internalSquadUuids,
+        trafficResetMode: tariff.trafficResetMode ?? undefined,
+      }, { extraDevices: requestedExtras, skipConfigCheck: true });
+      activateResult = addResult.ok
+        ? { ok: true, subscriptionId: addResult.data.subscriptionId }
+        : { ok: false, error: addResult.error, status: addResult.status };
+      if (addResult.ok) createdSubscriptionId = addResult.data.subscriptionId;
+    }
   }
   if (!activateResult.ok) {
     // Remna послала — возвращаем бабки.
@@ -4049,6 +4072,11 @@ clientRouter.post("/payments/balance", async (req, res) => {
   }
   // T7b: пишем маркер продления в metadata (для аудита и для re-activate если webhook).
   if (extendsSecondarySubId) tariffMeta.extendsSecondarySubId = extendsSecondarySubId;
+  // маркер конвертации (single-категория) для отчётности.
+  if (isConverted && createdSubscriptionId) {
+    tariffMeta.convertedSubscriptionId = createdSubscriptionId;
+    if (activateResult.ok && activateResult.convertedDays != null) tariffMeta.convertedDays = activateResult.convertedDays;
+  }
   // флаг удаления доп. устройств при активации.
   if (removeExtrasOnActivate === true && extendsSecondarySubId) tariffMeta.removeExtrasOnActivate = true;
   // T-fix (11.05.2026): маркер покупки доп. подписки балансом (без gift).
@@ -4100,10 +4128,15 @@ clientRouter.post("/payments/balance", async (req, res) => {
     await extinguishOneTimeDiscount(clientRaw.id).catch(() => {});
   }
 
-  // T7b: сообщение клиенту — продлено или активировано (как fallback в кабинете/мини-аппе).
-  const okMessage = isExtendingSecondary
-    ? `🔄 Подписка продлена на ${effectiveDays} дн.! Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`
-    : `Тариф «${tariff.name}» активирован! Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`;
+  // T7b: сообщение клиенту — конвертировано / продлено / активировано.
+  const convertedDaysMsg = (activateResult.ok && activateResult.convertedDays && activateResult.convertedDays > 0)
+    ? ` Остаток прежней подписки конвертирован: +${activateResult.convertedDays} дн.`
+    : "";
+  const okMessage = isConverted
+    ? `🔄 У вас уже была подписка в этой категории — она обновлена до тарифа «${tariff.name}».${convertedDaysMsg} Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`
+    : isExtendingSecondary
+      ? `🔄 Подписка продлена на ${effectiveDays} дн.! Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`
+      : `Тариф «${tariff.name}» активирован! Списано ${tariffPaySnap.amount.toFixed(2)} ${tariff.currency.toUpperCase()} с баланса.`;
   return res.json({
     message: okMessage,
     paymentId: payment.id,
