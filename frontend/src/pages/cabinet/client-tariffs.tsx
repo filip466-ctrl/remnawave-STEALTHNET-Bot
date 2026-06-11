@@ -147,7 +147,9 @@ function ClassicTariffsPage() {
 
   // T-unify-cabinet (30.05.2026, WolfVPN): мульти-подписки как в боте.
   // Список подписок клиента — нужен для режима продления (берём tariffId подписки).
-  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null; extraDevices: number; extraDevicesMonthlyPrice: number; isTrial: boolean; convertTariffIds: string[] }[]>([]);
+  const [userSubs, setUserSubs] = useState<{ id: string; subscriptionIndex: number; label: string; expireAt: string | null; emoji: string | null; tariffId: string | null; extraDevices: number; extraDevicesMonthlyPrice: number; isTrial: boolean; convertTariffIds: string[]; trialConvertAllTariffs: boolean; trialName: string | null }[]>([]);
+  // покупка заменяет триал: выбор какого (если их несколько).
+  const [replaceTrialChoice, setReplaceTrialChoice] = useState<string | null>(null);
   const [buyMode, setBuyMode] = useState<{ kind: "new" } | { kind: "extend"; subId: string; label: string }>({ kind: "new" });
 
   // T-unify-cabinet: ?extend=<subId> — пришли с кнопки «Продлить» конкретной подписки.
@@ -175,11 +177,20 @@ function ClassicTariffsPage() {
         ...(((convPreview.extras?.extraDevices ?? 0) > 0) ? { removeExtrasOnActivate: !convKeepExtras } : {}),
       };
     }
-    const base: { asAdditional?: boolean; removeExtrasOnActivate?: boolean } = userSubs.length > 0 ? { asAdditional: true } : {};
+    const base: { asAdditional?: boolean; removeExtrasOnActivate?: boolean; replaceTrialSubId?: string } = userSubs.length > 0 ? { asAdditional: true } : {};
     // конвертация (single-категория): юзер выбрал убрать доп.
     // устройства — их остаточная ценность уйдёт в дни нового тарифа.
     if (convPreview?.willConvert && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras) {
       base.removeExtrasOnActivate = true;
+    }
+    // покупка заменяет триал (полностью, с удалением).
+    // При нескольких триалах юзер выбирает какой; конверт-режим (willConvert)
+    // сам обновляет подписку — замена не нужна.
+    if (!convPreview?.willConvert) {
+      const trialsOwned = userSubs.filter((s) => s.isTrial);
+      if (trialsOwned.length > 0) {
+        base.replaceTrialSubId = replaceTrialChoice ?? trialsOwned[0].id;
+      }
     }
     return base;
   }
@@ -200,9 +211,14 @@ function ClassicTariffsPage() {
   // ТОЛЬКО тариф продлеваемой подписки — продлить можно строго тем же тарифом (как бот pay_tariff_ext).
   // для ТРИАЛЬНОЙ подписки дополнительно показываем тарифы из
   // настройки триала convertTariffIds — переход с пробного сквада на боевой.
-  const extendAllowedTariffIds = extendTarget?.tariffId
-    ? [extendTarget.tariffId, ...(extendTarget.isTrial ? extendTarget.convertTariffIds : [])]
-    : null;
+  // триал с convertAllTariffs=true конвертируется в ЛЮБОЙ тариф — каталог не фильтруем.
+  const extendAllowedTariffIds = extendTarget?.isTrial && extendTarget.trialConvertAllTariffs
+    ? null
+    : extendTarget?.tariffId
+      ? [extendTarget.tariffId, ...(extendTarget.isTrial ? extendTarget.convertTariffIds : [])]
+      : extendTarget?.isTrial && extendTarget.convertTariffIds.length > 0
+        ? extendTarget.convertTariffIds
+        : null;
   const displayTariffs = extendAllowedTariffIds
     ? tariffs
         .map((c) => ({ ...c, tariffs: c.tariffs.filter((tf) => extendAllowedTariffIds.includes(tf.id)) }))
@@ -311,6 +327,8 @@ function ClassicTariffsPage() {
           extraDevicesMonthlyPrice: it.extraDevicesMonthlyPrice ?? 0,
           isTrial: Boolean(it.trialId),
           convertTariffIds: it.convertTariffIds ?? [],
+          trialConvertAllTariffs: it.trialConvertAllTariffs ?? false,
+          trialName: it.trialName ?? null,
         };
       });
       setUserSubs(list);
@@ -328,6 +346,7 @@ function ClassicTariffsPage() {
     }
     let alive = true;
     setConvKeepExtras(true);
+    setReplaceTrialChoice(null);
     api.clientTariffConversionPreview(token, {
       tariffId: payModal.tariff.id,
       priceOptionId: selectedPriceOptionId ?? undefined,
@@ -648,6 +667,9 @@ function ClassicTariffsPage() {
     setPromoError(null);
     setPayError(null);
     setReadyUrl(null);
+    // выбор заменяемого триала не должен переживать закрытие
+    // модалки — иначе устаревший id уедет в следующий платёж.
+    setReplaceTrialChoice(null);
   };
 
   // === КОНТЕНТ ОПЛАТЫ (ОБЩИЙ ДЛЯ MOBILE VIEW И DESKTOP DIALOG) ===
@@ -762,12 +784,58 @@ function ClassicTariffsPage() {
           </div>
         )}
 
+        {/* покупка заменяет активный триал (с удалением).
+            Несколько триалов — выбор, какой заменить. */}
+        {buyMode.kind === "new" && !convPreview?.willConvert && (() => {
+          const trialsOwned = userSubs.filter((s) => s.isTrial);
+          if (trialsOwned.length === 0) return null;
+          const chosen = replaceTrialChoice ?? trialsOwned[0].id;
+          return (
+            <div className="relative overflow-hidden border rounded-2xl p-4 bg-amber-500/[0.07] border-amber-500/25">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-transparent pointer-events-none" />
+              <div className="relative z-10 space-y-2">
+                <p className="text-sm font-bold">
+                  {trialsOwned.length === 1
+                    ? "Пробная подписка будет заменена этой покупкой"
+                    : "Покупка заменит один из ваших пробных периодов"}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Триал удалится полностью (дни и трафик пробного периода не переносятся) —
+                  его место займёт новая подписка.
+                </p>
+                {trialsOwned.length > 1 && (
+                  <div className="space-y-1.5 pt-0.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Какой триал заменить:</p>
+                    {trialsOwned.map((tr) => (
+                      <button
+                        key={tr.id}
+                        type="button"
+                        onClick={() => setReplaceTrialChoice(tr.id)}
+                        className={cn(
+                          "w-full text-left rounded-xl border px-3 py-2 text-xs transition-all",
+                          chosen === tr.id
+                            ? "border-amber-500/50 bg-amber-500/10 font-bold"
+                            : "border-white/10 bg-white/[0.03] hover:border-white/25",
+                        )}
+                      >
+                        🎁 {tr.trialName ?? tr.label}
+                        {tr.expireAt ? <span className="text-muted-foreground"> — до {new Date(tr.expireAt).toLocaleDateString("ru-RU")}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* без single-режима: подписка с этим тарифом уже есть —
             предлагаем продлить её вместо покупки второй (но не блокируем покупку). */}
         {buyMode.kind === "new" && !convPreview?.willConvert && (() => {
           // среди ВСЕХ подписок с этим тарифом предлагаем «самую живую»
-          // (max expireAt) — а не первую по индексу.
-          const matches = userSubs.filter((s) => s.tariffId === tariff.id);
+          // (max expireAt) — а не первую по индексу. Триалы исключены:
+          // их «продление» — это конвертация, а покупка их заменяет.
+          const matches = userSubs.filter((s) => s.tariffId === tariff.id && !s.isTrial);
           const dupSub = matches.length > 0
             ? [...matches].sort((a, b) => (b.expireAt ? Date.parse(b.expireAt) : 0) - (a.expireAt ? Date.parse(a.expireAt) : 0))[0]
             : null;

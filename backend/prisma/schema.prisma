@@ -1055,7 +1055,15 @@ model Subscription {
 model Trial {
   id                String   @id @default(cuid())
   name              String // отображаемое название триала (напр. "🎁 Пробная Стандартная")
-  tariffId          String   @map("tariff_id") // настройки сквадов / устройств наследуются
+  /// триал создаётся ДВУМЯ способами:
+  ///   1) из существующего тарифа (tariffId задан — сквады/лимиты наследуются);
+  ///   2) standalone из сквада (tariffId=null, squadUuids+deviceLimit заданы) —
+  ///      такой «псевдо-тариф» нигде в каталоге тарифов не отображается.
+  tariffId          String?  @map("tariff_id")
+  /// сквады standalone-триала (JSON-массив uuid).
+  squadUuids        String?  @map("squad_uuids")
+  /// лимит устройств standalone-триала.
+  deviceLimit       Int?     @map("device_limit")
   durationDays      Int      @map("duration_days") // длительность пробного периода
   /// T16 (12.05.2026, WolfVPN): отдельный лимит трафика для триала (опционально).
   /// Если null — используется trafficLimitBytes тарифа (старое поведение).
@@ -1065,15 +1073,20 @@ model Trial {
   enabled           Boolean  @default(true)
   sortOrder         Int      @default(0) @map("sort_order")
   description       String?  @db.Text // опц. описание для клиента (что включено / условия)
+  /// можно ли конвертировать триал в платный тариф.
+  /// false → у триальной подписки нет кнопок «Продлить»/«Конвертировать» вовсе.
+  convertEnabled    Boolean  @default(true) @map("convert_enabled")
+  /// конвертация разрешена в ЛЮБОЙ тариф (перебивает convertTariffIds).
+  convertAllTariffs Boolean  @default(false) @map("convert_all_tariffs")
   /// тарифы, в которые можно конвертировать триал после
   /// пробного периода (JSON-массив tariffId). null/пусто — только тариф триала.
   /// При конвертации сквады ЗАМЕНЯЮТСЯ на сквады целевого тарифа (переход с
-  /// триального сквада на боевой).
+  /// триального сквада на боевой), а ДНИ и ОСТАТОК ТРАФИКА триала сохраняются.
   convertTariffIds  String?  @map("convert_tariff_ids")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  tariff        Tariff             @relation(fields: [tariffId], references: [id], onDelete: Cascade)
+  tariff        Tariff?            @relation(fields: [tariffId], references: [id], onDelete: SetNull)
   usages        ClientTrialUsage[]
   subscriptions Subscription[]
 

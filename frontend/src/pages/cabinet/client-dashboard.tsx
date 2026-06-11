@@ -133,7 +133,9 @@ function ClassicDashboardPage() {
   const config = useCabinetConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const [subscription, setSubscription] = useState<unknown>(null);
-  const [secondarySubscriptions, setSecondarySubscriptions] = useState<Array<{ type: string; id: string; subscriptionIndex: number | null; subscription: unknown; tariffDisplayName: string; remnawaveUuid: string | null }>>([]);
+  const [secondarySubscriptions, setSecondarySubscriptions] = useState<Array<{ type: string; id: string; subscriptionIndex: number | null; subscription: unknown; tariffDisplayName: string; remnawaveUuid: string | null; trialId?: string | null; trialName?: string | null; trialConvertEnabled?: boolean }>>([]);
+  // root-подписка — триал: лейбл TRIAL + «Конвертировать» (или ничего).
+  const [rootTrial, setRootTrial] = useState<{ isTrial: boolean; convertEnabled: boolean }>({ isTrial: false, convertEnabled: true });
   // T-unify-cabinet (30.05.2026, WolfVPN): id главной подписки (#0) — для кнопки «Продлить» → /cabinet/tariffs?extend=
   const [rootSubId, setRootSubId] = useState<string | null>(null);
   const [tariffDisplayName, setTariffDisplayName] = useState<string | null>(null);
@@ -217,7 +219,12 @@ function ClassicDashboardPage() {
         setPayments(payRes.items ?? []);
         setDeviceCount(devRes.total ?? null);
         setSecondarySubscriptions((allSubRes.items || []).filter(s => s.type === "secondary"));
-        setRootSubId((allSubRes.items || []).find(s => s.type === "root")?.id ?? null);
+        const rootItem = (allSubRes.items || []).find(s => s.type === "root");
+        setRootSubId(rootItem?.id ?? null);
+        setRootTrial({
+          isTrial: Boolean(rootItem?.trialId),
+          convertEnabled: rootItem?.trialConvertEnabled ?? true,
+        });
         // T-sec-devices (WolfVPN): счётчик устройств по subscriptionId — для отображения «использовано/лимит» на доп.подписках.
         const devCounts: Record<string, number> = {};
         for (const d of (allDevRes.items || [])) devCounts[d.subscriptionId] = (devCounts[d.subscriptionId] || 0) + 1;
@@ -407,14 +414,11 @@ function ClassicDashboardPage() {
       </Button>
       {/* T-expired-extend (WolfVPN, 2026-06-03): если главная подписка #0 истекла — даём продлить ИМЕННО её,
           а не только «Выбрать тариф». rootSubId есть всегда пока подписка #0 существует в БД (даже EXPIRED). */}
-      {rootSubId && (
-        <Button
-          onClick={() => setExtendSubId(rootSubId)}
-          className="gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-lg shadow-primary/30 hover:opacity-90 [&_svg]:self-center [&_span]:leading-none"
-        >
-          <RefreshCw className="h-4 w-4 shrink-0" />
-          <span className="inline-flex items-center leading-none">Продлить подписку #0</span>
-        </Button>
+      {rootActionNode(
+        "gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-lg shadow-primary/30 hover:opacity-90 [&_svg]:self-center [&_span]:leading-none",
+        "h-4 w-4 shrink-0",
+        "inline-flex items-center leading-none",
+        "Продлить подписку #0",
       )}
     </div>
   );
@@ -428,6 +432,51 @@ function ClassicDashboardPage() {
       onActivated={handleTrialActivated}
     />
   );
+
+  // единая кнопка действия root-подписки (для всех 3 мест рендера):
+  // обычная → «Продлить» (модалка); триал → «Конвертировать» (выбор тарифа в каталоге);
+  // триал с запрещённой конвертацией → кнопки нет вовсе.
+  const rootActionNode = (cls: string, iconCls: string, txtCls: string, label = "Продлить") => {
+    if (!rootSubId) return null;
+    if (rootTrial.isTrial) {
+      if (!rootTrial.convertEnabled) return null;
+      return (
+        <Button className={cls} asChild>
+          <Link to={`/cabinet/tariffs?extend=${rootSubId}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
+            <RefreshCw className={iconCls} />
+            <span className={txtCls}>Конвертировать</span>
+          </Link>
+        </Button>
+      );
+    }
+    return (
+      <Button className={cls} onClick={() => setExtendSubId(rootSubId)}>
+        <RefreshCw className={iconCls} />
+        <span className={txtCls}>{label}</span>
+      </Button>
+    );
+  };
+
+  // то же для ЛЮБОЙ secondary-подписки (унифицировано с root).
+  const secActionNode = (sec: { id: string; trialId?: string | null; trialConvertEnabled?: boolean }, cls: string, iconCls: string, txtCls: string) => {
+    if (sec.trialId) {
+      if (sec.trialConvertEnabled === false) return null;
+      return (
+        <Button size="sm" className={cls} asChild>
+          <Link to={`/cabinet/tariffs?extend=${sec.id}`} className="inline-flex items-center justify-center gap-1.5 leading-none">
+            <RefreshCw className={iconCls} />
+            <span className={txtCls}>Конвертировать</span>
+          </Link>
+        </Button>
+      );
+    }
+    return (
+      <Button size="sm" className={cls} onClick={() => setExtendSubId(sec.id)}>
+        <RefreshCw className={iconCls} />
+        <span className={txtCls}>Продлить</span>
+      </Button>
+    );
+  };
 
   // модалка продления подписки (любой — единый механизм) без
   // редиректа в каталог. После балансовой оплаты обновляем данные дашборда.
@@ -512,15 +561,10 @@ function ClassicDashboardPage() {
               </span>
               <span className="truncate">{t("cabinet.dashboard.subscription_status")}</span>
             </span>
-            {rootSubId && (
-              <Button
-                size="sm"
-                onClick={() => setExtendSubId(rootSubId)}
-                className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none"
-              >
-                <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
-              </Button>
+            {rootActionNode(
+              "shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none",
+              "h-3.5 w-3.5 shrink-0",
+              "inline-flex items-center text-xs font-medium leading-none",
             )}
           </h2>
           {loading ? (
@@ -562,7 +606,7 @@ function ClassicDashboardPage() {
                       <Package className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("cabinet.dashboard.tariff_label")}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{rootTrial.isTrial ? "TRIAL" : t("cabinet.dashboard.tariff_label")}</p>
                       <p className="text-[14px] font-semibold truncate text-foreground" title={((tariffDisplayName ?? subParsed.productName?.trim() ?? "").trim()) || t("cabinet.dashboard.test_label")}>
                         {((tariffDisplayName ?? subParsed.productName?.trim() ?? "").trim()) || t("cabinet.dashboard.test_label")}
                       </p>
@@ -654,14 +698,12 @@ function ClassicDashboardPage() {
                   </span>
                   <span className="truncate">Подписка #{sec.subscriptionIndex ?? ""}</span>
                 </span>
-                <Button
-                  size="sm"
-                  onClick={() => setExtendSubId(sec.id)}
-                  className="shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 shrink-0" />
-                  <span className="inline-flex items-center text-xs font-medium leading-none">Продлить</span>
-                </Button>
+                {secActionNode(
+                  sec,
+                  "shrink-0 gap-1.5 rounded-full h-8 px-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 normal-case [&_svg]:self-center [&_span]:leading-none",
+                  "h-3.5 w-3.5 shrink-0",
+                  "inline-flex items-center text-xs font-medium leading-none",
+                )}
               </h2>
 
               <div className="space-y-4 min-w-0">
@@ -696,7 +738,7 @@ function ClassicDashboardPage() {
                         <Package className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("cabinet.dashboard.tariff_label")}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{sec.trialId ? "TRIAL" : t("cabinet.dashboard.tariff_label")}</p>
                         <p className="text-[14px] font-semibold truncate text-foreground" title={sec.tariffDisplayName}>
                           {sec.tariffDisplayName}
                         </p>
@@ -1010,15 +1052,10 @@ function ClassicDashboardPage() {
                 </div>
                 <span className="truncate">{t("cabinet.dashboard.my_subscription")}</span>
               </div>
-              {rootSubId && (
-                <Button
-                  size="sm"
-                  onClick={() => setExtendSubId(rootSubId)}
-                  className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none"
-                >
-                  <RefreshCw className="h-4 w-4 shrink-0" />
-                  <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
-                </Button>
+              {rootActionNode(
+                "shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-primary via-fuchsia-500 to-purple-500 text-white border-0 shadow-md shadow-primary/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none",
+                "h-4 w-4 shrink-0",
+                "inline-flex items-center text-sm font-medium leading-none",
               )}
             </CardTitle>
           </CardHeader>
@@ -1058,7 +1095,7 @@ function ClassicDashboardPage() {
                       <Package className="h-6 w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("cabinet.dashboard.tariff_label")}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{rootTrial.isTrial ? "TRIAL" : t("cabinet.dashboard.tariff_label")}</p>
                       <p className="text-[15px] font-semibold truncate text-foreground">
                         {((tariffDisplayName ?? subParsed.productName?.trim() ?? "").trim()) || t("cabinet.dashboard.test_label")}
                       </p>
@@ -1338,14 +1375,12 @@ function ClassicDashboardPage() {
                             Истекла
                           </span>
                         )}
-                        <Button
-                          size="sm"
-                          onClick={() => setExtendSubId(sec.id)}
-                          className="shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none"
-                        >
-                          <RefreshCw className="h-4 w-4 shrink-0" />
-                          <span className="inline-flex items-center text-sm font-medium leading-none">Продлить</span>
-                        </Button>
+                        {secActionNode(
+                          sec,
+                          "shrink-0 gap-1.5 rounded-full h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 shadow-md shadow-indigo-500/30 hover:opacity-90 hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none",
+                          "h-4 w-4 shrink-0",
+                          "inline-flex items-center text-sm font-medium leading-none",
+                        )}
                       </div>
                     </CardTitle>
                   </CardHeader>
@@ -1370,7 +1405,7 @@ function ClassicDashboardPage() {
                             <Package className="h-6 w-6" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("cabinet.dashboard.tariff_label")}</p>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{sec.trialId ? "TRIAL" : t("cabinet.dashboard.tariff_label")}</p>
                             <p className="text-[15px] font-semibold truncate text-foreground">
                               {sec.tariffDisplayName}
                             </p>

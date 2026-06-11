@@ -2211,8 +2211,8 @@ clientRouter.get("/trials/available", async (req, res) => {
         description: t.description,
         sortOrder: t.sortOrder,
         trafficLimitBytes: effectiveTraffic !== null ? effectiveTraffic.toString() : null,
-        deviceLimit: t.tariff?.deviceLimit ?? null,
-        includedDevices: t.tariff?.includedDevices ?? null,
+        deviceLimit: t.deviceLimit ?? t.tariff?.deviceLimit ?? null,
+        includedDevices: t.tariff?.includedDevices ?? t.deviceLimit ?? null,
       };
     }),
     hasAnyEnabled: true,
@@ -2246,22 +2246,31 @@ clientRouter.post("/trials/:id/activate", async (req, res) => {
     return res.status(409).json({ message: "Этот пробный период уже активирован" });
   }
 
-  // Создаём secondary subscription с настройками тарифа триала, но длительностью триала.
-  // если у триала задан собственный trafficLimitBytes —
-  // используем его вместо тарифа (например 5 ГБ на триал при 100 ГБ у платного Unblock).
-  // Если null — fallback на лимит тарифа (бэк-совместимость со старыми триалами).
-  const trialTrafficLimit = trial.trafficLimitBytes ?? trial.tariff.trafficLimitBytes;
+  // Создаём secondary subscription. Источник параметров —
+  // ЛИБО тариф триала (как раньше), ЛИБО сам standalone-триал (сквады/лимиты
+  // заданы прямо в триале, tariffId=null — такой «псевдо-тариф» в каталоге не виден).
+  const trialTrafficLimit = trial.trafficLimitBytes ?? trial.tariff?.trafficLimitBytes ?? null;
+  let trialSquads: string[] = trial.tariff?.internalSquadUuids ?? [];
+  if (!trial.tariffId) {
+    try {
+      const parsed = trial.squadUuids ? JSON.parse(trial.squadUuids) as unknown : [];
+      trialSquads = Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
+    } catch { trialSquads = []; }
+    if (trialSquads.length === 0) {
+      return res.status(503).json({ message: "Триал настроен некорректно (нет сквадов)" });
+    }
+  }
   const { createAdditionalSubscription } = await import("../gift/gift.service.js");
   const subResult = await createAdditionalSubscription(clientId, {
-    id: trial.tariffId,
-    name: trial.tariff.name,
+    id: trial.tariffId ?? undefined,
+    name: trial.name,
     price: 0,
     durationDays: trial.durationDays, // ← длительность из триала, не тарифа
     trafficLimitBytes: trialTrafficLimit,
-    deviceLimit: trial.tariff.deviceLimit,
-    includedDevices: trial.tariff.includedDevices,
-    internalSquadUuids: trial.tariff.internalSquadUuids,
-    trafficResetMode: trial.tariff.trafficResetMode ?? undefined,
+    deviceLimit: trial.deviceLimit ?? trial.tariff?.deviceLimit ?? null,
+    includedDevices: trial.tariff?.includedDevices ?? trial.deviceLimit ?? undefined,
+    internalSquadUuids: trialSquads,
+    trafficResetMode: trial.tariff?.trafficResetMode ?? undefined,
   }, { skipConfigCheck: true, extraDevices: 0 });
   if (!subResult.ok) {
     return res.status(subResult.status).json({ message: subResult.error });
@@ -2326,7 +2335,7 @@ clientRouter.post("/trials/:id/activate", async (req, res) => {
     // для кнопки «🌐 Локации» на экране активации (скрин 5).
     // Бот покажет кнопку только если у тарифа триала есть текст локаций.
     tariffId: trial.tariffId,
-    tariffHasLocations: !!(trial.tariff.locations?.trim()),
+    tariffHasLocations: !!(trial.tariff?.locations?.trim()),
     // T-unify: subscription URL для прямой URL-кнопки инструкций.
     subscriptionUrl,
   });
@@ -2721,7 +2730,7 @@ clientRouter.get("/subscription", async (req, res) => {
   // EXPIRED Remna-юзера, тогда как subscriptions хранит актуального). Бот берёт из subscriptions — кабинет теперь тоже.
   const rootSub = await prisma.subscription.findFirst({
     where: { ownerId: client.id, subscriptionIndex: 0, remnawaveUuid: { not: null } },
-    select: { remnawaveUuid: true, tariff: { select: { name: true } } },
+    select: { remnawaveUuid: true, trialId: true, tariff: { select: { name: true } }, trial: { select: { name: true, convertEnabled: true } } },
   });
   const effectiveUuid = rootSub?.remnawaveUuid ?? client.remnawaveUuid;
   if (!effectiveUuid) {
@@ -2763,7 +2772,10 @@ clientRouter.get("/subscription", async (req, res) => {
   // (subscription.tariffId обновляется при конвертации/продлении), и только потом —
   // из легаси Client.currentTariffId (его обновлял только старый activateTariffForClient,
   // поэтому после конвертации кабинет показывал имя СТАРОГО тарифа).
-  if (rootSub?.tariff?.name?.trim()) {
+  // триальная подписка показывает имя ТРИАЛА (лейбл TRIAL — на фронте).
+  if (rootSub?.trialId && rootSub.trial?.name?.trim()) {
+    tariffDisplayName = rootSub.trial.name.trim();
+  } else if (rootSub?.tariff?.name?.trim()) {
     tariffDisplayName = rootSub.tariff.name.trim();
   } else if (dbClient?.currentTariff?.name?.trim()) {
     tariffDisplayName = dbClient.currentTariff.name.trim();
@@ -2845,6 +2857,11 @@ clientRouter.get("/subscription", async (req, res) => {
     autoRenewNextChargeAmount,
     autoRenewNextChargeAt,
     autoRenewCurrency,
+    // карточка триала: лейбл «TRIAL» + кнопка «Конвертировать»
+    // (или вообще без кнопки, если конвертация триала запрещена в админке).
+    isTrial: Boolean(rootSub?.trialId),
+    trialName: rootSub?.trialId ? (rootSub.trial?.name ?? null) : null,
+    trialConvertEnabled: rootSub?.trialId ? (rootSub.trial?.convertEnabled ?? true) : true,
   });
 });
 
@@ -2916,6 +2933,12 @@ clientRouter.get("/subscription/all", async (req, res) => {
     /** для триальных подписок — тарифы, в которые
      *  можно конвертировать (помимо тарифа триала). UI показывает их при продлении. */
     convertTariffIds: string[];
+    /** имя триала (карточка показывает «TRIAL: имя» вместо тарифа). */
+    trialName: string | null;
+    /** можно ли конвертировать триал (false → никаких кнопок продления/конвертации). */
+    trialConvertEnabled: boolean;
+    /** конвертация разрешена в любой тариф. */
+    trialConvertAllTariffs: boolean;
   };
 
   const allSubs = await prisma.subscription.findMany({
@@ -2935,7 +2958,7 @@ clientRouter.get("/subscription/all", async (req, res) => {
       extraDevices: true,
       extraDevicesMonthlyPrice: true,
       tariff: { select: { id: true, name: true, menuEmoji: true } },
-      trial: { select: { convertTariffIds: true } },
+      trial: { select: { name: true, convertEnabled: true, convertAllTariffs: true, convertTariffIds: true } },
     },
     orderBy: { subscriptionIndex: "asc" },
   });
@@ -2949,7 +2972,9 @@ clientRouter.get("/subscription/all", async (req, res) => {
   const items: SubInfo[] = [];
   for (const sub of visible) {
     let remnaPayload: unknown = null;
-    let tariffName = sub.tariff?.name?.trim() ?? "";
+    // триальная подписка показывает ИМЯ ТРИАЛА (standalone-триал
+    // вообще не имеет тарифа — без этого выводилось «Тариф не выбран»).
+    let tariffName = (sub.trialId ? sub.trial?.name?.trim() : undefined) ?? sub.tariff?.name?.trim() ?? "";
     if (sub.remnawaveUuid) {
       const r = await remnaGetUser(sub.remnawaveUuid);
       if (cryptOn) await encryptSubscriptionUrlInPlace(r.data);
@@ -2980,6 +3005,9 @@ clientRouter.get("/subscription/all", async (req, res) => {
           return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
         } catch { return []; }
       })(),
+      trialName: sub.trialId ? (sub.trial?.name ?? null) : null,
+      trialConvertEnabled: sub.trialId ? (sub.trial?.convertEnabled ?? true) : true,
+      trialConvertAllTariffs: sub.trialId ? (sub.trial?.convertAllTariffs ?? false) : false,
     });
   }
 
@@ -3465,6 +3493,9 @@ const createPlategaPaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -3802,6 +3833,9 @@ const payByBalanceSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
 }).refine((d) => (d.tariffId ? 1 : 0) + (d.proxyTariffId ? 1 : 0) + (d.singboxTariffId ? 1 : 0) === 1, { message: "Укажите tariffId, proxyTariffId или singboxTariffId" });
 
 clientRouter.post("/payments/balance", async (req, res) => {
@@ -3809,7 +3843,7 @@ clientRouter.post("/payments/balance", async (req, res) => {
   const parsed = payByBalanceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
 
-  const { tariffId, tariffPriceOptionId, deviceCount, proxyTariffId, singboxTariffId, promoCode: promoCodeStr, extendsSecondarySubId, removeExtrasOnActivate, asAdditional } = parsed.data;
+  const { tariffId, tariffPriceOptionId, deviceCount, proxyTariffId, singboxTariffId, promoCode: promoCodeStr, extendsSecondarySubId, removeExtrasOnActivate, asAdditional, replaceTrialSubId } = parsed.data;
 
   // T-tariff-restriction (портировано из WolfVPN): запрет покупки/продления тарифа клиенту (оплата балансом).
   // Внешние платёжки покрыты бэкстопом в db.ts createPayment; здесь — явная проверка до списания.
@@ -4110,6 +4144,10 @@ clientRouter.post("/payments/balance", async (req, res) => {
       isExtendingSecondary = isExtendingSecondary || (activateResult.ok && convertible.sameTariff);
       createdSubscriptionId = convertible.id;
     } else {
+      // покупка при активном триале ЗАМЕНЯЕТ его полностью
+      // (триал удаляется вместе с Remna-юзером). Выбор триала — replaceTrialSubId.
+      const { replaceTrialOnPurchase } = await import("../tariff/tariff-activation.service.js");
+      await replaceTrialOnPurchase(clientRaw.id, replaceTrialSubId ?? null);
       // Любая «новая покупка тарифа» — через единый createAdditionalSubscription.
       // Для свежего клиента она получит subscriptionIndex=0 (= главная). Для уже имеющего
       // подписки — следующий свободный индекс. Без затирания/смешивания.
@@ -4658,6 +4696,9 @@ const yoomoneyFormPaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -4927,6 +4968,9 @@ const yookassaCreatePaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -5203,6 +5247,10 @@ clientRouter.post("/yookassa/create-payment", async (req, res) => {
             if (removeExtrasOnActivate === true) {
               meta.removeExtrasOnActivate = true;
             }
+            // замена выбранного триала при покупке.
+            if (parsed.data.replaceTrialSubId) {
+              meta.replaceTrialSubId = parsed.data.replaceTrialSubId;
+            }
           }
           return Object.keys(meta).length > 0 ? JSON.stringify(meta) : null;
         })(),
@@ -5296,6 +5344,9 @@ const cryptopayCreatePaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -5512,6 +5563,10 @@ clientRouter.post("/cryptopay/create-payment", async (req, res) => {
             if (removeExtrasOnActivate === true) {
               meta.removeExtrasOnActivate = true;
             }
+            // замена выбранного триала при покупке.
+            if (parsed.data.replaceTrialSubId) {
+              meta.replaceTrialSubId = parsed.data.replaceTrialSubId;
+            }
           }
           return Object.keys(meta).length > 0 ? JSON.stringify(meta) : null;
         })(),
@@ -5580,6 +5635,9 @@ const heleketCreatePaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -5792,6 +5850,10 @@ clientRouter.post("/heleket/create-payment", async (req, res) => {
             if (removeExtrasOnActivate === true) {
               meta.removeExtrasOnActivate = true;
             }
+            // замена выбранного триала при покупке.
+            if (parsed.data.replaceTrialSubId) {
+              meta.replaceTrialSubId = parsed.data.replaceTrialSubId;
+            }
           }
           return Object.keys(meta).length > 0 ? JSON.stringify(meta) : null;
         })(),
@@ -5854,6 +5916,9 @@ const lavaCreatePaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -6067,6 +6132,10 @@ clientRouter.post("/lava/create-payment", async (req, res) => {
             if (removeExtrasOnActivate === true) {
               meta.removeExtrasOnActivate = true;
             }
+            // замена выбранного триала при покупке.
+            if (parsed.data.replaceTrialSubId) {
+              meta.replaceTrialSubId = parsed.data.replaceTrialSubId;
+            }
           }
           return Object.keys(meta).length > 0 ? JSON.stringify(meta) : null;
         })(),
@@ -6135,6 +6204,9 @@ const lavatopCreatePaymentSchema = z.object({
   asAdditional: z.boolean().optional(),
   // покупка подарочной подписки — будет создана с purchasedAsGift=true.
   asGift: z.boolean().optional(),
+  // какой триал заменить этой покупкой (несколько триалов —
+  // выбор юзера; без поля заменяется самый старый).
+  replaceTrialSubId: z.string().min(1).max(64).optional(),
   // продление существующей secondary (вместо создания новой).
   extendsSecondarySubId: z.string().min(1).max(64).optional(),
   // при активации платежа удалить все доп. устройства.
@@ -6375,6 +6447,10 @@ clientRouter.post("/lavatop/create-payment", async (req, res) => {
             // флаг удаления доп. устройств при активации.
             if (removeExtrasOnActivate === true) {
               meta.removeExtrasOnActivate = true;
+            }
+            // замена выбранного триала при покупке.
+            if (parsed.data.replaceTrialSubId) {
+              meta.replaceTrialSubId = parsed.data.replaceTrialSubId;
             }
           }
           return Object.keys(meta).length > 0 ? JSON.stringify(meta) : null;

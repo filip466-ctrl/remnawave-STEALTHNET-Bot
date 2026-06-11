@@ -77,7 +77,7 @@ export function StealthTariffs() {
   // Механика как в основном кабинете: каталог фильтруется до тарифа подписки,
   // оплата уходит с extendsSecondarySubId — единый код для любой подписки.
   const extendParam = searchParams.get("extend");
-  const [extendTarget, setExtendTarget] = useState<{ id: string; label: string; tariffId: string | null; isTrial: boolean; convertTariffIds: string[]; extraDevices: number; extraDevicesMonthlyPrice: number } | null>(null);
+  const [extendTarget, setExtendTarget] = useState<{ id: string; label: string; tariffId: string | null; isTrial: boolean; convertTariffIds: string[]; trialConvertAllTariffs: boolean; extraDevices: number; extraDevicesMonthlyPrice: number } | null>(null);
   // судьба доп. устройств при продлении (true = сохранить, цена выше).
   const [extKeepExtras, setExtKeepExtras] = useState(true);
 
@@ -133,7 +133,9 @@ export function StealthTariffs() {
 
   // Все подписки клиента: для режима продления (?extend) и для подсказки
   // «у вас уже есть подписка с этим тарифом — продлить или купить ещё одну».
-  const [mySubs, setMySubs] = useState<{ id: string; label: string; tariffId: string | null; expireAt: string | null }[]>([]);
+  const [mySubs, setMySubs] = useState<{ id: string; label: string; tariffId: string | null; expireAt: string | null; isTrial: boolean; trialName: string | null }[]>([]);
+  // покупка заменяет триал: выбор какого (если несколько).
+  const [replaceTrialChoice, setReplaceTrialChoice] = useState<string | null>(null);
   useEffect(() => {
     if (!state.token) { setExtendTarget(null); setMySubs([]); return; }
     let alive = true;
@@ -150,6 +152,8 @@ export function StealthTariffs() {
           label: it.tariffDisplayName?.trim() || `Подписка #${it.subscriptionIndex ?? 0}`,
           tariffId: it.tariffId ?? null,
           expireAt: payload && typeof payload.expireAt === "string" ? payload.expireAt : null,
+          isTrial: Boolean(it.trialId),
+          trialName: it.trialName ?? null,
         };
       }));
       if (!extendParam) { setExtendTarget(null); return; }
@@ -162,6 +166,7 @@ export function StealthTariffs() {
         tariffId: it.tariffId ?? null,
         isTrial: Boolean(it.trialId),
         convertTariffIds: it.convertTariffIds ?? [],
+        trialConvertAllTariffs: it.trialConvertAllTariffs ?? false,
         extraDevices: it.extraDevices ?? 0,
         extraDevicesMonthlyPrice: it.extraDevicesMonthlyPrice ?? 0,
       });
@@ -172,10 +177,16 @@ export function StealthTariffs() {
 
   // В режиме продления каталог сужается до тарифа подписки (как в основном
   // кабинете). Для триальной подписки добавляются тарифы из настройки триала
-  // convertTariffIds — переход с пробного сквада на боевой.
+  // convertTariffIds — переход с пробного сквада на боевой; convertAllTariffs —
+  // каталог не фильтруется вовсе. Standalone-триал (без тарифа) — только разрешённые.
   const displayCategories = useMemo(() => {
-    if (!extendTarget?.tariffId) return categories;
-    const allowed = [extendTarget.tariffId, ...(extendTarget.isTrial ? extendTarget.convertTariffIds : [])];
+    if (!extendTarget) return categories;
+    if (extendTarget.isTrial && extendTarget.trialConvertAllTariffs) return categories;
+    const allowed = [
+      ...(extendTarget.tariffId ? [extendTarget.tariffId] : []),
+      ...(extendTarget.isTrial ? extendTarget.convertTariffIds : []),
+    ];
+    if (allowed.length === 0) return categories;
     const filtered = categories
       .map((c) => ({ ...c, tariffs: c.tariffs.filter((t) => allowed.includes(t.id)) }))
       .filter((c) => c.tariffs.length > 0);
@@ -325,6 +336,14 @@ export function StealthTariffs() {
         ...(convPreview?.willConvert && convPreview.mode !== "extend" && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras
           ? { removeExtrasOnActivate: true }
           : {}),
+        // покупка заменяет активный триал (выбор при нескольких).
+        ...(() => {
+          if (extendTarget || convPreview?.willConvert) return {};
+          const trialsOwned = mySubs.filter((s) => s.isTrial);
+          return trialsOwned.length > 0
+            ? { replaceTrialSubId: replaceTrialChoice ?? trialsOwned[0].id }
+            : {};
+        })(),
       };
       let url: string | null = null;
       if (selectedMethod.kind === "platega") {
@@ -514,11 +533,50 @@ export function StealthTariffs() {
         </div>
       </div>
 
+      {/* покупка заменяет активный триал (выбор при нескольких). */}
+      {!extendTarget && !convPreview?.willConvert && (() => {
+        const trialsOwned = mySubs.filter((s) => s.isTrial);
+        if (trialsOwned.length === 0) return null;
+        const chosen = replaceTrialChoice ?? trialsOwned[0].id;
+        return (
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-transparent pointer-events-none" />
+            <div className="relative space-y-2">
+              <p className="text-sm font-bold">
+                {trialsOwned.length === 1 ? "Пробная подписка будет заменена этой покупкой" : "Покупка заменит один из пробных периодов"}
+              </p>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Триал удалится полностью (дни и трафик пробного периода не переносятся).
+              </p>
+              {trialsOwned.length > 1 && (
+                <div className="space-y-1.5">
+                  {trialsOwned.map((tr) => (
+                    <button
+                      key={tr.id}
+                      type="button"
+                      onClick={() => setReplaceTrialChoice(tr.id)}
+                      className={cn(
+                        "w-full text-left rounded-xl border px-3 py-2 text-xs transition-all",
+                        chosen === tr.id ? "border-amber-500/50 bg-amber-500/10 font-bold" : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                      )}
+                    >
+                      🎁 {tr.trialName ?? tr.label}
+                      {tr.expireAt ? ` — до ${new Date(tr.expireAt).toLocaleDateString("ru-RU")}` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* без single-режима: подписка с этим тарифом уже есть —
           предлагаем продлить её, либо продолжить покупку ещё одной. */}
       {!extendTarget && !convPreview?.willConvert && (() => {
         // среди ВСЕХ подписок с этим тарифом предлагаем «самую живую».
-        const matches = selectedTariffId ? mySubs.filter((s) => s.tariffId === selectedTariffId) : [];
+        // Триалы исключены: их «продление» — конвертация, покупка их заменяет.
+        const matches = selectedTariffId ? mySubs.filter((s) => s.tariffId === selectedTariffId && !s.isTrial) : [];
         const dup = matches.length > 0
           ? [...matches].sort((a, b) => (b.expireAt ? Date.parse(b.expireAt) : 0) - (a.expireAt ? Date.parse(a.expireAt) : 0))[0]
           : null;

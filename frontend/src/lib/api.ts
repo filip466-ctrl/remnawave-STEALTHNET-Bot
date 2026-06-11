@@ -1795,6 +1795,10 @@ export const api = {
     /** ISO-дата следующего списания (за N дней до истечения, N из config.autoRenewDaysBeforeExpiry). */
     autoRenewNextChargeAt?: string | null;
     autoRenewCurrency?: string | null;
+    /** root-подписка — триал: лейбл «TRIAL», кнопка «Конвертировать» (или ничего). */
+    isTrial?: boolean;
+    trialName?: string | null;
+    trialConvertEnabled?: boolean;
     message?: string;
   }> {
     return request("/client/subscription", { token });
@@ -1822,6 +1826,12 @@ export const api = {
       extraDevicesMonthlyPrice?: number;
       /** для триальных — тарифы, в которые можно конвертировать. */
       convertTariffIds?: string[];
+      /** имя триала (карточка показывает «TRIAL: имя»). */
+      trialName?: string | null;
+      /** false → никаких кнопок продления/конвертации у триала. */
+      trialConvertEnabled?: boolean;
+      /** конвертация триала разрешена в любой тариф. */
+      trialConvertAllTariffs?: boolean;
     }>;
   }> {
     return request("/client/subscription/all", { token });
@@ -1886,6 +1896,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentUrl: string; orderId: string; paymentId: string; discountApplied?: boolean; finalAmount?: number }> {
     return request("/client/payments/platega", { method: "POST", body: JSON.stringify(data), token });
@@ -2000,6 +2012,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; paymentUrl: string; form: { receiver: string; sum: number; label: string; paymentType: string; successURL: string }; successURL: string }> {
     return request("/client/yoomoney/create-form-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2038,6 +2052,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; confirmationUrl: string; yookassaPaymentId: string }> {
     return request("/client/yookassa/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2069,6 +2085,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; payUrl: string; miniAppPayUrl?: string; webAppPayUrl?: string }> {
     return request("/client/cryptopay/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2095,6 +2113,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; payUrl: string }> {
     return request("/client/heleket/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2121,6 +2141,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; payUrl: string }> {
     return request("/client/lava/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2149,6 +2171,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; payUrl: string }> {
     return request("/client/lavatop/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -2175,6 +2199,8 @@ export const api = {
       asAdditional?: boolean;
       asGift?: boolean;
       removeExtrasOnActivate?: boolean;
+      /** какой триал заменить этой покупкой. */
+      replaceTrialSubId?: string;
     }
   ): Promise<{ paymentId: string; payUrl: string }> {
     return request("/client/overpay/create-payment", { method: "POST", body: JSON.stringify(data), token });
@@ -4221,14 +4247,23 @@ export interface TariffRecord {
 export interface TrialRecord {
   id: string;
   name: string;
-  tariffId: string;
+  /** null = standalone-триал из сквада (без тарифа). */
+  tariffId: string | null;
   tariffName: string | null;
+  /** сквады standalone-триала. */
+  squadUuids?: string[];
+  /** лимит устройств standalone-триала. */
+  deviceLimit?: number | null;
   durationDays: number;
   /** T16 (12.05.2026) — опциональный лимит трафика триала в байтах (null = из тарифа). */
   trafficLimitBytes: number | null;
   enabled: boolean;
   sortOrder: number;
   description: string | null;
+  /** можно ли конвертировать триал. */
+  convertEnabled?: boolean;
+  /** конвертация в любой тариф. */
+  convertAllTariffs?: boolean;
   /** тарифы, в которые можно конвертировать триал (переход на их сквады). */
   convertTariffIds?: string[];
   createdAt: string;
@@ -4237,13 +4272,17 @@ export interface TrialRecord {
 
 export type CreateTrialPayload = {
   name: string;
-  tariffId: string;
+  tariffId?: string | null;
+  squadUuids?: string[] | null;
+  deviceLimit?: number | null;
   durationDays: number;
   /** T16 (12.05.2026) — опциональный лимит трафика триала в байтах. */
   trafficLimitBytes?: number | null;
   enabled?: boolean;
   sortOrder?: number;
   description?: string | null;
+  convertEnabled?: boolean;
+  convertAllTariffs?: boolean;
   /** тарифы, в которые можно конвертировать триал. */
   convertTariffIds?: string[] | null;
 };

@@ -30,6 +30,8 @@ interface SubCard {
   daysLeft: number | null;
   isActive: boolean;
   isTrial: boolean;
+  /** false → у триала нет кнопок продления/конвертации вовсе. */
+  trialConvertEnabled: boolean;
 }
 
 function formatDate(iso: string | null): string {
@@ -97,6 +99,7 @@ export function StealthDashboard() {
           daysLeft,
           isActive,
           isTrial: Boolean(it.trialId),
+          trialConvertEnabled: it.trialConvertEnabled ?? true,
         };
       });
       setSubs(cards);
@@ -187,13 +190,17 @@ export function StealthDashboard() {
                     до {formatDate(s.expiresAt)}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`)}
-                      className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3 py-1.5 text-xs font-bold text-rose-400 transition inline-flex items-center gap-1.5"
-                    >
-                      <Zap className="h-3 w-3" />
-                      Продлить
-                    </button>
+                    {/* триал: «Конвертировать» (выбор тарифа) или ничего,
+                        если конвертация запрещена в настройках триала. */}
+                    {(!s.isTrial || s.trialConvertEnabled) && (
+                      <button
+                        onClick={() => navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`)}
+                        className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3 py-1.5 text-xs font-bold text-rose-400 transition inline-flex items-center gap-1.5"
+                      >
+                        <Zap className="h-3 w-3" />
+                        {s.isTrial ? "Конвертировать" : "Продлить"}
+                      </button>
+                    )}
                     <button
                       onClick={() => navigate(`/cabinet/subscribe?sub=${encodeURIComponent(s.id)}`)}
                       className="rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-zinc-300 transition inline-flex items-center gap-1.5"

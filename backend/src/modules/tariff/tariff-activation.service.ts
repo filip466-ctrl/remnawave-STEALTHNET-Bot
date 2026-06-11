@@ -14,6 +14,7 @@ import {
   extractRemnaUuid,
   remnaUsernameFromClient,
   remnaResetUserTraffic,
+  remnaDeleteUser,
 } from "../remna/remna.client.js";
 import { createAdditionalSubscription } from "../gift/gift.service.js";
 import { getSystemConfig } from "../client/client.service.js";
@@ -676,21 +677,27 @@ export async function extendSecondarySubscription(
   if (effectiveConvert) {
     const remainingMs = currentExpireAt ? currentExpireAt.getTime() - Date.now() : 0;
     const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
-    const newPrice = selectedOption?.price ?? tariff.price ?? 0;
-    const newBasePerDay = effectiveDays > 0 ? newPrice / effectiveDays : 0;
-    const extrasPerDay = (sec.extraDevices ?? 0) > 0 ? (sec.extraDevicesMonthlyPrice ?? 0) / 30 : 0;
-    const keepExtras = !removeExtrasAfter && extrasPerDay > 0;
-    // Старая ПОЛНАЯ ставка (база + устройства); у триала базы нет → null (0 конверт. дней).
-    const oldFullPerDay = sec.currentPricePerDay != null
-      ? sec.currentPricePerDay + extrasPerDay
-      : (extrasPerDay > 0 ? extrasPerDay : null);
-    // Новая ставка: с устройствами, если юзер их оставляет.
-    const newFullPerDay = newBasePerDay + (keepExtras ? extrasPerDay : 0);
-    convertedDays = computeConvertedDays({
-      remainingDays,
-      oldPricePerDay: oldFullPerDay,
-      newPricePerDay: newFullPerDay,
-    });
+    if (isTrialConversion) {
+      // конвертация ТРИАЛА сохраняет дни 1:1 (и остаток
+      // трафика — см. traffic ниже): юзер ничего не теряет при переходе на платный.
+      convertedDays = remainingDays;
+    } else {
+      const newPrice = selectedOption?.price ?? tariff.price ?? 0;
+      const newBasePerDay = effectiveDays > 0 ? newPrice / effectiveDays : 0;
+      const extrasPerDay = (sec.extraDevices ?? 0) > 0 ? (sec.extraDevicesMonthlyPrice ?? 0) / 30 : 0;
+      const keepExtras = !removeExtrasAfter && extrasPerDay > 0;
+      // Старая ПОЛНАЯ ставка (база + устройства).
+      const oldFullPerDay = sec.currentPricePerDay != null
+        ? sec.currentPricePerDay + extrasPerDay
+        : (extrasPerDay > 0 ? extrasPerDay : null);
+      // Новая ставка: с устройствами, если юзер их оставляет.
+      const newFullPerDay = newBasePerDay + (keepExtras ? extrasPerDay : 0);
+      convertedDays = computeConvertedDays({
+        remainingDays,
+        oldPricePerDay: oldFullPerDay,
+        newPricePerDay: newFullPerDay,
+      });
+    }
   }
 
   // Стек дней: если подписка активна → +effectiveDays к expireAt; иначе now+effectiveDays.
@@ -714,8 +721,13 @@ export async function extendSecondarySubscription(
   const currentUsedBytes = extractCurrentTrafficUsed(userRes.data);
   // При конвертации трафик начинается заново по новому тарифу (это смена тарифа,
   // а не продление того же) — лимит нового тарифа, счётчик used в ноль.
+  // конвертация ТРИАЛА переносит неизрасходованный остаток
+  // («гиги остаются»): finalLimit = лимит нового тарифа + остаток триала.
+  const trialCarryOver = isTrialConversion && trafficLimitBytes > 0
+    ? Math.max(0, (currentLimitBytes ?? 0) - (currentUsedBytes ?? 0))
+    : 0;
   const traffic = effectiveConvert
-    ? { finalLimitBytes: trafficLimitBytes, resetUsed: true }
+    ? { finalLimitBytes: trafficLimitBytes > 0 ? trafficLimitBytes + trialCarryOver : trafficLimitBytes, resetUsed: true }
     : computeTrafficOnRenewal({
         mode: resetMode,
         isTrial: false,
@@ -910,20 +922,26 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
 
     // ── Ветка 1: явное продление конкретной подписки ──────────────────────
     if (extendsSecondaryId) {
-      // конвертация триала в ДРУГОЙ тариф разрешена только если
-      // целевой тариф указан в trial.convertTariffIds (настройка триала в админке).
+      // конвертация триала: разрешение и список целевых тарифов
+      // задаются в настройках триала (convertEnabled / convertAllTariffs / convertTariffIds).
       const targetSub = await prisma.subscription.findUnique({
         where: { id: extendsSecondaryId },
-        select: { tariffId: true, trialId: true, trial: { select: { convertTariffIds: true } } },
+        select: { tariffId: true, trialId: true, trial: { select: { convertEnabled: true, convertAllTariffs: true, convertTariffIds: true } } },
       });
-      if (targetSub?.trialId && targetSub.tariffId && targetSub.tariffId !== tariff.id) {
-        let allowed: string[] = [];
-        try {
-          const parsed = targetSub.trial?.convertTariffIds ? JSON.parse(targetSub.trial.convertTariffIds) as unknown : [];
-          if (Array.isArray(parsed)) allowed = parsed.map((x) => String(x));
-        } catch { /* битый JSON → пустой список */ }
-        if (!allowed.includes(tariff.id)) {
-          return { ok: false, error: "Этот тариф недоступен для перехода с пробного периода", status: 400 };
+      if (targetSub?.trialId) {
+        if (targetSub.trial?.convertEnabled === false) {
+          return { ok: false, error: "Этот пробный период нельзя конвертировать или продлить", status: 400 };
+        }
+        const sameAsTrialTariff = targetSub.tariffId != null && targetSub.tariffId === tariff.id;
+        if (!sameAsTrialTariff && targetSub.trial?.convertAllTariffs !== true) {
+          let allowed: string[] = [];
+          try {
+            const parsed = targetSub.trial?.convertTariffIds ? JSON.parse(targetSub.trial.convertTariffIds) as unknown : [];
+            if (Array.isArray(parsed)) allowed = parsed.map((x) => String(x));
+          } catch { /* битый JSON → пустой список */ }
+          if (!allowed.includes(tariff.id)) {
+            return { ok: false, error: "Этот тариф недоступен для перехода с пробного периода", status: 400 };
+          }
         }
       }
       // юзер выбрал «продлить без устройств» —
@@ -992,6 +1010,11 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
     }
 
     // ── Ветка 2: новая подписка (любая покупка тарифа без extendsSecondaryId) ──
+    // покупка при активном триале ЗАМЕНЯЕТ его (триал удаляется,
+    // новая подписка занимает слот). Выбор триала — metadata.replaceTrialSubId.
+    if (!isGiftPurchase) {
+      await replaceTrialOnPurchase(client.id, getReplaceTrialSubId(payment.metadata));
+    }
     const result = await createAdditionalSubscription(client.id, {
       id: tariff.id,
       name: tariff.name,
@@ -1035,6 +1058,48 @@ function getExtendsSecondarySubId(metadata: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+/** metadata.replaceTrialSubId — какой триал заменить покупкой (выбор юзера в UI). */
+function getReplaceTrialSubId(metadata: string | null): string | null {
+  if (!metadata?.trim()) return null;
+  try {
+    const o = JSON.parse(metadata) as Record<string, unknown>;
+    const id = o?.replaceTrialSubId;
+    return typeof id === "string" && id.trim() ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * замена триала покупкой. Покупка новой подписки при
+ * активном триале ПОЛНОСТЬЮ заменяет его: триальная подписка удаляется (вместе
+ * с Remna-юзером), а новая занимает освободившийся слот. Если триалов несколько —
+ * UI передаёт replaceTrialSubId (выбор юзера); без выбора берём самый старый.
+ * Возвращает id удалённой подписки или null (триалов нет).
+ */
+export async function replaceTrialOnPurchase(clientId: string, requestedTrialSubId: string | null): Promise<string | null> {
+  const trials = await prisma.subscription.findMany({
+    where: { ownerId: clientId, trialId: { not: null }, purchasedAsGift: false },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, remnawaveUuid: true },
+  });
+  if (trials.length === 0) return null;
+  const target = (requestedTrialSubId && trials.find((t) => t.id === requestedTrialSubId)) || trials[0];
+  if (target.remnawaveUuid) {
+    const del = await remnaDeleteUser(target.remnawaveUuid);
+    if (del.error) console.error("[trial-replace] remnaDeleteUser failed:", del.error);
+  }
+  await prisma.subscription.delete({ where: { id: target.id } }).catch((e) => {
+    console.error("[trial-replace] subscription delete failed:", e);
+  });
+  // легаси-указатель клиента мог смотреть на удалённого Remna-юзера.
+  await prisma.client.updateMany({
+    where: { id: clientId, remnawaveUuid: target.remnawaveUuid ?? undefined },
+    data: { remnawaveUuid: null },
+  }).catch(() => {});
+  return target.id;
 }
 
 /** metadata.purchasedAsGift=true → подписка для подарка. */
