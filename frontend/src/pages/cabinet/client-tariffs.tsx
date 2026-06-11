@@ -122,6 +122,9 @@ function ClassicTariffsPage() {
   // показывается в модалке оплаты, чтобы юзер ДО оплаты понимал, что покупка
   // обновит существующую подписку, а не создаст вторую.
   const [convPreview, setConvPreview] = useState<TariffConversionPreview | null>(null);
+  // судьба доп. устройств при конвертации: true = переезжают на новый
+  // тариф (дней меньше), false = убираются (их остаток тоже превращается в дни).
+  const [convKeepExtras, setConvKeepExtras] = useState(true);
   const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string; paymentId?: string } | null>(null);
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
@@ -159,8 +162,13 @@ function ClassicTariffsPage() {
    */
   function purchaseExtra(): { extendsSecondarySubId?: string; asAdditional?: boolean; removeExtrasOnActivate?: boolean } {
     if (buyMode.kind === "extend") return { extendsSecondarySubId: buyMode.subId, removeExtrasOnActivate: removeExtrasOnExtend };
-    if (userSubs.length > 0) return { asAdditional: true };
-    return {};
+    const base: { asAdditional?: boolean; removeExtrasOnActivate?: boolean } = userSubs.length > 0 ? { asAdditional: true } : {};
+    // конвертация (single-категория): юзер выбрал убрать доп.
+    // устройства — их остаточная ценность уйдёт в дни нового тарифа.
+    if (convPreview?.willConvert && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras) {
+      base.removeExtrasOnActivate = true;
+    }
+    return base;
   }
 
   // T-extend-devices (WolfVPN): доплата за СОХРАНЯЕМЫЕ доп.устройства при продлении подписки.
@@ -306,6 +314,7 @@ function ClassicTariffsPage() {
       return;
     }
     let alive = true;
+    setConvKeepExtras(true);
     api.clientTariffConversionPreview(token, {
       tariffId: payModal.tariff.id,
       priceOptionId: selectedPriceOptionId ?? undefined,
@@ -769,15 +778,66 @@ function ClassicTariffsPage() {
                       Покупка не создаст вторую подписку — она обновит
                       {convPreview.subscription.tariffName ? <> «<b>{convPreview.subscription.tariffName}</b>»</> : " текущую"}
                       {" "}до нового тарифа.
-                      {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 ? (
+                      {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 && !(convPreview.extras && convPreview.extras.extraDevices > 0) ? (
                         <> Остаток <b>{formatRuDays(convPreview.remainingDays ?? 0)}</b> превратится в{" "}
                         <b className="text-violet-400">{formatRuDays(convPreview.convertedDays ?? 0)}</b> по цене нового тарифа.</>
                       ) : null}
                     </p>
-                    {(convPreview.totalDays ?? 0) > 0 && (
+                    {(convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
                       <p className="text-xs font-bold text-violet-400">
                         Итого: {formatRuDays(convPreview.totalDays ?? 0)} нового тарифа
                       </p>
+                    )}
+
+                    {/* выбор судьбы докупленных доп. устройств. */}
+                    {convPreview.extras && convPreview.extras.extraDevices > 0 && (
+                      <div className="space-y-2 pt-1.5">
+                        <p className="text-xs font-bold">
+                          У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setConvKeepExtras(true)}
+                          className={cn(
+                            "w-full text-left rounded-xl border p-3 transition-all",
+                            convKeepExtras
+                              ? "border-violet-500/50 bg-violet-500/10"
+                              : "border-white/10 bg-white/[0.03] hover:border-white/25",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">
+                            <Smartphone className="h-3.5 w-3.5 text-violet-400" />
+                            Оставить устройства
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                            Всего будет <b>{convPreview.extras.keep.totalDevices} устройств</b>{" "}
+                            ({convPreview.extras.newIncludedDevices} в тарифе + {convPreview.extras.extraDevices} доп.).
+                            Остаток конвертируется в <b className="text-violet-400">{formatRuDays(convPreview.extras.keep.convertedDays)}</b> —
+                            итого {formatRuDays(convPreview.extras.keep.totalDays)}.
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConvKeepExtras(false)}
+                          className={cn(
+                            "w-full text-left rounded-xl border p-3 transition-all",
+                            !convKeepExtras
+                              ? "border-violet-500/50 bg-violet-500/10"
+                              : "border-white/10 bg-white/[0.03] hover:border-white/25",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">
+                            <Zap className="h-3.5 w-3.5 text-violet-400" />
+                            Убрать устройства — больше дней
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                            Останется <b>{convPreview.extras.drop.totalDevices} устройств</b> (только из тарифа).
+                            Стоимость устройств тоже превратится в дни: остаток конвертируется в{" "}
+                            <b className="text-violet-400">{formatRuDays(convPreview.extras.drop.convertedDays)}</b> —
+                            итого {formatRuDays(convPreview.extras.drop.totalDays)}.
+                          </p>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

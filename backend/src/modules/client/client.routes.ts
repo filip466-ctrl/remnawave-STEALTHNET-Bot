@@ -1658,22 +1658,47 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
 
   const tariff = await prisma.tariff.findUnique({
     where: { id: tariffId },
-    select: { name: true, durationDays: true, price: true, priceOptions: { select: { id: true, durationDays: true, price: true } } },
+    select: { name: true, durationDays: true, price: true, includedDevices: true, priceOptions: { select: { id: true, durationDays: true, price: true } } },
   });
   if (!tariff) return res.json({ willConvert: false });
+
+  // Доп. устройства конвертируемой подписки — для выбора «сохранить/убрать».
+  const subExtras = await prisma.subscription.findUnique({
+    where: { id: convertible.id },
+    select: { extraDevices: true, extraDevicesMonthlyPrice: true },
+  });
+  const extraDevices = subExtras?.extraDevices ?? 0;
+  const extrasMonthly = subExtras?.extraDevicesMonthlyPrice ?? 0;
 
   const option = priceOptionId ? tariff.priceOptions.find((o) => o.id === priceOptionId) ?? null : null;
   const purchasedDays = option?.durationDays ?? tariff.durationDays;
   const newPrice = option?.price ?? tariff.price;
-  const newPricePerDay = purchasedDays > 0 ? newPrice / purchasedDays : 0;
+  const newBasePerDay = purchasedDays > 0 ? newPrice / purchasedDays : 0;
 
   const remainingMs = convertible.expireAt ? convertible.expireAt.getTime() - Date.now() : 0;
   const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
-  const convertedDays = computeConvertedDays({
+
+  // та же математика, что в extendSecondarySubscription(convertMode):
+  // полная старая ставка = база + устройства; при «убрать» вся ценность уходит в дни
+  // чистого тарифа, при «оставить» — в дни тарифа с устройствами.
+  const extrasPerDay = extraDevices > 0 ? extrasMonthly / 30 : 0;
+  const oldFullPerDay = convertible.currentPricePerDay != null
+    ? convertible.currentPricePerDay + extrasPerDay
+    : (extrasPerDay > 0 ? extrasPerDay : null);
+  const convertedDaysDrop = computeConvertedDays({
     remainingDays,
-    oldPricePerDay: convertible.currentPricePerDay ?? null,
-    newPricePerDay,
+    oldPricePerDay: oldFullPerDay,
+    newPricePerDay: newBasePerDay,
   });
+  const convertedDaysKeep = extraDevices > 0
+    ? computeConvertedDays({
+        remainingDays,
+        oldPricePerDay: oldFullPerDay,
+        newPricePerDay: newBasePerDay + extrasPerDay,
+      })
+    : convertedDaysDrop;
+
+  const newIncludedDevices = Math.max(1, tariff.includedDevices ?? 1);
 
   return res.json({
     willConvert: true,
@@ -1685,9 +1710,20 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
       isTrial: convertible.trialId != null,
     },
     remainingDays,
-    convertedDays,
+    // обратная совместимость: convertedDays = вариант «оставить устройства» (дефолт UI).
+    convertedDays: convertedDaysKeep,
     purchasedDays,
-    totalDays: purchasedDays + convertedDays,
+    totalDays: purchasedDays + convertedDaysKeep,
+    // выбор судьбы доп. устройств при конвертации.
+    extras: {
+      extraDevices,
+      extraDevicesMonthlyPrice: extrasMonthly,
+      newIncludedDevices,
+      /** оставить устройства: всего устройств / дней конвертируется */
+      keep: { totalDevices: newIncludedDevices + extraDevices, convertedDays: convertedDaysKeep, totalDays: purchasedDays + convertedDaysKeep },
+      /** убрать устройства: всего устройств / дней конвертируется (больше) */
+      drop: { totalDevices: newIncludedDevices, convertedDays: convertedDaysDrop, totalDays: purchasedDays + convertedDaysDrop },
+    },
   });
 });
 
@@ -2644,7 +2680,7 @@ clientRouter.get("/subscription", async (req, res) => {
   // EXPIRED Remna-юзера, тогда как subscriptions хранит актуального). Бот берёт из subscriptions — кабинет теперь тоже.
   const rootSub = await prisma.subscription.findFirst({
     where: { ownerId: client.id, subscriptionIndex: 0, remnawaveUuid: { not: null } },
-    select: { remnawaveUuid: true },
+    select: { remnawaveUuid: true, tariff: { select: { name: true } } },
   });
   const effectiveUuid = rootSub?.remnawaveUuid ?? client.remnawaveUuid;
   if (!effectiveUuid) {
@@ -2682,7 +2718,13 @@ clientRouter.get("/subscription", async (req, res) => {
     },
   });
   let tariffDisplayName: string;
-  if (dbClient?.currentTariff?.name?.trim()) {
+  // имя тарифа в первую очередь из АКТУАЛЬНОЙ root-подписки
+  // (subscription.tariffId обновляется при конвертации/продлении), и только потом —
+  // из легаси Client.currentTariffId (его обновлял только старый activateTariffForClient,
+  // поэтому после конвертации кабинет показывал имя СТАРОГО тарифа).
+  if (rootSub?.tariff?.name?.trim()) {
+    tariffDisplayName = rootSub.tariff.name.trim();
+  } else if (dbClient?.currentTariff?.name?.trim()) {
     tariffDisplayName = dbClient.currentTariff.name.trim();
   } else {
     tariffDisplayName = await resolveTariffDisplayName(result.data ?? null);
@@ -4017,7 +4059,9 @@ clientRouter.post("/payments/balance", async (req, res) => {
         tariff,
         selectedOption ? { id: selectedOption.id, durationDays: selectedOption.durationDays, price: selectedOption.price } : undefined,
         requestedExtras,
-        false,
+        // юзер выбрал убрать доп. устройства при конвертации —
+        // их остаточная ценность уйдёт в дни нового тарифа.
+        removeExtrasOnActivate === true,
         /* convertMode */ true,
       );
       isConverted = activateResult.ok;
@@ -4077,8 +4121,8 @@ clientRouter.post("/payments/balance", async (req, res) => {
     tariffMeta.convertedSubscriptionId = createdSubscriptionId;
     if (activateResult.ok && activateResult.convertedDays != null) tariffMeta.convertedDays = activateResult.convertedDays;
   }
-  // флаг удаления доп. устройств при активации.
-  if (removeExtrasOnActivate === true && extendsSecondarySubId) tariffMeta.removeExtrasOnActivate = true;
+  // флаг удаления доп. устройств при активации (продление ИЛИ конвертация).
+  if (removeExtrasOnActivate === true) tariffMeta.removeExtrasOnActivate = true;
   // T-fix (11.05.2026): маркер покупки доп. подписки балансом (без gift).
   if (asAdditional && !extendsSecondarySubId) tariffMeta.isAdditionalSubscription = true;
   const payment = await createPayment({

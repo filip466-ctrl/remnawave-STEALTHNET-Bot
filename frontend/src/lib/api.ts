@@ -4473,6 +4473,14 @@ export interface TariffConversionPreview {
   convertedDays?: number;
   purchasedDays?: number;
   totalDays?: number;
+  /** выбор судьбы доп. устройств при конвертации. */
+  extras?: {
+    extraDevices: number;
+    extraDevicesMonthlyPrice: number;
+    newIncludedDevices: number;
+    keep: { totalDevices: number; convertedDays: number; totalDays: number };
+    drop: { totalDevices: number; convertedDays: number; totalDays: number };
+  };
 }
 
 export type PublicTariff = {

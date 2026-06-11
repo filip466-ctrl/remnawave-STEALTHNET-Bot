@@ -664,17 +664,32 @@ export async function extendSecondarySubscription(
   const effectiveConvert = convertMode || isTrialConversion;
 
   // ── Конвертация: остаток дней переносится pro-rata по ставке, отсчёт от «сейчас» ──
+  //
+  // учёт ДОП. УСТРОЙСТВ (sell-options) в ставках. Юзер платил
+  // полную ставку: базовый тариф + доп. устройства (extraDevicesMonthlyPrice за 30 дн).
+  // Вся эта остаточная ценность конвертируется:
+  //   • УБИРАЕТ устройства (removeExtrasAfter) → ценность устройств тоже превращается
+  //     в дни чистого нового тарифа — дней БОЛЬШЕ, устройств меньше.
+  //   • ОСТАВЛЯЕТ устройства → они переезжают на новую подписку (новый included +
+  //     прежние extra), но новая полная ставка выше (тариф + устройства) — дней МЕНЬШЕ.
   let convertedDays = 0;
   if (effectiveConvert) {
     const remainingMs = currentExpireAt ? currentExpireAt.getTime() - Date.now() : 0;
     const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
     const newPrice = selectedOption?.price ?? tariff.price ?? 0;
-    const newPricePerDay = effectiveDays > 0 ? newPrice / effectiveDays : 0;
+    const newBasePerDay = effectiveDays > 0 ? newPrice / effectiveDays : 0;
+    const extrasPerDay = (sec.extraDevices ?? 0) > 0 ? (sec.extraDevicesMonthlyPrice ?? 0) / 30 : 0;
+    const keepExtras = !removeExtrasAfter && extrasPerDay > 0;
+    // Старая ПОЛНАЯ ставка (база + устройства); у триала базы нет → null (0 конверт. дней).
+    const oldFullPerDay = sec.currentPricePerDay != null
+      ? sec.currentPricePerDay + extrasPerDay
+      : (extrasPerDay > 0 ? extrasPerDay : null);
+    // Новая ставка: с устройствами, если юзер их оставляет.
+    const newFullPerDay = newBasePerDay + (keepExtras ? extrasPerDay : 0);
     convertedDays = computeConvertedDays({
       remainingDays,
-      // у триала currentPricePerDay нет → остаток бесплатных дней не конвертируется.
-      oldPricePerDay: sec.currentPricePerDay ?? null,
-      newPricePerDay,
+      oldPricePerDay: oldFullPerDay,
+      newPricePerDay: newFullPerDay,
     });
   }
 
@@ -925,6 +940,9 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
     if (!isGiftPurchase) {
       const convertible = await findConvertibleSubscription(client.id, tariff.id);
       if (convertible) {
+        // юзер выбирает судьбу доп. устройств при конвертации:
+        // убрать (бо́льшая конвертация дней) или оставить (устройства переезжают).
+        const removeExtrasOnConvert = shouldRemoveExtrasOnActivate(payment.metadata);
         const result = await extendSecondarySubscription(convertible.id, {
           id: tariff.id,
           durationDays: selectedOption?.durationDays ?? tariff.durationDays,
@@ -937,7 +955,7 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
           internalSquadUuids: tariff.internalSquadUuids,
           trafficResetMode: tariff.trafficResetMode ?? undefined,
           price: selectedOption?.price ?? tariff.price,
-        }, selectedOption, payment.deviceCount ?? undefined, false, /* convertMode */ true);
+        }, selectedOption, payment.deviceCount ?? undefined, removeExtrasOnConvert, /* convertMode */ true);
         if (result.ok) {
           // фиксируем конвертацию в платеже: и привязку подписки, и детали для отчётности.
           const meta = (() => {

@@ -97,6 +97,8 @@ export function StealthTariffs() {
   const [payError, setPayError] = useState<string | null>(null);
   // превью конвертации (режим «одна подписка из категории»).
   const [convPreview, setConvPreview] = useState<TariffConversionPreview | null>(null);
+  // судьба доп. устройств при конвертации (true = оставить).
+  const [convKeepExtras, setConvKeepExtras] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -233,6 +235,7 @@ export function StealthTariffs() {
   useEffect(() => {
     if (!state.token || !selectedTariffId || extendTarget) { setConvPreview(null); return; }
     let alive = true;
+    setConvKeepExtras(true);
     api.clientTariffConversionPreview(state.token, {
       tariffId: selectedTariffId,
       priceOptionId: selectedPriceOptionId ?? undefined,
@@ -271,6 +274,11 @@ export function StealthTariffs() {
         // режим продления конкретной подписки (?extend=) —
         // оплата продлевает ИМЕННО её, а не создаёт новую.
         ...(extendTarget ? { extendsSecondarySubId: extendTarget.id } : {}),
+        // конвертация: юзер выбрал убрать доп. устройства —
+        // их остаточная ценность уйдёт в дни нового тарифа.
+        ...(convPreview?.willConvert && (convPreview.extras?.extraDevices ?? 0) > 0 && !convKeepExtras
+          ? { removeExtrasOnActivate: true }
+          : {}),
       };
       let url: string | null = null;
       if (selectedMethod.kind === "platega") {
@@ -448,12 +456,56 @@ export function StealthTariffs() {
               <p className="text-xs text-zinc-400 leading-relaxed">
                 Покупка не создаст вторую подписку — она обновит
                 {convPreview.subscription.tariffName ? ` «${convPreview.subscription.tariffName}»` : " текущую"} до нового тарифа.
-                {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0
+                {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 && !(convPreview.extras && convPreview.extras.extraDevices > 0)
                   ? ` Остаток ${convPreview.remainingDays} дн. превратится в ${convPreview.convertedDays} дн. по цене нового тарифа.`
                   : ""}
               </p>
-              {(convPreview.totalDays ?? 0) > 0 && (
+              {(convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
                 <p className="text-xs font-bold text-rose-400">Итого: {convPreview.totalDays} дн. нового тарифа</p>
+              )}
+
+              {/* выбор судьбы доп. устройств при конвертации. */}
+              {convPreview.extras && convPreview.extras.extraDevices > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-bold">
+                    У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConvKeepExtras(true)}
+                    className={cn(
+                      "w-full text-left rounded-xl border p-3 transition-all",
+                      convKeepExtras
+                        ? "border-rose-500/50 bg-rose-500/10"
+                        : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                    )}
+                  >
+                    <p className="text-xs font-bold">📱 Оставить устройства</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                      Всего {convPreview.extras.keep.totalDevices} устройств
+                      ({convPreview.extras.newIncludedDevices} в тарифе + {convPreview.extras.extraDevices} доп.).
+                      Конвертация остатка: +{convPreview.extras.keep.convertedDays} дн. —
+                      итого {convPreview.extras.keep.totalDays} дн.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConvKeepExtras(false)}
+                    className={cn(
+                      "w-full text-left rounded-xl border p-3 transition-all",
+                      !convKeepExtras
+                        ? "border-rose-500/50 bg-rose-500/10"
+                        : "border-white/[0.08] bg-zinc-900/40 hover:border-white/20",
+                    )}
+                  >
+                    <p className="text-xs font-bold">⚡ Убрать устройства — больше дней</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                      Останется {convPreview.extras.drop.totalDevices} устройств (только из тарифа).
+                      Стоимость устройств тоже превратится в дни: +{convPreview.extras.drop.convertedDays} дн. —
+                      итого {convPreview.extras.drop.totalDays} дн.
+                    </p>
+                  </button>
+                </div>
               )}
             </div>
           </div>
