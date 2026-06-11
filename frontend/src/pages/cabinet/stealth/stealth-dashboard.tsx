@@ -12,10 +12,13 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Zap, Settings2, Smartphone, Gift, Users, ChevronRight, Shield, Calendar, Clock, Plus } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Zap, Settings2, Smartphone, Gift, Users, ChevronRight, Shield, Calendar, Clock, Plus, Check } from "lucide-react";
 import { StealthPromocodeModal } from "@/components/stealth/stealth-promocode-modal";
 import { StealthDevicesModal } from "@/components/stealth/stealth-devices-modal";
+import { StealthTrialsModal } from "@/components/stealth/stealth-trials-modal";
+import { ExtendSubscriptionDialog } from "@/components/payment/extend-subscription-dialog";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api } from "@/lib/api";
 import { StadiumButton } from "@/components/stealth/stadium-button";
@@ -23,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 interface SubCard {
   id: string;
+  type: "root" | "secondary";
   index: number;
   label: string;
   emoji: string | null;
@@ -32,7 +36,12 @@ interface SubCard {
   isTrial: boolean;
   /** false → у триала нет кнопок продления/конвертации вовсе. */
   trialConvertEnabled: boolean;
+  /** тариф подписки — нужен для тоггла автосписания (без тарифа списывать нечего). */
+  tariffId: string | null;
+  autoRenewEnabled: boolean;
 }
+
+type PaySuccessKind = "topup" | "tariff" | "generic";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -58,14 +67,42 @@ function unwrapRemnaSub(sub: unknown): Record<string, unknown> | null {
 }
 
 export function StealthDashboard() {
-  const { state } = useClientAuth();
+  const { state, refreshProfile } = useClientAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [subs, setSubs] = useState<SubCard[] | null>(null);
   const [devices, setDevices] = useState<{ used: number; total: number }>({ used: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0); // bump чтобы перезагрузить инфо после модалок
   const [showPromo, setShowPromo] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
+  const [showTrials, setShowTrials] = useState(false);
+  const [trialsCount, setTrialsCount] = useState(0);
+  const [extendSubId, setExtendSubId] = useState<string | null>(null);
+  const [paySuccess, setPaySuccess] = useState<PaySuccessKind | null>(null);
+  const [autoRenewBusyId, setAutoRenewBusyId] = useState<string | null>(null);
+  const [autoRenewError, setAutoRenewError] = useState<{ id: string; message: string } | null>(null);
+
+  // T-pay-success-modal: ЕДИНЫЙ детект возврата с любой платёжки (как в classic client-dashboard).
+  // Бэкенд редиректит по-разному: ?payment=success, ?yookassa=success, ?heleket=success,
+  // ?yoomoney_form=success, ?lava=success, ?lavatop=success, ?overpay=return.
+  useEffect(() => {
+    const providerSuccess =
+      searchParams.get("payment") === "success" ||
+      searchParams.get("yoomoney_form") === "success" ||
+      searchParams.get("yookassa") === "success" ||
+      searchParams.get("heleket") === "success" ||
+      searchParams.get("lava") === "success" ||
+      searchParams.get("lavatop") === "success" ||
+      searchParams.get("overpay") === "return";
+    if (!providerSuccess) return;
+    const paymentKind = searchParams.get("payment_kind");
+    const kind: PaySuccessKind = paymentKind === "topup" ? "topup" : paymentKind === "tariff" ? "tariff" : "generic";
+    setPaySuccess(kind);
+    setSearchParams({}, { replace: true });
+    setReloadKey((k) => k + 1);
+    if (state.token) refreshProfile().catch(() => {});
+  }, [searchParams, setSearchParams, state.token, refreshProfile]);
 
   useEffect(() => {
     if (!state.token) return;
@@ -92,6 +129,7 @@ export function StealthDashboard() {
         const idx = it.subscriptionIndex ?? 0;
         return {
           id: it.id,
+          type: it.type,
           index: idx,
           label: it.tariffDisplayName?.trim() || `Подписка #${idx}`,
           emoji: it.tariffMenuEmoji ?? null,
@@ -100,6 +138,8 @@ export function StealthDashboard() {
           isActive,
           isTrial: Boolean(it.trialId),
           trialConvertEnabled: it.trialConvertEnabled ?? true,
+          tariffId: it.tariffId ?? null,
+          autoRenewEnabled: it.autoRenewEnabled === true,
         };
       });
       setSubs(cards);
@@ -108,27 +148,74 @@ export function StealthDashboard() {
     return () => { alive = false; };
   }, [state.token, reloadKey]);
 
+  // Доступные триалы: если есть хоть один — показываем кнопку «🎁 Пробный период».
+  // reloadKey в deps: после активации триал исчезает из списка → кнопка скрывается.
+  useEffect(() => {
+    if (!state.token) return;
+    let alive = true;
+    api.getClientAvailableTrials(state.token)
+      .then((res) => { if (alive) setTrialsCount(res.items.length); })
+      .catch(() => { if (alive) setTrialsCount(0); });
+    return () => { alive = false; };
+  }, [state.token, reloadKey]);
+
+  // Тоггл автосписания конкретной подписки — optimistic, с откатом при ошибке.
+  async function toggleAutoRenew(sub: SubCard) {
+    if (!state.token || autoRenewBusyId) return;
+    const next = !sub.autoRenewEnabled;
+    setAutoRenewBusyId(sub.id);
+    setAutoRenewError(null);
+    setSubs((prev) => prev?.map((x) => (x.id === sub.id ? { ...x, autoRenewEnabled: next } : x)) ?? prev);
+    try {
+      await api.clientSetSubscriptionAutoRenew(state.token, sub.type, sub.id, next);
+    } catch (e) {
+      // откат optimistic-обновления
+      setSubs((prev) => prev?.map((x) => (x.id === sub.id ? { ...x, autoRenewEnabled: sub.autoRenewEnabled } : x)) ?? prev);
+      setAutoRenewError({ id: sub.id, message: e instanceof Error ? e.message : "Не удалось изменить автосписание" });
+    } finally {
+      setAutoRenewBusyId(null);
+    }
+  }
+
   const hasAnySub = (subs?.length ?? 0) > 0;
   const hasActiveSub = (subs ?? []).some((s) => s.isActive);
 
   return (
     <div className="px-4 pt-2 space-y-5">
-      {/* Hero — большой светящийся шар-логотип (placeholder под favicon бренда) */}
+      {/* Hero — большой светящийся шар-логотип с живой пульсацией */}
       <div className="relative h-44 md:h-56 flex items-center justify-center">
-        <div
+        <motion.div
           className="absolute inset-0"
           style={{
-            background: "radial-gradient(closest-side, rgba(255,35,87,0.18), transparent 65%)",
-            filter: "blur(12px)",
+            background: "radial-gradient(closest-side, rgba(255,35,87,0.22), transparent 65%)",
+            filter: "blur(14px)",
           }}
+          animate={{ opacity: [0.7, 1, 0.7], scale: [1, 1.06, 1] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
         />
-        <div className="relative h-32 w-32 md:h-40 md:w-40 rounded-full bg-gradient-to-br from-zinc-900 to-black border border-rose-500/20 flex items-center justify-center shadow-[0_0_60px_-10px_rgba(255,35,87,0.5),inset_0_0_30px_rgba(255,35,87,0.1)]">
-          <Shield className="h-14 w-14 md:h-16 md:w-16 text-rose-500" strokeWidth={1.5} />
-        </div>
+        {/* внешнее тающее кольцо-эхо */}
+        <motion.div
+          className="absolute h-44 w-44 md:h-56 md:w-56 rounded-full border border-rose-500/15"
+          animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.15, 0.5] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+          aria-hidden="true"
+        />
+        <motion.div
+          className="relative h-32 w-32 md:h-40 md:w-40 rounded-full bg-gradient-to-br from-zinc-900 to-black border border-rose-500/25 flex items-center justify-center shadow-[0_0_70px_-10px_rgba(255,35,87,0.55),inset_0_0_34px_rgba(255,35,87,0.12)]"
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Shield className="h-14 w-14 md:h-16 md:w-16 text-rose-500 drop-shadow-[0_0_12px_rgba(255,35,87,0.6)]" strokeWidth={1.5} />
+        </motion.div>
       </div>
 
       {/* Subscriptions card */}
-      <div className="rounded-3xl bg-zinc-900/70 border border-white/[0.06] p-5 backdrop-blur-md space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+        className="relative rounded-3xl bg-white/[0.04] border border-white/[0.08] p-5 backdrop-blur-2xl space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-24px_rgba(0,0,0,0.8)] before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-b before:from-white/[0.05] before:to-transparent before:pointer-events-none"
+      >
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-xl font-bold tracking-tight">
             {(subs?.length ?? 0) > 1 ? "Подписки" : "Подписка"}
@@ -143,26 +230,35 @@ export function StealthDashboard() {
         {/* Список подписок — единый рендер для любой (включая index 0) */}
         {hasAnySub && (
           <div className="space-y-2.5">
-            {(subs ?? []).map((s) => (
-              <div
+            {(subs ?? []).map((s, subIdx) => (
+              <motion.div
                 key={s.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: subIdx * 0.07, ease: "easeOut" }}
+                whileHover={{ scale: 1.015 }}
                 className={cn(
-                  "rounded-2xl border p-3.5 space-y-2.5 transition-colors",
+                  "relative rounded-2xl border p-3.5 space-y-2.5 transition-all duration-300 backdrop-blur-xl",
                   s.isActive
-                    ? "bg-white/[0.03] border-white/[0.07]"
-                    : "bg-zinc-900/40 border-white/[0.04]",
+                    ? "bg-white/[0.04] border-white/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:border-rose-500/30 hover:shadow-[0_0_40px_-12px_rgba(255,35,87,0.45),inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    : "bg-zinc-900/40 border-white/[0.05]",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full shrink-0",
-                        s.isActive
-                          ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]"
-                          : "bg-zinc-600",
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      {s.isActive && (
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
                       )}
-                    />
+                      <span
+                        className={cn(
+                          "relative inline-flex h-2 w-2 rounded-full",
+                          s.isActive
+                            ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]"
+                            : "bg-zinc-600",
+                        )}
+                      />
+                    </span>
                     <span className="text-sm font-bold truncate">
                       {s.emoji ? `${s.emoji} ` : ""}{s.label}
                     </span>
@@ -190,12 +286,15 @@ export function StealthDashboard() {
                     до {formatDate(s.expiresAt)}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {/* триал: «Конвертировать» (выбор тарифа) или ничего,
-                        если конвертация запрещена в настройках триала. */}
+                    {/* триал: «Конвертировать» = выбор тарифа в каталоге (navigate),
+                        обычная подписка: продление в диалоге без ухода со страницы. */}
                     {(!s.isTrial || s.trialConvertEnabled) && (
                       <button
-                        onClick={() => navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`)}
-                        className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3 py-1.5 text-xs font-bold text-rose-400 transition inline-flex items-center gap-1.5"
+                        onClick={() => {
+                          if (s.isTrial) navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`);
+                          else setExtendSubId(s.id);
+                        }}
+                        className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 hover:border-rose-500/45 px-3 py-1.5 text-xs font-bold text-rose-400 transition-all duration-300 hover:shadow-[0_0_20px_-6px_rgba(255,35,87,0.55)] active:scale-95 inline-flex items-center gap-1.5"
                       >
                         <Zap className="h-3 w-3" />
                         {s.isTrial ? "Конвертировать" : "Продлить"}
@@ -203,14 +302,48 @@ export function StealthDashboard() {
                     )}
                     <button
                       onClick={() => navigate(`/cabinet/subscribe?sub=${encodeURIComponent(s.id)}`)}
-                      className="rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] px-3 py-1.5 text-xs font-medium text-zinc-300 transition inline-flex items-center gap-1.5"
+                      className="rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-300 active:scale-95 inline-flex items-center gap-1.5"
                     >
                       <Settings2 className="h-3 w-3" />
                       Настроить
                     </button>
                   </div>
                 </div>
-              </div>
+
+                {/* Тоггл автосписания — только для НЕ-триальных подписок с тарифом. */}
+                {!s.isTrial && s.tariffId && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <span className="text-[11px] text-zinc-400">♻️ Автосписание</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={s.autoRenewEnabled}
+                        aria-label="Автосписание"
+                        disabled={autoRenewBusyId !== null}
+                        onClick={() => toggleAutoRenew(s)}
+                        className={cn(
+                          "relative h-5 w-9 rounded-full border transition-colors shrink-0",
+                          s.autoRenewEnabled
+                            ? "bg-emerald-500/80 border-emerald-400/40"
+                            : "bg-zinc-700/70 border-white/[0.08]",
+                          autoRenewBusyId !== null && "opacity-60",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
+                            s.autoRenewEnabled ? "translate-x-[18px]" : "translate-x-0.5",
+                          )}
+                        />
+                      </button>
+                    </div>
+                    {autoRenewError?.id === s.id && (
+                      <p className="text-[10px] leading-snug text-rose-400">{autoRenewError.message}</p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
             ))}
           </div>
         )}
@@ -238,6 +371,22 @@ export function StealthDashboard() {
           >
             {hasAnySub ? "Оформить ещё подписку" : "Оформить подписку"}
           </StadiumButton>
+
+          {trialsCount > 0 && (
+            <StadiumButton
+              variant="highlight"
+              size="md"
+              iconLeft={
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 border border-rose-500/30">
+                  <Gift className="h-3.5 w-3.5 text-rose-400" />
+                </span>
+              }
+              iconRight={<ChevronRight className="h-4 w-4 text-zinc-500" />}
+              onClick={() => setShowTrials(true)}
+            >
+              <span className="flex-1 text-left">🎁 Пробный период</span>
+            </StadiumButton>
+          )}
 
           <StadiumButton
             variant="highlight"
@@ -281,19 +430,27 @@ export function StealthDashboard() {
             Реферальная система
           </StadiumButton>
         </div>
-      </div>
+      </motion.div>
 
       {/* Если активных подписок нет — большая Buy CTA */}
-      {!loading && !hasActiveSub && (
-        <div className="px-1">
-          <StadiumButton
-            variant="primary" size="lg"
-            onClick={() => navigate("/cabinet/tariffs")}
+      <AnimatePresence>
+        {!loading && !hasActiveSub && (
+          <motion.div
+            className="px-1"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
           >
-            {hasAnySub ? "Продлить подписку" : "Начать бесплатно"}
-          </StadiumButton>
-        </div>
-      )}
+            <StadiumButton
+              variant="primary" size="lg"
+              onClick={() => navigate("/cabinet/tariffs")}
+            >
+              {hasAnySub ? "Продлить подписку" : "Начать бесплатно"}
+            </StadiumButton>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Модалки */}
       <StealthPromocodeModal
@@ -306,6 +463,73 @@ export function StealthDashboard() {
         onClose={() => setShowDevices(false)}
         onChanged={() => setReloadKey((k) => k + 1)}
       />
+      <StealthTrialsModal
+        open={showTrials}
+        onClose={() => setShowTrials(false)}
+        onActivated={() => setReloadKey((k) => k + 1)}
+      />
+
+      {/* Продление без редиректа — самодостаточный диалог (срок → устройства → оплата). */}
+      {extendSubId !== null && (
+        <ExtendSubscriptionDialog
+          subId={extendSubId}
+          open
+          onClose={() => setExtendSubId(null)}
+          onPaidByBalance={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
+      {/* Модалка «Оплата прошла» при возврате с платёжки. */}
+      <AnimatePresence>
+        {paySuccess !== null && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center pb-24 sm:pb-0 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setPaySuccess(null)}
+              aria-hidden="true"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-emerald-500/20 bg-zinc-900/95 p-6 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6),0_0_50px_-10px_rgba(52,211,153,0.35)]"
+            >
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 h-40 w-40 rounded-full bg-emerald-500/25 blur-3xl pointer-events-none" />
+              <div className="relative flex flex-col items-center gap-4 text-center">
+                <motion.div
+                  initial={{ scale: 0, rotate: -25 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.1 }}
+                  className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-green-600 shadow-xl shadow-emerald-500/40"
+                >
+                  <Check className="h-10 w-10 text-white" strokeWidth={3} />
+                </motion.div>
+                <h3 className="text-2xl font-black tracking-tight">Оплата прошла ✨</h3>
+                <p className="text-sm leading-relaxed text-zinc-400 px-1">
+                  {paySuccess === "topup"
+                    ? "Баланс пополнен — средства уже на счету."
+                    : paySuccess === "tariff"
+                      ? "Спасибо за покупку! Подписка активируется автоматически в течение минуты."
+                      : "Спасибо за покупку! Если подписка не появилась сразу — обновите страницу через минуту."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPaySuccess(null)}
+                  className="mt-1 w-full h-12 rounded-2xl text-base font-bold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:opacity-90 active:scale-[0.98] transition shadow-[0_8px_24px_-8px_rgba(52,211,153,0.6)]"
+                >
+                  Отлично
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

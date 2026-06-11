@@ -25,6 +25,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Wallet, Bitcoin, Check, AlertCircle, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api, type PublicTariffCategory, type PublicConfig, type TariffConversionPreview } from "@/lib/api";
@@ -380,9 +381,37 @@ export function StealthTariffs() {
   }
 
   if (loading) {
+    // Shimmer-скелетоны вместо спиннера — силуэт будущего контента.
     return (
-      <div className="px-4 pt-10 flex justify-center">
-        <Loader2 className="h-7 w-7 animate-spin text-rose-500" />
+      <div className="px-4 pt-2 space-y-4 pb-2">
+        <div className="flex gap-2">
+          {[88, 104, 96].map((w, i) => (
+            <div
+              key={i}
+              className="h-9 rounded-full bg-white/[0.04] border border-white/[0.06] overflow-hidden relative"
+              style={{ width: w }}
+            >
+              <motion.div
+                className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent"
+                animate={{ x: ["-100%", "250%"] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "linear", delay: i * 0.15 }}
+              />
+            </div>
+          ))}
+        </div>
+        {[164, 56, 120].map((h, i) => (
+          <div
+            key={i}
+            className="rounded-3xl bg-white/[0.03] border border-white/[0.06] overflow-hidden relative"
+            style={{ height: h }}
+          >
+            <motion.div
+              className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent"
+              animate={{ x: ["-100%", "400%"] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "linear", delay: 0.2 + i * 0.2 }}
+            />
+          </div>
+        ))}
       </div>
     );
   }
@@ -399,7 +428,12 @@ export function StealthTariffs() {
     <div className="px-4 pt-2 space-y-4 pb-2">
       {/* Режим продления: бейдж с подпиской, каталог сужен до её тарифа */}
       {extendTarget && (
-        <div className="relative overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.07] p-3.5">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.07] backdrop-blur-xl p-3.5 shadow-[0_0_36px_-14px_rgba(255,35,87,0.4)]"
+        >
           <div className="absolute inset-0 bg-gradient-to-r from-rose-500/10 to-transparent pointer-events-none" />
           <div className="relative flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-rose-500/15 shrink-0">
@@ -437,7 +471,7 @@ export function StealthTariffs() {
               </button>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Category tabs (только если >1) */}
@@ -458,8 +492,10 @@ export function StealthTariffs() {
                   }
                 }}
                 className={cn(
-                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all",
-                  active ? "bg-white text-black border-white" : "bg-zinc-900/60 text-zinc-300 border-white/[0.08] hover:border-white/20",
+                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all duration-300 active:scale-95",
+                  active
+                    ? "bg-white text-black border-white shadow-[0_0_28px_-8px_rgba(255,255,255,0.5)]"
+                    : "bg-white/[0.03] text-zinc-300 border-white/[0.08] backdrop-blur-xl hover:border-white/25 hover:bg-white/[0.06]",
                 )}
               >
                 {c.emoji ? `${c.emoji} ` : ""}{c.name}
@@ -483,8 +519,10 @@ export function StealthTariffs() {
                   setSelectedPriceOptionId((opts.find((o) => o.durationDays === 30) ?? opts[0])?.id ?? null);
                 }}
                 className={cn(
-                  "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
-                  active ? "bg-zinc-900/80 text-white border-rose-500/40 shadow-[0_0_16px_-4px_rgba(255,35,87,0.3)]" : "bg-zinc-900/40 text-zinc-400 border-white/[0.06] hover:border-white/20",
+                  "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-300 active:scale-95",
+                  active
+                    ? "bg-white/[0.06] text-white border-rose-500/45 backdrop-blur-xl shadow-[0_0_24px_-4px_rgba(255,35,87,0.45)]"
+                    : "bg-white/[0.02] text-zinc-400 border-white/[0.06] backdrop-blur-xl hover:border-white/20 hover:bg-white/[0.04]",
                 )}
               >
                 {t.name}
@@ -495,22 +533,30 @@ export function StealthTariffs() {
       )}
 
       {/* Period selector card */}
-      <div className="rounded-3xl border border-white/[0.08] bg-zinc-900/60 p-5 space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="relative rounded-3xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-2xl p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-24px_rgba(0,0,0,0.8)] before:absolute before:inset-0 before:rounded-3xl before:bg-gradient-to-b before:from-white/[0.04] before:to-transparent before:pointer-events-none"
+      >
         {priceOptions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {priceOptions.sort((a, b) => a.durationDays - b.durationDays).map((opt) => {
               const active = opt.id === selectedPriceOptionId;
               return (
-                <button
+                <motion.button
                   key={opt.id}
                   onClick={() => setSelectedPriceOptionId(opt.id)}
+                  whileTap={{ scale: 0.94 }}
                   className={cn(
-                    "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all min-w-[58px]",
-                    active ? "bg-white text-black border-white" : "bg-zinc-900/60 text-zinc-300 border-white/[0.08] hover:border-white/20",
+                    "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all duration-300 min-w-[58px]",
+                    active
+                      ? "bg-white text-black border-white shadow-[0_0_24px_-6px_rgba(255,255,255,0.45)]"
+                      : "bg-white/[0.03] text-zinc-300 border-white/[0.08] backdrop-blur-xl hover:border-white/25 hover:bg-white/[0.06]",
                   )}
                 >
                   {opt.durationDays} дн.
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -529,9 +575,17 @@ export function StealthTariffs() {
 
         <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
           <span className="text-sm text-zinc-400">Итого:</span>
-          <span className="text-2xl font-bold tabular-nums">{fmtPrice(totalPrice, currency)}</span>
+          <motion.span
+            key={totalPrice}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="text-2xl font-bold tabular-nums bg-gradient-to-r from-rose-400 via-rose-300 to-fuchsia-400 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(255,35,87,0.35)]"
+          >
+            {fmtPrice(totalPrice, currency)}
+          </motion.span>
         </div>
-      </div>
+      </motion.div>
 
       {/* покупка заменяет активный триал (выбор при нескольких). */}
       {!extendTarget && !convPreview?.willConvert && (() => {
@@ -604,7 +658,12 @@ export function StealthTariffs() {
 
       {/* Конвертация: покупка из single-категории обновляет существующую подписку */}
       {convPreview?.willConvert && convPreview.subscription && (
-        <div className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] backdrop-blur-xl p-4 shadow-[0_0_36px_-14px_rgba(255,35,87,0.35)]"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-transparent to-transparent pointer-events-none" />
           <div className="relative flex items-start gap-3">
             <div className="p-2 rounded-xl bg-rose-500/15 shrink-0">
@@ -710,13 +769,13 @@ export function StealthTariffs() {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Promo */}
       {/* min-w-0 на input обязателен: flex-item с дефолтным min-width:auto
           не сжимался на узких экранах и выталкивал кнопку за край контейнера. */}
-      <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/40 p-2 flex items-center gap-2">
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-2 flex items-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus-within:border-rose-500/35 focus-within:shadow-[0_0_28px_-10px_rgba(255,35,87,0.4),inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300">
         <input
           value={promoInput}
           onChange={(e) => { setPromoInput(e.target.value); setPromoMsg(null); }}
@@ -745,31 +804,37 @@ export function StealthTariffs() {
             );
             const Icon = m.icon;
             return (
-              <button
+              <motion.button
                 key={`${m.kind}-${m.kind === "platega" ? m.id : ""}`}
                 onClick={() => setSelectedMethod(m)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 className={cn(
-                  "rounded-2xl border p-4 transition-all flex flex-col items-center gap-2",
-                  active ? "bg-zinc-900/80 border-white/30" : "bg-zinc-900/30 border-white/[0.06] hover:border-white/15",
+                  "rounded-2xl border p-4 transition-colors duration-300 flex flex-col items-center gap-2 backdrop-blur-xl",
+                  active
+                    ? "bg-white/[0.06] border-rose-500/45 shadow-[0_0_36px_-10px_rgba(255,35,87,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/20 hover:bg-white/[0.04]",
                 )}
               >
-                <Icon className={cn("h-5 w-5", active ? "text-rose-400" : "text-zinc-500")} />
+                <Icon className={cn("h-5 w-5 transition-colors duration-300", active ? "text-rose-400 drop-shadow-[0_0_8px_rgba(255,35,87,0.6)]" : "text-zinc-500")} />
                 <span className="text-[11px] font-bold uppercase tracking-wider">{m.label}</span>
-              </button>
+              </motion.button>
             );
           })}
           {/* Тайл «Баланс» виден всегда (раньше прятался при нехватке средств,
               и юзеры думали, что оплаты с баланса в приложении нет вовсе). */}
           {state.client && (
-            <button
+            <motion.button
               onClick={() => canPayByBalance && setSelectedMethod({ kind: "balance", label: `Баланс (${balance.toFixed(0)}${fmtPrice(0, currency).slice(-1)})`, icon: Wallet })}
               disabled={!canPayByBalance}
+              whileHover={canPayByBalance ? { scale: 1.02 } : undefined}
+              whileTap={canPayByBalance ? { scale: 0.97 } : undefined}
               className={cn(
-                "rounded-2xl border p-4 transition-all flex flex-col items-center gap-1.5",
+                "rounded-2xl border p-4 transition-colors duration-300 flex flex-col items-center gap-1.5 backdrop-blur-xl",
                 selectedMethod?.kind === "balance"
-                  ? "bg-emerald-500/[0.08] border-emerald-500/30"
+                  ? "bg-emerald-500/[0.08] border-emerald-500/35 shadow-[0_0_32px_-10px_rgba(52,211,153,0.45),inset_0_1px_0_rgba(255,255,255,0.07)]"
                   : canPayByBalance
-                    ? "bg-zinc-900/30 border-white/[0.06] hover:border-white/15"
+                    ? "bg-white/[0.02] border-white/[0.06] hover:border-white/20 hover:bg-white/[0.04]"
                     : "bg-zinc-900/20 border-white/[0.04] opacity-60 cursor-not-allowed",
               )}
             >
@@ -781,7 +846,7 @@ export function StealthTariffs() {
               )}>
                 {canPayByBalance ? fmtPrice(balance, currency) : `${fmtPrice(balance, currency)} — не хватает`}
               </span>
-            </button>
+            </motion.button>
           )}
         </div>
       ) : (

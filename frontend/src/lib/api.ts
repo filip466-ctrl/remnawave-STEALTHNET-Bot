@@ -2222,6 +2222,20 @@ export const api = {
     return request("/client/profile", { method: "PATCH", body: JSON.stringify(data), token });
   },
 
+  /** Тоггл автосписания для КОНКРЕТНОЙ подписки (root|secondary). Бэк: POST /client/subscription/:type/:id/auto-renew */
+  async clientSetSubscriptionAutoRenew(
+    token: string,
+    type: "root" | "secondary",
+    subscriptionId: string,
+    enabled: boolean,
+  ): Promise<{ ok: boolean; enabled: boolean; type: "root" | "secondary" }> {
+    return request(`/client/subscription/${type}/${encodeURIComponent(subscriptionId)}/auto-renew`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+      token,
+    });
+  },
+
   async clientUpdateAutoRenew(token: string, data: { enabled?: boolean; tariffId?: string | null; promoCode?: string | null }): Promise<ClientProfile> {
     return request("/client/auto-renew", { method: "PATCH", body: JSON.stringify(data), token });
   },

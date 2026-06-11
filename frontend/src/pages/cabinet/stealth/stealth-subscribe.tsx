@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Laptop, Download, Key, Copy, Check, ArrowRight, Smartphone, MonitorSmartphone, Apple, Tv, ExternalLink, Plus } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { api, type SubscriptionPageConfig } from "@/lib/api";
@@ -249,9 +250,17 @@ export function StealthSubscribe() {
         onClose={() => navigate("/cabinet/dashboard")}
       />
 
+      <AnimatePresence mode="wait">
       {/* Step 1: choose client */}
       {step === 1 && (
-        <div className="space-y-5">
+        <motion.div
+          key="step-1"
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="space-y-5"
+        >
           <div className="pt-4">
             <ConcentricRings icon={PlatformIcon} />
           </div>
@@ -302,18 +311,27 @@ export function StealthSubscribe() {
                   const active = idx === selectedAppIdx;
                   const isFeatured = idx === featuredIdx || app.isFeatured;
                   return (
-                    <button
+                    <motion.button
                       key={`${app.name}-${idx}`}
                       type="button"
                       onClick={() => setSelectedAppIdx(idx)}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0, scale: active ? 1.02 : 1 }}
+                      whileHover={{ scale: 1.035 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{
+                        opacity: { duration: 0.3, delay: idx * 0.05, ease: "easeOut" },
+                        y: { duration: 0.3, delay: idx * 0.05, ease: "easeOut" },
+                        scale: { duration: 0.2, ease: "easeOut" },
+                      }}
                       className={cn(
-                        "relative rounded-2xl border-2 bg-zinc-900/60 p-3.5 text-left transition-all duration-200",
+                        "relative rounded-2xl border-2 bg-white/[0.03] backdrop-blur-xl p-3.5 text-left transition-colors duration-300",
                         // Активный (не featured) → ярко-розовый акцент
-                        active && !isFeatured && "border-rose-500 bg-rose-500/[0.08] shadow-[0_0_28px_-4px_rgba(255,35,87,0.45)] scale-[1.02]",
+                        active && !isFeatured && "border-rose-500 bg-rose-500/[0.08] shadow-[0_0_32px_-4px_rgba(255,35,87,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]",
                         // Активный + featured → фиолетовый акцент
-                        active && isFeatured && "border-violet-500 bg-violet-500/[0.1] shadow-[0_0_28px_-4px_rgba(167,139,250,0.5)] scale-[1.02]",
+                        active && isFeatured && "border-violet-500 bg-violet-500/[0.1] shadow-[0_0_32px_-4px_rgba(167,139,250,0.55),inset_0_1px_0_rgba(255,255,255,0.08)]",
                         // Не активный
-                        !active && "border-white/[0.06] hover:border-white/20 hover:bg-zinc-900/80",
+                        !active && "border-white/[0.06] hover:border-white/20 hover:bg-white/[0.05]",
                       )}
                     >
                       {/* Featured chip — над карточкой */}
@@ -361,7 +379,7 @@ export function StealthSubscribe() {
                           </div>
                         </div>
                       </div>
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -387,8 +405,15 @@ export function StealthSubscribe() {
               Другое устройство
             </StadiumButton>
 
+            <AnimatePresence>
             {showOtherDevices && (
-              <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/40 p-3 space-y-2.5">
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-3 space-y-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+              >
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Выберите устройство</p>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(PLATFORM_LABELS) as Platform[]).map((p) => {
@@ -419,15 +444,23 @@ export function StealthSubscribe() {
                     </StadiumButton>
                   </>
                 )}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Step 2: install client */}
       {step === 2 && (
-        <div className="space-y-5">
+        <motion.div
+          key="step-2"
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="space-y-5"
+        >
           <div className="pt-4"><ConcentricRings icon={Download} /></div>
 
           <div className="text-center space-y-1.5">
@@ -462,12 +495,19 @@ export function StealthSubscribe() {
               Далее
             </StadiumButton>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Step 3: add subscription */}
       {step === 3 && (
-        <div className="space-y-5">
+        <motion.div
+          key="step-3"
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="space-y-5"
+        >
           <div className="pt-4"><ConcentricRings icon={Key} /></div>
 
           <div className="text-center space-y-1.5">
@@ -477,9 +517,10 @@ export function StealthSubscribe() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 p-4">
+          <div className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden">
+            <div className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
             <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Subscription URL</p>
-            <p className="font-mono text-xs text-zinc-200 break-all">{subUrl ?? "—"}</p>
+            <p className="relative font-mono text-xs text-zinc-200 break-all">{subUrl ?? "—"}</p>
           </div>
 
           <div className="space-y-2.5">
@@ -512,8 +553,9 @@ export function StealthSubscribe() {
               Завершить
             </StadiumButton>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
