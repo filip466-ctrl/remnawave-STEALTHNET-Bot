@@ -1137,30 +1137,16 @@ clientAuthRouter.get("/telegram-login-check", async (req, res) => {
 
     // Новый клиент — регистрируем
     const configForDefaults = await getSystemConfig();
+    // при регистрации Remna-юзер НЕ создаётся (поведение
+    // тянулось с 3.2.5: создавался истёкший «безлимит» с expireAt=now, и в кабинете
+    // у свежего клиента сразу висела пустая подписка «Истекла / Тариф не выбран»).
+    // Подписка появляется только при покупке/триале — как у регистрации по email
+    // и через бота. Если юзер уже существует в Remna (создан ботом ранее) — просто
+    // привязываем его uuid, ничего не создавая.
     let remnawaveUuid: string | null = null;
     if (isRemnaConfigured()) {
-      // Сначала проверяем — может юзер уже есть в Remna (создан ботом или предыдущей попыткой)
       const byTgRes = await remnaGetUserByTelegramId(telegramId);
       remnawaveUuid = extractRemnaUuid(byTgRes.data);
-
-      if (!remnawaveUuid) {
-        const username = remnaUsernameFromClient({
-          telegramUsername: telegramUsername ?? undefined,
-          telegramId,
-        });
-        const remnaRes = await remnaCreateUser({
-          username,
-          trafficLimitBytes: 0,
-          trafficLimitStrategy: "NO_RESET",
-          expireAt: new Date(Date.now() - 1000).toISOString(),
-          telegramId: Number(telegramId),
-        });
-        remnawaveUuid = extractRemnaUuid(remnaRes.data);
-        if (remnaRes.error || remnawaveUuid == null) {
-          console.error("[Remna] create user (telegram deeplink) failed:", { error: remnaRes.error, status: remnaRes.status, data: remnaRes.data });
-          return res.status(503).json({ message: "Сервис временно недоступен. Попробуйте позже." });
-        }
-      }
     }
 
     const referralCode = generateReferralCode();
