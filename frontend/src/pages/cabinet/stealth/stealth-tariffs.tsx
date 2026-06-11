@@ -129,13 +129,29 @@ export function StealthTariffs() {
     return () => { alive = false; };
   }, []);
 
-  // Подгружаем подписку для режима продления и предвыбираем её тариф.
+  // Все подписки клиента: для режима продления (?extend) и для подсказки
+  // «у вас уже есть подписка с этим тарифом — продлить или купить ещё одну».
+  const [mySubs, setMySubs] = useState<{ id: string; label: string; tariffId: string | null; expireAt: string | null }[]>([]);
   useEffect(() => {
-    if (!extendParam || !state.token) { setExtendTarget(null); return; }
+    if (!state.token) { setExtendTarget(null); setMySubs([]); return; }
     let alive = true;
     api.clientAllSubscriptions(state.token).then((r) => {
       if (!alive) return;
-      const it = (r.items ?? []).find((s) => s.id === extendParam);
+      const items = r.items ?? [];
+      setMySubs(items.map((it) => {
+        const raw = it.subscription as Record<string, unknown> | null;
+        const payload = (raw && typeof raw === "object" && raw.response && typeof raw.response === "object")
+          ? (raw.response as Record<string, unknown>)
+          : raw;
+        return {
+          id: it.id,
+          label: it.tariffDisplayName?.trim() || `Подписка #${it.subscriptionIndex ?? 0}`,
+          tariffId: it.tariffId ?? null,
+          expireAt: payload && typeof payload.expireAt === "string" ? payload.expireAt : null,
+        };
+      }));
+      if (!extendParam) { setExtendTarget(null); return; }
+      const it = items.find((s) => s.id === extendParam);
       if (!it) { setExtendTarget(null); return; }
       const idx = it.subscriptionIndex ?? 0;
       setExtendTarget({
@@ -145,7 +161,7 @@ export function StealthTariffs() {
         isTrial: Boolean(it.trialId),
         convertTariffIds: it.convertTariffIds ?? [],
       });
-    }).catch(() => { if (alive) setExtendTarget(null); });
+    }).catch(() => { if (alive) { setExtendTarget(null); setMySubs([]); } });
     return () => { alive = false; };
   }, [extendParam, state.token]);
 
@@ -441,6 +457,32 @@ export function StealthTariffs() {
         </div>
       </div>
 
+      {/* без single-режима: подписка с этим тарифом уже есть —
+          предлагаем продлить её, либо продолжить покупку ещё одной. */}
+      {!extendTarget && !convPreview?.willConvert && (() => {
+        const dup = selectedTariffId ? mySubs.find((s) => s.tariffId === selectedTariffId) : null;
+        if (!dup) return null;
+        return (
+          <div className="relative overflow-hidden rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.07] p-4">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none" />
+            <div className="relative space-y-2">
+              <p className="text-sm font-bold">У вас уже есть подписка с этим тарифом</p>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                «{dup.label}»{dup.expireAt ? ` — до ${new Date(dup.expireAt).toLocaleDateString("ru-RU")}` : ""}.
+                Можно продлить её (дни сложатся) — или продолжить ниже и купить ещё одну отдельную подписку.
+              </p>
+              <button
+                onClick={() => navigate(`/cabinet/tariffs?extend=${encodeURIComponent(dup.id)}`)}
+                className="rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 px-3.5 py-2 text-xs font-bold text-indigo-300 transition inline-flex items-center gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Продлить «{dup.label}»
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Конвертация: покупка из single-категории обновляет существующую подписку */}
       {convPreview?.willConvert && convPreview.subscription && (
         <div className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] p-4">
@@ -451,21 +493,25 @@ export function StealthTariffs() {
             </div>
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-bold">
-                {convPreview.subscription.isTrial ? "Пробная подписка станет платной" : "Подписка будет обновлена"}
+                {convPreview.mode === "extend"
+                  ? "Этот тариф у вас уже есть — подписка будет продлена"
+                  : convPreview.subscription.isTrial ? "Пробная подписка станет платной" : "Подписка будет обновлена"}
               </p>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Покупка не создаст вторую подписку — она обновит
+                {convPreview.mode === "extend"
+                  ? `Вторая подписка не создастся — дни сложатся: остаток ${convPreview.remainingDays ?? 0} дн. + покупка ${convPreview.purchasedDays ?? 0} дн. = ${convPreview.totalDays ?? 0} дн. Устройства и серверы останутся как есть.`
+                  : <>Покупка не создаст вторую подписку — она обновит
                 {convPreview.subscription.tariffName ? ` «${convPreview.subscription.tariffName}»` : " текущую"} до нового тарифа.
                 {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 && !(convPreview.extras && convPreview.extras.extraDevices > 0)
                   ? ` Остаток ${convPreview.remainingDays} дн. превратится в ${convPreview.convertedDays} дн. по цене нового тарифа.`
-                  : ""}
+                  : ""}</>}
               </p>
-              {(convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
+              {convPreview.mode !== "extend" && (convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
                 <p className="text-xs font-bold text-rose-400">Итого: {convPreview.totalDays} дн. нового тарифа</p>
               )}
 
               {/* выбор судьбы доп. устройств при конвертации. */}
-              {convPreview.extras && convPreview.extras.extraDevices > 0 && (
+              {convPreview.mode !== "extend" && convPreview.extras && convPreview.extras.extraDevices > 0 && (
                 <div className="space-y-2 pt-1">
                   <p className="text-xs font-bold">
                     У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?

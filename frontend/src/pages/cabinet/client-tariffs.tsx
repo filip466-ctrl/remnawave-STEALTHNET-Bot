@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCabinetMiniapp } from "@/pages/cabinet/cabinet-layout";
 import { PayNowPanel } from "@/components/payment/pay-now-panel";
+import { ExtendSubscriptionDialog } from "@/components/payment/extend-subscription-dialog";
 import { cn } from "@/lib/utils";
 
 function formatMoney(amount: number, currency: string) {
@@ -125,6 +126,9 @@ function ClassicTariffsPage() {
   // судьба доп. устройств при конвертации: true = переезжают на новый
   // тариф (дней меньше), false = убираются (их остаток тоже превращается в дни).
   const [convKeepExtras, setConvKeepExtras] = useState(true);
+  // без single-режима: у юзера уже есть подписка с этим тарифом —
+  // предлагаем продлить её (открывает модалку продления) или купить ещё одну.
+  const [extendDialogSubId, setExtendDialogSubId] = useState<string | null>(null);
   const [readyUrl, setReadyUrl] = useState<{ url: string; provider: string; paymentId?: string } | null>(null);
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
@@ -749,6 +753,38 @@ function ClassicTariffsPage() {
           </div>
         )}
 
+        {/* без single-режима: подписка с этим тарифом уже есть —
+            предлагаем продлить её вместо покупки второй (но не блокируем покупку). */}
+        {buyMode.kind === "new" && !convPreview?.willConvert && (() => {
+          const dupSub = userSubs.find((s) => s.tariffId === tariff.id);
+          if (!dupSub) return null;
+          return (
+            <div className="relative overflow-hidden border rounded-2xl p-4 bg-indigo-500/[0.06] border-indigo-500/20">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-violet-500/5 pointer-events-none" />
+              <div className="relative z-10 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-indigo-500/15 shrink-0">
+                  <RefreshCw className="h-4 w-4 text-indigo-400" />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <p className="text-sm font-bold">У вас уже есть подписка с этим тарифом</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    «<b>{dupSub.label}</b>»{dupSub.expireAt ? <> — до {new Date(dupSub.expireAt).toLocaleDateString("ru-RU")}</> : null}.
+                    Можно <b>продлить её</b> (дни сложатся) — или продолжить ниже и купить ещё одну отдельную подписку.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => { setPayModal(null); setExtendDialogSubId(dupSub.id); }}
+                    className="gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-0 hover:opacity-90"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Продлить «{dupSub.label}»
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Конвертация (режим «одна подписка из категории»): покупка обновит
             существующую подписку, а не создаст вторую. Показываем расчёт. */}
         <AnimatePresence>
@@ -770,27 +806,37 @@ function ClassicTariffsPage() {
                   </div>
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-bold">
-                      {convPreview.subscription.isTrial
-                        ? "Пробная подписка станет платной"
-                        : `Подписка #${convPreview.subscription.index} будет обновлена`}
+                      {convPreview.mode === "extend"
+                        ? "Этот тариф у вас уже есть — подписка будет продлена"
+                        : convPreview.subscription.isTrial
+                          ? "Пробная подписка станет платной"
+                          : `Подписка #${convPreview.subscription.index} будет обновлена`}
                     </p>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Покупка не создаст вторую подписку — она обновит
+                      {convPreview.mode === "extend" ? (
+                        <>Вторая подписка не создастся — дни просто сложатся: остаток{" "}
+                        <b>{formatRuDays(convPreview.remainingDays ?? 0)}</b> + покупка{" "}
+                        <b>{formatRuDays(convPreview.purchasedDays ?? 0)}</b> ={" "}
+                        <b className="text-violet-400">{formatRuDays(convPreview.totalDays ?? 0)}</b>.
+                        Устройства и серверы останутся как есть.</>
+                      ) : (
+                      <>Покупка не создаст вторую подписку — она обновит
                       {convPreview.subscription.tariffName ? <> «<b>{convPreview.subscription.tariffName}</b>»</> : " текущую"}
                       {" "}до нового тарифа.
                       {(convPreview.convertedDays ?? 0) > 0 && (convPreview.remainingDays ?? 0) > 0 && !(convPreview.extras && convPreview.extras.extraDevices > 0) ? (
                         <> Остаток <b>{formatRuDays(convPreview.remainingDays ?? 0)}</b> превратится в{" "}
                         <b className="text-violet-400">{formatRuDays(convPreview.convertedDays ?? 0)}</b> по цене нового тарифа.</>
-                      ) : null}
+                      ) : null}</>
+                      )}
                     </p>
-                    {(convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
+                    {convPreview.mode !== "extend" && (convPreview.extras?.extraDevices ?? 0) === 0 && (convPreview.totalDays ?? 0) > 0 && (
                       <p className="text-xs font-bold text-violet-400">
                         Итого: {formatRuDays(convPreview.totalDays ?? 0)} нового тарифа
                       </p>
                     )}
 
                     {/* выбор судьбы докупленных доп. устройств. */}
-                    {convPreview.extras && convPreview.extras.extraDevices > 0 && (
+                    {convPreview.mode !== "extend" && convPreview.extras && convPreview.extras.extraDevices > 0 && (
                       <div className="space-y-2 pt-1.5">
                         <p className="text-xs font-bold">
                           У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
@@ -1403,6 +1449,17 @@ function ClassicTariffsPage() {
         extendKeepDevices={(extendTarget && !removeExtrasOnExtend) ? (extendTarget.extraDevices ?? 0) : 0}
         extendDeviceMonthlyPrice={extendTarget?.extraDevicesMonthlyPrice ?? 0}
       />
+
+      {/* модалка продления существующей подписки — открывается
+          из подсказки «у вас уже есть подписка с этим тарифом». */}
+      {extendDialogSubId && (
+        <ExtendSubscriptionDialog
+          subId={extendDialogSubId}
+          open
+          onClose={() => setExtendDialogSubId(null)}
+          onPaidByBalance={() => { loadUserSubs(); }}
+        />
+      )}
     </>
   );
 }

@@ -1678,6 +1678,26 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
   const remainingMs = convertible.expireAt ? convertible.expireAt.getTime() - Date.now() : 0;
   const remainingDays = Math.max(0, Math.floor(remainingMs / 86_400_000));
 
+  // покупается ТОТ ЖЕ тариф → это продление: дни складываются
+  // 1:1, сквады/трафик/устройства не трогаются. UI показывает «будет продлена».
+  if (convertible.sameTariff) {
+    return res.json({
+      willConvert: true,
+      mode: "extend",
+      subscription: {
+        id: convertible.id,
+        index: convertible.subscriptionIndex,
+        tariffName: convertible.tariffName,
+        expireAt: convertible.expireAt?.toISOString() ?? null,
+        isTrial: false,
+      },
+      remainingDays,
+      convertedDays: remainingDays,
+      purchasedDays,
+      totalDays: purchasedDays + remainingDays,
+    });
+  }
+
   // та же математика, что в extendSecondarySubscription(convertMode):
   // полная старая ставка = база + устройства; при «убрать» вся ценность уходит в дни
   // чистого тарифа, при «оставить» — в дни тарифа с устройствами.
@@ -1702,6 +1722,7 @@ clientRouter.get("/tariff-conversion-preview", async (req, res) => {
 
   return res.json({
     willConvert: true,
+    mode: "convert",
     subscription: {
       id: convertible.id,
       index: convertible.subscriptionIndex,
@@ -4062,9 +4083,11 @@ clientRouter.post("/payments/balance", async (req, res) => {
         // юзер выбрал убрать доп. устройства при конвертации —
         // их остаточная ценность уйдёт в дни нового тарифа.
         removeExtrasOnActivate === true,
-        /* convertMode */ true,
+        // тот же тариф → обычное продление (стек дней), другой → конвертация.
+        /* convertMode */ !convertible.sameTariff,
       );
-      isConverted = activateResult.ok;
+      isConverted = activateResult.ok && !convertible.sameTariff;
+      isExtendingSecondary = isExtendingSecondary || (activateResult.ok && convertible.sameTariff);
       createdSubscriptionId = convertible.id;
     } else {
       // Любая «новая покупка тарифа» — через единый createAdditionalSubscription.

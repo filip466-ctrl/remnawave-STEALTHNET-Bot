@@ -4462,6 +4462,9 @@ export interface PublicTariffCategory {
 /** Превью конвертации (режим «одна подписка из категории»). */
 export interface TariffConversionPreview {
   willConvert: boolean;
+  /** extend — куплен ТОТ ЖЕ тариф: подписка просто продлевается (дни складываются);
+   *  convert — другой тариф: конвертация (смена тарифа/сквадов, pro-rata остатка). */
+  mode?: "extend" | "convert";
   subscription?: {
     id: string;
     index: number;

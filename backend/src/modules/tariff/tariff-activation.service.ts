@@ -790,7 +790,7 @@ export async function extendSecondarySubscription(
 export async function findConvertibleSubscription(
   clientId: string,
   tariffId: string,
-): Promise<{ id: string; subscriptionIndex: number; tariffId: string | null; tariffName: string | null; expireAt: Date | null; currentPricePerDay: number | null; trialId: string | null } | null> {
+): Promise<{ id: string; subscriptionIndex: number; tariffId: string | null; tariffName: string | null; expireAt: Date | null; currentPricePerDay: number | null; trialId: string | null; /** покупается ТОТ ЖЕ тариф → это продление (стек дней), а не конвертация */ sameTariff: boolean } | null> {
   const tariff = await prisma.tariff.findUnique({
     where: { id: tariffId },
     select: { categoryId: true, category: { select: { singleSubscriptionMode: true } } },
@@ -825,6 +825,10 @@ export async function findConvertibleSubscription(
     expireAt: candidate.expireAt,
     currentPricePerDay: candidate.currentPricePerDay,
     trialId: candidate.trialId,
+    // тот же тариф = продление (дни складываются, сквады/трафик
+    // не сбрасываются), конвертация только при ДРУГОМ тарифе. Триал не считается
+    // «тем же» — переход с пробного на платный всегда конвертация.
+    sameTariff: candidate.tariffId === tariffId && candidate.trialId == null,
   };
 }
 
@@ -955,7 +959,8 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
           internalSquadUuids: tariff.internalSquadUuids,
           trafficResetMode: tariff.trafficResetMode ?? undefined,
           price: selectedOption?.price ?? tariff.price,
-        }, selectedOption, payment.deviceCount ?? undefined, removeExtrasOnConvert, /* convertMode */ true);
+        // тот же тариф → обычное продление (стек), другой → конвертация.
+        }, selectedOption, payment.deviceCount ?? undefined, removeExtrasOnConvert, /* convertMode */ !convertible.sameTariff);
         if (result.ok) {
           // фиксируем конвертацию в платеже: и привязку подписки, и детали для отчётности.
           const meta = (() => {
