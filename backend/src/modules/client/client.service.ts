@@ -109,6 +109,12 @@ const SYSTEM_CONFIG_KEYS = [
   "notification_topic_new_clients",
   "notification_topic_payments",
   "notification_topic_tickets",
+  "notification_topic_trials",
+  "notification_topic_conversions",
+  "notification_topic_withdrawals",
+  "notification_topic_promo",
+  "notification_topic_gifts",
+  "notification_topic_auto_renew",
   "platega_merchant_id", "platega_secret", "platega_methods", "payment_providers_config",
   // Webhook secret для проверки HMAC-подписи от Platega (security fix против форджинга платежей).
   "platega_webhook_secret",
@@ -144,6 +150,19 @@ const SYSTEM_CONFIG_KEYS = [
   "bot_instruction_fallback_text", // подсказка «если инструкция не открылась»
   "bot_extra_options_text", // текст экрана «📦 Дополнительные опции» (был захардкожен в боте)
   "bot_gift_url_note", // приписка под ссылкой подписки при активации подарка (была захардкожена)
+  // редактируемые тексты экранов бота (раньше захардкожены в bot/src/index.ts)
+  "bot_balance_text", // подсказка внизу экрана «💼 Мой баланс»
+  "bot_topup_text", // экран «💳 Пополнить баланс» (выбор суммы)
+  "bot_referral_intro_text", // рефералка: строка под заголовком
+  "bot_referral_footer_text", // рефералка: подсказка «💡 …» внизу
+  "bot_referral_share_text", // текст шаринга реферальной ссылки
+  "bot_trial_text", // заголовок экрана выбора пробной подписки
+  "bot_trial_used_text", // «все триалы использованы»
+  "bot_gift_buy_text", // экран выбора тарифа для подарка
+  "bot_promocode_text", // приглашение ввести промокод
+  // тогглы кнопок на экране «Тарифы» бота (default true)
+  "bot_tariffs_show_extra_devices_button",
+  "bot_tariffs_show_balance_button",
   // заявки на вывод реф. баланса: вкл/выкл + мин. сумма (была захардкожена 3000₽)
   "withdrawals_enabled", "withdrawal_min_amount",
   // Приветственное сообщение бота (показывается при /start, до главного меню)
@@ -600,6 +619,12 @@ async function loadSystemConfigFromDb() {
     notificationTopicNewClients: (map.notification_topic_new_clients ?? "").trim() || null,
     notificationTopicPayments: (map.notification_topic_payments ?? "").trim() || null,
     notificationTopicTickets: (map.notification_topic_tickets ?? "").trim() || null,
+    notificationTopicTrials: (map.notification_topic_trials ?? "").trim() || null,
+    notificationTopicConversions: (map.notification_topic_conversions ?? "").trim() || null,
+    notificationTopicWithdrawals: (map.notification_topic_withdrawals ?? "").trim() || null,
+    notificationTopicPromo: (map.notification_topic_promo ?? "").trim() || null,
+    notificationTopicGifts: (map.notification_topic_gifts ?? "").trim() || null,
+    notificationTopicAutoRenew: (map.notification_topic_auto_renew ?? "").trim() || null,
     notificationTopicBackups: (map.notification_topic_backups ?? "").trim() || null,
     autoBackupEnabled: map.auto_backup_enabled === "true" || map.auto_backup_enabled === "1",
     autoBackupCron: (map.auto_backup_cron ?? "").trim() || null,
@@ -739,6 +764,19 @@ async function loadSystemConfigFromDb() {
     botInstructionFallbackText: (map.bot_instruction_fallback_text ?? "").trim() || null,
     botExtraOptionsText: (map.bot_extra_options_text ?? "").trim() || null,
     botGiftUrlNote: (map.bot_gift_url_note ?? "").trim() || null,
+    // редактируемые тексты экранов бота (раньше захардкожены в bot/src/index.ts)
+    botBalanceText: (map.bot_balance_text ?? "").trim() || null,
+    botTopupText: (map.bot_topup_text ?? "").trim() || null,
+    botReferralIntroText: (map.bot_referral_intro_text ?? "").trim() || null,
+    botReferralFooterText: (map.bot_referral_footer_text ?? "").trim() || null,
+    botReferralShareText: (map.bot_referral_share_text ?? "").trim() || null,
+    botTrialText: (map.bot_trial_text ?? "").trim() || null,
+    botTrialUsedText: (map.bot_trial_used_text ?? "").trim() || null,
+    botGiftBuyText: (map.bot_gift_buy_text ?? "").trim() || null,
+    botPromocodeText: (map.bot_promocode_text ?? "").trim() || null,
+    // тогглы кнопок на экране «Тарифы»: дефолт true, выключение явное.
+    botTariffsShowExtraDevicesButton: map.bot_tariffs_show_extra_devices_button !== "false" && map.bot_tariffs_show_extra_devices_button !== "0",
+    botTariffsShowBalanceButton: map.bot_tariffs_show_balance_button !== "false" && map.bot_tariffs_show_balance_button !== "0",
     // дефолт true (фича существовала всегда) — выключение явное.
     withdrawalsEnabled: map.withdrawals_enabled !== "false" && map.withdrawals_enabled !== "0",
     withdrawalMinAmount: (() => {
@@ -1275,6 +1313,19 @@ export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | 
     botInstructionFallbackText: (full as { botInstructionFallbackText?: string | null }).botInstructionFallbackText ?? null,
     botExtraOptionsText: (full as { botExtraOptionsText?: string | null }).botExtraOptionsText ?? null,
     botGiftUrlNote: (full as { botGiftUrlNote?: string | null }).botGiftUrlNote ?? null,
+    // редактируемые тексты экранов бота (раньше захардкожены в bot/src/index.ts)
+    botBalanceText: (full as { botBalanceText?: string | null }).botBalanceText ?? null,
+    botTopupText: (full as { botTopupText?: string | null }).botTopupText ?? null,
+    botReferralIntroText: (full as { botReferralIntroText?: string | null }).botReferralIntroText ?? null,
+    botReferralFooterText: (full as { botReferralFooterText?: string | null }).botReferralFooterText ?? null,
+    botReferralShareText: (full as { botReferralShareText?: string | null }).botReferralShareText ?? null,
+    botTrialText: (full as { botTrialText?: string | null }).botTrialText ?? null,
+    botTrialUsedText: (full as { botTrialUsedText?: string | null }).botTrialUsedText ?? null,
+    botGiftBuyText: (full as { botGiftBuyText?: string | null }).botGiftBuyText ?? null,
+    botPromocodeText: (full as { botPromocodeText?: string | null }).botPromocodeText ?? null,
+    // тогглы кнопок на экране «Тарифы» бота (default true)
+    botTariffsShowExtraDevicesButton: (full as { botTariffsShowExtraDevicesButton?: boolean }).botTariffsShowExtraDevicesButton ?? true,
+    botTariffsShowBalanceButton: (full as { botTariffsShowBalanceButton?: boolean }).botTariffsShowBalanceButton ?? true,
     withdrawalsEnabled: (full as { withdrawalsEnabled?: boolean }).withdrawalsEnabled ?? true,
     withdrawalMinAmount: (full as { withdrawalMinAmount?: number }).withdrawalMinAmount ?? 3000,
     videoInstructionsEnabled: full.videoInstructionsEnabled ?? false,

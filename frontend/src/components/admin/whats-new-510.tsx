@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, RefreshCw, Gift, Gem, Wrench, ShieldCheck,
+  Sparkles, RefreshCw, Gift, Gem, Wrench, ShieldCheck, Bot,
   ChevronRight, ChevronLeft, X, Rocket, PartyPopper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ const SLIDES: Slide[] = [
       "Полная мультиподписочность — паритет с классик-кабинетом",
       "Глубокий glassmorphism + framer-motion анимации",
       "Левитирующая стеклянная нижняя панель",
-      "Триалы, модалка оплаты, автосписание — всё на месте",
+      "Триалы, модалка оплаты и автосписание прямо в миниаппке",
     ],
   },
   {
@@ -72,6 +72,9 @@ const SLIDES: Slide[] = [
       "Привязка существующего Remna-юзера как подписки",
       "Заявки на вывод: вкл/выкл и мин. сумма",
       "Email-шаблоны теперь реально применяются к письмам",
+      "Онбординг What's New при первом входе (вы на нём 😉)",
+      "Больше уведомлений в TG-группу админов: триалы, конвертации, выводы, промокоды, подарки",
+      "Расширенные права менеджеров",
     ],
   },
   {
@@ -84,6 +87,18 @@ const SLIDES: Slide[] = [
       "Честные уведомления Platega: алерт при упавшей активации",
       "Метки маркетинга /start c_... считаются корректно",
       "TG/email привязываются к Remna-юзерам при любой покупке",
+    ],
+  },
+  {
+    icon: Bot,
+    accent: "text-cyan-400",
+    glow: "bg-cyan-500/30",
+    title: "Бот",
+    items: [
+      "Кнопка «Конвертировать» у триалов + скрытие по тогглу",
+      "Выбор устройств и заменяемого триала прямо в боте",
+      "Больше редактируемых текстов («Тексты бота»)",
+      "Тогглы кнопок экрана тарифов",
     ],
   },
 ];

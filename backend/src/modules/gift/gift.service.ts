@@ -26,6 +26,7 @@ import {
 } from "../remna/remna.client.js";
 import { getSystemConfig } from "../client/client.service.js";
 import { getNextSubscriptionIndex } from "../subscription/subscription.helpers.js";
+import { calcExtrasPrice } from "../tariff/extras-pricing.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,10 @@ export async function createAdditionalSubscription(
     deviceLimit: number | null;
     /** Сколько устройств включено в базовую цену тарифа (новая модель). */
     includedDevices?: number;
+    /** Цена доп. устройства за 30 дней + лесенка скидок + кап (для фиксации extras в подписке). */
+    pricePerExtraDevice?: number;
+    maxExtraDevices?: number;
+    deviceDiscountTiers?: unknown;
     internalSquadUuids: string[];
     trafficResetMode?: string;
   },
@@ -180,7 +185,16 @@ export async function createAdditionalSubscription(
   // HWID лимит: новая модель — includedDevices + extras. Если ни того, ни другого нет —
   // fallback на legacy deviceLimit (для совместимости со старыми вызовами).
   const includedDevices = tariff.includedDevices ?? null;
-  const extraDevices = Math.max(0, options?.extraDevices ?? 0);
+  // T-extras-universal (12.06.2026): капим докупаемые extras по maxExtraDevices (если тариф
+  // сообщил кап) и считаем их месячную ставку — она фиксируется в Subscription, чтобы
+  // продления честно включали доплату, а лимит устройств не «слетал» при первом продлении.
+  const requestedExtraDevices = Math.max(0, options?.extraDevices ?? 0);
+  const extraDevices = tariff.maxExtraDevices != null
+    ? Math.min(requestedExtraDevices, Math.max(0, tariff.maxExtraDevices))
+    : requestedExtraDevices;
+  const extraDevicesMonthlyPrice = extraDevices > 0
+    ? calcExtrasPrice(Math.max(0, tariff.pricePerExtraDevice ?? 0), extraDevices, tariff.deviceDiscountTiers, 30).extrasTotal
+    : 0;
   const hwidDeviceLimit = includedDevices != null
     ? includedDevices + extraDevices
     : tariff.deviceLimit ?? undefined;
@@ -276,6 +290,13 @@ export async function createAdditionalSubscription(
       ...(tariff.price != null && tariff.price > 0 ? {
         customPrice: tariff.price,
         currentPricePerDay: tariff.durationDays > 0 ? tariff.price / tariff.durationDays : null,
+      } : {}),
+      // фиксируем докупленные при покупке устройства: лимит в Remna
+      // уже выставлен (included + extras), а счётчики нужны для будущих продлений
+      // (цена option.price + monthly × days/30) и для «убрать устройства».
+      ...(extraDevices > 0 ? {
+        extraDevices,
+        extraDevicesMonthlyPrice: extraDevicesMonthlyPrice,
       } : {}),
       // T-unify: если автопродление включено по дефолту — сохраняем тариф+опцию для cron.
       ...(defaultAutoRenew && tariff.id ? { autoRenewTariffId: tariff.id } : {}),
@@ -826,6 +847,11 @@ export async function redeemGiftCode(
       subscriptionUrl = (inner as { subscriptionUrl?: string } | null)?.subscriptionUrl ?? null;
     } catch { /* ignore */ }
   }
+
+  // уведомление админам в TG-группу: подарок активирован получателем (best-effort).
+  import("../notification/telegram-notify.service.js")
+    .then((m) => m.notifyAdminsAboutGiftRedeemed(giftCode.creatorId, recipientRootClientId, sub.tariff?.name ?? null))
+    .catch((e) => console.error("[gift] redeem: admin notify failed:", e));
 
   return {
     ok: true,

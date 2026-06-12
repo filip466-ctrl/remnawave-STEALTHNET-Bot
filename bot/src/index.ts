@@ -406,6 +406,19 @@ const extraOptionPending = new Map<number, { kind: "traffic" | "devices" | "serv
 const tariffOptionsCache = new Map<number, { tariffId: string; options: TariffPriceOption[] }>();
 /** Выбранная опция цены тарифа + кол-во ДОП. устройств (extras), которые клиент докупил. */
 const selectedTariffOption = new Map<number, { tariffId: string; option: TariffPriceOption; extraDevices: number }>();
+/**
+ * выбор «какой триал заменить» при покупке тарифа, когда у клиента >1 триальных
+ * подписок. userId → subscriptionId триала. Ставится кнопкой `trialrepl:next` на экране
+ * способов оплаты, прокидывается в payload покупки как `replaceTrialSubId`,
+ * чистится после успешной оплаты или когда триалов ≤1.
+ */
+const trialReplaceChoice = new Map<number, string>();
+/**
+ * выбор «убрать доп. устройства» при конвертации/same-tariff-продлении
+ * (превью tariffConversionPreview, БЕЗ extendsSecondarySubId — тот флоу живёт в
+ * pendingDropExtras). userId в Set = юзер выбрал «убрать». Toggle — `convx:toggle`.
+ */
+const convDropExtras = new Set<number>();
 /** Аналог для подарков: выбранная опция + extras для дополнительной подписки. */
 const selectedGiftOption = new Map<number, { tariffId: string; option: TariffPriceOption | null; extraDevices: number }>();
 /** Кэш priceOptions для подарков — для разрешения индекса из callback. */
@@ -2055,15 +2068,29 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
   // предупреждение о конвертации (режим «одна подписка из
   // категории»): покупка обновит существующую подписку, а не создаст вторую.
   let convNote = "";
+  // интерактивные ряды НАД клавиатурой способов оплаты
+  // (toggle «сохранить/убрать устройства», выбор заменяемого триала).
+  const extraRows: { text: string; callback_data: string }[][] = [];
+  let convHasExtras = false;
+  let trialsCount = 0;
   try {
     const conv = await api.tariffConversionPreview(token, { tariffId: tariff.id, priceOptionId: eff?.id });
     if (conv.willConvert && conv.subscription) {
       const subName = conv.subscription.tariffName ? `«${conv.subscription.tariffName}»` : `#${conv.subscription.index}`;
+      const extras = conv.extras;
+      const dropChosen = convDropExtras.has(userId);
       if (conv.mode === "extend") {
         // тот же тариф = продление: дни складываются, ничего не сбрасывается.
         convNote = `\n\n🔄 Этот тариф у вас уже есть — подписка ${subName} будет ПРОДЛЕНА (дни сложатся: остаток ${conv.remainingDays ?? 0} дн. + ${conv.purchasedDays ?? 0} дн. = ${conv.totalDays ?? 0} дн.). Устройства и серверы останутся как есть.`;
-        if (conv.extras && conv.extras.extraDevices > 0 && (conv.extras.keep.extraCost ?? 0) > 0) {
-          convNote += `\n📱 Доплата за +${conv.extras.extraDevices} доп. устройств: ${conv.extras.keep.extraCost} ₽ за период.`;
+        if (extras && extras.extraDevices > 0) {
+          convHasExtras = true;
+          if (dropChosen) {
+            convNote += `\n📱 Доп. устройства (+${extras.extraDevices}) будут УБРАНЫ — продление без доплаты за устройства.`;
+          } else if ((extras.keep.extraCost ?? 0) > 0) {
+            convNote += `\n📱 Доплата за +${extras.extraDevices} доп. устройств: ${extras.keep.extraCost} ₽ за период.`;
+          } else {
+            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices} устройств) — без доплаты.`;
+          }
         }
       } else {
         const head = conv.subscription.isTrial
@@ -2073,29 +2100,50 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
           ? `\nОстаток ${conv.remainingDays} дн. → ${conv.convertedDays} дн. по цене нового тарифа. Итого: ${conv.totalDays} дн.`
           : "";
         convNote = `\n\n${head} — вторая подписка не создаётся.${daysPart}`;
-        // расклад по доп. устройствам: по умолчанию сохраняются;
-        // вариант «убрать → больше дней» доступен в кабинете/миниаппке.
-        if (conv.extras && conv.extras.extraDevices > 0) {
-          convNote += `\n📱 Ваши +${conv.extras.extraDevices} доп. устройств сохранятся (итого ${conv.extras.keep.totalDevices} устройств, конвертация ${conv.extras.keep.convertedDays} дн.).`
-            + `\n⚡ Убрать устройства и получить ${conv.extras.drop.convertedDays} дн. вместо ${conv.extras.keep.convertedDays} — можно при покупке через кабинет.`;
+        // расклад по доп. устройствам: вариант выбирается toggle-кнопкой ниже
+        // (по умолчанию — сохранить; «убрать» даёт больше конвертированных дней).
+        if (extras && extras.extraDevices > 0) {
+          convHasExtras = true;
+          if (dropChosen) {
+            convNote += `\n📱 Доп. устройства (+${extras.extraDevices}) будут УБРАНЫ: конвертация ${extras.drop.convertedDays} дн. (итого ${extras.drop.totalDevices} устройств).`;
+          } else {
+            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices} устройств, конвертация ${extras.keep.convertedDays} дн.).`;
+          }
         }
+      }
+      if (convHasExtras) {
+        extraRows.push([{ text: `📱 Устройства: ${dropChosen ? "убрать ✓" : "сохранить ✓"}`, callback_data: "convx:toggle" }]);
       }
     }
     // покупка заменяет активный триал (полностью, с удалением).
-    // Показываем предупреждение с именем заменяемого пробника.
+    // Показываем предупреждение с именем заменяемого пробника; при нескольких
+    // триалах — кнопку циклического выбора, какой именно заменить.
     if (!convNote) {
       const subsAll = await api.getAllSubscriptions(token);
       const trialsOwned = (subsAll.items ?? []).filter((s) => s.trialId);
+      trialsCount = trialsOwned.length;
       if (trialsOwned.length > 0) {
-        const tname = trialsOwned[0].trialName ?? trialsOwned[0].tariffDisplayName;
-        convNote = `\n\n⚠️ Покупка заменит ваш пробный период «${tname}» — дни и трафик пробника не переносятся.`
-          + (trialsOwned.length > 1 ? `\nПробников несколько (${trialsOwned.length}) — выбрать, какой заменить, можно в личном кабинете.` : "");
+        const chosenId = trialReplaceChoice.get(userId);
+        const chosen = trialsOwned.find((s) => s.id === chosenId) ?? trialsOwned[0];
+        const tname = chosen.trialName ?? chosen.tariffDisplayName;
+        convNote = `\n\n⚠️ Покупка заменит ваш пробный период «${tname}» — дни и трафик пробника не переносятся.`;
+        if (trialsOwned.length > 1) {
+          // фиксируем выбор сразу: экран и payload покупки всегда согласованы.
+          trialReplaceChoice.set(userId, chosen.id);
+          convNote += `\nЗаменится: «${tname}»`;
+          extraRows.push([{ text: "🎁 Заменить другой пробник ▸", callback_data: "trialrepl:next" }]);
+        }
       }
     }
   } catch { /* превью не критично — не блокируем оплату */ }
+  // сбросы устаревшего выбора: превью без extras / триалов ≤1.
+  if (!convHasExtras) convDropExtras.delete(userId);
+  if (trialsCount <= 1) trialReplaceChoice.delete(userId);
   // convNote добавляется СУФФИКСОМ: префикс сместил бы offsets pay.entities (custom emoji).
   const finalText = `${desc && opts.length === 1 ? `${desc}\n\n${pay.text}` : pay.text}${convNote}`;
-  await editMessageContent(ctx, finalText, tariffPaymentMethodButtons(tariff.id, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, !!config?.cryptopayEnabled, tariff.currency, !!config?.heleketEnabled, !!config?.lavaEnabled, !!config?.lavatopEnabled, config?.botEmojis ?? null), pay.entities);
+  const markup = tariffPaymentMethodButtons(tariff.id, methods, config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds, balanceLabel, !!config?.yoomoneyEnabled, !!config?.yookassaEnabled, !!config?.cryptopayEnabled, tariff.currency, !!config?.heleketEnabled, !!config?.lavaEnabled, !!config?.lavatopEnabled, config?.botEmojis ?? null);
+  for (let i = extraRows.length - 1; i >= 0; i--) markup.inline_keyboard.unshift(extraRows[i]!);
+  await editMessageContent(ctx, finalText, markup, pay.entities);
 }
 
 /** Picker доп. устройств для подарочной подписки. */
@@ -3173,7 +3221,11 @@ composer.on("callback_query:data", async (ctx) => {
       const tariffLines = cat.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
       const { text, entities } = titleWithOptionalEmoji(tariffsEmojiKey, body, config?.botEmojis);
-      await editMessageContent(ctx, text, tariffPayButtons(markHasOptions(items), config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode), entities);
+      // тогглы скрытия кнопок «➕ Докупить устройство» / «💼 Мой баланс» (Настройки → Бот).
+      await editMessageContent(ctx, text, tariffPayButtons(markHasOptions(items), config?.botBackLabel ?? null, innerStyles, tariffsEmojiIds, tariffsEmojiUnicode, {
+        showExtraDevices: config?.botTariffsShowExtraDevicesButton !== false,
+        showBalance: config?.botTariffsShowBalanceButton !== false,
+      }), entities);
       return;
     }
 
@@ -3200,7 +3252,11 @@ composer.on("callback_query:data", async (ctx) => {
       const tariffLines = category.tariffs.map((t: TariffItem) => formatTariffLine(t, tariffFields)).join("\n");
       const body = renderTariffsText(template, head, tariffLines);
       const { text, entities } = titleWithOptionalEmoji(tariffsEmojiKey, body, config?.botEmojis);
-      await editMessageContent(ctx, text, tariffsOfCategoryButtons(markHasOptions([category])[0]!, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", tariffsEmojiIds, tariffsEmojiUnicode), entities);
+      // тогглы скрытия кнопок «➕ Докупить устройство» / «💼 Мой баланс» (Настройки → Бот).
+      await editMessageContent(ctx, text, tariffsOfCategoryButtons(markHasOptions([category])[0]!, config?.botBackLabel ?? null, innerStyles, "menu:tariffs", tariffsEmojiIds, tariffsEmojiUnicode, {
+        showExtraDevices: config?.botTariffsShowExtraDevicesButton !== false,
+        showBalance: config?.botTariffsShowBalanceButton !== false,
+      }), entities);
       return;
     }
 
@@ -3662,7 +3718,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -3691,18 +3748,20 @@ composer.on("callback_query:data", async (ctx) => {
           // ошибочно попадали в «🎁 Мои подарки» вместо «📋 Мои подписки»).
           const discountInfoBal = activeDiscountCode.get(userId);
           const promoCode = discountInfoBal?.code;
-          const result = await api.payByBalance(token, { tariffId, tariffPriceOptionId, deviceCount: extraDevices, promoCode, asAdditional: true });
+          const result = await api.payByBalance(token, { tariffId, tariffPriceOptionId, deviceCount: extraDevices, promoCode, asAdditional: true, removeExtrasOnActivate, replaceTrialSubId });
           if (promoCode) activeDiscountCode.delete(userId);
           addsubPending.delete(userId);
           resultMessage = result.message;
         } else {
           const discountInfoBal = activeDiscountCode.get(userId);
           const promoCode = discountInfoBal?.code;
-          const result = await api.payByBalance(token, { tariffId, tariffPriceOptionId, deviceCount: extraDevices, promoCode });
+          const result = await api.payByBalance(token, { tariffId, tariffPriceOptionId, deviceCount: extraDevices, promoCode, removeExtrasOnActivate, replaceTrialSubId });
           if (promoCode) activeDiscountCode.delete(userId);
           resultMessage = result.message;
         }
         selectedTariffOption.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         await editMessageContent(ctx, `✅ ${resultMessage}`, backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка оплаты";
@@ -3738,7 +3797,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -3766,12 +3826,15 @@ composer.on("callback_query:data", async (ctx) => {
           asAdditional: asAdditional || undefined,
           extendsSecondarySubId,
           removeExtrasOnActivate,
+          replaceTrialSubId,
         });
         if (promoCode) activeDiscountCode.delete(userId);
         selectedTariffOption.delete(userId);
         if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
         if (asAdditional) addsubPending.delete(userId);
         if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
           ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
@@ -3820,7 +3883,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -3852,6 +3916,7 @@ composer.on("callback_query:data", async (ctx) => {
             asAdditional: asAdditional || undefined,
             extendsSecondarySubId,
             removeExtrasOnActivate,
+            replaceTrialSubId,
             receiptEmail,
           }),
           finalize: async (payment, { receiptSentTo }) => {
@@ -3860,6 +3925,8 @@ composer.on("callback_query:data", async (ctx) => {
             if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
             if (asAdditional) addsubPending.delete(userId);
             if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+            convDropExtras.delete(userId);
+            trialReplaceChoice.delete(userId);
             const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
               ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
               : tariff.name;
@@ -3913,7 +3980,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -3940,12 +4008,15 @@ composer.on("callback_query:data", async (ctx) => {
           asAdditional: asAdditional || undefined,
           extendsSecondarySubId,
           removeExtrasOnActivate,
+          replaceTrialSubId,
         });
         if (promoCode) activeDiscountCode.delete(userId);
         selectedTariffOption.delete(userId);
         if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
         if (asAdditional) addsubPending.delete(userId);
         if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
           ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
@@ -3985,7 +4056,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -4012,12 +4084,15 @@ composer.on("callback_query:data", async (ctx) => {
           asAdditional: asAdditional || undefined,
           extendsSecondarySubId,
           removeExtrasOnActivate,
+          replaceTrialSubId,
         });
         if (promoCode) activeDiscountCode.delete(userId);
         selectedTariffOption.delete(userId);
         if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
         if (asAdditional) addsubPending.delete(userId);
         if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
           ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
@@ -4056,7 +4131,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -4083,12 +4159,15 @@ composer.on("callback_query:data", async (ctx) => {
           asAdditional: asAdditional || undefined,
           extendsSecondarySubId,
           removeExtrasOnActivate,
+          replaceTrialSubId,
         });
         if (promoCode) activeDiscountCode.delete(userId);
         selectedTariffOption.delete(userId);
         if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
         if (asAdditional) addsubPending.delete(userId);
         if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
           ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
@@ -4128,7 +4207,8 @@ composer.on("callback_query:data", async (ctx) => {
         // юзер выбрал «продлить без устройств».
         // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
         // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId);
+        const removeExtrasOnActivate = !!(extendsSecondarySubId && pendingDropExtras.get(userId) === extendsSecondarySubId) || (!extendsSecondarySubId && convDropExtras.has(userId));
+        const replaceTrialSubId = !extendsSecondarySubId ? trialReplaceChoice.get(userId) : undefined;
         let subExtrasForPeriod = 0;
         if (extendsSecondarySubId && !removeExtrasOnActivate) {
           try {
@@ -4155,12 +4235,15 @@ composer.on("callback_query:data", async (ctx) => {
           asAdditional: asAdditional || undefined,
           extendsSecondarySubId,
           removeExtrasOnActivate,
+          replaceTrialSubId,
         });
         if (promoCode) activeDiscountCode.delete(userId);
         selectedTariffOption.delete(userId);
         if (extendsSecondarySubId && removeExtrasOnActivate) extendingSecondaryPending.delete(userId);
         if (asAdditional) addsubPending.delete(userId);
         if (removeExtrasOnActivate) pendingDropExtras.delete(userId);
+        convDropExtras.delete(userId);
+        trialReplaceChoice.delete(userId);
         const nameWithDays = (opts.length > 1 || (sel?.tariffId === tariff.id))
           ? `${tariff.name} · ${formatRuDays(effectiveDays)}`
           : tariff.name;
@@ -4937,6 +5020,65 @@ composer.on("callback_query:data", async (ctx) => {
     // выбор тарифа для конвертации триала (см. trialConvertPickCache).
     // Юзер выбрал, на какой тариф переходить — открываем стандартный флоу продления
     // с выбранным тарифом (backend заменит сквады/трафик: trial → convertMode).
+    // циклический выбор «какой триал заменить» на экране способов оплаты тарифа.
+    // Переключает trialReplaceChoice на следующий триал клиента и перерисовывает экран.
+    if (data === "trialrepl:next") {
+      const sel = selectedTariffOption.get(userId);
+      if (!sel) {
+        await editMessageContent(ctx, "Выбор устарел — откройте оплату заново.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      try {
+        const subsAll = await api.getAllSubscriptions(token);
+        const trials = (subsAll.items ?? []).filter((s) => s.trialId);
+        if (trials.length === 0) {
+          await editMessageContent(ctx, "Выбор устарел — откройте оплату заново.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          return;
+        }
+        const currentId = trialReplaceChoice.get(userId);
+        const curIdxRaw = currentId ? trials.findIndex((s) => s.id === currentId) : 0;
+        const curIdx = curIdxRaw >= 0 ? curIdxRaw : 0;
+        const next = trials[(curIdx + 1) % trials.length]!;
+        trialReplaceChoice.set(userId, next.id);
+        const { items } = await api.getPublicTariffs();
+        const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === sel.tariffId);
+        if (!tariff) {
+          await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          return;
+        }
+        await showPaymentMethodsForTariff(ctx, userId, tariff, sel.option, sel.extraDevices, config, innerStyles, innerEmojiIds, token);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка";
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
+    // toggle «сохранить/убрать доп. устройства» при конвертации/same-tariff-продлении.
+    // Переключает convDropExtras и перерисовывает экран способов оплаты.
+    if (data === "convx:toggle") {
+      const sel = selectedTariffOption.get(userId);
+      if (!sel) {
+        await editMessageContent(ctx, "Выбор устарел — откройте оплату заново.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+        return;
+      }
+      if (convDropExtras.has(userId)) convDropExtras.delete(userId);
+      else convDropExtras.add(userId);
+      try {
+        const { items } = await api.getPublicTariffs();
+        const tariff = items?.flatMap((c: TariffCategory) => c.tariffs).find((t: TariffItem) => t.id === sel.tariffId);
+        if (!tariff) {
+          await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
+          return;
+        }
+        await showPaymentMethodsForTariff(ctx, userId, tariff, sel.option, sel.extraDevices, config, innerStyles, innerEmojiIds, token);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Ошибка";
+        await editMessageContent(ctx, `❌ ${msg}`, tariffErrMarkup(e, config, innerStyles?.back, innerEmojiIds));
+      }
+      return;
+    }
+
     if (data.startsWith("pay_ext_pickt:")) {
       const idx = Number(data.slice("pay_ext_pickt:".length));
       const cached = trialConvertPickCache.get(userId);
@@ -5380,7 +5522,8 @@ composer.on("callback_query:data", async (ctx) => {
       // юзер выбрал «продлить без устройств».
       // Флаг прокидываем в backend — там после успешной активации helper удалит устройства.
       // НЕ удаляем здесь — юзер может закрыть экран оплаты и устройства останутся при нём.
-      const removeExtrasOnActivatePlatega = !!(extendsSecondarySubIdPlatega && pendingDropExtras.get(userId) === extendsSecondarySubIdPlatega);
+      const removeExtrasOnActivatePlatega = !!(extendsSecondarySubIdPlatega && pendingDropExtras.get(userId) === extendsSecondarySubIdPlatega) || (!extendsSecondarySubIdPlatega && convDropExtras.has(userId));
+      const replaceTrialSubIdPlatega = !extendsSecondarySubIdPlatega ? trialReplaceChoice.get(userId) : undefined;
       let subExtrasForPeriodPlatega = 0;
       if (extendsSecondarySubIdPlatega && !removeExtrasOnActivatePlatega) {
         try {
@@ -5405,12 +5548,15 @@ composer.on("callback_query:data", async (ctx) => {
         asAdditional: asAdditionalPlatega || undefined,
         extendsSecondarySubId: extendsSecondarySubIdPlatega,
         removeExtrasOnActivate: removeExtrasOnActivatePlatega,
+        replaceTrialSubId: replaceTrialSubIdPlatega,
       });
       if (promoCode) activeDiscountCode.delete(userId);
       selectedTariffOption.delete(userId);
       if (asAdditionalPlatega) addsubPending.delete(userId);
       if (extendsSecondarySubIdPlatega && removeExtrasOnActivatePlatega) extendingSecondaryPending.delete(userId);
       if (removeExtrasOnActivatePlatega) pendingDropExtras.delete(userId);
+      convDropExtras.delete(userId);
+      trialReplaceChoice.delete(userId);
       const discountArgTariffUpdated = discountInfoTariff ? {
         originalPrice: formatMoney(totalPricePlatega, tariff.currency),
         discountedPrice: formatMoney(getDiscountedPrice(totalPricePlatega, discountInfoTariff), tariff.currency),
@@ -5495,6 +5641,11 @@ composer.on("callback_query:data", async (ctx) => {
           }
         }
         rows.push([{ text: "🏠 Главное меню", callback_data: "menu:main" }]);
+        // починка разорванного ключа install_second_device_text:
+        // он редактировался в админке, но ботом нигде не читался. Показываем блок
+        // «Как подключить второе устройство» под списком устройств (если задан).
+        const secondDeviceNote = (config?.installSecondDeviceText ?? "").trim();
+        if (secondDeviceNote) lines.push("", secondDeviceNote);
         await editMessageContent(ctx, lines.join("\n"), { inline_keyboard: rows });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Ошибка";
@@ -5612,6 +5763,13 @@ composer.on("callback_query:data", async (ctx) => {
         const balance = (me?.balance ?? 0).toFixed(2);
         const totalEarned = stats ? stats.totalEarned.toFixed(2) : "0.00";
         const totalSpent = stats ? stats.totalSpent.toFixed(2) : "0.00";
+        // подсказка внизу редактируется в админке («Тексты бота» →
+        // bot_balance_text); раньше была захардкожена здесь.
+        const balanceHint = (config?.botBalanceText ?? "").trim() || [
+          "💡 С баланса можно оплатить любую подписку или докупить устройство.",
+          "",
+          "Пополнить баланс можно с помощью кнопки «💳 Пополнить баланс» или через 👥 Реферальную программу.",
+        ].join("\n");
         const lines: string[] = [
           "💼 Мой баланс",
           "",
@@ -5621,9 +5779,7 @@ composer.on("callback_query:data", async (ctx) => {
           `• 🛒 Потрачено с баланса: ${totalSpent} ${sym}`,
           `• 👥 Начислено от рефералов: ${totalEarned} ${sym}`,
           "",
-          "💡 С баланса можно оплатить любую подписку или докупить устройство.",
-          "",
-          "Пополнить баланс можно с помощью кнопки «💳 Пополнить баланс» или через 👥 Реферальную программу.",
+          balanceHint,
         ];
         const { text, entities } = applyMarkdownAndEmoji(lines.join("\n"), config?.botEmojis ?? null);
         await editMessageContent(ctx, text, {
@@ -5653,7 +5809,9 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, _t("topup.unavailable", lang), backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
-      const topupTitle = titleWithEmoji("CARD", "Пополнить баланс\n\nВыберите сумму или введите свою (числом):", config?.botEmojis);
+      // текст редактируется в админке («Тексты бота» → bot_topup_text).
+      const topupBody = (config?.botTopupText ?? "").trim() || "Пополнить баланс\n\nВыберите сумму или введите свою (числом):";
+      const topupTitle = titleWithEmoji("CARD", topupBody, config?.botEmojis);
       await editMessageContent(ctx, topupTitle.text, topUpPresets(client.preferredCurrency, config?.botBackLabel ?? null, innerStyles, innerEmojiIds), topupTitle.entities);
       return;
     }
@@ -5902,10 +6060,14 @@ composer.on("callback_query:data", async (ctx) => {
       const p1 = stats?.referralPercent ?? client.referralPercent ?? (config?.defaultReferralPercent ?? 0);
       const p2 = stats?.referralPercentLevel2 ?? (config?.referralPercentLevel2 ?? 0);
       const fmt = (n: number) => `${Math.round(n)}₽`;
+      // вступление и футер редактируются в админке («Тексты бота» →
+      // bot_referral_intro_text / bot_referral_footer_text); раньше были захардкожены.
+      const referralIntro = (config?.botReferralIntroText ?? "").trim()
+        || "Поделитесь ссылкой с друзьями и получайте процент со всех их пополнений! 🤝";
       const lines: string[] = [
         "👥 Реферальная программа",
         "",
-        "Поделитесь ссылкой с друзьями и получайте процент со всех их пополнений! 🤝",
+        referralIntro,
         "",
         `👥 Рефералы 1 уровня: ${p1}%`,
         `Вы получаете ${p1}% от пополнений тех, кто перешёл по вашей ссылке.`,
@@ -5934,7 +6096,10 @@ composer.on("callback_query:data", async (ctx) => {
         lines.push(linkSite);
       }
       lines.push("");
-      lines.push("💡 С реферального баланса можно оплатить подписку или вывести эти средства на свой кошелёк.");
+      lines.push(
+        (config?.botReferralFooterText ?? "").trim()
+          || "💡 С реферального баланса можно оплатить подписку или вывести эти средства на свой кошелёк.",
+      );
 
       // T-fix (11.05.2026): кнопки по эталону клиента.
       // 1. «📢 Поделиться ссылкой» — t.me/share URL для пересылки
@@ -5944,7 +6109,11 @@ composer.on("callback_query:data", async (ctx) => {
       // Ссылку В САМ ТЕКСТ НЕ кладём — она уже идёт через параметр `url=` и
       // выводится TG-клиентом ПЕРВОЙ строкой автоматически. Если продублировать
       // в shareText — получим две одинаковых ссылки подряд (баг юзера 14.05).
-      const shareText = `\n🛡 Надёжный VPN, который реально работает!\n\nРаботает там, где другие не справляются.\n\n💡 Нажми на ссылку выше, чтобы подключиться.`;
+      // текст шаринга редактируется в админке («Тексты бота» → bot_referral_share_text).
+      // Ведущий \n обязателен: ссылка из `url=` рисуется TG-клиентом первой строкой.
+      const shareBody = (config?.botReferralShareText ?? "").trim()
+        || "🛡 Надёжный VPN, который реально работает!\n\nРаботает там, где другие не справляются.\n\n💡 Нажми на ссылку выше, чтобы подключиться.";
+      const shareText = `\n${shareBody}`;
       const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(linkBot)}&text=${encodeURIComponent(shareText)}`;
       const rows: ({ text: string; url: string } | { text: string; callback_data: string })[][] = [];
       rows.push([{ text: "📢 Поделиться ссылкой", url: shareUrl }]);
@@ -6047,9 +6216,10 @@ composer.on("callback_query:data", async (ctx) => {
     if (data === "menu:promocode") {
       const lang = getUserLang(userId);
       awaitingPromoCode.add(userId);
+      // текст редактируется в админке («Тексты бота» → bot_promocode_text); fallback — i18n.
       await editMessageContent(
         ctx,
-        _t("promo.enter_title", lang),
+        (config?.botPromocodeText ?? "").trim() || _t("promo.enter_title", lang),
         backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds),
       );
       return;
@@ -6064,9 +6234,10 @@ composer.on("callback_query:data", async (ctx) => {
       try {
         const { items } = await api.getAvailableTrials(token);
         if (items.length === 0) {
+          // текст редактируется в админке («Тексты бота» → bot_trial_used_text).
           await editMessageContent(
             ctx,
-            "🎁 Пробные подписки\n\nВсе доступные пробные подписки уже использованы.",
+            (config?.botTrialUsedText ?? "").trim() || "🎁 Пробные подписки\n\nВсе доступные пробные подписки уже использованы.",
             backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds),
           );
           return;
@@ -6080,7 +6251,9 @@ composer.on("callback_query:data", async (ctx) => {
         // 2+ триалов → выбор.
         // новый текст по эталону клиента — заголовок + описание
         // каждого триала из поля description в БД (rich-text), вместо короткой строки «• N дн. (Тариф)».
-        const lines: string[] = ["🎁 Получить пробную подписку", "", "📱 Выберите тип подписки", ""];
+        // заголовок редактируется в админке («Тексты бота» → bot_trial_text).
+        const trialHeader = (config?.botTrialText ?? "").trim() || "🎁 Получить пробную подписку\n\n📱 Выберите тип подписки";
+        const lines: string[] = [trialHeader, ""];
         for (const t of items) {
           const desc = (t.description ?? "").trim();
           if (desc) {
@@ -6795,8 +6968,9 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, "Тарифы не настроены.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
-      // новый текст по эталону клиента (с описанием каждого тарифа).
-      const text = [
+      // текст редактируется в админке («Тексты бота» → bot_gift_buy_text);
+      // раньше был захардкожен здесь (эталон клиента с описанием тарифов).
+      const text = (config?.botGiftBuyText ?? "").trim() || [
         "Выберите тип подписки, которую хотите подарить:",
         "",
         "🚀 Стандартная — стандартная подписка с доступом ко всем локациям",

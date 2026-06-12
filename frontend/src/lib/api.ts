@@ -83,6 +83,7 @@ export const MANAGER_SECTIONS: { key: string; label: string; category: ManagerSe
   { key: "promo-codes", label: "Промокоды", category: "subscription" },
   { key: "marketing", label: "Маркетинг", category: "subscription" },
   { key: "referral-network", label: "Реф. сеть", category: "subscription" },
+  { key: "referrals", label: "Рефералка", category: "subscription" },
   { key: "secondary-subscriptions", label: "Доп. подписки", category: "subscription" },
   // Инструменты
   { key: "video-instructions", label: "Видео-инструкции", category: "tools" },
@@ -2988,6 +2989,12 @@ export type UpdateSettingsPayload = {
   notificationTopicPayments?: string | null;
   notificationTopicTickets?: string | null;
   notificationTopicBackups?: string | null;
+  notificationTopicTrials?: string | null;
+  notificationTopicConversions?: string | null;
+  notificationTopicWithdrawals?: string | null;
+  notificationTopicPromo?: string | null;
+  notificationTopicGifts?: string | null;
+  notificationTopicAutoRenew?: string | null;
   autoBackupEnabled?: boolean;
   autoBackupCron?: string | null;
   plategaMerchantId?: string | null;
@@ -3067,6 +3074,9 @@ export type UpdateSettingsPayload = {
   blacklistEnabled?: boolean;
   botAutoDeleteUnknownMessages?: boolean;
   botInfoBlock?: string | null;
+  /** тогглы кнопок на экране «Тарифы» бота (default true) */
+  botTariffsShowExtraDevicesButton?: boolean;
+  botTariffsShowBalanceButton?: boolean;
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
   sellOptionsTrafficProducts?: string | null;
@@ -3464,6 +3474,12 @@ export interface AdminSettings {
   notificationTopicPayments?: string | null;
   notificationTopicTickets?: string | null;
   notificationTopicBackups?: string | null;
+  notificationTopicTrials?: string | null;
+  notificationTopicConversions?: string | null;
+  notificationTopicWithdrawals?: string | null;
+  notificationTopicPromo?: string | null;
+  notificationTopicGifts?: string | null;
+  notificationTopicAutoRenew?: string | null;
   autoBackupEnabled?: boolean;
   autoBackupCron?: string | null;
   plategaMerchantId?: string | null;
@@ -3558,6 +3574,10 @@ export interface AdminSettings {
   botAutoDeleteUnknownMessages?: boolean;
   /** Кастомный инфо-блок: показывается в главном меню бота и в кабинете. Пусто = скрыт. */
   botInfoBlock?: string | null;
+  /** Кнопка «➕ Докупить устройство» на экране Тарифов бота (default true) */
+  botTariffsShowExtraDevicesButton?: boolean;
+  /** Кнопка «💼 Мой баланс» на экране Тарифов бота (default true) */
+  botTariffsShowBalanceButton?: boolean;
   /** Продажа опций: доп. трафик, устройства, серверы */
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;

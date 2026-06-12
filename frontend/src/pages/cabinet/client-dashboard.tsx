@@ -156,11 +156,14 @@ function ClassicDashboardPage() {
   // красивая модалка продления вместо редиректа в каталог
   // (?extend=...). Открывается для ЛЮБОЙ подписки — единый механизм.
   const [extendSubId, setExtendSubId] = useState<string | null>(null);
-  const [_referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
+  const [referralStats, setReferralStats] = useState<ClientReferralStats | null>(null);
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
   // T-sec-devices (WolfVPN): кол-во устройств по каждой подписке (subscriptionId → count) — для доп.подписок.
   const [devicesBySubId, setDevicesBySubId] = useState<Record<string, number>>({});
-  const [autoRenewLoading, setAutoRenewLoading] = useState(false);
+  // ♻️ Пер-подписочное автосписание (вместо одного глобального Switch в карточке «Баланс»).
+  // Триальные подписки сюда не попадают — автосписание на них не имеет смысла.
+  const [autoRenewSubs, setAutoRenewSubs] = useState<Array<{ type: "root" | "secondary"; id: string; name: string; enabled: boolean }>>([]);
+  const [autoRenewTogglingId, setAutoRenewTogglingId] = useState<string | null>(null);
 
   const token = state.token;
   const isMiniapp = useCabinetMiniapp();
@@ -219,6 +222,17 @@ function ClassicDashboardPage() {
         setPayments(payRes.items ?? []);
         setDeviceCount(devRes.total ?? null);
         setSecondarySubscriptions((allSubRes.items || []).filter(s => s.type === "secondary"));
+        // ♻️ Список подписок для блока «Автосписание по подпискам» (без триальных).
+        setAutoRenewSubs(
+          (allSubRes.items || [])
+            .filter((s) => !s.trialId)
+            .map((s) => ({
+              type: s.type,
+              id: s.id,
+              name: s.tariffDisplayName?.trim() || `Подписка #${(s.subscriptionIndex ?? 0) + 1}`,
+              enabled: s.autoRenewEnabled ?? false,
+            })),
+        );
         const rootItem = (allSubRes.items || []).find(s => s.type === "root");
         setRootSubId(rootItem?.id ?? null);
         setRootTrial({
@@ -240,9 +254,9 @@ function ClassicDashboardPage() {
   }, [token, refreshKey]);
 
   useEffect(() => {
-    if (!token || !isMiniapp) return;
+    if (!token) return;
     api.getClientReferralStats(token).then(setReferralStats).catch(() => {});
-  }, [token, isMiniapp]);
+  }, [token]);
 
   // Auto-redeem pending gift code (saved by /gift/:code page before redirect to login/register)
   const [giftRedeemMessage, setGiftRedeemMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -263,16 +277,19 @@ function ClassicDashboardPage() {
       });
   }, [token, loading]);
 
-  async function toggleAutoRenew(enabled: boolean) {
-    if (!token || !client) return;
-    setAutoRenewLoading(true);
+  // ♻️ Тоггл автосписания у конкретной подписки: optimistic-обновление с откатом при ошибке.
+  async function toggleSubAutoRenew(sub: { type: "root" | "secondary"; id: string }, enabled: boolean) {
+    if (!token) return;
+    setAutoRenewTogglingId(sub.id);
+    setAutoRenewSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, enabled } : s)));
     try {
-      await api.clientUpdateAutoRenew(token, { enabled });
-      await refreshProfile();
+      await api.clientSetSubscriptionAutoRenew(token, sub.type, sub.id, enabled);
+      refreshProfile().catch(() => {});
     } catch (err) {
-      console.error("Failed to toggle auto-renew", err);
+      console.error("Failed to toggle subscription auto-renew", err);
+      setAutoRenewSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, enabled: !enabled } : s)));
     } finally {
-      setAutoRenewLoading(false);
+      setAutoRenewTogglingId(null);
     }
   }
 
@@ -386,6 +403,52 @@ function ClassicDashboardPage() {
       setTimeout(() => setReferralCopied(null), 2000);
     }
   };
+  // ♻️ Автосписание по подпискам — общий узел для mobile/desktop карточки «Баланс».
+  const anyAutoRenewOn = autoRenewSubs.some((s) => s.enabled);
+  const autoRenewListNode = autoRenewSubs.length > 0 ? (
+    <div className="rounded-2xl bg-background/40 border border-border/50 p-3.5 text-left space-y-2.5">
+      <div className="flex flex-col gap-0.5">
+        <Label className="text-sm font-semibold inline-flex items-center gap-1.5">
+          <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
+          Автосписание по подпискам
+        </Label>
+        {anyAutoRenewOn && autoRenewNext.amount != null ? (
+          <span className="text-[11px] leading-tight text-muted-foreground">
+            Ближайшее списание:{" "}
+            <span className="font-bold tabular-nums text-foreground">
+              {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+            </span>
+            {autoRenewNext.at && (
+              <> · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</>
+            )}
+          </span>
+        ) : (
+          <span className="text-[11px] leading-tight text-muted-foreground">
+            {config?.yookassaRecurringEnabled
+              ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
+              : "Списание с баланса"
+            }
+          </span>
+        )}
+      </div>
+      <div className="space-y-1">
+        {autoRenewSubs.map((sub) => (
+          <div key={sub.id} className="flex items-center justify-between gap-3 rounded-xl bg-background/40 border border-border/40 px-3 py-2">
+            <span className="text-[13px] font-medium text-foreground/85 truncate">{sub.name}</span>
+            <span className="flex items-center gap-2 shrink-0">
+              {autoRenewTogglingId === sub.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+              <Switch
+                checked={sub.enabled}
+                disabled={autoRenewTogglingId === sub.id}
+                onCheckedChange={(v) => toggleSubAutoRenew(sub, v)}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   const trafficPercent = subParsed.trafficLimitBytes != null && subParsed.trafficLimitBytes > 0 && subParsed.trafficUsed != null
     ? Math.min(100, Math.round((subParsed.trafficUsed / subParsed.trafficLimitBytes) * 100))
     : null;
@@ -877,37 +940,8 @@ function ClassicDashboardPage() {
               <p className="text-2xl font-bold tracking-tight text-foreground leading-none mt-1">{formatMoney(client.balance, client.preferredCurrency)}</p>
             </div>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-background/40 border border-border/50">
-            <div className="flex flex-col min-w-0">
-              <Label className="text-sm font-semibold">{t("cabinet.dashboard.auto_renew")}</Label>
-              {client.autoRenewEnabled && autoRenewNext.amount != null ? (
-                <span className="text-[11px] mt-0.5 leading-tight inline-flex items-center gap-1 truncate">
-                  <RotateCcw className="h-3 w-3 text-primary shrink-0" />
-                  <span className="font-bold tabular-nums text-foreground">
-                    {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
-                  </span>
-                  {autoRenewNext.at && (
-                    <span className="text-muted-foreground">
-                      · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                  {config?.yookassaRecurringEnabled
-                    ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
-                    : "Списание с баланса"
-                  }
-                </span>
-              )}
-            </div>
-            <Switch
-              checked={client.autoRenewEnabled ?? false}
-              disabled={autoRenewLoading}
-              onCheckedChange={toggleAutoRenew}
-            />
-          </div>
-          {client.autoRenewEnabled && (
+          {autoRenewListNode}
+          {anyAutoRenewOn && (
             <div className="flex items-center gap-2 p-2.5 pl-3 rounded-2xl bg-background/40 border border-border/50">
               <Tag className="h-4 w-4 text-primary shrink-0" />
               <Input
@@ -943,7 +977,7 @@ function ClassicDashboardPage() {
               )}
             </div>
           )}
-          {client.autoRenewEnabled && autoRenewPromoError && (
+          {anyAutoRenewOn && autoRenewPromoError && (
             <p className="text-[11px] font-medium text-red-500 dark:text-red-400 -mt-2">{autoRenewPromoError}</p>
           )}
           <Button className="w-full gap-2 shadow-md hover:scale-[1.02] transition-transform duration-300 rounded-xl h-12 [&_svg]:self-center [&_span]:leading-none" asChild>
@@ -1187,38 +1221,9 @@ function ClassicDashboardPage() {
               <p className="text-[15px] text-muted-foreground mt-3">На счету для продления тарифов</p>
             </div>
             
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-background/40 border border-border/50 text-left">
-              <div className="flex flex-col min-w-0">
-                <Label className="text-[15px] font-semibold">{t("cabinet.dashboard.auto_renew")}</Label>
-                {client.autoRenewEnabled && autoRenewNext.amount != null ? (
-                  <span className="text-sm mt-0.5 inline-flex items-center gap-1.5 truncate">
-                    <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="font-bold tabular-nums text-foreground">
-                      {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
-                    </span>
-                    {autoRenewNext.at && (
-                      <span className="text-muted-foreground">
-                        · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground mt-0.5">
-                    {config?.yookassaRecurringEnabled
-                      ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
-                      : "Списание с баланса"
-                    }
-                  </span>
-                )}
-              </div>
-              <Switch
-                checked={client.autoRenewEnabled ?? false}
-                disabled={autoRenewLoading}
-                onCheckedChange={toggleAutoRenew}
-              />
-            </div>
+            {autoRenewListNode}
 
-            {client.autoRenewEnabled && (
+            {anyAutoRenewOn && (
               <div className="flex items-center gap-2 p-3 pl-4 rounded-2xl bg-background/40 border border-border/50">
                 <Tag className="h-4 w-4 text-primary shrink-0" />
                 <Input
@@ -1254,7 +1259,7 @@ function ClassicDashboardPage() {
                 )}
               </div>
             )}
-            {client.autoRenewEnabled && autoRenewPromoError && (
+            {anyAutoRenewOn && autoRenewPromoError && (
               <p className="text-[11px] font-medium text-red-500 dark:text-red-400 -mt-2">{autoRenewPromoError}</p>
             )}
 
@@ -1281,6 +1286,20 @@ function ClassicDashboardPage() {
             {hasReferralLinks ? (
               <>
                 <p className="text-[15px] text-muted-foreground leading-relaxed">Делитесь ссылкой и получайте <strong className="text-foreground">бонус на баланс</strong> за каждого приглашенного друга!</p>
+                {referralStats && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Приглашено", value: referralStats.referralCount.toLocaleString("ru-RU") },
+                      { label: "Заработано", value: `${referralStats.totalEarnings.toLocaleString("ru-RU")} ₽` },
+                      { label: "Ваш %", value: `${referralStats.referralPercent}%` },
+                    ].map((tile) => (
+                      <div key={tile.label} className="rounded-2xl bg-background/40 border border-border/50 backdrop-blur-xl px-2 py-3 text-center">
+                        <p className="text-lg font-bold tracking-tight text-foreground leading-none">{tile.value}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">{tile.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {referralLinkSite && (
                   <div className="space-y-2">
                     <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Сайт</p>
@@ -1290,6 +1309,19 @@ function ClassicDashboardPage() {
                       </code>
                       <Button variant="secondary" size="icon" onClick={() => copyReferral("site")} className="shrink-0 h-12 w-12 rounded-xl hover:scale-105 transition-transform border border-border/50 bg-background/50" title="Копировать">
                         {referralCopied === "site" ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-foreground/70" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {referralLinkBot && (
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Бот</p>
+                    <div className="flex items-center gap-2">
+                      <code className="rounded-xl bg-background/50 border border-border/50 px-4 py-3 text-[15px] font-mono flex-1 truncate block text-foreground/80" title={referralLinkBot}>
+                        {referralLinkBot}
+                      </code>
+                      <Button variant="secondary" size="icon" onClick={() => copyReferral("bot")} className="shrink-0 h-12 w-12 rounded-xl hover:scale-105 transition-transform border border-border/50 bg-background/50" title="Копировать">
+                        {referralCopied === "bot" ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-foreground/70" />}
                       </Button>
                     </div>
                   </div>

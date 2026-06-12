@@ -636,13 +636,28 @@ export async function extendSecondarySubscription(
 
   const effectiveDays = selectedOption?.durationDays ?? tariff.durationDays;
   const includedDevices = Math.max(1, tariff.includedDevices ?? 1);
-  void tariff.pricePerExtraDevice; // НЕ используется — это отдельная админская фича создания тарифа
 
-  // берём количество устройств подписки
-  // как есть (накоплено через sell-options apply). Цена при продлении считается
-  // отдельно через extraDevicesMonthlyPrice, hwid лимит = includedDevices + extraDevices.
-  void extraDevices; // legacy param, при продлении не используется — используем накопленный счётчик
-  const effectiveExtras = sec.extraDevices ?? 0;
+  // T-extras-universal (12.06.2026): устройства, докупаемые ЭТОЙ оплатой
+  // (deviceCount платежа), теперь честно выдаются и при продлении/конвертации —
+  // раньше параметр игнорировался (void), и «+2 устройства» при покупке тарифа
+  // из single-категории пропадали. Цена этих extras уже включена в сумму платежа
+  // (client.routes считает calcExtrasPrice для ЛЮБОЙ покупки).
+  const maxExtra = Math.max(0, tariff.maxExtraDevices ?? 0);
+  const newExtras = Math.min(Math.max(0, Math.floor(extraDevices ?? 0)), maxExtra);
+  // существующие extras подписки: остаются или убираются по removeExtrasAfter.
+  const keptExtras = removeExtrasAfter ? 0 : (sec.extraDevices ?? 0);
+  const keptExtrasMonthly = removeExtrasAfter ? 0 : (sec.extraDevicesMonthlyPrice ?? 0);
+  // месячная ставка новых extras — для будущих продлений (формула option.price + monthly × days/30).
+  const newExtrasMonthly = newExtras > 0
+    ? applyExtraDevicesPrice(
+        Math.max(0, tariff.pricePerExtraDevice ?? 0),
+        newExtras,
+        parseDeviceDiscountTiers(tariff.deviceDiscountTiers),
+        EXTRA_DEVICE_BASE_DAYS,
+      ).extrasTotal
+    : 0;
+  const effectiveExtras = keptExtras + newExtras;
+  const effectiveExtrasMonthly = Math.round((keptExtrasMonthly + newExtrasMonthly) * 100) / 100;
 
   const trafficLimitBytes = tariff.trafficLimitBytes != null ? Number(tariff.trafficLimitBytes) : 0;
   const totalDevices = includedDevices + effectiveExtras;
@@ -766,6 +781,7 @@ export async function extendSecondarySubscription(
       expireAt: new Date(expireAt),
       trialId: null,
       extraDevices: effectiveExtras,
+      extraDevicesMonthlyPrice: effectiveExtrasMonthly,
       ...(tariff.id && tariff.id !== sec.tariffId ? { tariffId: tariff.id } : {}),
       ...(effectiveConvert && newPriceForDb != null && newPriceForDb > 0 ? {
         customPrice: newPriceForDb,
@@ -774,14 +790,15 @@ export async function extendSecondarySubscription(
     },
   }).catch(() => {});
 
-  // если выбран флаг — убираем все
-  // доп. устройства ПОСЛЕ успешного продления. Юзер заплатил уже за «без устройств».
+  // юзер выбрал «без устройств» — лимит уже выставлен выше (included + новые extras,
+  // старые обнулены в счётчиках), остаётся кикнуть HWID-устройства сверх нового лимита.
+  // НЕ зовём removeAllExtraDevicesForSub: он обнулил бы и только что докупленные extras.
   if (removeExtrasAfter) {
     try {
-      const { removeAllExtraDevicesForSub } = await import("../subscription/extras.helper.js");
-      await removeAllExtraDevicesForSub(sec.id);
+      const { kickExcessHwidDevices } = await import("../subscription/extras.helper.js");
+      await kickExcessHwidDevices(sec.remnawaveUuid, hwidDeviceLimit);
     } catch (e) {
-      console.error("[extendSecondarySubscription] removeExtrasAfter failed:", e);
+      console.error("[extendSecondarySubscription] removeExtrasAfter kick failed:", e);
     }
   }
 
@@ -1004,6 +1021,13 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
             data: { subscriptionId: convertible.id, metadata: JSON.stringify(meta) },
           }).catch(() => {});
           await resetOneTimeDiscount();
+          // уведомление админам: покупка конвертировала подписку (best-effort, не ломаем активацию).
+          if (!convertible.sameTariff) {
+            const convertedDaysNotify = result.convertedDays ?? null;
+            import("../notification/telegram-notify.service.js")
+              .then((m) => m.notifyAdminsAboutSubscriptionConverted(client.id, convertible.tariffName, tariff.name, convertedDaysNotify))
+              .catch((e) => console.error("[activate] convert admin notify failed:", e));
+          }
         }
         return result;
       }
@@ -1023,6 +1047,9 @@ export async function activateTariffByPaymentId(paymentId: string): Promise<Acti
       trafficLimitBytes: tariff.trafficLimitBytes,
       deviceLimit: tariff.deviceLimit,
       includedDevices: tariff.includedDevices,
+      pricePerExtraDevice: tariff.pricePerExtraDevice,
+      maxExtraDevices: tariff.maxExtraDevices,
+      deviceDiscountTiers: tariff.deviceDiscountTiers,
       internalSquadUuids: tariff.internalSquadUuids,
       trafficResetMode: tariff.trafficResetMode ?? undefined,
     }, { extraDevices: payment.deviceCount ?? 0, purchasedAsGift: isGiftPurchase, skipConfigCheck: true });

@@ -53,6 +53,7 @@ import {
   notifyAutoRenewRetry,
   notifyAutoRenewYookassaSuccess,
   notifyAutoRenewYookassaFailed,
+  notifyAdminsAboutAutoRenewFailed,
 } from "../notification/telegram-notify.service.js";
 // кастомные уведомления из конструктора (/admin/auto-renew).
 // Дёргаются параллельно со старыми хардкоженными — старые остаются как fallback.
@@ -339,6 +340,12 @@ export async function processAutoRenewals() {
               }).catch((e) => console.error("[auto-renew] Rollback promo usage failed:", e));
             }
             console.error(`[auto-renew] Client ${client.id} renewal failed, debit rolled back:`, err);
+            // уведомление админам в TG-группу: автосписание провалилось (best-effort).
+            notifyAdminsAboutAutoRenewFailed(
+              client.id,
+              client.autoRenewTariff.name,
+              err instanceof Error ? err.message : String(err),
+            ).catch((e) => console.error("[auto-renew] admin notify failed:", e));
           }
           if (renewalFailed) continue;
 

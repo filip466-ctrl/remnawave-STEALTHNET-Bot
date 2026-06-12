@@ -2436,7 +2436,7 @@ adminRouter.get("/settings", asyncRoute(async (_req, res) => {
 
 /** Версия панели — для мониторинга. Под auth, чтобы не светить наружу. */
 adminRouter.get("/version", asyncRoute(async (_req, res) => {
-  return res.json({ version: "5.0.0" });
+  return res.json({ version: "5.1.0" });
 }));
 
 /**
@@ -2613,6 +2613,12 @@ const updateSettingsSchema = z.object({
   notificationTopicNewClients: z.string().max(50).nullable().optional(),
   notificationTopicPayments: z.string().max(50).nullable().optional(),
   notificationTopicTickets: z.string().max(50).nullable().optional(),
+  notificationTopicTrials: z.string().max(50).nullable().optional(),
+  notificationTopicConversions: z.string().max(50).nullable().optional(),
+  notificationTopicWithdrawals: z.string().max(50).nullable().optional(),
+  notificationTopicPromo: z.string().max(50).nullable().optional(),
+  notificationTopicGifts: z.string().max(50).nullable().optional(),
+  notificationTopicAutoRenew: z.string().max(50).nullable().optional(),
   notificationTopicBackups: z.string().max(50).nullable().optional(),
   autoBackupEnabled: z.boolean().optional(),
   autoBackupCron: z.string().max(50).nullable().optional(),
@@ -2868,6 +2874,9 @@ const updateSettingsSchema = z.object({
   // Поведение бота
   botAutoDeleteUnknownMessages: z.boolean().optional(),
   botInfoBlock: z.string().max(2000).nullable().optional(),
+  // тогглы кнопок на экране «Тарифы» бота (default true)
+  botTariffsShowExtraDevicesButton: z.boolean().optional(),
+  botTariffsShowBalanceButton: z.boolean().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -3090,6 +3099,12 @@ adminRouter.patch("/settings", async (req, res) => {
     ["notificationTopicNewClients", "notification_topic_new_clients"],
     ["notificationTopicPayments", "notification_topic_payments"],
     ["notificationTopicTickets", "notification_topic_tickets"],
+    ["notificationTopicTrials", "notification_topic_trials"],
+    ["notificationTopicConversions", "notification_topic_conversions"],
+    ["notificationTopicWithdrawals", "notification_topic_withdrawals"],
+    ["notificationTopicPromo", "notification_topic_promo"],
+    ["notificationTopicGifts", "notification_topic_gifts"],
+    ["notificationTopicAutoRenew", "notification_topic_auto_renew"],
     ["notificationManagersTopicTickets", "notification_managers_topic_tickets"],
     ["notificationTopicBackups", "notification_topic_backups"],
   ];
@@ -3798,6 +3813,9 @@ adminRouter.patch("/settings", async (req, res) => {
     ["giftMessageMaxLength", "gift_message_max_length"],
     ["botAutoDeleteUnknownMessages", "bot_auto_delete_unknown_messages"],
     ["botInfoBlock", "bot_info_block"],
+    // тогглы кнопок на экране «Тарифы» бота
+    ["botTariffsShowExtraDevicesButton", "bot_tariffs_show_extra_devices_button"],
+    ["botTariffsShowBalanceButton", "bot_tariffs_show_balance_button"],
   ];
   for (const [key, dbKey] of giftKeys) {
     const v = updates[key];
@@ -5365,6 +5383,7 @@ export const ADMIN_ALLOWED_SECTIONS = [
   "promo-codes",
   "marketing",
   "referral-network",
+  "referrals", // Страница «Рефералка» (статистика рефералов)
   "secondary-subscriptions",
   // Tools
   "video-instructions",
