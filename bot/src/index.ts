@@ -2081,15 +2081,21 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
       const dropChosen = convDropExtras.has(userId);
       if (conv.mode === "extend") {
         // тот же тариф = продление: дни складываются, ничего не сбрасывается.
-        convNote = `\n\n🔄 Этот тариф у вас уже есть — подписка ${subName} будет ПРОДЛЕНА (дни сложатся: остаток ${conv.remainingDays ?? 0} дн. + ${conv.purchasedDays ?? 0} дн. = ${conv.totalDays ?? 0} дн.). Устройства и серверы останутся как есть.`;
+        // newDevicesNote: НОВЫЕ устройства, выбранные в ЭТОЙ покупке (extraDevices) —
+        // они уже в цене и добавятся в любом случае; количества показываем с ними.
+        const newSuffix = extraDevices > 0 ? ` + ${extraDevices} новых из этой покупки` : "";
+        convNote = `\n\n🔄 Этот тариф у вас уже есть — подписка ${subName} будет ПРОДЛЕНА (дни сложатся: остаток ${conv.remainingDays ?? 0} дн. + ${conv.purchasedDays ?? 0} дн. = ${conv.totalDays ?? 0} дн.).${extraDevices > 0 ? "" : " Устройства и серверы останутся как есть."}`;
         if (extras && extras.extraDevices > 0) {
           convHasExtras = true;
           if (dropChosen) {
-            convNote += `\n📱 Доп. устройства (+${extras.extraDevices}) будут УБРАНЫ — продление без доплаты за устройства.`;
+            convNote += `\n📱 Прежние доп. устройства (+${extras.extraDevices}) будут УБРАНЫ — без доплаты за них. Останется ${extras.drop.totalDevices + extraDevices} устройств (из тарифа${newSuffix}).`;
+            if (extraDevices >= extras.extraDevices) {
+              convNote += `\n⚠️ Вы убираете ${extras.extraDevices} прежних и добавляете ${extraDevices} новых — устройств меньше не станет, а за новые вы платите. Если хотели оставить как есть — выберите «сохранить» и уберите новые устройства.`;
+            }
           } else if ((extras.keep.extraCost ?? 0) > 0) {
-            convNote += `\n📱 Доплата за +${extras.extraDevices} доп. устройств: ${extras.keep.extraCost} ₽ за период.`;
+            convNote += `\n📱 Доплата за +${extras.extraDevices} прежних доп. устройств: ${extras.keep.extraCost} ₽ за период. Всего будет ${extras.keep.totalDevices + extraDevices} устройств (${extras.keep.totalDevices} прежних${newSuffix}).`;
           } else {
-            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices} устройств) — без доплаты.`;
+            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices + extraDevices} устройств${newSuffix ? ` — ${extras.keep.totalDevices} прежних${newSuffix}` : ""}) — без доплаты.`;
           }
         }
       } else {
@@ -2104,10 +2110,14 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
         // (по умолчанию — сохранить; «убрать» даёт больше конвертированных дней).
         if (extras && extras.extraDevices > 0) {
           convHasExtras = true;
+          const newSuffixConv = extraDevices > 0 ? ` + ${extraDevices} новых из этой покупки` : "";
           if (dropChosen) {
-            convNote += `\n📱 Доп. устройства (+${extras.extraDevices}) будут УБРАНЫ: конвертация ${extras.drop.convertedDays} дн. (итого ${extras.drop.totalDevices} устройств).`;
+            convNote += `\n📱 Прежние доп. устройства (+${extras.extraDevices}) будут УБРАНЫ: конвертация ${extras.drop.convertedDays} дн. Останется ${extras.drop.totalDevices + extraDevices} устройств (из тарифа${newSuffixConv}).`;
+            if (extraDevices >= extras.extraDevices) {
+              convNote += `\n⚠️ Вы убираете ${extras.extraDevices} прежних и добавляете ${extraDevices} новых — устройств меньше не станет, а за новые вы платите.`;
+            }
           } else {
-            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices} устройств, конвертация ${extras.keep.convertedDays} дн.).`;
+            convNote += `\n📱 Ваши +${extras.extraDevices} доп. устройств сохранятся (итого ${extras.keep.totalDevices + extraDevices} устройств${newSuffixConv ? ` — ${extras.keep.totalDevices} прежних${newSuffixConv}` : ""}, конвертация ${extras.keep.convertedDays} дн.).`;
           }
         }
       }

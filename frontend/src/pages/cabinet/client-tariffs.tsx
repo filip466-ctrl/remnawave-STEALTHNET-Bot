@@ -917,13 +917,20 @@ function ClassicTariffsPage() {
                       </p>
                     )}
 
-                    {/* same-tariff продление: выбор судьбы доп. устройств
-                        (как в обычном продлении — доплата за период или удаление). */}
+                    {/* same-tariff продление: выбор судьбы ПРЕЖНИХ доп. устройств.
+                        учитываем и НОВЫЕ устройства, выбранные в этой
+                        покупке (selectedExtraDevices) — они уже включены в tariff.price,
+                        поэтому итоги и количества показываем честно с ними. */}
                     {convPreview.mode === "extend" && convPreview.extras && convPreview.extras.extraDevices > 0 && (
                       <div className="space-y-2 pt-1.5">
                         <p className="text-xs font-bold">
                           У вас докуплено +{convPreview.extras.extraDevices} доп. устройств — что с ними сделать?
                         </p>
+                        {selectedExtraDevices > 0 && (
+                          <p className="text-[11px] text-violet-300/90 leading-relaxed">
+                            + {selectedExtraDevices} нов{selectedExtraDevices === 1 ? "ое" : "ых"} устройств{selectedExtraDevices === 1 ? "о" : ""} из этой покупки — уже в цене и добавятся в любом случае.
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => setConvKeepExtras(true)}
@@ -934,11 +941,12 @@ function ClassicTariffsPage() {
                         >
                           <p className="text-xs font-bold flex items-center gap-1.5">
                             <Smartphone className="h-3.5 w-3.5 text-violet-400" />
-                            Сохранить устройства (+{formatMoney(convPreview.extras.keep.extraCost ?? 0, tariff.currency)})
+                            Сохранить прежние (+{formatMoney(convPreview.extras.keep.extraCost ?? 0, tariff.currency)})
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                            Всего {convPreview.extras.keep.totalDevices} устройств. К оплате добавится доплата за устройства
-                            на новый период — итого спишется {formatMoney(tariff.price + (convPreview.extras.keep.extraCost ?? 0), tariff.currency)}.
+                            Всего будет <b>{convPreview.extras.keep.totalDevices + selectedExtraDevices} устройств</b>
+                            {selectedExtraDevices > 0 && <> ({convPreview.extras.keep.totalDevices} прежних + {selectedExtraDevices} новых)</>}.
+                            Доплата за прежние на новый период — итого спишется {formatMoney(tariff.price + (convPreview.extras.keep.extraCost ?? 0), tariff.currency)}.
                           </p>
                         </button>
                         <button
@@ -951,13 +959,22 @@ function ClassicTariffsPage() {
                         >
                           <p className="text-xs font-bold flex items-center gap-1.5">
                             <Zap className="h-3.5 w-3.5 text-violet-400" />
-                            Убрать устройства — без доплаты
+                            Убрать прежние — без доплаты за них
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                            Останется {convPreview.extras.drop.totalDevices} устройств (только из тарифа).
+                            Останется <b>{convPreview.extras.drop.totalDevices + selectedExtraDevices} устройств</b>
+                            {selectedExtraDevices > 0
+                              ? <> ({convPreview.extras.drop.totalDevices} из тарифа + {selectedExtraDevices} новых)</>
+                              : <> (только из тарифа)</>}.
                             Спишется ровно {formatMoney(tariff.price, tariff.currency)}.
                           </p>
                         </button>
+                        {selectedExtraDevices > 0 && !convKeepExtras && selectedExtraDevices >= convPreview.extras.extraDevices && (
+                          <p className="text-[11px] leading-relaxed rounded-lg border border-amber-500/25 bg-amber-500/10 text-amber-300/90 px-2.5 py-2">
+                            ⚠️ Вы убираете {convPreview.extras.extraDevices} прежних и добавляете {selectedExtraDevices} новых — устройств меньше не станет,
+                            а за новые вы платите. Если хотели просто оставить как есть — выберите «Сохранить прежние» и уберите новые устройства из покупки.
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -982,8 +999,8 @@ function ClassicTariffsPage() {
                             Оставить устройства
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                            Всего будет <b>{convPreview.extras.keep.totalDevices} устройств</b>{" "}
-                            ({convPreview.extras.newIncludedDevices} в тарифе + {convPreview.extras.extraDevices} доп.).
+                            Всего будет <b>{convPreview.extras.keep.totalDevices + selectedExtraDevices} устройств</b>{" "}
+                            ({convPreview.extras.newIncludedDevices} в тарифе + {convPreview.extras.extraDevices} доп.{selectedExtraDevices > 0 && <> + {selectedExtraDevices} новых</>}).
                             Остаток конвертируется в <b className="text-violet-400">{formatRuDays(convPreview.extras.keep.convertedDays)}</b> —
                             итого {formatRuDays(convPreview.extras.keep.totalDays)}.
                           </p>
@@ -1003,8 +1020,9 @@ function ClassicTariffsPage() {
                             Убрать устройства — больше дней
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                            Останется <b>{convPreview.extras.drop.totalDevices} устройств</b> (только из тарифа).
-                            Стоимость устройств тоже превратится в дни: остаток конвертируется в{" "}
+                            Останется <b>{convPreview.extras.drop.totalDevices + selectedExtraDevices} устройств</b>{" "}
+                            {selectedExtraDevices > 0 ? <>({convPreview.extras.drop.totalDevices} из тарифа + {selectedExtraDevices} новых)</> : <>(только из тарифа)</>}.
+                            Стоимость прежних устройств превратится в дни: остаток конвертируется в{" "}
                             <b className="text-violet-400">{formatRuDays(convPreview.extras.drop.convertedDays)}</b> —
                             итого {formatRuDays(convPreview.extras.drop.totalDays)}.
                           </p>
