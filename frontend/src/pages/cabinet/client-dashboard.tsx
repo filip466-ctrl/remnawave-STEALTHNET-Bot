@@ -28,6 +28,12 @@ import {
   X,
   RotateCcw,
   RefreshCw,
+  Globe,
+  Send,
+  UserPlus,
+  Coins,
+  Percent,
+  Sparkles,
 } from "lucide-react";
 import { useClientAuth } from "@/contexts/client-auth";
 import { useCabinetConfig } from "@/contexts/cabinet-config";
@@ -406,41 +412,58 @@ function ClassicDashboardPage() {
   // ♻️ Автосписание по подпискам — общий узел для mobile/desktop карточки «Баланс».
   const anyAutoRenewOn = autoRenewSubs.some((s) => s.enabled);
   const autoRenewListNode = autoRenewSubs.length > 0 ? (
-    <div className="rounded-2xl bg-background/40 border border-border/50 p-3.5 text-left space-y-2.5">
-      <div className="flex flex-col gap-0.5">
-        <Label className="text-sm font-semibold inline-flex items-center gap-1.5">
-          <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
-          Автосписание по подпискам
-        </Label>
-        {anyAutoRenewOn && autoRenewNext.amount != null ? (
-          <span className="text-[11px] leading-tight text-muted-foreground">
-            Ближайшее списание:{" "}
-            <span className="font-bold tabular-nums text-foreground">
-              {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+    <div className="relative overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.07] via-background/40 to-violet-500/[0.06] backdrop-blur-xl p-4 text-left space-y-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+      {/* мягкое свечение в углу */}
+      <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-primary/15 blur-3xl" aria-hidden />
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <Label className="text-sm font-semibold inline-flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/20">
+              <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
             </span>
-            {autoRenewNext.at && (
-              <> · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</>
-            )}
-          </span>
-        ) : (
-          <span className="text-[11px] leading-tight text-muted-foreground">
-            {config?.yookassaRecurringEnabled
-              ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
-              : "Списание с баланса"
-            }
-          </span>
-        )}
+            Автосписание
+          </Label>
+          {anyAutoRenewOn && autoRenewNext.amount != null ? (
+            <span className="text-[11px] leading-tight text-muted-foreground">
+              Ближайшее списание:{" "}
+              <span className="font-bold tabular-nums text-foreground">
+                {autoRenewNext.amount.toLocaleString("ru-RU")} {autoRenewNext.currency === "RUB" ? "₽" : autoRenewNext.currency === "USD" ? "$" : autoRenewNext.currency}
+              </span>
+              {autoRenewNext.at && (
+                <> · {new Date(autoRenewNext.at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</>
+              )}
+            </span>
+          ) : (
+            <span className="text-[11px] leading-tight text-muted-foreground">
+              {config?.yookassaRecurringEnabled
+                ? <>Сначала с баланса{client.yookassaPaymentMethodTitle ? <>, затем с карты <span className="font-medium">{client.yookassaPaymentMethodTitle}</span></> : ", затем с карты"}</>
+                : "Списание с баланса"
+              }
+            </span>
+          )}
+        </div>
+        <span className={`mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 transition-colors ${anyAutoRenewOn ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-emerald-500/25" : "bg-muted/40 text-muted-foreground ring-border/50"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${anyAutoRenewOn ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/50"}`} />
+          {anyAutoRenewOn ? "Активно" : "Выкл"}
+        </span>
       </div>
-      <div className="space-y-1">
+      <div className="relative space-y-1.5">
         {autoRenewSubs.map((sub) => (
-          <div key={sub.id} className="flex items-center justify-between gap-3 rounded-xl bg-background/40 border border-border/40 px-3 py-2">
-            <span className="text-[13px] font-medium text-foreground/85 truncate">{sub.name}</span>
+          <div
+            key={sub.id}
+            className={`group flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-all duration-300 ${sub.enabled ? "bg-primary/[0.07] border-primary/20 shadow-[0_0_18px_-8px] shadow-primary/30" : "bg-background/40 border-border/40 hover:border-border/70"}`}
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className={`h-2 w-2 shrink-0 rounded-full transition-colors duration-300 ${sub.enabled ? "bg-emerald-500 shadow-[0_0_8px] shadow-emerald-500/60" : "bg-muted-foreground/30"}`} />
+              <span className="text-[13px] font-medium text-foreground/90 truncate">{sub.name}</span>
+            </span>
             <span className="flex items-center gap-2 shrink-0">
               {autoRenewTogglingId === sub.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
               <Switch
                 checked={sub.enabled}
                 disabled={autoRenewTogglingId === sub.id}
                 onCheckedChange={(v) => toggleSubAutoRenew(sub, v)}
+                className="data-[state=checked]:bg-emerald-500"
               />
             </span>
           </div>
@@ -1204,23 +1227,31 @@ function ClassicDashboardPage() {
         </Card>
 
         {/* Баланс + пополнение */}
-        <Card data-tour="balance" className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-          <CardHeader className="pb-4">
+        <Card data-tour="balance" className="group relative overflow-hidden rounded-3xl border border-primary/15 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl hover:border-primary/30 transition-all duration-500 flex flex-col justify-between">
+          {/* декоративные блобы */}
+          <div className="pointer-events-none absolute -top-20 -right-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl transition-opacity duration-700 group-hover:opacity-100 opacity-60" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-24 -left-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" aria-hidden />
+          {/* градиентный хайлайт по верхней кромке */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" aria-hidden />
+          <CardHeader className="relative pb-4">
             <CardTitle className="flex items-center gap-3 text-xl text-foreground">
-              <div className="p-2.5 bg-primary/20 rounded-xl">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/25 to-violet-500/20 ring-1 ring-primary/25 shadow-[0_0_20px_-6px] shadow-primary/40">
                 <Wallet className="h-6 w-6 text-primary" />
               </div>
               {t("cabinet.dashboard.balance")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6 flex-1 flex flex-col justify-center text-center">
+          <CardContent className="relative space-y-6 flex-1 flex flex-col justify-center text-center">
             <div>
-              <p className="text-5xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
+              <p className="bg-gradient-to-br from-foreground via-foreground to-primary bg-clip-text text-transparent text-5xl font-extrabold tracking-tight tabular-nums drop-shadow-sm">
                 {formatMoney(client.balance, client.preferredCurrency)}
               </p>
-              <p className="text-[15px] text-muted-foreground mt-3">На счету для продления тарифов</p>
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/40 border border-border/40 px-3 py-1 text-[12px] text-muted-foreground">
+                <Sparkles className="h-3 w-3 text-primary/70" />
+                На счету для продления тарифов
+              </span>
             </div>
-            
+
             {autoRenewListNode}
 
             {anyAutoRenewOn && (
@@ -1263,7 +1294,7 @@ function ClassicDashboardPage() {
               <p className="text-[11px] font-medium text-red-500 dark:text-red-400 -mt-2">{autoRenewPromoError}</p>
             )}
 
-            <Button variant="default" size="lg" className="w-full gap-2 shadow-lg h-14 rounded-xl text-[16px] hover:scale-105 transition-transform [&_svg]:self-center [&_span]:leading-none" asChild>
+            <Button variant="default" size="lg" className="relative w-full gap-2 h-14 rounded-2xl text-[16px] font-semibold bg-gradient-to-r from-primary via-primary to-violet-500 text-primary-foreground border-0 shadow-[0_8px_30px_-8px] shadow-primary/50 hover:shadow-[0_10px_40px_-8px] hover:shadow-primary/60 hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 [&_svg]:self-center [&_span]:leading-none" asChild>
               <Link to="/cabinet/profile#topup" className="inline-flex items-center justify-center gap-2 leading-none">
                 <PlusCircle className="h-5 w-5 shrink-0" />
                 <span className="inline-flex items-center leading-none">{t("cabinet.dashboard.top_up")}</span>
@@ -1273,64 +1304,83 @@ function ClassicDashboardPage() {
         </Card>
 
         {/* Справа от баланса: Рефералы или Подключение */}
-        <Card className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-4">
+        <Card className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-lg hover:shadow-xl hover:border-violet-500/25 transition-all duration-500 sm:col-span-2 lg:col-span-1">
+          {/* декоративные блобы */}
+          <div className="pointer-events-none absolute -top-20 -left-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-24 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" aria-hidden />
+          <CardHeader className="relative pb-4">
             <CardTitle className="flex items-center gap-3 text-xl text-foreground">
-              <div className="p-2.5 bg-primary/20 rounded-xl">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500/25 to-primary/20 ring-1 ring-violet-500/25 shadow-[0_0_20px_-6px] shadow-violet-500/40">
                 {hasReferralLinks ? <Users className="h-6 w-6 text-primary" /> : <Wifi className="h-6 w-6 text-primary" />}
               </div>
               {hasReferralLinks ? t("cabinet.dashboard.referrals") : t("cabinet.dashboard.connection")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5 pt-2 flex flex-col justify-center h-[calc(100%-5rem)]">
+          <CardContent className="relative space-y-5 pt-2 flex flex-col justify-center h-[calc(100%-5rem)]">
             {hasReferralLinks ? (
               <>
-                <p className="text-[15px] text-muted-foreground leading-relaxed">Делитесь ссылкой и получайте <strong className="text-foreground">бонус на баланс</strong> за каждого приглашенного друга!</p>
+                <p className="text-[14px] text-muted-foreground leading-relaxed">Делитесь ссылкой и получайте <strong className="bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent font-bold">бонус на баланс</strong> за каждого приглашённого друга!</p>
                 {referralStats && (
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { label: "Приглашено", value: referralStats.referralCount.toLocaleString("ru-RU") },
-                      { label: "Заработано", value: `${referralStats.totalEarnings.toLocaleString("ru-RU")} ₽` },
-                      { label: "Ваш %", value: `${referralStats.referralPercent}%` },
+                      { label: "Приглашено", value: referralStats.referralCount.toLocaleString("ru-RU"), icon: UserPlus, tint: "text-primary", ring: "ring-primary/20", glow: "shadow-primary/25", bg: "from-primary/10" },
+                      { label: "Заработано", value: `${referralStats.totalEarnings.toLocaleString("ru-RU")} ₽`, icon: Coins, tint: "text-emerald-500 dark:text-emerald-400", ring: "ring-emerald-500/20", glow: "shadow-emerald-500/25", bg: "from-emerald-500/10" },
+                      { label: "Ваш %", value: `${referralStats.referralPercent}%`, icon: Percent, tint: "text-violet-500 dark:text-violet-400", ring: "ring-violet-500/20", glow: "shadow-violet-500/25", bg: "from-violet-500/10" },
                     ].map((tile) => (
-                      <div key={tile.label} className="rounded-2xl bg-background/40 border border-border/50 backdrop-blur-xl px-2 py-3 text-center">
-                        <p className="text-lg font-bold tracking-tight text-foreground leading-none">{tile.value}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1.5">{tile.label}</p>
+                      <div key={tile.label} className={`rounded-2xl bg-gradient-to-b ${tile.bg} to-background/40 border border-border/40 ring-1 ${tile.ring} backdrop-blur-xl px-2 py-3.5 text-center shadow-[0_0_24px_-12px] ${tile.glow} hover:-translate-y-0.5 transition-transform duration-300`}>
+                        <tile.icon className={`h-4 w-4 mx-auto mb-1.5 ${tile.tint}`} />
+                        <p className="text-lg font-extrabold tracking-tight text-foreground leading-none tabular-nums">{tile.value}</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5">{tile.label}</p>
                       </div>
                     ))}
                   </div>
                 )}
-                {referralLinkSite && (
-                  <div className="space-y-2">
-                    <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Сайт</p>
-                    <div className="flex items-center gap-2">
-                      <code className="rounded-xl bg-background/50 border border-border/50 px-4 py-3 text-[15px] font-mono flex-1 truncate block text-foreground/80" title={referralLinkSite}>
-                        {referralLinkSite}
-                      </code>
-                      <Button variant="secondary" size="icon" onClick={() => copyReferral("site")} className="shrink-0 h-12 w-12 rounded-xl hover:scale-105 transition-transform border border-border/50 bg-background/50" title="Копировать">
-                        {referralCopied === "site" ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-foreground/70" />}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {referralLinkBot && (
-                  <div className="space-y-2">
-                    <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Бот</p>
-                    <div className="flex items-center gap-2">
-                      <code className="rounded-xl bg-background/50 border border-border/50 px-4 py-3 text-[15px] font-mono flex-1 truncate block text-foreground/80" title={referralLinkBot}>
-                        {referralLinkBot}
-                      </code>
-                      <Button variant="secondary" size="icon" onClick={() => copyReferral("bot")} className="shrink-0 h-12 w-12 rounded-xl hover:scale-105 transition-transform border border-border/50 bg-background/50" title="Копировать">
-                        {referralCopied === "bot" ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-foreground/70" />}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                <div className="pt-3">
-                  <Button variant="outline" className="w-full rounded-xl h-12 text-[15px] bg-background/30 hover:bg-background/60 transition-colors border-border/50 [&_svg]:self-center [&_span]:leading-none" asChild>
+                <div className="rounded-2xl border border-border/40 bg-background/30 backdrop-blur-xl divide-y divide-border/40 overflow-hidden">
+                  {referralLinkSite && (
+                    <button
+                      type="button"
+                      onClick={() => copyReferral("site")}
+                      title={referralLinkSite}
+                      className="group/row w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-primary/[0.06] transition-colors"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                        <Globe className="h-4 w-4 text-primary" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Сайт</span>
+                        <span className="block truncate font-mono text-[13px] text-foreground/85">{referralLinkSite}</span>
+                      </span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background/40 text-foreground/60 group-hover/row:text-primary group-hover/row:border-primary/30 group-hover/row:scale-105 transition-all">
+                        {referralCopied === "site" ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                      </span>
+                    </button>
+                  )}
+                  {referralLinkBot && (
+                    <button
+                      type="button"
+                      onClick={() => copyReferral("bot")}
+                      title={referralLinkBot}
+                      className="group/row w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-violet-500/[0.06] transition-colors"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-1 ring-violet-500/20">
+                        <Send className="h-4 w-4 text-violet-500 dark:text-violet-400" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Бот</span>
+                        <span className="block truncate font-mono text-[13px] text-foreground/85">{referralLinkBot}</span>
+                      </span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background/40 text-foreground/60 group-hover/row:text-violet-400 group-hover/row:border-violet-500/30 group-hover/row:scale-105 transition-all">
+                        {referralCopied === "bot" ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                <div className="pt-1">
+                  <Button variant="outline" className="group/btn w-full rounded-2xl h-12 text-[15px] font-medium bg-background/30 hover:bg-gradient-to-r hover:from-primary/10 hover:to-violet-500/10 hover:border-primary/30 transition-all duration-300 border-border/50 [&_svg]:self-center [&_span]:leading-none" asChild>
                      <Link to="/cabinet/referral" className="inline-flex items-center justify-center gap-2 leading-none">
                        <span className="inline-flex items-center leading-none">Подробная статистика</span>
-                       <ArrowRight className="h-4 w-4 shrink-0" />
+                       <ArrowRight className="h-4 w-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-300" />
                      </Link>
                   </Button>
                 </div>
