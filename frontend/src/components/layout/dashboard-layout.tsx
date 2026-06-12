@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAdminLanguageSync } from "@/i18n/use-language-sync";
+import { WhatsNew510 } from "@/components/admin/whats-new-510";
 import { useAuth } from "@/contexts/auth";
 import { useTheme, ACCENT_PALETTES, type ThemeMode, type ThemeAccent } from "@/contexts/theme";
 import { Button } from "@/components/ui/button";
@@ -248,6 +249,9 @@ export function DashboardLayout() {
 
   return (
     <div className="flex min-h-svh bg-background relative">
+      {/* What's New 5.1.0 — одноразовый онбординг админа (localStorage-флаг). */}
+      <WhatsNew510 />
+
       {/* ═══ Global Ambient Lights ═══ */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10" aria-hidden>
         <div className="absolute inset-0" style={{ backgroundColor: 'hsl(var(--background))' }} />
