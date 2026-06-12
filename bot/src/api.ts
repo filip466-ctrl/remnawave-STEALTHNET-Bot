@@ -572,11 +572,21 @@ export async function tariffConversionPreview(
   params: { tariffId: string; priceOptionId?: string }
 ): Promise<{
   willConvert: boolean;
+  /** extend — тот же тариф (продление, дни складываются); convert — смена тарифа. */
+  mode?: "extend" | "convert";
   subscription?: { id: string; index: number; tariffName: string | null; expireAt: string | null; isTrial: boolean };
   remainingDays?: number;
   convertedDays?: number;
   purchasedDays?: number;
   totalDays?: number;
+  /** расклад по доп. устройствам (сохранить/убрать). */
+  extras?: {
+    extraDevices: number;
+    extraDevicesMonthlyPrice: number;
+    newIncludedDevices: number;
+    keep: { totalDevices: number; convertedDays: number; totalDays: number; extraCost?: number };
+    drop: { totalDevices: number; convertedDays: number; totalDays: number; extraCost?: number };
+  };
 }> {
   const q = new URLSearchParams({ tariffId: params.tariffId });
   if (params.priceOptionId) q.set("priceOptionId", params.priceOptionId);

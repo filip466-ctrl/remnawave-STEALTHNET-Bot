@@ -2059,13 +2059,27 @@ async function showPaymentMethodsForTariff(ctx: any, userId: number, tariff: Tar
     const conv = await api.tariffConversionPreview(token, { tariffId: tariff.id, priceOptionId: eff?.id });
     if (conv.willConvert && conv.subscription) {
       const subName = conv.subscription.tariffName ? `«${conv.subscription.tariffName}»` : `#${conv.subscription.index}`;
-      const head = conv.subscription.isTrial
-        ? "🔄 Пробная подписка станет платной"
-        : `🔄 Подписка ${subName} будет обновлена`;
-      const daysPart = (conv.convertedDays ?? 0) > 0 && (conv.remainingDays ?? 0) > 0
-        ? `\nОстаток ${conv.remainingDays} дн. → ${conv.convertedDays} дн. по цене нового тарифа. Итого: ${conv.totalDays} дн.`
-        : "";
-      convNote = `\n\n${head} — вторая подписка не создаётся.${daysPart}`;
+      if (conv.mode === "extend") {
+        // тот же тариф = продление: дни складываются, ничего не сбрасывается.
+        convNote = `\n\n🔄 Этот тариф у вас уже есть — подписка ${subName} будет ПРОДЛЕНА (дни сложатся: остаток ${conv.remainingDays ?? 0} дн. + ${conv.purchasedDays ?? 0} дн. = ${conv.totalDays ?? 0} дн.). Устройства и серверы останутся как есть.`;
+        if (conv.extras && conv.extras.extraDevices > 0 && (conv.extras.keep.extraCost ?? 0) > 0) {
+          convNote += `\n📱 Доплата за +${conv.extras.extraDevices} доп. устройств: ${conv.extras.keep.extraCost} ₽ за период.`;
+        }
+      } else {
+        const head = conv.subscription.isTrial
+          ? "🔄 Пробная подписка станет платной"
+          : `🔄 Подписка ${subName} будет обновлена`;
+        const daysPart = (conv.convertedDays ?? 0) > 0 && (conv.remainingDays ?? 0) > 0
+          ? `\nОстаток ${conv.remainingDays} дн. → ${conv.convertedDays} дн. по цене нового тарифа. Итого: ${conv.totalDays} дн.`
+          : "";
+        convNote = `\n\n${head} — вторая подписка не создаётся.${daysPart}`;
+        // расклад по доп. устройствам: по умолчанию сохраняются;
+        // вариант «убрать → больше дней» доступен в кабинете/миниаппке.
+        if (conv.extras && conv.extras.extraDevices > 0) {
+          convNote += `\n📱 Ваши +${conv.extras.extraDevices} доп. устройств сохранятся (итого ${conv.extras.keep.totalDevices} устройств, конвертация ${conv.extras.keep.convertedDays} дн.).`
+            + `\n⚡ Убрать устройства и получить ${conv.extras.drop.convertedDays} дн. вместо ${conv.extras.keep.convertedDays} — можно при покупке через кабинет.`;
+        }
+      }
     }
     // покупка заменяет активный триал (полностью, с удалением).
     // Показываем предупреждение с именем заменяемого пробника.
