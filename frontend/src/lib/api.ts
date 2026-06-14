@@ -3092,6 +3092,8 @@ export type UpdateSettingsPayload = {
   /** тогглы кнопок на экране «Тарифы» бота (default true) */
   botTariffsShowExtraDevicesButton?: boolean;
   botTariffsShowBalanceButton?: boolean;
+  /** меню выбора категорий перед списком тарифов в боте (default true) */
+  botShowTariffCategories?: boolean;
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;
   sellOptionsTrafficProducts?: string | null;
@@ -3593,6 +3595,8 @@ export interface AdminSettings {
   botTariffsShowExtraDevicesButton?: boolean;
   /** Кнопка «💼 Мой баланс» на экране Тарифов бота (default true) */
   botTariffsShowBalanceButton?: boolean;
+  /** Меню выбора категорий перед списком тарифов в боте (default true) */
+  botShowTariffCategories?: boolean;
   /** Продажа опций: доп. трафик, устройства, серверы */
   sellOptionsEnabled?: boolean;
   sellOptionsTrafficEnabled?: boolean;

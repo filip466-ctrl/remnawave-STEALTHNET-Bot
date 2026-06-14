@@ -887,6 +887,7 @@ export function SettingsPage() {
         // тогглы кнопок экрана «Тарифы» бота (default true)
         botTariffsShowExtraDevicesButton: settings.botTariffsShowExtraDevicesButton !== false,
         botTariffsShowBalanceButton: settings.botTariffsShowBalanceButton !== false,
+        botShowTariffCategories: settings.botShowTariffCategories !== false,
         allowUserThemeChange: (settings as any).allowUserThemeChange ?? true,
         sellOptionsEnabled: settings.sellOptionsEnabled ?? false,
         sellOptionsTrafficEnabled: settings.sellOptionsTrafficEnabled ?? false,
@@ -2182,6 +2183,20 @@ export function SettingsPage() {
                           }
                         />
                         <Label className="text-sm">Кнопка «💼 Мой баланс» в Тарифах</Label>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-background/40 border border-white/5">
+                        <Switch
+                          checked={settings.botShowTariffCategories !== false}
+                          onCheckedChange={(checked: boolean) =>
+                            setSettings((s) => (s ? { ...s, botShowTariffCategories: checked === true } : s))
+                          }
+                        />
+                        <div className="space-y-0.5">
+                          <Label className="text-sm">Меню выбора категорий</Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Включено — при входе в «Тарифы» бот сначала покажет категории. Выключено — сразу плоский список тарифов.
+                          </p>
+                        </div>
                       </div>
                     </div>
 

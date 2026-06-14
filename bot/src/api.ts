@@ -189,6 +189,8 @@ export async function getPublicConfig(): Promise<{
   botTariffsShowExtraDevicesButton?: boolean;
   /** показывать кнопку «💼 Мой баланс» на экране Тарифов (default true). */
   botTariffsShowBalanceButton?: boolean;
+  /** показывать меню выбора категорий перед списком тарифов (default true). */
+  botShowTariffCategories?: boolean;
   /** заявки на вывод реф. баланса: вкл/выкл + мин. сумма. */
   withdrawalsEnabled?: boolean;
   withdrawalMinAmount?: number;

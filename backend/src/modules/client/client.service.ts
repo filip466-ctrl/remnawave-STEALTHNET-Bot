@@ -163,6 +163,8 @@ const SYSTEM_CONFIG_KEYS = [
   // тогглы кнопок на экране «Тарифы» бота (default true)
   "bot_tariffs_show_extra_devices_button",
   "bot_tariffs_show_balance_button",
+  // меню выбора категорий перед списком тарифов в боте (default true)
+  "bot_show_tariff_categories",
   // заявки на вывод реф. баланса: вкл/выкл + мин. сумма (была захардкожена 3000₽)
   "withdrawals_enabled", "withdrawal_min_amount",
   // Приветственное сообщение бота (показывается при /start, до главного меню)
@@ -777,6 +779,8 @@ async function loadSystemConfigFromDb() {
     // тогглы кнопок на экране «Тарифы»: дефолт true, выключение явное.
     botTariffsShowExtraDevicesButton: map.bot_tariffs_show_extra_devices_button !== "false" && map.bot_tariffs_show_extra_devices_button !== "0",
     botTariffsShowBalanceButton: map.bot_tariffs_show_balance_button !== "false" && map.bot_tariffs_show_balance_button !== "0",
+    // меню выбора категорий перед тарифами: дефолт true, выключение явное.
+    botShowTariffCategories: map.bot_show_tariff_categories !== "false" && map.bot_show_tariff_categories !== "0",
     // дефолт true (фича существовала всегда) — выключение явное.
     withdrawalsEnabled: map.withdrawals_enabled !== "false" && map.withdrawals_enabled !== "0",
     withdrawalMinAmount: (() => {
@@ -1326,6 +1330,8 @@ export async function getPublicConfig(_forCloneBot?: { markupPercent?: number | 
     // тогглы кнопок на экране «Тарифы» бота (default true)
     botTariffsShowExtraDevicesButton: (full as { botTariffsShowExtraDevicesButton?: boolean }).botTariffsShowExtraDevicesButton ?? true,
     botTariffsShowBalanceButton: (full as { botTariffsShowBalanceButton?: boolean }).botTariffsShowBalanceButton ?? true,
+    // меню выбора категорий перед тарифами (default true)
+    botShowTariffCategories: (full as { botShowTariffCategories?: boolean }).botShowTariffCategories ?? true,
     withdrawalsEnabled: (full as { withdrawalsEnabled?: boolean }).withdrawalsEnabled ?? true,
     withdrawalMinAmount: (full as { withdrawalMinAmount?: number }).withdrawalMinAmount ?? 3000,
     videoInstructionsEnabled: full.videoInstructionsEnabled ?? false,

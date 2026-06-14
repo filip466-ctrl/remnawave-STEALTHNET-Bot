@@ -22,6 +22,7 @@ import {
   topUpPresets,
   tariffPayButtons,
   tariffsOfCategoryButtons,
+  tariffCategoryButtons,
   tariffPaymentMethodButtons,
   tariffOptionPickerButtons,
   tariffDevicePickerButtons,
@@ -3215,8 +3216,31 @@ composer.on("callback_query:data", async (ctx) => {
       const tariffsEmojiIds = innerEmojiIds && tariffsEmojiEntry?.tgEmojiId
         ? { ...innerEmojiIds, tariff: tariffsEmojiEntry.tgEmojiId }
         : innerEmojiIds;
-      // T10 (11.05.2026): убран выбор категории — сразу плоский список тарифов.
-      // Если у админа создано несколько категорий — все тарифы сливаем в одну виртуальную.
+      // меню выбора категорий (Настройки → Бот, default ON). Если включено
+      // и категорий больше одной — сначала показываем экран выбора категории; клик по
+      // категории → cat_tariffs:<id> → список её тарифов. Категории с пустым списком тарифов
+      // пропускаем. Если категория всего одна — меню не нужно, сразу её тарифы.
+      const showCategories = config?.botShowTariffCategories !== false;
+      const nonEmptyCats = items.filter((c: TariffCategory) => (c.tariffs ?? []).length > 0);
+      if (showCategories && nonEmptyCats.length > 1) {
+        const menuEmojiKey = getMenuEmojiKey(config, "tariffs");
+        const menuBody = "Выберите категорию тарифов:";
+        const { text, entities } = titleWithOptionalEmoji(menuEmojiKey, menuBody, config?.botEmojis);
+        await editMessageContent(
+          ctx,
+          text,
+          tariffCategoryButtons(
+            nonEmptyCats.map((c: TariffCategory) => ({ id: c.id, name: c.name, emoji: c.emoji })),
+            config?.botBackLabel ?? null,
+            innerStyles,
+            tariffsEmojiIds,
+          ),
+          entities,
+        );
+        return;
+      }
+      // меню выключено ИЛИ одна категория — плоский список.
+      // Несколько категорий при выключенном меню сливаем в одну виртуальную.
       if (items.length > 1) {
         const merged = items.flatMap((c: TariffCategory) => c.tariffs ?? []);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

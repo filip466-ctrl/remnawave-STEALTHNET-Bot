@@ -2877,6 +2877,8 @@ const updateSettingsSchema = z.object({
   // тогглы кнопок на экране «Тарифы» бота (default true)
   botTariffsShowExtraDevicesButton: z.boolean().optional(),
   botTariffsShowBalanceButton: z.boolean().optional(),
+  // меню выбора категорий перед списком тарифов в боте (default true)
+  botShowTariffCategories: z.boolean().optional(),
 });
 
 adminRouter.patch("/settings", async (req, res) => {
@@ -3816,6 +3818,7 @@ adminRouter.patch("/settings", async (req, res) => {
     // тогглы кнопок на экране «Тарифы» бота
     ["botTariffsShowExtraDevicesButton", "bot_tariffs_show_extra_devices_button"],
     ["botTariffsShowBalanceButton", "bot_tariffs_show_balance_button"],
+    ["botShowTariffCategories", "bot_show_tariff_categories"],
   ];
   for (const [key, dbKey] of giftKeys) {
     const v = updates[key];
