@@ -6,6 +6,15 @@ export function setTokenRefreshFn(fn: (() => Promise<string | null>) | null) {
   tokenRefreshFn = fn;
 }
 
+// КЛИЕНТСКИЙ refresh (миниаппка/кабинет): отдельная функция, т.к. tokenRefreshFn
+// занят админкой. Для путей /client/* при 401 переобмениваем СВЕЖИЙ Telegram initData
+// на новый JWT — лечит «Invalid or expired token» при переоткрытии миниаппки со
+// старым 7-дневным токеном в localStorage (или после ротации JWT_SECRET на деплое).
+let clientTokenRefreshFn: (() => Promise<string | null>) | null = null;
+export function setClientTokenRefreshFn(fn: (() => Promise<string | null>) | null) {
+  clientTokenRefreshFn = fn;
+}
+
 // отчёт по массовой операции над клиентом.
 export interface BulkOpItem {
   subscriptionId: string;
@@ -293,8 +302,14 @@ async function request<T>(
     throw new Error(res.statusText || "Request failed");
   }
 
-  if (res.status === 401 && token && !_retry && tokenRefreshFn && !path.startsWith("/auth/")) {
-    const newToken = await tokenRefreshFn();
+  // выбор refresh-функции по типу пути: /client/* (кроме /client/auth/* —
+  // там сами эндпоинты выдают токены) → клиентский refresh через initData; остальное → админский.
+  // Без этого клиентский 401 либо не рефрешился, либо ошибочно дёргал админский refresh.
+  const isClientPath = path.startsWith("/client/");
+  const isTokenIssuingAuthPath = path.startsWith("/auth/") || path.startsWith("/client/auth/");
+  const refreshFn = isClientPath ? clientTokenRefreshFn : tokenRefreshFn;
+  if (res.status === 401 && token && !_retry && refreshFn && !isTokenIssuingAuthPath) {
+    const newToken = await refreshFn();
     if (newToken) {
       return request<T>(path, { ...options, token: newToken, _retry: true });
     }
