@@ -319,7 +319,7 @@ function markHasOptions<T extends { tariffs: TariffItem[] }>(categories: T[]): (
     })),
   }));
 }
-type TariffCategory = { id: string; name: string; emoji?: string; emojiKey?: string | null; tariffs: TariffItem[] };
+type TariffCategory = { id: string; name: string; emoji?: string; emojiKey?: string | null; singleSubscriptionMode?: boolean; tariffs: TariffItem[] };
 
 /**
  * Сортировка опций цен. Опции с durationDays > 0 идут по sortOrder, затем по durationDays.
@@ -5386,6 +5386,11 @@ composer.on("callback_query:data", async (ctx) => {
         await editMessageContent(ctx, "Тариф не найден.", backToMenu(config?.botBackLabel ?? null, innerStyles?.back, innerEmojiIds));
         return;
       }
+      // single-режим категории: «одна подписка на категорию». В нём НЕ спрашиваем
+      // «Продлить / Купить новую» и не показываем кнопку «Продлить» — покупка всегда
+      // конвертирует/продлевает существующую подписку (бэк делает это сам), поэтому
+      // сразу ведём на экран оплаты, где convNote разложит «подписка будет продлена».
+      const isSingleCategory = items?.find((c: TariffCategory) => c.tariffs.some((t) => t.id === tariffId))?.singleSubscriptionMode === true;
 
       // диалог «Покупка тарифа из другой категории» УБРАН.
       // Раньше при клике на тариф другой категории показывался диалог-промежуток. Юзер не хотел
@@ -5426,11 +5431,15 @@ composer.on("callback_query:data", async (ctx) => {
             : `${tariff.name}\n\nВыберите длительность подписки:`;
           // проверяем, есть ли у клиента подписки с ЭТИМ tariffId.
           // Если есть → сверху picker'а длительностей появится кнопка «🔌 Продлить подписку».
+          // в single-режиме кнопку «🔌 Продлить» не показываем —
+          // выбор длительности и так ведёт к конвертации/продлению (см. isSingleCategory).
           let hasOwnSubsWithThisTariff = false;
-          try {
-            const all = await api.getAllSubscriptions(token);
-            hasOwnSubsWithThisTariff = (all.items ?? []).some((it) => it.tariffId === tariff.id);
-          } catch { /* ignore — не блокируем покупку */ }
+          if (!isSingleCategory) {
+            try {
+              const all = await api.getAllSubscriptions(token);
+              hasOwnSubsWithThisTariff = (all.items ?? []).some((it) => it.tariffId === tariff.id);
+            } catch { /* ignore — не блокируем покупку */ }
+          }
           await editMessageContent(
             ctx,
             text,
@@ -5453,7 +5462,10 @@ composer.on("callback_query:data", async (ctx) => {
           // для тарифа с ОДНОЙ опцией длительности (Unblock и т.п.) —
           // если у клиента уже есть подписка с этим тарифом, показываем промежуточный экран:
           // «🔌 Продлить» / «🛒 Купить новую». Без подписки — сразу к оплате.
-          if (!isBypass) {
+          // single-режим: пропускаем выбор «Продлить / Купить новую» —
+          // покупка и так конвертирует/продлит существующую подписку, экран оплаты ниже
+          // (showPaymentMethodsForTariff) сам покажет пояснение через convNote.
+          if (!isBypass && !isSingleCategory) {
             try {
               const all = await api.getAllSubscriptions(token);
               const hasMine = (all.items ?? []).some((it) => it.tariffId === tariff.id);

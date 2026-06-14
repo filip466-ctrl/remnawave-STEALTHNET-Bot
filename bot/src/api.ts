@@ -467,6 +467,8 @@ export async function getPublicTariffs(): Promise<{
     name: string;
     emojiKey: string | null;
     emoji: string;
+    /** «одна подписка на категорию» — покупка конвертирует/продлевает существующую. */
+    singleSubscriptionMode?: boolean;
     tariffs: {
       id: string;
       name: string;
