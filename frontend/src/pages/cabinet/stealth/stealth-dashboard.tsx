@@ -280,12 +280,15 @@ export function StealthDashboard() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 tabular-nums">
+                {/* flex-wrap: на узких экранах группа кнопок уезжает
+                    на новую строку целиком, а не вылезает за край карточки. Кнопки
+                    тянутся flex-1 (min-w-0) и переносят/обрезают подпись при нехватке места. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 tabular-nums shrink-0">
                     <Calendar className="h-3 w-3 text-rose-400/80" strokeWidth={2.2} />
                     до {formatDate(s.expiresAt)}
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 ml-auto min-w-0">
                     {/* триал: «Конвертировать» = выбор тарифа в каталоге (navigate),
                         обычная подписка: продление в диалоге без ухода со страницы. */}
                     {(!s.isTrial || s.trialConvertEnabled) && (
@@ -294,18 +297,18 @@ export function StealthDashboard() {
                           if (s.isTrial) navigate(`/cabinet/tariffs?extend=${encodeURIComponent(s.id)}`);
                           else setExtendSubId(s.id);
                         }}
-                        className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 hover:border-rose-500/45 px-3 py-1.5 text-xs font-bold text-rose-400 transition-all duration-300 hover:shadow-[0_0_20px_-6px_rgba(255,35,87,0.55)] active:scale-95 inline-flex items-center gap-1.5"
+                        className="min-w-0 flex-1 justify-center rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 hover:border-rose-500/45 px-3 py-1.5 text-xs font-bold text-rose-400 transition-all duration-300 hover:shadow-[0_0_20px_-6px_rgba(255,35,87,0.55)] active:scale-95 inline-flex items-center gap-1.5"
                       >
-                        <Zap className="h-3 w-3" />
-                        {s.isTrial ? "Конвертировать" : "Продлить"}
+                        <Zap className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{s.isTrial ? "Конвертировать" : "Продлить"}</span>
                       </button>
                     )}
                     <button
                       onClick={() => navigate(`/cabinet/subscribe?sub=${encodeURIComponent(s.id)}`)}
-                      className="rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-300 active:scale-95 inline-flex items-center gap-1.5"
+                      className="min-w-0 flex-1 justify-center rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-300 active:scale-95 inline-flex items-center gap-1.5"
                     >
-                      <Settings2 className="h-3 w-3" />
-                      Настроить
+                      <Settings2 className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Настроить</span>
                     </button>
                   </div>
                 </div>
