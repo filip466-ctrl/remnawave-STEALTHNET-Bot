@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { api, type AdminNotificationCounters } from "@/lib/api";
 import { InboxBell } from "@/components/inbox-bell";
 
-const PANEL_VERSION = "5.0.0";
+const PANEL_VERSION = "5.1.0";
 const GITHUB_URL = "https://github.com/systemmaster1200-eng/remnawave-STEALTHNET-Bot";
 
 // пункт меню может быть защищён action'ом
