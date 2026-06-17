@@ -5545,7 +5545,10 @@ composer.on("callback_query:data", async (ctx) => {
       const effectiveDays = eff?.durationDays ?? tariff.durationDays;
       const extraDevices = matchesThisTariff && existingSelection ? existingSelection.extraDevices : 0;
       const includedDevices = tariff.includedDevices ?? 1;
-      const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers);
+      // ВАЖНО: передаём effectiveDays — иначе extras считались за 30 дней (дефолт)
+      // вместо реальной длительности опции, и на экране Platega цена занижалась
+      // (выглядела как «скидка»), хотя бэк списывал верную сумму. Как во всех др. ветках.
+      const { extrasTotal } = applyExtraDevicesPriceBot(tariff.pricePerExtraDevice ?? 0, extraDevices, tariff.deviceDiscountTiers, effectiveDays);
       const effectivePrice = unitPrice + extrasTotal;
       const discountInfoTariff = activeDiscountCode.get(userId);
       const discountArgTariff = discountInfoTariff ? {
